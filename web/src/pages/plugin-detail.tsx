@@ -3,6 +3,7 @@ import { ArrowLeft, Building2, CheckCircle2, ExternalLink, SearchX } from "lucid
 import { categoryLabel } from "../lib/catalog";
 import { api, formatBytes, formatTime, toPlugin } from "../lib/api";
 import { useApi } from "../lib/use-api";
+import { pluginAddCommand } from "../lib/install";
 import { useScoring } from "../lib/store";
 import { LoadState } from "../components/api-ui";
 import { ScanList } from "../components/scan-list";
@@ -20,6 +21,7 @@ function Loader({ name }: { name: string }) {
   const { t } = useTranslation();
   const scoring = useScoring();
   const { data: d, loading, error, reload } = useApi(() => api.catalogDetail(name));
+  const connect = useApi(api.connectInfo);
   const releaseData = useApi(api.dshReleases);
 
   if (error && !d) {
@@ -41,12 +43,19 @@ function Loader({ name }: { name: string }) {
 
   return (
     <LoadState loading={loading && !d} error={null} onRetry={reload}>
-      {d && <Detail d={d} core={releaseData.data?.releases.find((r) => r.recommended)?.version} scoringUpstream={scoring.upstream} />}
+      {d && (
+        <Detail
+          d={d}
+          core={releaseData.data?.releases.find((r) => r.recommended)?.version}
+          scoringUpstream={scoring.upstream}
+          profile={connect.data?.profile}
+        />
+      )}
     </LoadState>
   );
 }
 
-function Detail({ d, core, scoringUpstream }: { d: NonNullable<Awaited<ReturnType<typeof api.catalogDetail>>>; core?: string; scoringUpstream: boolean }) {
+function Detail({ d, core, scoringUpstream, profile }: { d: NonNullable<Awaited<ReturnType<typeof api.catalogDetail>>>; core?: string; scoringUpstream: boolean; profile?: string }) {
   const { t } = useTranslation();
   const p = toPlugin(d);
   const peers = Object.entries(d.peer_dependencies ?? {});
@@ -88,7 +97,7 @@ function Detail({ d, core, scoringUpstream }: { d: NonNullable<Awaited<ReturnTyp
           <Card className="p-6">
             <h2 className="mb-4 text-neutral-900 text-[15px] leading-6 font-semibold">{t("pluginDetail.install")}</h2>
             <div className="space-y-3">
-              <CopyBox label={t("pluginDetail.runInDsh")} text={`dsh plugin add ${p.name}`} />
+              <CopyBox label={t("pluginDetail.runInDsh")} text={pluginAddCommand(p.name, profile)} />
               <CopyBox label={t("registry.detail.npmInstall")} text={`pnpm add ${p.name}@${p.version}`} />
               <p className="text-sm text-neutral-500">
                 <Trans

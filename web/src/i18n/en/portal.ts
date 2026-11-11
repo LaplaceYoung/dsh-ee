@@ -44,7 +44,7 @@ export default {
     teamUsers: "Installed by {{count}} colleagues",
     noPicks: "You already have everything your colleagues use.",
     install: "Install",
-    copiedInstall: "Copied install command: dsh plugin add {{name}}",
+    copiedInstall: "Copied install command: dsh plugin --profile {{profile}} add {{name}}",
   },
   apps: {
     title: "Company apps",

@@ -154,7 +154,7 @@ export default async function (t) {
     await page.goto(`${BASE}/hub?tab=plugin`);
     await page.getByText(`E2E 插件 ${tag}`).waitFor();
     await page.getByText(`E2E 插件 ${tag}`).click();
-    await page.getByText(`dsh plugin add ${name}`).waitFor();
+    await page.getByText(`dsh plugin --profile web add ${name}`).waitFor();
     await shot(page, "registry-detail");
     const index = await fetch(`${BASE}/index/dsh-index.json`).then((r) => r.json());
     assert(index.format === 1 && index.plugins.some((p) => p.name === name), "DSH 索引里没有新插件");
