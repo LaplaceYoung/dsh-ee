@@ -53,6 +53,8 @@
 
 ### 2.2 发布前的缺口
 
+> 2026-11-11 更新：e2e 顺序依赖已由 #21 改为每个测试独立服务端；README/design 的过期状态已刷新。下表其余行保留为 2026-10 快照。
+
 | 缺口 | 说明 |
 |---|---|
 | 遗留的 Go 测试失败 | 「工作台」系统应用进目录后，`TestHub`、`TestWorkbench`、`TestKnowledge`、`TestDshAppSubscription` 等一直没修 |
@@ -60,7 +62,7 @@
 | M9 `/ee-save` | 命令已实现，提炼消息投递待修（workbench-verify.md §12.1）；它是飞轮「沉淀」这一环 |
 | 真机验证欠账 | Desktop（Mac / Windows）上的工作台、暗色主题、M12-2/4/5、样板应用配真实模型、知识库 DSH 部分（knowledge-verify.md §6）、导航自测（nav-verify.md） |
 | 品牌 | logo 修复已在真实 DSH 0.2.2-rc.1 的 web 上通过，Desktop 上还没验证 |
-| 文档过期 | README「项目状态」还写着 OIDC 未实现、DSH 分发是占位；design.md 仍是最早的「分发中心」定位 |
+| 文档过期 | 2026-11-11 已刷新 README 项目状态与 design.md 定位；本行保留作历史 |
 | M11 发布 | 未开始 |
 | 单实例 | 登录限流、缓存、预载任务在进程内存里，tarball 在本地磁盘 |
 
