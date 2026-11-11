@@ -141,3 +141,21 @@
 1. 把 `promo/out/intro-zh.mp4`、`intro-en.mp4` 拖进 GitHub 网页上的 README 编辑框，换成可播放的视频（可选，GIF 已经能显示）。
 2. GitHub 仓库 About 描述换成新口号，加 topics（见 2.3）；社交预览图可以用视频最后一帧。
 3. 合并后重新部署演示站：`make build && deploy/demo/demo.sh reset`。
+
+## 六、发布前自动冒烟（2026-11-11 补充）
+
+发布前至少跑一遍 `e2e/tests/29-release-smoke.mjs`（已进 CI 的 e2e job），它检查一个全新部署最先被用户碰到的三个入口：
+
+- `GET /healthz` → 200 且 `status=ok`；
+- `GET /setup.sh` / `GET /setup.ps1` → 200、正文完整、包含「dsh-ee 接入脚本」；
+- 管理员发布接入插件后，`GET /api/connect` 给出 `tarball_url`，下载的 tarball 是 gzip 且可解析。
+
+本地跑法（需要 TiDB/Chrome，见 `e2e/README.md`）：
+
+```sh
+cd e2e
+E2E_MANAGED=1 E2E_BIN=../dist/dsh-ee E2E_DSN='root:@tcp(127.0.0.1:4000)/' \
+  ADMIN_PW=... CHROME=/path/to/chrome node run.mjs 29-release-smoke
+```
+
+这不是产品行为测试，而是发布前的最低可运行性检查；如果它红了，先别发版。
