@@ -271,6 +271,9 @@ func (s *Server) syncConnectionTools(ctx context.Context, id int64, v viewer, ba
 		s.dropConnClient(id)
 		return 0, err
 	}
+	if err := applyDeclarativeTools(tools, sp.Declarative); err != nil {
+		return 0, err
+	}
 	if err := s.store.ReplaceConnectionTools(ctx, id, tools); err != nil {
 		return 0, err
 	}
@@ -284,6 +287,12 @@ func (s *Server) callConnectionTool(ctx context.Context, a *store.Asset, t *stor
 	start := time.Now()
 	result, mode, err := s.doConnectionCall(ctx, a, t, v, base, args)
 	call := store.ConnectionCall{AssetID: a.ID, Tool: t.Name, UserID: v.user.ID, OK: err == nil, LatencyMS: int(time.Since(start).Milliseconds()), AuthMode: mode}
+	if lv, metaErr := s.store.LiveAssetVersion(ctx, a.ID); metaErr == nil {
+		sp := parseSpec(lv.Spec)
+		if sp.Declarative != nil {
+			call.ExtensionID, call.ExtensionVersion, call.ExtensionDigest = sp.Declarative.ID, sp.Declarative.Version, sp.ExtensionDigest
+		}
+	}
 	if err != nil {
 		call.Error = err.Error()
 		result = mcp.TextResult("调用 "+a.Title+" 失败："+err.Error(), true)
@@ -377,7 +386,11 @@ func (s *Server) doConnectionCall(ctx context.Context, a *store.Asset, t *store.
 		for k, vs := range uh {
 			h[k] = vs
 		}
-		var m map[string]any
+		m := map[string]any{}
+		config, err := s.extensionRuntimeConfig(ctx, a.ID, sp)
+		if err != nil {
+			return nil, mode, err
+		}
 		dec := json.NewDecoder(strings.NewReader(string(args)))
 		dec.UseNumber()
 		if len(args) > 0 {
@@ -385,13 +398,28 @@ func (s *Server) doConnectionCall(ctx context.Context, a *store.Asset, t *store.
 				return nil, mode, errors.New("参数不是 JSON 对象")
 			}
 		}
-		status, body, err := openapi.Call(ctx, s.connHTTP(sp), root, op, m, h, connResultLimit+1)
+		if err := extensionParams(sp.Declarative, t.Name, config, m); err != nil {
+			return nil, mode, err
+		}
+		limit := int64(connResultLimit + 1)
+		keep := manifestKeep(sp.Declarative, t.Name)
+		if len(keep) > 0 {
+			// 先读足一个受控上限再按 keep 删字段，不能让大量应被丢弃的字段成为泄漏或内存炸弹。
+			limit = 4<<20 + 1
+		}
+		status, body, err := openapi.Call(ctx, s.connHTTP(sp), root, op, m, h, limit)
 		if err != nil {
 			return nil, mode, err
 		}
 		text := string(body)
-		if len(body) > connResultLimit {
-			text = string(body[:connResultLimit]) + "\n…（结果过长，已截断）"
+		if status < 400 {
+			text, err = trimExtensionResult(text, keep)
+			if err != nil {
+				return nil, mode, err
+			}
+		}
+		if len(text) > connResultLimit {
+			text = text[:connResultLimit] + "\n…（结果过长，已截断）"
 		}
 		if status >= 400 {
 			return mcp.TextResult(fmt.Sprintf("HTTP %d\n%s", status, text), true), mode, nil

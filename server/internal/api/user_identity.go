@@ -184,6 +184,14 @@ type eeStoredKeys struct {
 	Keys []eeStoredKey `json:"keys"`
 }
 
+// eeNow 默认取系统时间；测试可注入可控时钟，密钥轮换不应依赖测试机器的耗时。
+func (s *Server) eeNow() time.Time {
+	if s.opts.EEKeyNow != nil {
+		return s.opts.EEKeyNow()
+	}
+	return time.Now()
+}
+
 // eeKeyInfo 是给管理员看的一把钥匙：在用（active）、还没到时间（pending）、已换下来（retired）。
 type eeKeyInfo struct {
 	KID       string    `json:"kid"`
@@ -220,15 +228,16 @@ func (s *Server) eeKeys(ctx context.Context) (*eejwt.Key, eejwt.JWKS, []eeKeyInf
 	k := &s.eeKeyring
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	if len(k.keys) == 0 || time.Since(k.at) >= eeKeysTTL {
+	now := s.eeNow()
+	if len(k.keys) == 0 || now.Sub(k.at) >= eeKeysTTL {
 		loaded, err := s.loadEEKeys(ctx)
 		if err != nil {
 			return nil, eejwt.JWKS{}, nil, err
 		}
-		k.keys, k.at = loaded, time.Now()
+		k.keys, k.at = loaded, s.eeNow()
 	}
 	// 读完库再取时间：第一把钥匙是读库时现生成的，时间取早了它就还「没到时间」
-	now := time.Now()
+	now = s.eeNow()
 	cur := eeSigning(k.keys, now)
 	if cur < 0 {
 		return nil, eejwt.JWKS{}, nil, errors.New("没有可用的 ee_jwt 签名密钥")
@@ -272,7 +281,7 @@ func (s *Server) loadEEKeys(ctx context.Context) ([]eeLoadedKey, error) {
 				return nil, nil
 			}
 			// 第一把立即生效。生效时间往前放一点：几个副本的时钟有先后，慢的那台不能觉得它还没到时间
-			nk, err := s.newEEKey(time.Now().Add(-5 * time.Minute))
+			nk, err := s.newEEKey(s.eeNow().Add(-5 * time.Minute))
 			if err != nil {
 				return nil, err
 			}
@@ -316,7 +325,7 @@ func (s *Server) newEEKey(activeAt time.Time) (*eeStoredKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &eeStoredKey{KID: key.ID, Private: base64.StdEncoding.EncodeToString(sealed), CreatedAt: time.Now().UTC().Truncate(time.Second), ActiveAt: activeAt.UTC().Truncate(time.Millisecond)}, nil
+	return &eeStoredKey{KID: key.ID, Private: base64.StdEncoding.EncodeToString(sealed), CreatedAt: s.eeNow().UTC().Truncate(time.Second), ActiveAt: activeAt.UTC().Truncate(time.Millisecond)}, nil
 }
 
 // rotateEEKey 换一把新的签名密钥：新公钥马上公开，过 eeKeyDelay 才开始用它签名；
@@ -334,7 +343,7 @@ func (s *Server) rotateEEKey(ctx context.Context, by int64) (string, error) {
 				return nil, err
 			}
 		}
-		now := time.Now()
+		now := s.eeNow()
 		slices.SortStableFunc(stored.Keys, func(a, b eeStoredKey) int { return a.ActiveAt.Compare(b.ActiveAt) })
 		if n := len(stored.Keys); n > 0 && stored.Keys[n-1].ActiveAt.After(now) {
 			kid = stored.Keys[n-1].KID
@@ -378,7 +387,7 @@ func (s *Server) signEEJWT(ctx context.Context, a *store.Asset, u *connUserAuth,
 	if aud == "" {
 		aud = a.Slug
 	}
-	now := time.Now()
+	now := s.eeNow()
 	claims := map[string]any{
 		"iss": base, "aud": aud, "sub": strconv.FormatInt(v.user.ID, 10),
 		"preferred_username": v.user.Username, "name": displayOf(v.user),

@@ -1,6 +1,6 @@
 # 接入与扩展方案（草案，2026-11-11 第四稿）
 
-> 状态：设计稿，还没开工。§13 记了已定的事和还没定的问题，§14 是对照代码做的一次评审（可行性、取舍、风险）。这是对 [roadmap.md](./roadmap.md) 阶段 D / E 的细化，v0.1 的范围冻结不受影响。
+> 状态：第 1 批分批落地中。按员工身份的调用已实现（[ee-jwt.md](./ee-jwt.md)），清单、规格和 `extension check` 已在 `extensions/` 与 `server/internal/extension/` 落地；声明式安装与运行的范围见 [declarative-install.md](./declarative-install.md)。其余批次、飞书 D1、多份命名共享凭据、应用级 `fill: app`、旧连接自动转换和升级流程仍未完成。§13 记了已定的事和还没定的问题，§14 是对照代码做的一次评审（可行性、取舍、风险）。这是对 [roadmap.md](./roadmap.md) 阶段 D / E 的细化，v0.1 的范围冻结不受影响。
 >
 > 配套文档：[access-control.md](./access-control.md)（可配置的管理角色、扩展字段和访问规则）、[agent-dev.md](./agent-dev.md)（让 Agent 完成扩展和权限配置的开发）。三份文档的先后顺序统一写在本文 §12。
 >

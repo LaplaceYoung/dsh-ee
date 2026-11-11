@@ -507,8 +507,16 @@ function AssetDetail() {
             {a.kind === "connection" && a.can_manage && (
               <>
                 <Info label={t("connections.type")}>{a.spec.type === "openapi" ? t("connections.typeOpenapi") : t("connections.typeMcp")}</Info>
+                {a.spec.declarative && (
+                  <>
+                    <Info label={t("extensionInstall.cardTitle")}>
+                      <span className="font-mono text-xs">{a.spec.declarative.id} · v{a.spec.declarative.version}</span>
+                    </Info>
+                    {a.spec.extension_digest && <Info label={t("extensionInstall.digest")}><span className="font-mono text-xs break-all">{a.spec.extension_digest}</span></Info>}
+                  </>
+                )}
                 {a.spec.url && (
-                  <Info label={a.spec.type === "openapi" ? t("connections.apiBase") : t("connections.url")}>
+                  <Info label={a.spec.type === "openapi" ? t("connections.apiBase") : t("connections.url") }>
                     <span className="font-mono text-xs break-all">{a.spec.url}</span>
                   </Info>
                 )}

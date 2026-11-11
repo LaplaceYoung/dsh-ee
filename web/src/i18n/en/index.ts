@@ -25,6 +25,7 @@ import sso from "./sso";
 import requests from "./requests";
 import studio from "./studio";
 import appGuide from "./app-guide";
+import extensions from "./extensions";
 
 export default {
   ...common,
@@ -52,4 +53,5 @@ export default {
   ...requests,
   ...studio,
   ...appGuide,
+  ...extensions,
 } satisfies Messages<typeof zh>;

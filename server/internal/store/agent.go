@@ -148,17 +148,20 @@ func (s *Store) UserModelCalls(ctx context.Context, userID int64, limit int) ([]
 }
 
 type UserConnectionCall struct {
-	Connection string    `json:"connection"`
-	Tool       string    `json:"tool"`
-	OK         bool      `json:"ok"`
-	Error      string    `json:"error"`
-	LatencyMS  int       `json:"latency_ms"`
-	CreatedAt  time.Time `json:"created_at"`
+	Connection       string    `json:"connection"`
+	Tool             string    `json:"tool"`
+	ExtensionID      string    `json:"extension_id,omitempty"`
+	ExtensionVersion string    `json:"extension_version,omitempty"`
+	ExtensionDigest  string    `json:"extension_digest,omitempty"`
+	OK               bool      `json:"ok"`
+	Error            string    `json:"error"`
+	LatencyMS        int       `json:"latency_ms"`
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 func (s *Store) UserConnectionCalls(ctx context.Context, userID int64, limit int) ([]UserConnectionCall, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT a.slug, c.tool, c.ok, c.error, c.latency_ms, c.created_at
+		`SELECT a.slug, c.tool, c.extension_id, c.extension_version, c.extension_digest, c.ok, c.error, c.latency_ms, c.created_at
 		 FROM connection_calls c JOIN assets a ON a.id = c.asset_id
 		 WHERE c.user_id = ? ORDER BY c.id DESC LIMIT ?`, userID, limit)
 	if err != nil {
@@ -168,7 +171,7 @@ func (s *Store) UserConnectionCalls(ctx context.Context, userID int64, limit int
 	out := []UserConnectionCall{}
 	for rows.Next() {
 		var c UserConnectionCall
-		if err := rows.Scan(&c.Connection, &c.Tool, &c.OK, &c.Error, &c.LatencyMS, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.Connection, &c.Tool, &c.ExtensionID, &c.ExtensionVersion, &c.ExtensionDigest, &c.OK, &c.Error, &c.LatencyMS, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, c)

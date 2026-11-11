@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hikariming/dsh-ee/server/internal/extension"
 	"github.com/hikariming/dsh-ee/server/internal/rbac"
 	"github.com/hikariming/dsh-ee/server/internal/registry"
 	"github.com/hikariming/dsh-ee/server/internal/store"
@@ -67,6 +68,10 @@ type assetSpec struct {
 	TimeoutSec   int       `json:"timeout_seconds,omitempty"`
 	// 连接：员工身份（ee_jwt / user_secret），和上面的共享凭据并存；见 user_identity.go
 	UserAuth *connUserAuth `json:"user_auth,omitempty"`
+	// 声明式扩展：安装时经 extension.Check 验证过的清单、非 secret 固定配置与内容摘要。
+	Declarative     *extension.Manifest        `json:"declarative,omitempty"`
+	ExtensionConfig map[string]json.RawMessage `json:"extension_config,omitempty"`
+	ExtensionDigest string                     `json:"extension_digest,omitempty"`
 }
 
 // connAuth 是连接上游的认证方式；凭据本身单独加密存放，不在版本内容里。
@@ -215,6 +220,13 @@ func validateSpec(kind string, sp *assetSpec) string {
 		}
 		if sp.Type == "mcp" {
 			sp.OpenAPI = ""
+			sp.Declarative, sp.ExtensionConfig, sp.ExtensionDigest = nil, nil, ""
+		}
+		if sp.Declarative != nil && sp.Declarative.Kind != extension.KindDeclarative {
+			return "连接里的声明式清单 kind 必须是 declarative"
+		}
+		if len(sp.ExtensionDigest) > 0 && len(sp.ExtensionDigest) != 64 {
+			return "扩展 digest 应是 64 位 sha256"
 		}
 		if len(sp.OpenAPI) > 4<<20 {
 			return "接口文档不能超过 4 MB"
@@ -230,6 +242,9 @@ func validateSpec(kind string, sp *assetSpec) string {
 		sp.Icon, sp.Launch, sp.Workbench, sp.Template = "", "", nil, false
 	default:
 		return "未知的能力类型"
+	}
+	if kind != store.KindConnection {
+		sp.Declarative, sp.ExtensionConfig, sp.ExtensionDigest = nil, nil, ""
 	}
 	return ""
 }

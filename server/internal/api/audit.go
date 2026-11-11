@@ -57,6 +57,7 @@ const (
 	auditAssetDelete            = "asset.delete"
 	auditScopeRequest           = "asset.scope_request"
 	auditConnTool               = "connection.tool"
+	auditExtensionInstall       = "connection.extension_install"
 	auditCredentialSet          = "connection.credential_set"
 	auditCredentialDelete       = "connection.credential_delete"
 	auditCredentialRevoke       = "connection.credential_revoke"

@@ -775,9 +775,67 @@ export interface AssetSpec {
   auth?: { type: "none" | "bearer" | "header"; header?: string };
   /** 连接：员工身份，和共享凭据并存 */
   user_auth?: UserAuth;
+  /** 声明式扩展清单和非 secret 固定配置；安装时已经过静态检查 */
+  declarative?: {
+    id: string;
+    version: string;
+    kind: "declarative";
+    name?: unknown;
+    description?: unknown;
+    servers?: string[];
+  };
+  extension_config?: Record<string, unknown>;
+  extension_digest?: string;
   openapi?: string;
   instructions?: string;
   timeout_seconds?: number;
+}
+
+export interface ExtensionInstallOption {
+  value: unknown;
+  label: string;
+}
+
+export interface ExtensionInstallField {
+  key: string;
+  type: "" | "text" | "secret" | "url" | "select" | "boolean" | "number" | "array" | "object" | "kb" | "app";
+  label: string;
+  help?: string;
+  required: boolean;
+  default?: unknown;
+  options?: ExtensionInstallOption[];
+  secret?: boolean;
+}
+
+export interface ExtensionDiagnostic {
+  code: string;
+  severity: "error" | "warning" | "info";
+  where: string;
+  message: string;
+  fix?: string;
+}
+
+export interface ExtensionToolInfo {
+  name: string;
+  readOnly: boolean;
+  method?: string;
+  path?: string;
+  fixed?: { name: string; fill: "app" | "admin"; label?: string; default?: unknown }[];
+  keep?: string[];
+}
+
+export interface ExtensionCheckResult {
+  ok: boolean;
+  identity?: string;
+  kind?: string;
+  digest?: string;
+  servers: string[];
+  credential?: { mode: string; header?: string; audience?: string; claims?: string[]; sharedHeader?: string };
+  tools?: ExtensionToolInfo[];
+  errors: number;
+  warnings: number;
+  results: ExtensionDiagnostic[];
+  install_fields: ExtensionInstallField[];
 }
 
 export interface HubAsset {
@@ -843,6 +901,9 @@ export interface ConnectionTool {
 export interface ConnectionCall {
   tool: string;
   username: string;
+  extension_id?: string;
+  extension_version?: string;
+  extension_digest?: string;
   ok: boolean;
   error: string;
   latency_ms: number;
@@ -1554,6 +1615,9 @@ export const api = {
     request<void>("POST", "/api/admin/hub/review", { note: "", ...r }),
   setPluginPolicy: (name: string, p: { scope: Scope; delivery: Delivery }) =>
     request<PluginPolicy>("PUT", `/api/admin/plugin-policies/${encName(name)}`, p),
+  checkExtension: (file: File) => request<ExtensionCheckResult>("POST", "/api/admin/extensions/check", undefined, { raw: { body: file, type: "application/zip" } }),
+  installExtension: (input: { archive: string; server: string; slug?: string; config?: Record<string, unknown>; shared_secret?: string }) =>
+    request<{ asset: HubAsset; extension: { id: string; version: string; digest: string }; tools?: number; sync_error?: string }>("POST", "/api/admin/extensions/install", input),
   testConnection: (spec: AssetSpec, secret?: string, id?: number, slug?: string) =>
     request<ConnTestResult>("POST", "/api/admin/connections/test", { spec, ...(secret !== undefined ? { secret } : {}), ...(id ? { id } : {}), ...(slug ? { slug } : {}) }),
   syncConnection: (id: number) => request<{ ok: boolean; tools?: number; error?: string }>("POST", `/api/admin/connections/${id}/sync`),

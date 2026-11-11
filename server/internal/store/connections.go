@@ -136,29 +136,35 @@ type ConnectionCall struct {
 	Error     string
 	LatencyMS int
 	// 这次调用带的员工身份：空（只有共享凭据）/ ee_jwt / user_secret
-	AuthMode string
+	AuthMode         string
+	ExtensionID      string
+	ExtensionVersion string
+	ExtensionDigest  string
 }
 
 func (s *Store) RecordConnectionCall(ctx context.Context, c ConnectionCall) error {
 	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO connection_calls (asset_id, tool, user_id, ok, error, latency_ms, auth_mode, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		c.AssetID, c.Tool, c.UserID, c.OK, truncateRunes(c.Error, 512), c.LatencyMS, c.AuthMode, now())
+		"INSERT INTO connection_calls (asset_id, tool, user_id, ok, error, latency_ms, auth_mode, extension_id, extension_version, extension_digest, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		c.AssetID, c.Tool, c.UserID, c.OK, truncateRunes(c.Error, 512), c.LatencyMS, c.AuthMode, c.ExtensionID, c.ExtensionVersion, c.ExtensionDigest, now())
 	return err
 }
 
 // RecentCall 是连接调用日志的一条，管理页展示。
 type RecentCall struct {
-	Tool      string    `json:"tool"`
-	Username  string    `json:"username"`
-	OK        bool      `json:"ok"`
-	Error     string    `json:"error"`
-	LatencyMS int       `json:"latency_ms"`
-	AuthMode  string    `json:"auth_mode,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	Tool             string    `json:"tool"`
+	Username         string    `json:"username"`
+	OK               bool      `json:"ok"`
+	Error            string    `json:"error"`
+	LatencyMS        int       `json:"latency_ms"`
+	AuthMode         string    `json:"auth_mode,omitempty"`
+	ExtensionID      string    `json:"extension_id,omitempty"`
+	ExtensionVersion string    `json:"extension_version,omitempty"`
+	ExtensionDigest  string    `json:"extension_digest,omitempty"`
+	CreatedAt        time.Time `json:"created_at"`
 }
 
 func (s *Store) RecentConnectionCalls(ctx context.Context, assetID int64, limit int) ([]RecentCall, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.tool, COALESCE(u.username, ''), c.ok, c.error, c.latency_ms, c.auth_mode, c.created_at
+	rows, err := s.db.QueryContext(ctx, `SELECT c.tool, COALESCE(u.username, ''), c.ok, c.error, c.latency_ms, c.auth_mode, c.extension_id, c.extension_version, c.extension_digest, c.created_at
 		FROM connection_calls c LEFT JOIN users u ON u.id = c.user_id
 		WHERE c.asset_id = ? ORDER BY c.id DESC LIMIT ?`, assetID, limit)
 	if err != nil {
@@ -168,7 +174,7 @@ func (s *Store) RecentConnectionCalls(ctx context.Context, assetID int64, limit 
 	out := []RecentCall{}
 	for rows.Next() {
 		var c RecentCall
-		if err := rows.Scan(&c.Tool, &c.Username, &c.OK, &c.Error, &c.LatencyMS, &c.AuthMode, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.Tool, &c.Username, &c.OK, &c.Error, &c.LatencyMS, &c.AuthMode, &c.ExtensionID, &c.ExtensionVersion, &c.ExtensionDigest, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, c)

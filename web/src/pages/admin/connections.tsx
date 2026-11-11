@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
-import { Plus } from "lucide-react";
+import { PackagePlus, Plus } from "lucide-react";
 import { api } from "../../lib/api";
 import { useApi } from "../../lib/use-api";
 import { assetPath, scopeSummary } from "../../lib/hub";
@@ -9,6 +10,7 @@ import { useScopeOptions } from "../../components/scope-dialog";
 import { Badge, Button, Card, PageHeader, Segmented, Empty } from "../../components/ui";
 import { DataHubPanel } from "../../components/data-hub";
 import { EeJwtKeysCard } from "../../components/connection-identity";
+import { ExtensionInstallDialog } from "../../components/extension-install";
 
 export default function AdminConnections() {
   const { t } = useTranslation();
@@ -17,6 +19,7 @@ export default function AdminConnections() {
   const info = useApi(api.connectInfo);
   const opts = useScopeOptions();
   const conns = (hub.data?.assets ?? []).filter((a) => a.kind === "connection");
+  const [extensionOpen, setExtensionOpen] = useState(false);
   // 「数据中台」放在这一页的第二个页签：企业共用的唯一数据源
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") === "data" ? "data" : "connections";
@@ -28,9 +31,10 @@ export default function AdminConnections() {
         desc={t("connections.desc")}
         actions={
           tab === "connections" ? (
-            <Button onClick={() => navigate("/assets/new?kind=connection")}>
-              <Plus size={15} /> {t("connections.add")}
-            </Button>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => setExtensionOpen(true)}><PackagePlus size={15} /> {t("extensionInstall.button")}</Button>
+              <Button onClick={() => navigate("/assets/new?kind=connection")}><Plus size={15} /> {t("connections.add")}</Button>
+            </div>
           ) : undefined
         }
       />
@@ -45,6 +49,7 @@ export default function AdminConnections() {
         />
       </div>
       {tab === "data" ? <DataHubPanel /> : connectionsList()}
+      <ExtensionInstallDialog open={extensionOpen} onOpenChange={setExtensionOpen} />
     </div>
   );
 

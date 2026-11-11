@@ -50,7 +50,9 @@ func TestPerUserIdentity(t *testing.T) {
 	key := make([]byte, 32)
 	_, _ = rand.Read(key)
 	box, _ := secret.NewBox(key)
-	srv := api.New(st, box, api.Options{DataDir: t.TempDir(), EEKeyDelay: 200 * time.Millisecond}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	var testNow atomic.Value
+	testNow.Store(time.Now().Add(-5 * time.Second))
+	srv := api.New(st, box, api.Options{DataDir: t.TempDir(), EEKeyDelay: 200 * time.Millisecond, EEKeyNow: func() time.Time { return testNow.Load().(time.Time) }}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 	verifier := eeVerifier{issuer: ts.URL}
@@ -269,8 +271,8 @@ func TestPerUserIdentity(t *testing.T) {
 	if again := decodeAs[keyInfo](t, body); len(again.Keys) != 2 || again.Keys[1].Kid != info.Keys[1].Kid {
 		t.Fatalf("排队中的钥匙只应有一把：%s", body)
 	}
-	// 到时间后换用新钥匙；轮换前签的令牌在宽限期内照样能验
-	time.Sleep(300 * time.Millisecond)
+	// 到时间后换用新钥匙；推进测试时钟而不是 sleep，慢机器也不会在首次断言前就过期。
+	testNow.Store(testNow.Load().(time.Time).Add(time.Second))
 	whoami("bob")
 	if oldKid(lastToken.Load().(string)) == oldKid(bobToken.(string)) {
 		t.Fatal("到时间后应换用新钥匙签名（kid 应变）")

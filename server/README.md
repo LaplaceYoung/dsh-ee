@@ -14,6 +14,17 @@ Go 写的 dsh-ee 服务端。目前实现：
 
 数据库走 MySQL 协议：**OceanBase（MySQL 模式）** 与 **TiDB** 通用。所有 SQL 都在 `internal/store`，以后接其它方言只改这一层。
 
+## 声明式扩展（v0.2 起步）
+
+管理员在「企业连接 → 安装声明式扩展」上传含 `dsh-ee.extension.json` 和 OpenAPI 文件的 ZIP，先预检，再确认清单允许的服务器、连接前缀、固定配置和凭据。复用 `extension.Check` 与已有 OpenAPI/MCP 执行链路：安装后生成普通连接和工具，不执行包内代码，写工具仍默认停用，管理员显式启停。
+
+- `POST /api/admin/extensions/check`：ZIP 离线预检，路径/大小/重复文件与标准检查结果；不联网、不运行扩展内容。
+- `POST /api/admin/extensions/install`：预检并安装，失败回滚刚创建的资产。`config` 中 `type: secret` 的值加密保存在 `extension_installations.secret_enc`，不进资产 spec 或接口响应。
+- `fill: app/admin` 从模型可见参数 schema 中移除，服务端按固定值补齐；`keep` 按工具声明过滤第一层返回字段。普通 OpenAPI 连接、共享凭据和员工身份行为不变。
+- `extension_installations` 记录清单 id、版本、digest 和原始清单/接口文档，删除连接时清理；调用记录同步记清单身份、版本和 digest。
+
+设计、当前边界与验收见 [../docs/declarative-install.md](../docs/declarative-install.md)。多份命名共享凭据、单个应用级 `fill: app` 和自动升级不在这一步范围里。
+
 ## 权限（RBAC）
 
 - **权限点**写在代码里（`internal/rbac`），每次启动同步进数据库；新权限点第一次出现时自动授予它声明的默认角色。管理员也可以建自定义权限点，给还没有后端的页面控制访问。

@@ -452,6 +452,7 @@ func (s *Store) DeleteAsset(ctx context.Context, id int64) error {
 		"DELETE FROM asset_versions WHERE asset_id = ?",
 		"DELETE FROM asset_subscriptions WHERE asset_id = ?",
 		"DELETE FROM connection_tools WHERE asset_id = ?",
+		"DELETE FROM extension_installations WHERE asset_id = ?",
 		"DELETE FROM user_credentials WHERE asset_id = ?",
 		// 还没处理的权限申请没有对象了，一起删；处理过的留着当记录
 		"DELETE FROM connection_requests WHERE asset_id = ? AND kind <> 'knowledge' AND status = 'pending'",

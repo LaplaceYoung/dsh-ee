@@ -323,7 +323,7 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
           ...(can("plugins.manage") ? { template: !!spec.template } : {}),
         };
       case "connection":
-        return { ...base, type: spec.type, url: spec.url, auth: spec.auth, user_auth: spec.user_auth, instructions: spec.instructions, timeout_seconds: spec.timeout_seconds, ...(spec.type === "openapi" ? { openapi: spec.openapi } : {}) };
+        return { ...base, type: spec.type, url: spec.url, auth: spec.auth, user_auth: spec.user_auth, declarative: spec.declarative, extension_config: spec.extension_config, extension_digest: spec.extension_digest, instructions: spec.instructions, timeout_seconds: spec.timeout_seconds, ...(spec.type === "openapi" ? { openapi: spec.openapi } : {}) };
     }
   };
 

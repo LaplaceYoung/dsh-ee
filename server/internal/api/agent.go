@@ -204,6 +204,8 @@ var agentExcluded = map[string]string{
 	"DELETE /api/admin/connections/{id}/credentials/{user}": "收回员工凭据只在网页上做",
 	"GET /api/admin/ee-jwt":                                 "签名密钥只在网页上看",
 	"POST /api/admin/ee-jwt/rotate":                         "轮换签名密钥只在网页上做",
+	"POST /api/admin/extensions/check":                      "扩展安装前预检由管理员在网页上传 ZIP 完成，不把扩展包交给模型",
+	"POST /api/admin/extensions/install":                    "安装扩展会新增并启用企业连接，只能由管理员在网页确认安装配置和凭据",
 }
 
 // agentPending 是还没开放、等后续阶段的路由（管理侧工具）。

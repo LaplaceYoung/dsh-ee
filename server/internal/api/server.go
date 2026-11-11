@@ -56,6 +56,8 @@ type Options struct {
 	DemoSite *DemoSite
 	// 轮换 ee_jwt 密钥时，新钥匙过多久开始签名；0 用默认的 10 分钟（测试里调短）
 	EEKeyDelay time.Duration
+	// ee_jwt 的当前时间；nil 用系统时间。自动化测试可注入可控时钟，避免真实耗时造成竞态。
+	EEKeyNow func() time.Time
 }
 
 type Server struct {
