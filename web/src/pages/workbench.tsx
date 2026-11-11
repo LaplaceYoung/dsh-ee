@@ -15,6 +15,7 @@ import { AccessRequestsCard } from "../components/access-requests";
 import { PageLink } from "../lib/menus";
 import { useTranslation } from "react-i18next";
 import { copyText } from "../lib/clipboard";
+import { pluginAddCommand } from "../lib/install";
 
 /** 指标值还没拿到（加载中 / 接口失败）时显示的内容。 */
 const noValue = "—";
@@ -45,6 +46,7 @@ export default function Workbench() {
   const { data: myKeys, error: keysError } = useApi(api.myKeys);
   const overview = useApi(api.myOverview);
   const hub = useApi(api.hub);
+  const connect = useApi(api.connectInfo);
   const allApps = (hub.data?.assets ?? []).filter((a) => a.kind === "app" && (a.available || a.owner_id === user?.id));
   const myApps = allApps.filter((a) => a.enabled);
   // 我做的应用（真实数据）：自己用的、分享出去的、在审核的
@@ -54,8 +56,9 @@ export default function Workbench() {
   const byName = (n: string) => plugins.find((p) => p.name === n);
 
   const copyInstall = async (name: string) => {
-    if (!(await copyText(`dsh plugin add ${name}`))) return notify(t("common.copyFailed"));
-    notify(t("workbench.copiedInstall", { name }));
+    const profile = connect.data?.profile || "web";
+    if (!(await copyText(pluginAddCommand(name, profile)))) return notify(t("common.copyFailed"));
+    notify(t("workbench.copiedInstall", { name, profile }));
   };
 
   return (

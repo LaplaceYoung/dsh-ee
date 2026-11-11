@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import { api, formatTime } from "../lib/api";
 import { useApi, useAction } from "../lib/use-api";
 import { useConfirm } from "../lib/confirm";
+import { pluginAddCommand } from "../lib/install";
 import { LoadState } from "../components/api-ui";
 import { Badge, Button, Card, CardHeader, CopyBox, cx, inputBase, PageHeader, Segmented, Notice } from "../components/ui";
 import { useTranslation } from "react-i18next";
@@ -110,7 +111,7 @@ export default function Setup() {
               </Step>
             )}
             <Step n={(baseUrl.startsWith("https:") ? 4 : 3) + (ci?.ready ? 1 : 0)} title={t("setup.step4")}>
-              <CopyBox text={`dsh plugin add ${example}`} />
+              <CopyBox text={pluginAddCommand(example, ci?.profile)} />
             </Step>
           </div>
         )}

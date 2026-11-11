@@ -42,7 +42,7 @@ export default {
     teamUsers: "{{count}} 位同事装过",
     noPicks: "同事们装过的能力你都装了。",
     install: "安装",
-    copiedInstall: "已复制安装命令：dsh plugin add {{name}}",
+    copiedInstall: "已复制安装命令：dsh plugin --profile {{profile}} add {{name}}",
   },
   apps: {
     title: "企业应用",
