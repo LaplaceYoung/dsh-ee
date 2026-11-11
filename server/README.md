@@ -46,6 +46,16 @@ Go 写的 dsh-ee 服务端。目前实现：
 - **升级与回滚**：升级数据库会自动新增令牌表和列，原主密钥必须保留。回滚到旧服务端后 `ee_at_` 不可用，需要改回旧 `ee_npm_` / `sk-ee-`；旧版会忽略新增表和列。
 - 已知限制：镜像的上游包不带 npm 签名，经 dsh-ee 下载并校验签名的工具（如 corepack 自动下载 pnpm）会失败；请先装好 pnpm 再运行接入脚本。
 
+## 飞书（v0.2 分批实现）
+
+`docs/feishu.md` 记录当前飞书范围：OIDC 免登登录、部门与人员的完整分页同步、手动/定时同步、目录缺席/删除/冻结后的按配置禁用。管理员在「登录方式」选择飞书，填写 App ID / App Secret 与通讯录地址，secret 不回显；登录和组织同步复用它，但不把这一纵切视为通知、卡片审批或飞书工作台都已完成。
+
+`GET /api/admin/auth/feishu/sync` 返回最近一次同步结果；`POST` 手动执行一次完整同步。后台只在 `preset=feishu` 且 `feishuSync` 开启时每小时执行。外部 subject 统一 `feishu:<open_id>`，不触及其它 IdP；目录失败或为空不批量禁用。
+
+`feishuSync`（组织同步）之外还有 `feishuNotify`（普通通知）与 `feishuNotifyActions`（卡片审批）两个独立开关，默认均关闭。卡片批准用一次性随机 action ID、消息号匹配、当前 RBAC、过期/状态检查和原子状态机，不用按钮或网页 cookie 代替权限判断。
+
+`POST /api/auth/feishu/card` 接收卡片回调；`/api/admin/auth/feishu/workspace-url?next=/a/<slug>` 生成飞书工作台可打开的 OIDC 入口，只允许 `/a/` 或 `/go`，目标应用继续沿用原 Scope，不要求飞书服务端跑 AI。详见 [../docs/feishu.md](../docs/feishu.md)。
+
 ## 大模型接入
 
 - 上游一律走 OpenAI 兼容接口（DeepSeek、通义千问、智谱、豆包、Kimi、硅基流动、OpenAI、Ollama、vLLM 等都提供），网关按原始 JSON 透传，不经 SDK 二次序列化，厂商扩展字段（如 `reasoning_content`）原样保留。

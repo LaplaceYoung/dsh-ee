@@ -62,10 +62,11 @@ export async function closeBrowser() {
 /**
  * 新开一个浏览器上下文。页面报错、5xx 都记下来，测试结束时由 run.mjs 判失败。
  * lang 固定界面语言（默认简体中文，选择器按中文写）。
+ * recordVideo 可传 Playwright 的 {dir,size}，只给需要留存操作证据的场景打开。
  */
-export async function newPage(t, { lang = "zh-CN", locale, viewport = { width: 1440, height: 1000 }, userAgent } = {}) {
+export async function newPage(t, { lang = "zh-CN", locale, viewport = { width: 1440, height: 1000 }, userAgent, recordVideo } = {}) {
   const b = await getBrowser();
-  const ctx = await b.newContext({ viewport, locale: locale ?? lang, ...(userAgent ? { userAgent } : {}) });
+  const ctx = await b.newContext({ viewport, locale: locale ?? lang, ...(userAgent ? { userAgent } : {}), ...(recordVideo ? { recordVideo } : {}) });
   if (lang) await ctx.addInitScript((v) => localStorage.setItem("dsh-ee:lang", v), lang);
   const page = await ctx.newPage();
   page.on("pageerror", (e) => t.errors.push("pageerror: " + e.message));

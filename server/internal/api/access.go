@@ -260,6 +260,9 @@ func (s *Server) handleCreateAccessRequest(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if !existed {
+		s.feishuAccessRequest(ctx, &store.AccessRequest{ID: id, Kind: t.kind, UserID: v.user.ID, Username: v.user.Username, AssetID: t.id, Slug: t.slug, Title: t.title, Reason: reason, AppID: appID})
+	}
+	if !existed {
 		action, target := auditAccessRequest, t.kind+":"+t.slug
 		if t.kind == store.RequestConnection {
 			action, target = auditConnRequest, t.slug
@@ -397,6 +400,7 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 	if q.Kind == store.RequestConnection {
 		action, target = "connection.request_"+req.Decision, q.Slug
 	}
+	s.notifyFeishuResult(ownerPtr(q.UserID), q.Title, req.Decision)
 	s.audit(r, action, target, map[string]any{"id": id, "user": q.Username, "app": q.AppSlug, "note": truncate(req.Note, 500)})
 	s.hub.notify()
 	writeJSON(w, http.StatusOK, map[string]any{"status": status, "user": q.Username, "kind": q.Kind, "slug": q.Slug, "connection": q.Slug})

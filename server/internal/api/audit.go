@@ -41,6 +41,7 @@ const (
 	auditLDAPUpdate     = "ldap.update"
 	auditLDAPSync       = "ldap.sync"
 	auditOIDCUpdate     = "oidc.update"
+	auditFeishuSync     = "oidc.feishu_sync"
 
 	auditPackagePublish         = "package.publish"
 	auditPackageStatus          = "package.status"

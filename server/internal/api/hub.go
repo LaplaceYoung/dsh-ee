@@ -717,6 +717,9 @@ func (s *Server) handleHubCreate(w http.ResponseWriter, r *http.Request) {
 			resp["tools"] = n
 		}
 	}
+	if status == store.StatusPending {
+		s.feishuReviewAsset(a, 1)
+	}
 	s.audit(r, auditAssetCreate, req.Kind+":"+req.Slug, map[string]any{"id": a.ID, "status": status, "delivery": delivery})
 	s.hub.notify()
 	writeJSON(w, http.StatusCreated, resp)
@@ -826,6 +829,9 @@ func (s *Server) handleHubNewVersion(w http.ResponseWriter, r *http.Request) {
 			resp["tools"] = n
 		}
 	}
+	if status == store.StatusPending {
+		s.feishuReviewAsset(a, ver)
+	}
 	s.audit(r, auditAssetVersion, a.Kind+":"+a.Slug, map[string]any{"id": a.ID, "version": ver, "status": status})
 	s.hub.notify()
 	writeJSON(w, http.StatusCreated, resp)
@@ -905,6 +911,8 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 			s.internalErr(w, r, err)
 			return
 		}
+		a.PendingScope = requested
+		s.feishuReviewScope(a)
 		s.audit(r, auditScopeRequest, a.Kind+":"+a.Slug, map[string]any{"id": a.ID, "scope": requested})
 	} else if p.Scope != nil && a.PendingScope != nil {
 		// 改成了不用审核的范围，原来的申请作废
@@ -1140,6 +1148,7 @@ func (s *Server) handleHubScopeReview(w http.ResponseWriter, r *http.Request) {
 	if req.Action == "reject" {
 		action = auditReviewReject
 	}
+	s.notifyFeishuResult(a.OwnerID, a.Title, req.Action)
 	s.audit(r, action, a.Kind+":"+a.Slug+"#scope", map[string]any{"requested": a.PendingScope, "note": truncate(req.Note, 500)})
 	s.hub.notify()
 	w.WriteHeader(http.StatusNoContent)
@@ -1200,6 +1209,7 @@ func (s *Server) handleHubReview(w http.ResponseWriter, r *http.Request) {
 	if to == store.StatusRejected {
 		action = auditReviewReject
 	}
+	s.notifyFeishuResult(a.OwnerID, a.Title, req.Action)
 	s.audit(r, action, a.Kind+":"+a.Slug+"#"+strconv.Itoa(req.Version), map[string]any{"note": truncate(req.Note, 500)})
 	s.hub.notify()
 	w.WriteHeader(http.StatusNoContent)
