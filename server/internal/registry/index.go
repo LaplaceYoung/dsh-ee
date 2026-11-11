@@ -2,6 +2,7 @@ package registry
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -9,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/hikariming/dsh-ee/server/internal/store"
 )
 
@@ -46,6 +48,12 @@ type indexVersion struct {
 	Version          string            `json:"version"`
 	PublishTimestamp int64             `json:"publishTimestamp"`
 	Source           map[string]string `json:"source"`
+	// 版本声明的 DSH 兼容范围；DSH 用它过滤不可安装的版本，缺省表示任意版本
+	Engines *indexEngines `json:"engines,omitempty"`
+}
+
+type indexEngines struct {
+	Dsh string `json:"dsh,omitempty"`
 }
 
 type indexMeta struct {
@@ -155,6 +163,28 @@ func (s *Service) BuildIndex(ctx context.Context, portalBase string) (*Index, er
 	return idx, nil
 }
 
+// manifestEngines 从版本 package.json 读 engines.dsh。索引读端要求它是合法 SemVer 范围，
+// 解析不了就省略（读端把缺省当成任意版本），避免一条坏范围让整份索引被拒收。
+func manifestEngines(raw json.RawMessage) *indexEngines {
+	if len(raw) == 0 {
+		return nil
+	}
+	var m struct {
+		Engines map[string]string `json:"engines"`
+	}
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil
+	}
+	r := strings.TrimSpace(m.Engines["dsh"])
+	if r == "" || strings.HasPrefix(r, "workspace:") {
+		return nil
+	}
+	if _, err := semver.NewConstraint(r); err != nil {
+		return nil
+	}
+	return &indexEngines{Dsh: r}
+}
+
 func indexPlugin(p *store.NpmPackage, versions []*store.NpmVersion, installs int, portalBase string) *IndexPlugin {
 	if !ValidPublishName(p.Name) || strings.HasPrefix(p.Name, "@deepseek-ai/") {
 		return nil
@@ -215,7 +245,7 @@ func indexPlugin(p *store.NpmPackage, versions []*store.NpmVersion, installs int
 		if portalBase != "" {
 			src["registry"] = portalBase + "/npm/"
 		}
-		ip.Versions = append(ip.Versions, indexVersion{Version: v.Version, PublishTimestamp: ts, Source: src})
+		ip.Versions = append(ip.Versions, indexVersion{Version: v.Version, PublishTimestamp: ts, Source: src, Engines: manifestEngines(v.Manifest)})
 	}
 	if len(ip.Versions) == 0 {
 		return nil

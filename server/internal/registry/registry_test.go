@@ -339,3 +339,43 @@ func TestPackumentSignatureMismatch(t *testing.T) {
 		t.Fatalf("integrity 不一致时不应带签名：%v", dist)
 	}
 }
+
+// 索引版本要带上 package.json 的 engines.dsh，DSH 读端才能按兼容性过滤版本；
+// 非法/workspace 范围省略，避免一条坏值让整份索引被拒收。
+func TestIndexPluginIncludesEnginesDsh(t *testing.T) {
+	versions := []*store.NpmVersion{
+		{Version: "3.0.0", CreatedAt: time.Unix(3, 0), Manifest: json.RawMessage(`{"engines":{"dsh":"latest"}}`)},
+		{Version: "2.0.0", CreatedAt: time.Unix(2, 0), Manifest: json.RawMessage(`{"engines":{"dsh":">=0.2.0-0 <0.3.0"}}`)},
+		{Version: "1.0.0", CreatedAt: time.Unix(1, 0), Manifest: json.RawMessage(`{"engines":{"dsh":"workspace:*"}}`)},
+		{Version: "0.9.0", CreatedAt: time.Unix(1, 0)},
+	}
+	ip := indexPlugin(&store.NpmPackage{Name: "dsh-x"}, versions, 0, "")
+	if ip == nil || len(ip.Versions) != 4 {
+		t.Fatalf("应保留 4 个合法版本：%+v", ip)
+	}
+	byVersion := map[string]indexVersion{}
+	for _, v := range ip.Versions {
+		byVersion[v.Version] = v
+	}
+	if e := byVersion["2.0.0"].Engines; e == nil || e.Dsh != ">=0.2.0-0 <0.3.0" {
+		t.Fatalf("2.0.0 应带 engines.dsh：%+v", byVersion["2.0.0"])
+	}
+	for _, v := range []string{"3.0.0", "1.0.0", "0.9.0"} {
+		if byVersion[v].Engines != nil {
+			t.Errorf("%s 不应带 engines：%+v", v, byVersion[v].Engines)
+		}
+	}
+	body, err := json.Marshal(byVersion["2.0.0"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Engines indexEngines `json:"engines"`
+	}
+	if err := json.Unmarshal(body, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Engines.Dsh != ">=0.2.0-0 <0.3.0" {
+		t.Fatalf("索引 JSON 应包含 engines.dsh：%s", body)
+	}
+}
