@@ -15,6 +15,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/hikariming/dsh-ee/server/internal/extension"
 	"github.com/hikariming/dsh-ee/server/internal/mcp"
 	"github.com/hikariming/dsh-ee/server/internal/openapi"
 	"github.com/hikariming/dsh-ee/server/internal/secret"
@@ -223,6 +224,11 @@ func (s *Server) discoverTools(ctx context.Context, sp *assetSpec, client *mcp.C
 			// 只有只读（GET）的接口默认启用，写操作要管理员确认后打开
 			out = append(out, &store.ConnectionTool{Name: t.Name, Description: t.Description, InputSchema: t.InputSchema, Operation: op, ReadOnly: t.ReadOnly, Enabled: t.ReadOnly})
 		}
+		if sp.Extension != nil {
+			if err := applyExtension(sp, out); err != nil {
+				return nil, "", err
+			}
+		}
 		return out, "", nil
 	}
 	return nil, "", errors.New("未知的连接类型")
@@ -282,8 +288,8 @@ func (s *Server) syncConnectionTools(ctx context.Context, id int64, v viewer, ba
 // v 是发起调用的员工，base 是他访问 dsh-ee 的地址（签 ee_jwt、给授权链接时用）。
 func (s *Server) callConnectionTool(ctx context.Context, a *store.Asset, t *store.ConnectionTool, v viewer, base string, args json.RawMessage) json.RawMessage {
 	start := time.Now()
-	result, mode, err := s.doConnectionCall(ctx, a, t, v, base, args)
-	call := store.ConnectionCall{AssetID: a.ID, Tool: t.Name, UserID: v.user.ID, OK: err == nil, LatencyMS: int(time.Since(start).Milliseconds()), AuthMode: mode}
+	result, mode, ext, err := s.doConnectionCall(ctx, a, t, v, base, args)
+	call := store.ConnectionCall{AssetID: a.ID, Tool: t.Name, UserID: v.user.ID, OK: err == nil, LatencyMS: int(time.Since(start).Milliseconds()), AuthMode: mode, Extension: ext}
 	if err != nil {
 		call.Error = err.Error()
 		result = mcp.TextResult("调用 "+a.Title+" 失败："+err.Error(), true)
@@ -330,22 +336,24 @@ func isErrorResult(raw json.RawMessage) bool {
 	return json.Unmarshal(raw, &r) == nil && r.IsError
 }
 
-// doConnectionCall 发出一次调用；第二个返回值是这次带的员工身份（空 / ee_jwt / user_secret），记进调用记录。
-func (s *Server) doConnectionCall(ctx context.Context, a *store.Asset, t *store.ConnectionTool, v viewer, base string, args json.RawMessage) (json.RawMessage, string, error) {
+// doConnectionCall 发出一次调用。另外返回这次带的员工身份（空 / ee_jwt / user_secret）和
+// 扩展的版本（`作者/名字@版本#摘要前 12 位`，不是扩展装的就是空），都记进调用记录。
+func (s *Server) doConnectionCall(ctx context.Context, a *store.Asset, t *store.ConnectionTool, v viewer, base string, args json.RawMessage) (json.RawMessage, string, string, error) {
 	lv, err := s.store.LiveAssetVersion(ctx, a.ID)
 	if err != nil {
-		return nil, "", err
+		return nil, "", "", err
 	}
 	sp := parseSpec(lv.Spec)
 	mode := ""
 	if sp.UserAuth != nil {
 		mode = sp.UserAuth.Mode
 	}
+	ext := sp.Extension.label()
 	switch sp.Type {
 	case "mcp":
 		client, err := s.connClient(ctx, a, lv.Version, sp, v, base)
 		if err != nil {
-			return nil, mode, err
+			return nil, mode, ext, err
 		}
 		res, err := client.CallTool(withCaller(ctx, v, base), t.Name, args)
 		if err != nil {
@@ -354,51 +362,64 @@ func (s *Server) doConnectionCall(ctx context.Context, a *store.Asset, t *store.
 			} else {
 				s.dropConnClient(a.ID)
 			}
-			return nil, mode, err
+			return nil, mode, ext, err
 		}
-		return limitMCPResult(res, connResultLimit), mode, nil
+		return limitMCPResult(res, connResultLimit), mode, ext, nil
 	case "openapi":
 		var op openapi.Operation
 		if err := json.Unmarshal(t.Operation, &op); err != nil {
-			return nil, mode, errors.New("工具缺少接口信息，请重新同步")
+			return nil, mode, ext, errors.New("工具缺少接口信息，请重新同步")
 		}
 		root, err := openAPIBase(sp)
 		if err != nil {
-			return nil, mode, err
-		}
-		h, err := s.connHeader(ctx, a.ID, sp, nil)
-		if err != nil {
-			return nil, mode, err
-		}
-		uh, err := s.userAuthHeader(ctx, a, sp, v, base)
-		if err != nil {
-			return nil, mode, err
-		}
-		for k, vs := range uh {
-			h[k] = vs
+			return nil, mode, ext, err
 		}
 		var m map[string]any
 		dec := json.NewDecoder(strings.NewReader(string(args)))
 		dec.UseNumber()
 		if len(args) > 0 {
 			if err := dec.Decode(&m); err != nil {
-				return nil, mode, errors.New("参数不是 JSON 对象")
+				return nil, mode, ext, errors.New("参数不是 JSON 对象")
 			}
+		}
+		if m == nil {
+			m = map[string]any{}
+		}
+		// 扩展装的连接：只往清单列出的地址发，补上不由模型填的参数；返回只留清单要的字段
+		var keep []string
+		if sp.Extension != nil {
+			if keep, err = sp.Extension.prepare(root, t.Name, m); err != nil {
+				return nil, mode, ext, err
+			}
+		}
+		h, err := s.connHeader(ctx, a.ID, sp, nil)
+		if err != nil {
+			return nil, mode, ext, err
+		}
+		uh, err := s.userAuthHeader(ctx, a, sp, v, base)
+		if err != nil {
+			return nil, mode, ext, err
+		}
+		for k, vs := range uh {
+			h[k] = vs
 		}
 		status, body, err := openapi.Call(ctx, s.connHTTP(sp), root, op, m, h, connResultLimit+1)
 		if err != nil {
-			return nil, mode, err
+			return nil, mode, ext, err
+		}
+		if status < 400 && len(keep) > 0 && len(body) <= connResultLimit {
+			body = extension.Keep(body, keep)
 		}
 		text := string(body)
 		if len(body) > connResultLimit {
 			text = string(body[:connResultLimit]) + "\n…（结果过长，已截断）"
 		}
 		if status >= 400 {
-			return mcp.TextResult(fmt.Sprintf("HTTP %d\n%s", status, text), true), mode, nil
+			return mcp.TextResult(fmt.Sprintf("HTTP %d\n%s", status, text), true), mode, ext, nil
 		}
-		return mcp.TextResult(text, false), mode, nil
+		return mcp.TextResult(text, false), mode, ext, nil
 	}
-	return nil, mode, errors.New("未知的连接类型")
+	return nil, mode, ext, errors.New("未知的连接类型")
 }
 
 // limitMCPResult 让 MCP 连接的结果与 OpenAPI 连接一样受 connResultLimit 约束。

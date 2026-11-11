@@ -67,6 +67,8 @@ type assetSpec struct {
 	TimeoutSec   int       `json:"timeout_seconds,omitempty"`
 	// 连接：员工身份（ee_jwt / user_secret），和上面的共享凭据并存；见 user_identity.go
 	UserAuth *connUserAuth `json:"user_auth,omitempty"`
+	// 连接：从声明式扩展装进来的（extensions.go）。清单和接口文档一起定版，不能单独改
+	Extension *connExtension `json:"extension,omitempty"`
 }
 
 // connAuth 是连接上游的认证方式；凭据本身单独加密存放，不在版本内容里。
@@ -108,7 +110,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 		}
 		sp.Persona, sp.Starters, sp.Skills, sp.Connections, sp.Plugins, sp.Knowledge = "", nil, nil, nil, nil, nil
 		sp.Icon, sp.Launch, sp.Workbench, sp.Template, sp.Tables, sp.Web, sp.Highlights = "", "", nil, false, nil, false, nil
-		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions = "", "", nil, nil, "", ""
+		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions, sp.Extension = "", "", nil, nil, "", "", nil
 	case store.KindApp:
 		sp.Persona = strings.TrimSpace(sp.Persona)
 		if sp.Persona == "" {
@@ -182,7 +184,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 			return "开放网页版需要工作台里至少有一个业务面板（panel）"
 		}
 		sp.Body, sp.WhenToUse, sp.ModelInvocable = "", "", nil
-		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions = "", "", nil, nil, "", ""
+		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions, sp.Extension = "", "", nil, nil, "", "", nil
 	case store.KindConnection:
 		if sp.Type != "mcp" && sp.Type != "openapi" {
 			return "连接类型只能是 mcp 或 openapi"
@@ -224,6 +226,9 @@ func validateSpec(kind string, sp *assetSpec) string {
 		}
 		if sp.TimeoutSec < 0 || sp.TimeoutSec > 120 {
 			return "超时应在 1–120 秒之间"
+		}
+		if msg := validateExtension(sp); msg != "" {
+			return msg
 		}
 		sp.Body, sp.WhenToUse, sp.ModelInvocable = "", "", nil
 		sp.Persona, sp.Starters, sp.Skills, sp.Connections, sp.Plugins, sp.Knowledge = "", nil, nil, nil, nil, nil

@@ -204,6 +204,10 @@ var agentExcluded = map[string]string{
 	"DELETE /api/admin/connections/{id}/credentials/{user}": "收回员工凭据只在网页上做",
 	"GET /api/admin/ee-jwt":                                 "签名密钥只在网页上看",
 	"POST /api/admin/ee-jwt/rotate":                         "轮换签名密钥只在网页上做",
+
+	// 声明式扩展（extensions.go）：装之前要管理员看清楚会发往哪些地址、哪些是写操作，再由人确认
+	"POST /api/admin/extensions/check":   "检查扩展包在网页上做；Agent 用 `dsh-ee extension check --json`",
+	"POST /api/admin/extensions/install": "装扩展要管理员在网页上看过安装计划再确认，不交给模型",
 }
 
 // agentPending 是还没开放、等后续阶段的路由（管理侧工具）。

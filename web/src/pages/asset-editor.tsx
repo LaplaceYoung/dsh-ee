@@ -77,8 +77,21 @@ function ConnectionFields({ spec, set, secret, setSecret, secretHint, slug }: { 
   const { t } = useTranslation();
   const file = useRef<HTMLInputElement>(null);
   const auth = spec.auth ?? { type: "none" };
+  // 扩展装的连接：接口文档和用谁的身份由清单决定，只能改根地址、共享凭据、说明和超时
+  const ext = spec.extension;
   return (
     <>
+      {ext && (
+        <Notice>
+          {t("extensions.fromNote", { identity: `${ext.id}@${ext.version}` })}
+        </Notice>
+      )}
+      {ext ? (
+        <Field label={t("connections.apiBase")} hint={t("connections.apiBaseHint")}>
+          <input className={cx(inputCls, "font-mono")} value={spec.url ?? ""} onChange={(e) => set({ url: e.target.value })} placeholder="https://oa.acme.internal/api" />
+        </Field>
+      ) : (
+      <>
       <Field label={t("connections.type")}>
         <Segmented
           value={spec.type ?? "mcp"}
@@ -119,17 +132,22 @@ function ConnectionFields({ spec, set, secret, setSecret, secretHint, slug }: { 
           <input className={cx(inputCls, "font-mono")} value={spec.url ?? ""} onChange={(e) => set({ url: e.target.value })} placeholder="https://crm.acme.internal/mcp" />
         </Field>
       )}
-      <Field label={t("connections.auth")}>
-        <Segmented
-          value={auth.type}
-          onChange={(v) => set({ auth: { type: v, header: v === "header" ? auth.header || "X-API-Key" : undefined } })}
-          options={[
-            { value: "none", label: t("connections.authNone") },
-            { value: "bearer", label: t("connections.authBearer") },
-            { value: "header", label: t("connections.authHeader") },
-          ]}
-        />
-      </Field>
+      </>
+      )}
+      {/* 扩展装的、带员工身份的连接：共享凭据放在哪个请求头由清单定 */}
+      {!(ext && spec.user_auth) && (
+        <Field label={t("connections.auth")}>
+          <Segmented
+            value={auth.type}
+            onChange={(v) => set({ auth: { type: v, header: v === "header" ? auth.header || "X-API-Key" : undefined } })}
+            options={[
+              { value: "none", label: t("connections.authNone") },
+              { value: "bearer", label: t("connections.authBearer") },
+              { value: "header", label: t("connections.authHeader") },
+            ]}
+          />
+        </Field>
+      )}
       {auth.type !== "none" && (
         <div className="grid gap-4 sm:grid-cols-2">
           {auth.type === "header" && (
@@ -149,7 +167,7 @@ function ConnectionFields({ spec, set, secret, setSecret, secretHint, slug }: { 
           </Field>
         </div>
       )}
-      <UserAuthFields spec={spec} set={set} slug={slug} />
+      {!ext && <UserAuthFields spec={spec} set={set} slug={slug} />}
       <Field label={t("connections.instructions")} hint={t("connections.instructionsHint")}>
         <textarea className={cx(textareaCls, "h-20")} value={spec.instructions ?? ""} onChange={(e) => set({ instructions: e.target.value })} />
       </Field>
