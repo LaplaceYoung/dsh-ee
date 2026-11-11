@@ -183,6 +183,10 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "不能禁用自己")
 		return
 	}
+	if id == me.ID && req.UnbindIdentity {
+		writeErr(w, http.StatusBadRequest, "不能解除自己的身份绑定")
+		return
+	}
 	target, err := s.store.UserAccess(r.Context(), id)
 	if err != nil {
 		s.internalErr(w, r, err)
@@ -190,7 +194,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// 不能动权限比自己大的人，否则禁用、重置密码或解除身份绑定就能变相夺权
 	if (req.Disabled != nil || req.Password != nil || req.UnbindIdentity) && !outranks(currentAccess(r), target) {
-		writeErr(w, http.StatusForbidden, "不能禁用或重置权限比自己大的用户")
+		writeErr(w, http.StatusForbidden, "不能禁用、重置密码或解除权限比自己大的用户的身份绑定")
 		return
 	}
 	if target.Super && req.Disabled != nil && *req.Disabled {
