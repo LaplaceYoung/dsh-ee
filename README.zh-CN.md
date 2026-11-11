@@ -284,8 +284,8 @@ cd e2e/dsh/scenarios && npm test
 
 dsh-ee 处于早期开发阶段（v0.x），版本之间接口与表结构可能变化。已知缺口：
 
-- OIDC 登录尚未实现（本地账号与 LDAP / AD 可用）。
-- DSH 本体分发的版本、安装包与 sha256 仍是占位。
+- OIDC 登录已实现（管理员配置身份提供方后可用）；本地账号与 LDAP / AD 也可用。
+- DSH 本体分发已接入官方发布 feed，安装包校验 sha512，并可镜像到本地。
 - 按单实例设计：登录限流、缓存与预载任务在进程内存里，tarball 存在本地磁盘。
 
 详见 [server/README.md](./server/README.md) 的「已知限制」。

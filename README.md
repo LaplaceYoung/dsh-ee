@@ -222,8 +222,8 @@ CI (`.github/workflows/ci.yml`) builds the UI, runs the Go tests against TiDB, r
 
 dsh-ee is in early development (v0.x). APIs and schemas may change between releases. Known gaps:
 
-- OIDC login is not implemented yet (local accounts and LDAP / AD work).
-- DSH binary distribution still uses placeholder versions and checksums.
+- OIDC login is implemented once an administrator configures an identity provider; local accounts and LDAP / AD also work.
+- DSH Desktop distribution reads the official release feeds, verifies sha512, and can mirror installers locally.
 - Single-instance oriented: login rate limits, caches and preload jobs live in process memory, and tarballs live on local disk.
 
 See the "Known limitations" section of [server/README.md](./server/README.md) for details.
