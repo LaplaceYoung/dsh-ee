@@ -33,6 +33,12 @@ function scanDetail(t: DynT, s: ScanItem): string {
       return s.level === "pass" ? t("registry.scan.bundle.pass", { path: p.path }) : t(`registry.scan.bundle.${p.reason}`, { path: p.path });
     case "size":
       return t(`registry.scan.size.${s.level}`, { size: formatBytes(Number(p.size)), unpacked: formatBytes(Number(p.unpacked)), files: p.files });
+    case "patch":
+      if (s.level === "pass") return t("registry.scan.patch.pass", { path: p.path, rows: p.rows });
+      return t(`registry.scan.patch.${s.level}`, {
+        path: p.path,
+        reason: t(`registry.scan.patch.reason.${p.reason}`, { ...p, defaultValue: p.reason }),
+      });
     default:
       return t(`registry.scan.${s.key}.${s.level}`, { ...p, defaultValue: JSON.stringify(p) });
   }

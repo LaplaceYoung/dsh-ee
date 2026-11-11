@@ -123,7 +123,7 @@ export default async function (t) {
       "dsh-ee": { title: `E2E 插件 ${tag}`, category: "tools", kind: "skill" },
       dependencies: { [depName]: "^1.0.0" },
     }));
-    fs.writeFileSync(path.join(pub, "cordis.patch.yml"), "plugins: {}\n");
+    fs.writeFileSync(path.join(pub, "cordis.patch.yml"), "- {}\n");
     fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "app", version: "1.0.0", private: true }));
 
     const who = await npm(pub, "whoami");

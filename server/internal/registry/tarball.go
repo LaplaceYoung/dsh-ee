@@ -19,6 +19,9 @@ const (
 	maxFiles        = 50000
 	maxScanFileSize = 2 << 20
 	maxPackageJSON  = 4 << 20
+	// dsh.bundle.patch 内容检查：只留少量 YAML，避免恶意包塞满内存。
+	maxPatchFiles = 8
+	maxPatchBytes = 4 << 20
 )
 
 // TarballInfo 是解包检查的结果。
@@ -29,6 +32,10 @@ type TarballInfo struct {
 	// 包根目录下的相对路径（最多记 2 万个，用于检查 dsh.bundle.patch 等）
 	Files   map[string]bool
 	Secrets []SecretHit
+	// 根目录下少量 .yml/.yaml 的内容（受 maxPatchFiles/maxPatchBytes 限制），
+	// 用于真正解析 dsh.bundle.patch。
+	YAML       map[string][]byte
+	patchBytes int64
 }
 
 type SecretHit struct {
@@ -75,7 +82,7 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
-	info := &TarballInfo{Files: map[string]bool{}}
+	info := &TarballInfo{Files: map[string]bool{}, YAML: map[string][]byte{}}
 	root := ""
 	for {
 		h, err := tr.Next()
@@ -130,6 +137,10 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 				return nil, err
 			}
 			info.scan(rel, b)
+			if isYAML(base) && len(info.YAML) < maxPatchFiles && info.patchBytes+int64(len(b)) <= maxPatchBytes {
+				info.YAML[rel] = b
+				info.patchBytes += int64(len(b))
+			}
 		}
 	}
 	if info.PackageJSON == nil {
@@ -147,6 +158,14 @@ func (info *TarballInfo) scan(file string, b []byte) {
 			info.Secrets = append(info.Secrets, SecretHit{File: file, Kind: p.kind})
 		}
 	}
+}
+
+func isYAML(base string) bool {
+	switch strings.ToLower(path.Ext(base)) {
+	case ".yml", ".yaml":
+		return true
+	}
+	return false
 }
 
 // 只扫文本类文件；压缩过的 min.js 也扫，密钥常被打包进去。
@@ -194,6 +213,10 @@ func Check(m *Manifest, info *TarballInfo, size int64, companyScopes []string) [
 		add("bundle", LevelFail, map[string]any{"reason": "file-missing", "path": m.BundlePatch})
 	default:
 		add("bundle", LevelPass, map[string]any{"path": m.BundlePatch})
+	}
+
+	if item := checkBundlePatch(m, info); item != nil {
+		add(item.Key, item.Level, item.Params)
 	}
 
 	if s := m.InstallScripts(); len(s) > 0 {

