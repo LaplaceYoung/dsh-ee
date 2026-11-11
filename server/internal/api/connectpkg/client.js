@@ -23153,8 +23153,11 @@ function registerVotes(ctx, remote, unwrapRemote2) {
         app = Object.entries(bindings ?? {}).find(([, b]) => b?.sessionId === sessionId)?.[0] ?? "";
       } catch {
       }
-      await remote.vote({ app, session: sessionId, message: messageId, vote: value, note }).catch(() => void 0);
-      setVoted(value);
+      try {
+        unwrapRemote2(await remote.vote({ app, session: sessionId, message: messageId, vote: value, note }));
+        setVoted(value);
+      } catch {
+      }
     };
     return (0, import_react3.createElement)(
       "span",

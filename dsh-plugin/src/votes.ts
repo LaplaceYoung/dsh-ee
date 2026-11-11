@@ -26,8 +26,13 @@ export function registerVotes(ctx: DshContext, remote: VoteRemote & VoteBindings
         const bindings = unwrapRemote(await remote.appBindings()) as Record<string, { sessionId?: string }> | undefined;
         app = Object.entries(bindings ?? {}).find(([, b]) => b?.sessionId === sessionId)?.[0] ?? "";
       } catch { /* 取不到绑定就只记消息 */ }
-      await remote.vote({ app, session: sessionId, message: messageId, vote: value, note }).catch(() => undefined);
-      setVoted(value);
+      try {
+        // 服务端拒绝（401/5xx）时 remote 也会 resolve 成 { ok: false }，必须解包后再标记已投票。
+        unwrapRemote(await remote.vote({ app, session: sessionId, message: messageId, vote: value, note }));
+        setVoted(value);
+      } catch {
+        // 保持按钮可点，让用户能重试
+      }
     };
     return createElement("span", { "data-dsh-ee-ui": "votes", style: { display: "inline-flex", gap: 2 } },
       createElement("button", { type: "button", title: "有帮助", "aria-label": "有帮助", disabled: voted !== 0, style: { ...buttonStyle, opacity: voted === 1 ? 1 : buttonStyle.opacity }, onClick: () => void mark(1) }, "👍"),
