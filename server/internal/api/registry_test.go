@@ -163,7 +163,7 @@ func pluginPkg(name, version string, extra map[string]any) map[string]any {
 	return p
 }
 
-var bundleFile = map[string]string{"cordis.patch.yml": "plugins: {}\n"}
+var bundleFile = map[string]string{"cordis.patch.yml": "- {}\n"}
 
 func newRegistryServer(t *testing.T, st *store.Store, up *fakeRegistry) *httptest.Server {
 	key := make([]byte, 32)

@@ -110,7 +110,7 @@ func TestInspectAndCheck(t *testing.T) {
 		"scripts":{"postinstall":"node fetch-binary.js"},"dependencies":{"left-pad":"^1","@acme/y":"^1"}}`
 	b := tgz(t, map[string]string{
 		"package/package.json":     pkg,
-		"package/cordis.patch.yml": "x: 1",
+		"package/cordis.patch.yml": "- {}\n",
 		"package/dist/index.js":    "const key = 'AKIAABCDEFGHIJKLMNOP';",
 		"package/.env":             "TOKEN=1",
 		"package/logo.png":         "\x89PNG\x00AKIAABCDEFGHIJKLMNOP",

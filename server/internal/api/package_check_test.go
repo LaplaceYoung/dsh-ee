@@ -124,7 +124,7 @@ func TestPackagePreflight(t *testing.T) {
 
 	t.Run("疑似密钥会阻塞", func(t *testing.T) {
 		tgz := makeTgz(t, pluginPkg("@company/preflight-secret", "1.0.0", nil), map[string]string{
-			"cordis.patch.yml": "plugins: {}\n",
+			"cordis.patch.yml": "- {}\n",
 			"src/index.js":     "const key = 'sk-" + strings.Repeat("a", 40) + "';\n",
 		})
 		r := checkTgz(t, admin, tgz)
