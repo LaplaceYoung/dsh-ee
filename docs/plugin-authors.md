@@ -1,6 +1,8 @@
 # 插件作者指南：把 DSH 插件发布到 dsh-ee
 
 > 面向在企业内部分发 DSH 插件的作者。dsh-ee 还在 v0.x，接口和审核规则可能变化；以仓库里的代码和页面为准。
+>
+> 插件质量三层（ENTRY / FLOW / BOOST）和 dsh-ee 预检/审核的对应关系，见 [plugin-quality.md](./plugin-quality.md)；dsh-ee 不做评分或认证。
 
 dsh-ee 里有两种插件来源：
 
