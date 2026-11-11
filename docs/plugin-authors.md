@@ -42,6 +42,7 @@ dsh-ee 里有两种插件来源：
 - **`version` 必须是严格 semver**（`0.1.0`，不能写 `v0.1`）。发布后同一个版本号永远不能重发，包括被驳回、下架的版本。
 - **`files` 必须包含 `cordis.patch.yml` 和构建产物**。npm 安装不会执行 `prepare`，所以 `lib/` 要在 `npm publish` 前 build 好。
 - **`engines.dsh` 写你实际验证过的范围**。dsh-ee 会在审核页展示它，DSH 安装时也会用它判断兼容性；没有声明会有警告。
+- **不要把 Cordis 放进 `dependencies`**。DSH 已提供 `@deepseek-ai/cordis` 和 Cordis 插件；需要类型/构建时放 `devDependencies`，需要宿主保证版本时放 `peerDependencies`。重复打包会多出一份 Cordis，服务注入和生命周期会错乱，预检会给 warn。
 - **`dsh.bundle.patch` 是相对路径，指向包内的组合清单**。路径不能是绝对路径、不能含 `..` 或反斜杠。
 - **`dsh-ee` 字段是可选的展示信息**：`title`、`category`（`skin` / `ui` / `agent` / `memory` / `client` / `channel` / `tools` / `fun` / `resource`）、`kind`（`skill` / `connector` / `knowledge` / `plugin`）、`icon`（HTTP(S) 图片）。没有它，市场里会用 `displayName` / `description`。
 - **浏览器端插件**再加 `dsh.client`，例如：
