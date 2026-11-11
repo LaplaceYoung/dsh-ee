@@ -350,7 +350,7 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
 
   const runTest = async () => {
     setTest(null);
-    const r = await run(() => api.testConnection(cleanSpec(), secret || undefined, editing ? Number(id) : undefined));
+    const r = await run(() => api.testConnection(cleanSpec(), secret || undefined, editing ? Number(id) : undefined, editing ? undefined : slug.trim()));
     if (r.ok) setTest(r.value);
     else setError(r.error);
   };

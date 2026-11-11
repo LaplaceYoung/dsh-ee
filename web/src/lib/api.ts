@@ -1554,8 +1554,8 @@ export const api = {
     request<void>("POST", "/api/admin/hub/review", { note: "", ...r }),
   setPluginPolicy: (name: string, p: { scope: Scope; delivery: Delivery }) =>
     request<PluginPolicy>("PUT", `/api/admin/plugin-policies/${encName(name)}`, p),
-  testConnection: (spec: AssetSpec, secret?: string, id?: number) =>
-    request<ConnTestResult>("POST", "/api/admin/connections/test", { spec, ...(secret !== undefined ? { secret } : {}), ...(id ? { id } : {}) }),
+  testConnection: (spec: AssetSpec, secret?: string, id?: number, slug?: string) =>
+    request<ConnTestResult>("POST", "/api/admin/connections/test", { spec, ...(secret !== undefined ? { secret } : {}), ...(id ? { id } : {}), ...(slug ? { slug } : {}) }),
   syncConnection: (id: number) => request<{ ok: boolean; tools?: number; error?: string }>("POST", `/api/admin/connections/${id}/sync`),
   setConnectionTool: (id: number, name: string, p: { enabled: boolean; roles: number[] }) =>
     request<void>("PATCH", `/api/admin/connections/${id}/tools/${encodeURIComponent(name)}`, p),

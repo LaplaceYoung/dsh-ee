@@ -103,6 +103,47 @@ func TestPerUserIdentity(t *testing.T) {
 		return decodeAs[struct{ Asset store.Asset }](t, body).Asset.ID, string(body)
 	}
 
+	// ---- 保存前试连 ee_jwt：用页面上的 slug 做 aud，而不是占位 "test" ----
+	draftCalls := atomic.Int32{}
+	draftUp := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		if _, err := verifier.verify(t, token, "crm-draft"); err != nil {
+			http.Error(w, err.Error(), 401)
+			return
+		}
+		var m struct {
+			ID     *int64 `json:"id"`
+			Method string `json:"method"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&m)
+		if m.ID == nil {
+			w.WriteHeader(202)
+			return
+		}
+		draftCalls.Add(1)
+		var result any
+		switch m.Method {
+		case "initialize":
+			result = map[string]any{"protocolVersion": "2025-06-18", "capabilities": map[string]any{"tools": map[string]any{}}, "serverInfo": map[string]any{"name": "draft"}}
+		case "tools/list":
+			result = map[string]any{"tools": []any{}}
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"jsonrpc": "2.0", "id": *m.ID, "result": result})
+	}))
+	defer draftUp.Close()
+	draftSpec := map[string]any{"title": "CRM draft", "type": "mcp", "url": draftUp.URL, "user_auth": map[string]any{"mode": "ee_jwt"}}
+	code, body = admin.do("POST", "/api/admin/connections/test", map[string]any{"slug": "crm-draft", "spec": draftSpec}, nil)
+	expect(t, "试连未保存的 ee_jwt 连接", code, 200, body)
+	if !decodeAs[struct{ OK bool }](t, body).OK || draftCalls.Load() == 0 {
+		t.Fatalf("试连应使用页面 slug 签 aud：%s", body)
+	}
+	code, body = admin.do("POST", "/api/admin/connections/test", map[string]any{"slug": "Bad Slug", "spec": draftSpec}, nil)
+	expect(t, "非法 slug 试连", code, 200, body)
+	if decodeAs[struct{ OK bool }](t, body).OK || !strings.Contains(string(body), "标识不合法") {
+		t.Fatalf("非法 slug 应被拒绝：%s", body)
+	}
+
 	// ---- OpenAPI 连接 + ee_jwt：共享的 API key 和员工身份各放一个请求头 ----
 	var hrAud atomic.Value
 	hrAud.Store("hr")
