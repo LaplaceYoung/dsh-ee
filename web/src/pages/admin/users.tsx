@@ -270,7 +270,7 @@ export default function AdminUsers() {
                     <KeyRound /> {t("users.resetPassword")}
                   </DropdownMenuItem>
                 )}
-                {canManage && u.auth_source === "oidc" && u.external_dn && (
+                {canManage && !self && u.auth_source === "oidc" && u.external_dn && (
                   <DropdownMenuItem
                     onSelect={async () => {
                       if (!(await confirm({ kind: "unbind", description: t("users.unbindConfirm", { name: u.username }) }))) return;
