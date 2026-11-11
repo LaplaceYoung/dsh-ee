@@ -71,8 +71,13 @@ func validateExtension(sp *assetSpec) string {
 	if sp.URL != "" && !slices.ContainsFunc(m.Servers, func(s string) bool { return extension.UnderServer(sp.URL, s) }) {
 		return "接口根地址要在扩展清单列出的地址之内：" + strings.Join(m.Servers, "、")
 	}
-	// 用谁的身份由清单决定，连接页面上改不了；只有 shared 模式的共享凭据放在哪里由管理员选
+	// 用谁的身份由清单决定，连接页面上改不了；只有 shared 模式的共享凭据放在哪里由管理员选。
+	// 用哪一份命名共享凭据是管理员的选择，清单不管
+	picked := sharedNameOf(sp)
 	sp.Auth, sp.UserAuth = extCredential(m.Credential, sp.Auth)
+	if sp.Auth.Type != "none" {
+		sp.Auth.SharedName = picked
+	}
 	if sp.UserAuth != nil {
 		if msg := validateUserAuth(sp); msg != "" {
 			return msg
@@ -447,6 +452,10 @@ func (s *Server) handleExtInstall(w http.ResponseWriter, r *http.Request) {
 		if _, osp, err := s.findExtension(ctx, m.ID); err == nil && osp != nil {
 			if m.Credential == nil || (m.Credential.Mode == extension.CredShared && m.Credential.Header == "" && req.Auth == nil) {
 				sp.Auth = osp.Auth
+			}
+			// 升级不改变管理员选的那一份命名共享凭据
+			if sp.Auth != nil && sp.Auth.Type != "none" {
+				sp.Auth.SharedName = sharedNameOf(osp)
 			}
 			sp.TimeoutSec, sp.Instructions = osp.TimeoutSec, osp.Instructions
 			if req.Admin == nil {

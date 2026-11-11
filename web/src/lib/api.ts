@@ -772,7 +772,7 @@ export interface AssetSpec {
   plugins?: string[];
   type?: "mcp" | "openapi";
   url?: string;
-  auth?: { type: "none" | "bearer" | "header"; header?: string };
+  auth?: { type: "none" | "bearer" | "header"; header?: string; shared_name?: string };
   /** 连接：员工身份，和共享凭据并存 */
   user_auth?: UserAuth;
   openapi?: string;
@@ -852,6 +852,8 @@ export interface ConnectionCall {
   auth_mode?: "ee_jwt" | "user_secret";
   /** 扩展装的连接：扩展的版本和清单摘要（作者/名字@版本#摘要前 12 位） */
   extension?: string;
+  /** 这次用的是哪一份命名共享凭据；没有就是原连接默认的那一份 */
+  shared_name?: string;
   created_at: string;
 }
 
@@ -1398,6 +1400,20 @@ export interface KBUploadResult {
   updated?: boolean;
 }
 
+export interface NamedSharedCredential {
+  asset_id: number;
+  name: string;
+  secret_hint: string;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface SharedCredentialsResp {
+  default_name: string;
+  legacy_hint: string;
+  credentials: NamedSharedCredential[];
+  count: number;
+}
+
 export const api = {
   /** 演示站：一键以示例员工的身份登录 */
   demoLogin: (username: string) => request<Me>("POST", "/api/auth/demo-login", { username }),
@@ -1631,6 +1647,10 @@ export const api = {
     request<void>("POST", "/api/admin/hub/review", { note: "", ...r }),
   setPluginPolicy: (name: string, p: { scope: Scope; delivery: Delivery }) =>
     request<PluginPolicy>("PUT", `/api/admin/plugin-policies/${encName(name)}`, p),
+  sharedCredentials: (id: number) => request<SharedCredentialsResp>("GET", `/api/admin/connections/${id}/shared-credentials`),
+  saveSharedCredential: (id: number, name: string, secret: string) =>
+    request<NamedSharedCredential>("PUT", `/api/admin/connections/${id}/shared-credentials/${encodeURIComponent(name)}`, { secret }),
+  deleteSharedCredential: (id: number, name: string) => request<void>("DELETE", `/api/admin/connections/${id}/shared-credentials/${encodeURIComponent(name)}`),
   testConnection: (spec: AssetSpec, secret?: string, id?: number, slug?: string) =>
     request<ConnTestResult>("POST", "/api/admin/connections/test", { spec, ...(secret !== undefined ? { secret } : {}), ...(id ? { id } : {}), ...(slug ? { slug } : {}) }),
   checkExtension: (pkg: ExtPackage) => request<ExtPlan>("POST", "/api/admin/extensions/check", pkg),

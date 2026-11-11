@@ -467,6 +467,7 @@ function AssetDetail() {
                           {c.extension && <span className="block text-[11px] text-neutral-500">{c.extension}</span>}
                         </td>
                         <td className="px-5 py-2">
+                          {c.shared_name && <span className="mr-2"><Badge tone="brand">{c.shared_name}</Badge></span>}
                           {c.auth_mode && <span className="mr-2"><Badge>{t(`identity.modeShort.${c.auth_mode}`)}</Badge></span>}
                           {c.ok ? <Badge tone="green">{t("asset.callOk")}</Badge> : <Badge tone="red">{t("asset.callFail")}</Badge>}
                           {c.error && <span className="ml-2 text-xs text-neutral-500">{c.error}</span>}
