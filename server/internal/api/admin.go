@@ -235,6 +235,10 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
+	if req.Disabled != nil && *req.Disabled {
+		// 停用的员工按人存的连接凭据一起删掉（docs/plugins.md §7.6）
+		s.purgeUserCredentials(r.Context(), id)
+	}
 	// 禁用、重置密码或解除身份绑定后，踢掉该用户所有会话
 	if (req.Disabled != nil && *req.Disabled) || req.Password != nil || req.UnbindIdentity {
 		if err := s.store.DeleteUserSessions(r.Context(), id); err != nil {

@@ -99,7 +99,7 @@ func (s *Server) handleWebAppSource(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "这个应用的工作台里没有这个组件")
 		return
 	}
-	out, err := s.runSource(ctx, v, a.Slug, widget.Source)
+	out, err := s.runSource(ctx, v, s.callerBase(r), a.Slug, widget.Source)
 	if err != nil {
 		s.writeAppErr(w, r, err)
 		return
@@ -110,7 +110,8 @@ func (s *Server) handleWebAppSource(w http.ResponseWriter, r *http.Request) {
 // runSource 以员工本人的身份执行一个组件的数据源（只读工具、知识库、数据集、应用自带的表），
 // 返回 {value} / {forbidden: true} / {error}，和 DSH 里插件的取数结果一样。
 // appSlug 是自带的表所属的应用；表找不到时返回 appDataError（调用方决定怎么回）。
-func (s *Server) runSource(ctx context.Context, v viewer, appSlug string, src *wbSource) (map[string]any, error) {
+// base 是员工访问 dsh-ee 的地址，调连接工具时签 ee_jwt 要用。
+func (s *Server) runSource(ctx context.Context, v viewer, base, appSlug string, src *wbSource) (map[string]any, error) {
 	src = &wbSource{Connection: src.Connection, Tool: src.Tool, Args: fillMe(src.Args, v.user), Table: src.Table, Dataset: src.Dataset}
 	args := map[string]any{}
 	_ = json.Unmarshal(src.Args, &args)
@@ -174,7 +175,7 @@ func (s *Server) runSource(ctx context.Context, v viewer, appSlug string, src *w
 				if !t.ReadOnly {
 					return map[string]any{"error": "这个数据源不是只读工具，面板不能用它取数"}, nil
 				}
-				return toolOutcome(s.callConnectionTool(ctx, cn.asset, t, v.user.ID, src.Args)), nil
+				return toolOutcome(s.callConnectionTool(ctx, cn.asset, t, v, base, src.Args)), nil
 			}
 		}
 		return map[string]any{"forbidden": true}, nil

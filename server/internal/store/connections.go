@@ -135,12 +135,14 @@ type ConnectionCall struct {
 	OK        bool
 	Error     string
 	LatencyMS int
+	// 这次调用带的员工身份：空（只有共享凭据）/ ee_jwt / user_secret
+	AuthMode string
 }
 
 func (s *Store) RecordConnectionCall(ctx context.Context, c ConnectionCall) error {
 	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO connection_calls (asset_id, tool, user_id, ok, error, latency_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		c.AssetID, c.Tool, c.UserID, c.OK, truncateRunes(c.Error, 512), c.LatencyMS, now())
+		"INSERT INTO connection_calls (asset_id, tool, user_id, ok, error, latency_ms, auth_mode, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+		c.AssetID, c.Tool, c.UserID, c.OK, truncateRunes(c.Error, 512), c.LatencyMS, c.AuthMode, now())
 	return err
 }
 
@@ -151,11 +153,12 @@ type RecentCall struct {
 	OK        bool      `json:"ok"`
 	Error     string    `json:"error"`
 	LatencyMS int       `json:"latency_ms"`
+	AuthMode  string    `json:"auth_mode,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 }
 
 func (s *Store) RecentConnectionCalls(ctx context.Context, assetID int64, limit int) ([]RecentCall, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.tool, COALESCE(u.username, ''), c.ok, c.error, c.latency_ms, c.created_at
+	rows, err := s.db.QueryContext(ctx, `SELECT c.tool, COALESCE(u.username, ''), c.ok, c.error, c.latency_ms, c.auth_mode, c.created_at
 		FROM connection_calls c LEFT JOIN users u ON u.id = c.user_id
 		WHERE c.asset_id = ? ORDER BY c.id DESC LIMIT ?`, assetID, limit)
 	if err != nil {
@@ -165,7 +168,7 @@ func (s *Store) RecentConnectionCalls(ctx context.Context, assetID int64, limit 
 	out := []RecentCall{}
 	for rows.Next() {
 		var c RecentCall
-		if err := rows.Scan(&c.Tool, &c.Username, &c.OK, &c.Error, &c.LatencyMS, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.Tool, &c.Username, &c.OK, &c.Error, &c.LatencyMS, &c.AuthMode, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, c)

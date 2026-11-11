@@ -115,6 +115,8 @@ func (s *Server) routes() []route {
 		prm("GET /api/me/calls/model", s.handleMyModelCalls, rbac.LLMUse),
 		prm("GET /api/me/calls/connection", s.handleMyConnectionCalls, rbac.PortalView),
 		prm("GET /api/me/connections", s.handleMyConnections, rbac.PortalView),
+		prm("PUT /api/me/connections/{id}/credential", s.handleSetMyCredential, rbac.PortalView),
+		prm("DELETE /api/me/connections/{id}/credential", s.handleDeleteMyCredential, rbac.PortalView),
 		prm("POST /api/me/connection-requests", s.handleCreateConnectionRequest, rbac.PortalView),
 		prm("GET /api/me/access-target", s.handleAccessTarget, rbac.PortalView),
 		prm("GET /api/me/access-requests", s.handleMyAccessRequests, rbac.PortalView),
@@ -206,6 +208,12 @@ func (s *Server) routes() []route {
 		prm("POST /api/admin/connections/test", s.handleConnTest, rbac.ConnectionsManage),
 		prm("POST /api/admin/connections/{id}/sync", s.handleConnSync, rbac.ConnectionsManage),
 		prm("PATCH /api/admin/connections/{id}/tools/{name}", s.handleConnTool, rbac.ConnectionsManage),
+		// 按员工本人的身份调用（user_identity.go）：谁填了凭据、ee_jwt 的签名密钥和公钥
+		prm("GET /api/admin/connections/{id}/credentials", s.handleConnCredentials, rbac.ConnectionsManage),
+		prm("DELETE /api/admin/connections/{id}/credentials/{user}", s.handleRevokeConnCredential, rbac.ConnectionsManage),
+		prm("GET /api/admin/ee-jwt", s.handleEEJWTInfo, rbac.ConnectionsManage),
+		prm("POST /api/admin/ee-jwt/rotate", s.handleEEJWTRotate, rbac.ConnectionsManage),
+		pub("GET /.well-known/jwks.json", s.handleJWKS),
 
 		// 知识库：建库、权限、文档、试搜与检索记录（员工在 DSH 里用 /mcp 的 kb__ 工具检索）
 		prm("GET /api/kb", s.handleKBList, rbac.PortalView),

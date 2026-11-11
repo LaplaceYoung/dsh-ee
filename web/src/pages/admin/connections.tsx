@@ -8,6 +8,7 @@ import { LoadState } from "../../components/api-ui";
 import { useScopeOptions } from "../../components/scope-dialog";
 import { Badge, Button, Card, PageHeader, Segmented, Empty } from "../../components/ui";
 import { DataHubPanel } from "../../components/data-hub";
+import { EeJwtKeysCard } from "../../components/connection-identity";
 
 export default function AdminConnections() {
   const { t } = useTranslation();
@@ -103,6 +104,7 @@ export default function AdminConnections() {
           )}
         </LoadState>
       </Card>
+      {conns.some((c) => c.spec.user_auth?.mode === "ee_jwt") && <EeJwtKeysCard />}
       </>
     );
   }

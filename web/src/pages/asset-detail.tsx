@@ -15,6 +15,7 @@ import { AppDataPanel } from "../components/app-data";
 import { AppMap } from "../components/app-map";
 import { AppDepsCard } from "../components/access-requests";
 import { UsedByCard } from "../components/used-by";
+import { CredentialHolders, MyCredentialCard } from "../components/connection-identity";
 import { ScopeDialog, useScopeOptions } from "../components/scope-dialog";
 import { Badge, Button, Card, CardHeader, cx, inputCls, Toggle, Empty, backLinkCls } from "../components/ui";
 import { statusBadge } from "../components/status";
@@ -446,6 +447,9 @@ function AssetDetail() {
             </Card>
           )}
 
+          {a.kind === "connection" && d.my_credential && a.live_version > 0 && <MyCredentialCard assetId={a.id} cred={d.my_credential} reload={detail.reload} />}
+          {a.kind === "connection" && a.can_manage && a.spec.user_auth?.mode === "user_secret" && <CredentialHolders key={d.my_credential?.updated_at ?? ""} assetId={a.id} />}
+
           {a.kind === "connection" && d.calls && (
             <Card>
               <CardHeader title={t("asset.calls")} />
@@ -460,6 +464,7 @@ function AssetDetail() {
                         <td className="px-5 py-2">{c.username}</td>
                         <td className="px-5 py-2 font-mono text-xs">{c.tool}</td>
                         <td className="px-5 py-2">
+                          {c.auth_mode && <span className="mr-2"><Badge>{t(`identity.modeShort.${c.auth_mode}`)}</Badge></span>}
                           {c.ok ? <Badge tone="green">{t("asset.callOk")}</Badge> : <Badge tone="red">{t("asset.callFail")}</Badge>}
                           {c.error && <span className="ml-2 text-xs text-neutral-500">{c.error}</span>}
                         </td>
@@ -508,6 +513,7 @@ function AssetDetail() {
                   </Info>
                 )}
                 {a.secret_hint && <Info label={t("connections.secret")}>{t("asset.secretHint", { hint: a.secret_hint })}</Info>}
+                {a.spec.user_auth && <Info label={t("identity.mode")}>{t(a.spec.user_auth.mode === "ee_jwt" ? "identity.eeJwt" : "identity.userSecret")}</Info>}
               </>
             )}
             {d.feedback && (

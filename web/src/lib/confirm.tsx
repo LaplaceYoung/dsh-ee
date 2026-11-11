@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/shadcn/alert-dialog";
 
-export type ConfirmKind = "delete" | "revoke" | "disable" | "reset" | "restore" | "unbind";
+export type ConfirmKind = "delete" | "revoke" | "disable" | "reset" | "restore" | "unbind" | "rotate";
 
 export interface ConfirmOptions {
   /** 决定标题与确认按钮的文字。 */
@@ -61,7 +61,7 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => close(false)}>{t("common.cancel")}</AlertDialogCancel>
-                <AlertDialogAction variant={opts.kind === "reset" || opts.kind === "restore" ? "default" : "destructive"} onClick={() => close(true)}>
+                <AlertDialogAction variant={opts.kind === "reset" || opts.kind === "restore" || opts.kind === "rotate" ? "default" : "destructive"} onClick={() => close(true)}>
                   {t(`confirm.${opts.kind}.action`)}
                 </AlertDialogAction>
               </AlertDialogFooter>

@@ -232,3 +232,49 @@ func (s *Store) PutSettingJSON(ctx context.Context, name string, v any, userID i
 		name, string(b), by, now())
 	return err
 }
+
+// UpdateSettingJSON 在一个事务里读出一行设置、交给 fn 改、再写回去：几个副本同时改同一行时不会互相覆盖。
+// 这一行还不存在时 fn 收到 nil；fn 返回 nil 表示不改。
+func (s *Store) UpdateSettingJSON(ctx context.Context, name string, userID int64, fn func(old []byte) ([]byte, error)) error {
+	if name == appSettingsKey {
+		return errors.New("系统设置请用 SaveSettings")
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	// 先占住这一行（没有就插一行空的），后面的 FOR UPDATE 才有东西可锁
+	if _, err := tx.ExecContext(ctx, "INSERT IGNORE INTO settings (name, value, updated_at) VALUES (?, '', ?)", name, now()); err != nil {
+		return err
+	}
+	var raw string
+	if err := tx.QueryRowContext(ctx, "SELECT value FROM settings WHERE name = ? FOR UPDATE", name).Scan(&raw); err != nil {
+		return err
+	}
+	var old []byte
+	if raw != "" {
+		old = []byte(raw)
+	}
+	next, err := fn(old)
+	if err != nil {
+		return err
+	}
+	if next == nil {
+		if raw == "" {
+			// 没改，把刚才占位的空行拿掉
+			if _, err := tx.ExecContext(ctx, "DELETE FROM settings WHERE name = ? AND value = ''", name); err != nil {
+				return err
+			}
+		}
+		return tx.Commit()
+	}
+	var by any
+	if userID > 0 {
+		by = userID
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE settings SET value = ?, updated_by = ?, updated_at = ? WHERE name = ?", string(next), by, now(), name); err != nil {
+		return err
+	}
+	return tx.Commit()
+}

@@ -773,6 +773,8 @@ export interface AssetSpec {
   type?: "mcp" | "openapi";
   url?: string;
   auth?: { type: "none" | "bearer" | "header"; header?: string };
+  /** 连接：员工身份，和共享凭据并存 */
+  user_auth?: UserAuth;
   openapi?: string;
   instructions?: string;
   timeout_seconds?: number;
@@ -844,7 +846,44 @@ export interface ConnectionCall {
   ok: boolean;
   error: string;
   latency_ms: number;
+  /** 这次调用带的员工身份：没有（只有共享凭据）/ ee_jwt / user_secret */
+  auth_mode?: "ee_jwt" | "user_secret";
   created_at: string;
+}
+
+/** 连接上的员工身份设置：ee_jwt 由 dsh-ee 每次现签，user_secret 由员工自己填。 */
+export interface UserAuth {
+  mode: "ee_jwt" | "user_secret";
+  header?: string;
+  audience?: string;
+  claims?: string[];
+  hint?: string;
+}
+
+/** 员工在一个连接上看到的自己的凭据状态。 */
+export interface MyCredential {
+  mode: "ee_jwt" | "user_secret";
+  hint?: string;
+  filled: boolean;
+  tail?: string;
+  updated_at?: string;
+}
+
+export interface CredentialHolder {
+  user_id: number;
+  username: string;
+  display_name: string;
+  department: string;
+  updated_at: string;
+}
+
+export interface EeJwtInfo {
+  issuer: string;
+  jwks_url: string;
+  lifetime_seconds: number;
+  claims: string[];
+  rotate_delay_seconds: number;
+  keys: { kid: string; created_at: string; active_at: string; state: "active" | "pending" | "retired" }[];
 }
 
 /** 应用依赖的一项与当前员工的状态（M7）。 */
@@ -914,6 +953,7 @@ export interface AssetDetail {
   tools?: ConnectionTool[];
   calls?: ConnectionCall[];
   server_name?: string;
+  my_credential?: MyCredential;
   feedback?: { up: number; down: number; up_30d: number };
   questions?: { id: number; signal: string; question: string; count: number; last_at: string }[];
 }
@@ -1519,6 +1559,12 @@ export const api = {
   syncConnection: (id: number) => request<{ ok: boolean; tools?: number; error?: string }>("POST", `/api/admin/connections/${id}/sync`),
   setConnectionTool: (id: number, name: string, p: { enabled: boolean; roles: number[] }) =>
     request<void>("PATCH", `/api/admin/connections/${id}/tools/${encodeURIComponent(name)}`, p),
+  setMyCredential: (id: number, secret: string) => request<void>("PUT", `/api/me/connections/${id}/credential`, { secret }),
+  deleteMyCredential: (id: number) => request<void>("DELETE", `/api/me/connections/${id}/credential`),
+  connCredentials: (id: number) => request<{ holders: CredentialHolder[] }>("GET", `/api/admin/connections/${id}/credentials`).then((r) => r.holders),
+  revokeConnCredential: (id: number, userId: number) => request<void>("DELETE", `/api/admin/connections/${id}/credentials/${userId}`),
+  eeJwtInfo: () => request<EeJwtInfo>("GET", "/api/admin/ee-jwt"),
+  rotateEeJwt: () => request<EeJwtInfo>("POST", "/api/admin/ee-jwt/rotate"),
   connectInfo: () => request<ConnectInfo>("GET", "/api/connect"),
   adminConnect: () => request<{ state: ConnectState; package?: string; stale?: boolean; patch?: string }>("GET", "/api/admin/connect"),
   publishConnect: (force = false) => request<ConnectState>("POST", "/api/admin/connect/publish", { force }),

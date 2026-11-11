@@ -750,7 +750,7 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 			for _, t := range cn.tools {
 				if t.Name == tool {
 					ctx := r.Context()
-					writeRPC(w, msg.ID, s.callConnectionTool(ctx, cn.asset, t, v.user.ID, p.Arguments), nil)
+					writeRPC(w, msg.ID, s.callConnectionTool(ctx, cn.asset, t, v, s.callerBase(r), p.Arguments), nil)
 					return
 				}
 			}

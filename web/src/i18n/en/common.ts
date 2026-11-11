@@ -94,6 +94,7 @@ export default {
     reset: { title: "Restore defaults?", action: "Restore defaults" },
     restore: { title: "Restore?", action: "Restore" },
     unbind: { title: "Unbind?", action: "Unbind" },
+    rotate: { title: "Rotate key?", action: "Rotate" },
   },
   api: {
     unreachable: "Can't reach the server. Make sure dsh-ee server is running",

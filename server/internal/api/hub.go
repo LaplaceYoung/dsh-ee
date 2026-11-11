@@ -65,6 +65,8 @@ type assetSpec struct {
 	OpenAPI      string    `json:"openapi,omitempty"`
 	Instructions string    `json:"instructions,omitempty"`
 	TimeoutSec   int       `json:"timeout_seconds,omitempty"`
+	// 连接：员工身份（ee_jwt / user_secret），和上面的共享凭据并存；见 user_identity.go
+	UserAuth *connUserAuth `json:"user_auth,omitempty"`
 }
 
 // connAuth 是连接上游的认证方式；凭据本身单独加密存放，不在版本内容里。
@@ -106,7 +108,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 		}
 		sp.Persona, sp.Starters, sp.Skills, sp.Connections, sp.Plugins, sp.Knowledge = "", nil, nil, nil, nil, nil
 		sp.Icon, sp.Launch, sp.Workbench, sp.Template, sp.Tables, sp.Web, sp.Highlights = "", "", nil, false, nil, false, nil
-		sp.Type, sp.URL, sp.Auth, sp.OpenAPI, sp.Instructions = "", "", nil, "", ""
+		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions = "", "", nil, nil, "", ""
 	case store.KindApp:
 		sp.Persona = strings.TrimSpace(sp.Persona)
 		if sp.Persona == "" {
@@ -180,7 +182,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 			return "开放网页版需要工作台里至少有一个业务面板（panel）"
 		}
 		sp.Body, sp.WhenToUse, sp.ModelInvocable = "", "", nil
-		sp.Type, sp.URL, sp.Auth, sp.OpenAPI, sp.Instructions = "", "", nil, "", ""
+		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions = "", "", nil, nil, "", ""
 	case store.KindConnection:
 		if sp.Type != "mcp" && sp.Type != "openapi" {
 			return "连接类型只能是 mcp 或 openapi"
@@ -204,6 +206,9 @@ func validateSpec(kind string, sp *assetSpec) string {
 			}
 		default:
 			return "认证方式只能是 none / bearer / header"
+		}
+		if msg := validateUserAuth(sp); msg != "" {
+			return msg
 		}
 		if sp.Type == "openapi" && strings.TrimSpace(sp.OpenAPI) == "" {
 			return "OpenAPI 连接需要接口文档（JSON 或 YAML）"
@@ -527,6 +532,14 @@ func (s *Server) handleHubDetail(w http.ResponseWriter, r *http.Request) {
 		}
 		resp["tools"] = tools
 		resp["server_name"] = s.mcpServerName(r)
+		if item.Spec != nil && item.Spec.UserAuth != nil {
+			creds, err := s.store.UserCredentialInfos(r.Context(), v.user.ID)
+			if err != nil {
+				s.internalErr(w, r, err)
+				return
+			}
+			resp["my_credential"] = credentialView(item.Spec.UserAuth, creds, a.ID)
+		}
 		if v.manages(a.Kind) {
 			calls, err := s.store.RecentConnectionCalls(r.Context(), a.ID, 50)
 			if err != nil {
@@ -698,7 +711,7 @@ func (s *Server) handleHubCreate(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-		if n, err := s.syncConnectionTools(r.Context(), a.ID); err != nil {
+		if n, err := s.syncConnectionTools(r.Context(), a.ID, viewerOf(r), s.callerBase(r)); err != nil {
 			resp["sync_error"] = err.Error()
 		} else {
 			resp["tools"] = n
@@ -807,7 +820,7 @@ func (s *Server) handleHubNewVersion(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		s.dropConnClient(a.ID)
-		if n, err := s.syncConnectionTools(r.Context(), a.ID); err != nil {
+		if n, err := s.syncConnectionTools(r.Context(), a.ID, viewerOf(r), s.callerBase(r)); err != nil {
 			resp["sync_error"] = err.Error()
 		} else {
 			resp["tools"] = n
