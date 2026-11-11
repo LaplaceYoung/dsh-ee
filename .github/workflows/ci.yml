@@ -60,6 +60,13 @@ jobs:
         working-directory: server
         env:
           DSH_EE_TEST_DSN: root:@tcp(127.0.0.1:4000)/
+      # #59 的 ee_jwt 适配层是独立 Go module，server job 默认不会编译它。
+      - name: vet ee_jwt adapter example
+        working-directory: extensions/official/ee-jwt-adapter
+        run: go vet ./...
+      - name: build ee_jwt adapter example
+        working-directory: extensions/official/ee-jwt-adapter
+        run: go build -o /tmp/ee-jwt-adapter .
 
   e2e:
     needs: web
