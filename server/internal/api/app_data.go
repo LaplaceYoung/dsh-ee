@@ -555,7 +555,6 @@ func (s *Server) appInsert(ctx context.Context, r *http.Request, v viewer, t *ap
 		ids = append(ids, row.ID)
 	}
 	s.auditAs(r, v.user, auditAppDataInsert, t.asset.Slug+"/"+t.table.Name, map[string]any{"ids": ids})
-	s.hub.notify()
 	return s.rowViews(ctx, v, t, rows), nil
 }
 
@@ -601,7 +600,6 @@ func (s *Server) appUpdate(ctx context.Context, r *http.Request, v viewer, t *ap
 		return nil, err
 	}
 	s.auditAs(r, v.user, auditAppDataUpdate, t.asset.Slug+"/"+t.table.Name, map[string]any{"id": row.ID, "before": before, "after": after})
-	s.hub.notify()
 	row.Data, row.UpdatedAt, row.UpdatedBy = b, time.Now().UTC(), v.user.ID
 	return s.rowViews(ctx, v, t, []*store.AppRow{row})[0], nil
 }
@@ -641,7 +639,6 @@ func (s *Server) appDelete(ctx context.Context, r *http.Request, v viewer, t *ap
 		return 0, err
 	}
 	s.auditAs(r, v.user, auditAppDataDelete, t.asset.Slug+"/"+t.table.Name, map[string]any{"ids": ids})
-	s.hub.notify()
 	return n, nil
 }
 

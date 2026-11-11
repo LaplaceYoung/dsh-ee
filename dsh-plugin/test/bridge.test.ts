@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { McpBridge } from "../src/bridge.js";
+import { listChangedCounter, McpBridge } from "../src/bridge.js";
 import { normalizeConfig } from "../src/config.js";
 
 test("bridge registers initial tools before start resolves and removes tools from list_changed", async () => {
@@ -80,4 +80,74 @@ test("bridge gives up after one retry when /mcp always 404 and surfaces the erro
   bridge.stop();
   assert.equal(posts, 2, "initialize 原始请求 + 一次清会话重试");
   assert.match(bridge.status.error, /404/);
+});
+
+test("event stream syncs only on tools/list_changed, not on keepalive comments", async () => {
+  // 回归：服务端每 25 秒发一行 `: ping` 保活，以前每收到一块数据就全量 tools/list 一次
+  const ctx = { tools: { register() { return () => undefined; } } };
+  let lists = 0;
+  let stream!: ReadableStreamDefaultController<Uint8Array>;
+  const events = new ReadableStream<Uint8Array>({ start(c) { stream = c; } });
+  const http = {
+    async fetch(_path: string, init: RequestInit) {
+      if (!init.body) return new Response(events);
+      const body = JSON.parse(String(init.body));
+      if (body.method === "initialize") return new Response(JSON.stringify({ result: {} }), { headers: { "mcp-session-id": "s1" } });
+      if (body.method === "tools/list") { lists++; return new Response(JSON.stringify({ result: { tools: [] } })); }
+      throw new Error("unexpected");
+    },
+  };
+  const bridge = new McpBridge(ctx as any, normalizeConfig({ base: "http://localhost", serverName: "acme" }), http as any);
+  await bridge.start();
+  const send = async (text: string) => { stream.enqueue(new TextEncoder().encode(text)); await new Promise((r) => setTimeout(r, 30)); };
+  await send(": dsh-ee\n\n");
+  const base = lists; // 启动一次 + 连上后补一次
+  await send(": ping\n\n");
+  await send(": ping\n\n");
+  assert.equal(lists, base, "保活不该触发同步");
+  await send('event: message\ndata: {"jsonrpc":"2.0","method":"notifications/tools/list_changed"}\n\n');
+  assert.equal(lists, base + 1, "list_changed 要同步一次");
+  bridge.stop();
+  stream.close();
+});
+
+test("listChangedCounter handles split chunks, CRLF and unrelated events", () => {
+  const enc = (text: string) => new TextEncoder().encode(text);
+  const events = listChangedCounter();
+  assert.equal(events.push(enc(": ping\n\n")), 0);
+  assert.equal(events.push(enc('event: message\ndata: {"jsonrpc":"2.0","meth')), 0);
+  assert.equal(events.push(enc('od":"notifications/tools/list_changed"}\n')), 0);
+  assert.equal(events.push(enc("\n: ping\n\n")), 1);
+  assert.equal(events.push(enc('data: {"method":"notifications/progress"}\r\n\r\ndata: {"method":"notifications/tools/list_changed"}\r\n\r\n')), 1);
+  assert.equal(events.push(enc("data: not json\n\n")), 0);
+});
+
+test("sync re-registers a tool whose definition changed and leaves unchanged ones alone", async () => {
+  // 回归：以前只按名字增删，说明 / 参数 / 只读标记变了，在线的 DSH 一直用旧定义
+  const registered = new Map<string, any>();
+  let registrations = 0;
+  const ctx = { tools: { register(tool: any) { registrations++; registered.set(tool.name, tool); return () => registered.delete(tool.name); } } };
+  let tools: any[] = [
+    { name: "data__dataset", description: "可用的数据集：\n- sales", annotations: { readOnlyHint: true } },
+    { name: "lookup", description: "Lookup" },
+  ];
+  const http = {
+    async fetch(_path: string, init: RequestInit) {
+      if (!init.body) return new Response(null);
+      const body = JSON.parse(String(init.body));
+      if (body.method === "initialize") return new Response(JSON.stringify({ result: {} }), { headers: { "mcp-session-id": "s1" } });
+      if (body.method === "tools/list") return new Response(JSON.stringify({ result: { tools } }));
+      throw new Error("unexpected");
+    },
+  };
+  const bridge = new McpBridge(ctx as any, normalizeConfig({ base: "http://localhost", serverName: "acme" }), http as any);
+  await bridge.sync();
+  await bridge.sync();
+  assert.equal(registrations, 2, "定义没变不该重新注册");
+  tools = [{ ...tools[0], description: "可用的数据集：\n- sales\n- hr", annotations: { readOnlyHint: false } }, tools[1]];
+  await bridge.sync();
+  assert.equal(registrations, 3, "只重新注册定义变了的那个");
+  assert.equal(registered.get("mcp__acme__data__dataset").description, "可用的数据集：\n- sales\n- hr");
+  assert.equal(bridge.isReadOnlyTool("data__dataset"), false, "只读标记要跟着更新");
+  assert.ok(bridge.hasTool("lookup"));
 });

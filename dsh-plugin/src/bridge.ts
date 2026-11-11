@@ -31,8 +31,40 @@ export function canonArgs(args: any): string {
   return JSON.stringify(sort(args ?? {}));
 }
 
+/**
+ * 增量解析 SSE，数出每块数据里完整收到的 tools/list_changed 通知。
+ * 注释行（`: ping` 保活）和其他通知不算；一条事件被拆在两块里也能认出来。
+ */
+export function listChangedCounter(): { push(chunk?: Uint8Array): number } {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  return {
+    push(chunk) {
+      if (!chunk) return 0;
+      buffer += decoder.decode(chunk, { stream: true });
+      let count = 0;
+      for (;;) {
+        const end = buffer.search(/\r?\n\r?\n/);
+        if (end < 0) break;
+        const event = buffer.slice(0, end);
+        buffer = buffer.slice(end).replace(/^\r?\n\r?\n/, "");
+        const data = event.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
+        if (!data) continue;
+        try {
+          if (JSON.parse(data)?.method === "notifications/tools/list_changed") count++;
+        } catch {
+          // 不是 JSON 的事件不关我们的事
+        }
+      }
+      return count;
+    },
+  };
+}
+
 export class McpBridge {
   private disposers = new Map<string, () => void>();
+  /** 已注册工具的定义指纹（DSH 里的工具全名 -> 定义的 JSON），用来发现「名字没变、定义变了」 */
+  private signatures = new Map<string, string>();
   private session = "";
   private controller?: AbortController;
   /** 结束长连接的退避等待，马上重连（刚登录时用）。 */
@@ -132,8 +164,10 @@ export class McpBridge {
         return result;
       },
     });
+    this.signatures.set(name, JSON.stringify(tool));
     this.disposers.set(name, () => {
       dispose();
+      this.signatures.delete(name);
       this.metas.delete(name);
       this.serverNames.delete(name);
       this.readOnly.delete(tool.name);
@@ -152,15 +186,17 @@ export class McpBridge {
     this.status.error = "";
     this.status.lastSyncAt = Date.now();
     this.status.tools = (result.tools ?? []).length;
-    const next = new Set<string>((result.tools ?? []).map((tool: any) => `mcp__${this.config.serverName}__${tool.name}`));
+    // 定义没变的工具原样留着：重新注册会让模型看到的工具清单变一次，白白打掉提示词缓存。
+    // 定义变了的（说明里列的数据集 / 应用表多了一项、参数或只读标记改了）要换成新的，否则在线的 DSH 一直用旧定义。
+    const next = new Map<string, any>((result.tools ?? []).map((tool: any) => [`mcp__${this.config.serverName}__${tool.name}`, tool]));
     for (const [name, dispose] of this.disposers) {
-      if (!next.has(name)) {
+      const tool = next.get(name);
+      if (!tool || JSON.stringify(tool) !== this.signatures.get(name)) {
         dispose();
         this.disposers.delete(name);
       }
     }
-    for (const tool of result.tools ?? []) {
-      const name = `mcp__${this.config.serverName}__${tool.name}`;
+    for (const [name, tool] of next) {
       if (!this.disposers.has(name)) this.register(tool);
     }
   }
@@ -171,6 +207,8 @@ export class McpBridge {
     await this.sync().catch(() => undefined);
     // 长连接收 tools/list_changed；断开（dsh-ee 重启、网络抖动）后退避重连，
     // 重连成功先补一次同步，避免错过断开期间的变化。插件停用时 abort 退出。
+    // 只有真的收到 list_changed 才同步：流上还有开场注释和每 25 秒一行的保活，
+    // 见到数据就同步的话，每个在线的 DSH 都会一直每 25 秒全量拉一次工具清单。
     void (async () => {
       let delay = 1000;
       while (!signal.aborted) {
@@ -180,10 +218,11 @@ export class McpBridge {
           if (reader) {
             delay = 1000;
             await this.sync().catch(() => undefined);
+            const events = listChangedCounter();
             while (true) {
-              const { done } = await reader.read();
+              const { done, value } = await reader.read();
               if (done) break;
-              await this.sync().catch(() => undefined);
+              if (events.push(value) > 0) await this.sync().catch(() => undefined);
             }
           }
         } catch {

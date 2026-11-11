@@ -501,6 +501,30 @@ function canonArgs(args) {
   };
   return JSON.stringify(sort(args ?? {}));
 }
+function listChangedCounter() {
+  const decoder = new TextDecoder();
+  let buffer = "";
+  return {
+    push(chunk) {
+      if (!chunk) return 0;
+      buffer += decoder.decode(chunk, { stream: true });
+      let count = 0;
+      for (; ; ) {
+        const end = buffer.search(/\r?\n\r?\n/);
+        if (end < 0) break;
+        const event = buffer.slice(0, end);
+        buffer = buffer.slice(end).replace(/^\r?\n\r?\n/, "");
+        const data = event.split(/\r?\n/).filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trim()).join("\n");
+        if (!data) continue;
+        try {
+          if (JSON.parse(data)?.method === "notifications/tools/list_changed") count++;
+        } catch {
+        }
+      }
+      return count;
+    }
+  };
+}
 var McpBridge = class {
   constructor(ctx, config, http) {
     this.ctx = ctx;
@@ -508,6 +532,8 @@ var McpBridge = class {
     this.http = http;
   }
   disposers = /* @__PURE__ */ new Map();
+  /** 已注册工具的定义指纹（DSH 里的工具全名 -> 定义的 JSON），用来发现「名字没变、定义变了」 */
+  signatures = /* @__PURE__ */ new Map();
   session = "";
   controller;
   /** 结束长连接的退避等待，马上重连（刚登录时用）。 */
@@ -595,8 +621,10 @@ ${canonArgs(args)}`, body.preview);
         return result;
       }
     });
+    this.signatures.set(name2, JSON.stringify(tool));
     this.disposers.set(name2, () => {
       dispose();
+      this.signatures.delete(name2);
       this.metas.delete(name2);
       this.serverNames.delete(name2);
       this.readOnly.delete(tool.name);
@@ -614,15 +642,15 @@ ${canonArgs(args)}`, body.preview);
     this.status.error = "";
     this.status.lastSyncAt = Date.now();
     this.status.tools = (result.tools ?? []).length;
-    const next = new Set((result.tools ?? []).map((tool) => `mcp__${this.config.serverName}__${tool.name}`));
+    const next = new Map((result.tools ?? []).map((tool) => [`mcp__${this.config.serverName}__${tool.name}`, tool]));
     for (const [name2, dispose] of this.disposers) {
-      if (!next.has(name2)) {
+      const tool = next.get(name2);
+      if (!tool || JSON.stringify(tool) !== this.signatures.get(name2)) {
         dispose();
         this.disposers.delete(name2);
       }
     }
-    for (const tool of result.tools ?? []) {
-      const name2 = `mcp__${this.config.serverName}__${tool.name}`;
+    for (const [name2, tool] of next) {
       if (!this.disposers.has(name2)) this.register(tool);
     }
   }
@@ -639,10 +667,11 @@ ${canonArgs(args)}`, body.preview);
           if (reader) {
             delay = 1e3;
             await this.sync().catch(() => void 0);
+            const events = listChangedCounter();
             while (true) {
-              const { done } = await reader.read();
+              const { done, value } = await reader.read();
               if (done) break;
-              await this.sync().catch(() => void 0);
+              if (events.push(value) > 0) await this.sync().catch(() => void 0);
             }
           }
         } catch {
