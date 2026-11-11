@@ -98,3 +98,7 @@
 - 技能提供方插件：需要按上游的 Cordis 插件规范写一个最小插件，验证远程 `SkillProvider` 在 web profile 里的加载、缓存失效与 `/name` 调用。
 - 接入令牌怎么交给 DSH：环境变量（`!!js process.env`）与上游 `packages/credentials` 二选一，先读后者的文档。
 - 品牌：上游规范禁止在产品名中使用完整「DeepSeek Harness」商标，企业定制版命名用「DSH」或「基于 DeepSeek Harness 构建」。
+
+## 与插件质量三层（ENTRY / FLOW / BOOST）的关系
+
+能力中心**不显示、不认证**三层等级：预检对应 ENTRY 的静态部分，审核 / 可见范围 / 安装 / 调用审计对应 FLOW 的企业侧，BOOST 不在 dsh-ee 的范围内，只作为作者证据阅读。边界和映射见 [plugin-quality.md](./plugin-quality.md)。
