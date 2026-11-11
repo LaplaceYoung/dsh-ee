@@ -28,6 +28,9 @@ func main() {
 		fmt.Println(version)
 		return
 	}
+	if handled, code := runCLI(os.Args[1:], os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := run(log); err != nil {
 		log.Error("启动失败", "err", err)

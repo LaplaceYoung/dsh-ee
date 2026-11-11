@@ -1,0 +1,52 @@
+openapi: 3.0.3
+info:
+  title: IT 工单系统（示例）
+  version: 1.0.0
+servers:
+  - url: http://127.0.0.1:8080
+paths:
+  /demo/itsm/summary:
+    get:
+      operationId: get_summary
+      summary: 工单概况：未解决、超时（超过 3 天未解决）、近 7 天解决的工单数
+      parameters:
+        - name: requester
+          in: query
+          required: false
+          description: 只看某人报修的，填姓名
+          schema: { type: string }
+  /demo/itsm/tickets:
+    get:
+      operationId: list_tickets
+      summary: 工单列表，新的在前
+      parameters:
+        - name: requester
+          in: query
+          required: false
+          description: 报修人姓名
+          schema: { type: string }
+        - name: status
+          in: query
+          required: false
+          description: 待处理 / 处理中 / 已解决 / 已关闭，或「未解决」
+          schema: { type: string }
+    post:
+      operationId: create_ticket
+      summary: 新建一张 IT 工单
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title, requester]
+              properties:
+                title: { type: string, description: 一句话描述问题 }
+                category: { type: string, description: "故障分类：vpn / mail / printer / account / laptop / software / meeting" }
+                requester: { type: string, description: 报修人姓名 }
+                priority: { type: string, description: 低 / 中 / 高 }
+                detail: { type: string, description: 现象、已经试过的排查步骤 }
+  /demo/itsm/categories:
+    get:
+      operationId: list_categories
+      summary: 常见故障分类、近 30 天的工单数与自助排障提示
