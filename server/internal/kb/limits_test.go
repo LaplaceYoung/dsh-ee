@@ -70,6 +70,8 @@ func TestConvertOutputBounded(t *testing.T) {
 		{"Word 字母编号", "a.docx", docxOf(t, numbered, numbering(26*20000000, "upperLetter", "%1")), ""},
 		// 同一页（2 万字）引用 1000 次
 		{"PPT 重复引用", "a.pptx", pptxOf(t, 1000, slideOf(`<p:sp><p:txBody><a:p><a:r><a:t>`+strings.Repeat("z", 20000)+`</a:t></a:r></a:p></p:txBody></p:sp>`)), "正文太大"},
+		// 只有一页、页内一段就超过上限：之前只在进入下一页前检查，单页写完直接返回
+		{"PPT 单页超限", "a.pptx", pptxOf(t, 1, slideOf(`<p:sp><p:txBody><a:p><a:r><a:t>`+strings.Repeat("z", 20<<20)+`</a:t></a:r></a:p></p:txBody></p:sp>`)), "正文太大"},
 		{"PPT 页数", "a.pptx", pptxOf(t, 5001, slideOf(`<p:sp><p:txBody><a:p><a:r><a:t>z</a:t></a:r></a:p></p:txBody></p:sp>`)), "幻灯片超过"},
 		// 一行 2500 格，下面 2500 个空行
 		{"PPT 表格补齐", "a.pptx", pptxOf(t, 1, slideOf(pptTable(`<a:tr>`+strings.Repeat(`<a:tc/>`, 2500)+`</a:tr>`+strings.Repeat(`<a:tr/>`, 2500)))), "正文太大"},

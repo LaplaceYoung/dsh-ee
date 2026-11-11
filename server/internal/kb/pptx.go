@@ -342,6 +342,9 @@ func convertPPTX(data []byte) (*Converted, error) {
 		}
 		b.WriteString(head + "\n\n")
 		for _, sh := range shapes {
+			if b.Len() > maxOutput {
+				return nil, errTooBig
+			}
 			if sh.table != nil {
 				width := 0
 				for _, r := range sh.table {
@@ -351,6 +354,9 @@ func convertPPTX(data []byte) (*Converted, error) {
 					return nil, errTooBig
 				}
 				b.WriteString(markdownTable(sh.table) + "\n")
+				if b.Len() > maxOutput {
+					return nil, errTooBig
+				}
 				info.Tables++
 				continue
 			}
@@ -368,10 +374,17 @@ func convertPPTX(data []byte) (*Converted, error) {
 					if len(notes) > 0 {
 						info.Notes++
 						b.WriteString("备注：" + strings.Join(notes, " ") + "\n\n")
+						if b.Len() > maxOutput {
+							return nil, errTooBig
+						}
 					}
 				}
 			}
 		}
+	}
+	// 最后一页没有下一轮循环可以检查，收尾时再确认一次
+	if b.Len() > maxOutput {
+		return nil, errTooBig
 	}
 	return &Converted{Markdown: b.String(), Mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation", Info: info}, nil
 }
