@@ -375,9 +375,24 @@ func (s *Server) provisionOIDC(ctx context.Context, cfg *oidc.Config, id oidc.Id
 		s.log.Warn("OIDC 声明里没有可用的用户名", "claim", cfg.UsernameClaim, "value", id.Username)
 		return nil, errNotProvisioned
 	}
-	u, err := s.store.GetUserByUsername(ctx, name)
-	if err != nil && !notFound(err) {
-		return nil, err
+	// 先按 sub 认人：用户名声明会变（改名、域名迁移），sub 不变就不应该新建第二个账号。
+	var u *store.User
+	if bySub, err := s.store.GetUserByExternalDN(ctx, store.AuthOIDC, id.Subject); err != nil {
+		if !notFound(err) {
+			return nil, err
+		}
+	} else if bySub != nil {
+		u = bySub
+		if u.Username != name {
+			s.log.Info("OIDC 用户名声明已变化，沿用已绑定 sub 的账号", "user", u.Username, "claim", name)
+		}
+	}
+	if u == nil {
+		var err error
+		u, err = s.store.GetUserByUsername(ctx, name)
+		if err != nil && !notFound(err) {
+			return nil, err
+		}
 	}
 	if u != nil && (u.AccountType != store.AccountHuman || u.AuthSource != store.AuthOIDC) {
 		return nil, errOIDCConflict
