@@ -1,0 +1,56 @@
+{
+  "id": "dsh-ee/demo-itsm",
+  "version": "0.1.0",
+  "name": { "zh": "IT 工单（声明式示例）", "en": "IT tickets (declarative example)" },
+  "description": {
+    "zh": "查 IT 工单、看常见故障的自助排障提示、新建工单。连的是 dsh-ee 自带的示例工单系统。",
+    "en": "Look up IT tickets, read self-service tips for common faults, and open a ticket. Talks to the sample ticket system that ships with dsh-ee."
+  },
+  "repo": "https://github.com/hikariming/dsh-ee",
+  "kind": "declarative",
+  "openapi": "openapi.yaml",
+  "servers": ["http://127.0.0.1:8080"],
+  "credential": { "mode": "shared" },
+  "tools": [
+    {
+      "name": "get_summary",
+      "readOnly": true,
+      "description": {
+        "zh": "工单概况：未解决、超过 3 天没解决、近 7 天解决的各有多少张。先用它看全貌，再决定要不要查明细。",
+        "en": "Ticket overview: how many are open, overdue (open for more than 3 days) and resolved in the last 7 days. Start here before listing tickets."
+      },
+      "params": [
+        { "name": "requester", "description": { "zh": "只看某人报修的，填姓名", "en": "Only tickets opened by this person (full name)" } }
+      ]
+    },
+    {
+      "name": "list_tickets",
+      "readOnly": true,
+      "params": [
+        { "name": "status", "enum": ["待处理", "处理中", "已解决", "已关闭", "未解决"] }
+      ],
+      "keep": ["id", "title", "category", "status", "priority", "requester", "created_at"]
+    },
+    { "name": "list_categories", "readOnly": true },
+    {
+      "name": "create_ticket",
+      "description": {
+        "zh": "新建一张 IT 工单。这是写操作：调用前先把标题、分类、现象和已经试过的排查步骤给员工确认。",
+        "en": "Open an IT ticket. This writes data: confirm the title, category, symptoms and what was already tried with the employee first."
+      },
+      "params": [
+        {
+          "name": "body.category",
+          "enum": ["vpn", "mail", "printer", "account", "laptop", "software", "meeting"],
+          "description": { "zh": "故障分类，拿不准先用 list_categories 看每一类的说明", "en": "Fault category; call list_categories first if unsure" }
+        },
+        {
+          "name": "body.priority",
+          "fill": "admin",
+          "label": { "zh": "Agent 新建的工单用什么优先级", "en": "Priority for tickets opened by the agent" },
+          "default": "中"
+        }
+      ]
+    }
+  ]
+}
