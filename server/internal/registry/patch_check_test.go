@@ -35,6 +35,30 @@ func patchItemOf(t *testing.T, items []ScanItem) *ScanItem {
 	return nil
 }
 
+// 包里有很多 YAML 时，patch 文件不能因为排在收集上限之后被误判成不可读。
+func TestCheckBundlePatchSurvivesManyYAMLFiles(t *testing.T) {
+	files := map[string]string{
+		"package/package.json":     `{"name":"dsh-demo","version":"1.0.0","dsh":{"bundle":{"patch":"./cordis.patch.yml"}},"engines":{"dsh":">=0.2.0 <0.3.0"}}`,
+		"package/cordis.patch.yml": "- insert:\n    - id: dsh-demo\n      name: dsh-demo\n",
+	}
+	for i := 0; i < 9; i++ {
+		files[fmt.Sprintf("package/a%d.yml", i)] = "key: value\n"
+	}
+	data := tgz(t, files)
+	info, err := InspectTarball(bytes.NewReader(data))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := ParseManifest(info.PackageJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	item := patchItemOf(t, Check(m, info, int64(len(data)), nil))
+	if item == nil || item.Level != LevelPass {
+		t.Fatalf("patch 文件应被读到并通过：%+v", item)
+	}
+}
+
 func TestCheckBundlePatch(t *testing.T) {
 	cases := []struct {
 		name   string
