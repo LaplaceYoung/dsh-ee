@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { spawn } from 'node:child_process'
+import { execFileSync, spawn } from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import net from 'node:net'
@@ -25,10 +25,22 @@ export const { command, startWeb, stopWeb, openPage, submitTask } = createDsh({ 
 fs.mkdirSync(work, { recursive: true })
 fs.mkdirSync(shots, { recursive: true })
 
+/** 真实 DSH 版本写进每个场景结果，兼容性矩阵靠它而不是靠记忆。 */
+export const dshVersion = (() => {
+  try {
+    return execFileSync(dsh, ['--version'], { encoding: 'utf8', timeout: 10_000 }).trim().split('\n')[0] || 'unknown'
+  } catch {
+    return 'unknown'
+  }
+})()
+fs.writeFileSync(path.join(work, 'dsh-version.txt'), dshVersion + '\n')
+console.log(`DSH: ${dshVersion} (${dsh})`)
+
 export function save(name, result) {
+  const saved = { ...result, dshVersion }
   fs.mkdirSync(path.join(work, name), { recursive: true })
-  fs.writeFileSync(path.join(work, name, 'result.json'), JSON.stringify(result, null, 2))
-  console.log(`\n=== ${name.toUpperCase()} ===\n${JSON.stringify(result, null, 2)}`)
+  fs.writeFileSync(path.join(work, name, 'result.json'), JSON.stringify(saved, null, 2))
+  console.log(`\n=== ${name.toUpperCase()} ===\n${JSON.stringify(saved, null, 2)}`)
 }
 
 export async function modelRequest(fake, task) {
