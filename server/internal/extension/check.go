@@ -142,6 +142,9 @@ func (c *checker) addFor(tool, code, where, msg, fix string) (ignoredFor string)
 	return ""
 }
 
+// cleanRelPath 允许作者写 "./openapi.yaml" 这种自然相对路径；绝对路径和 ".." 仍交给 fs.ValidPath 拒绝。
+func cleanRelPath(p string) string { return strings.TrimPrefix(strings.TrimSpace(p), "./") }
+
 func at(parts ...any) string {
 	var b strings.Builder
 	b.WriteString(ManifestFile + "#")
@@ -312,6 +315,7 @@ func (c *checker) declarative(m *Manifest) ([]byte, *openapi.Spec) {
 		c.add("openapi.missing", at("openapi"), "声明式扩展要指明接口文档", "加上 \"openapi\": \"openapi.yaml\"，把接口文档放在扩展目录里")
 		return nil, nil
 	}
+	m.OpenAPI = cleanRelPath(m.OpenAPI)
 	if !fs.ValidPath(m.OpenAPI) {
 		c.add("openapi.missing", at("openapi"), fmt.Sprintf("接口文档的路径 %q 不对：要是扩展目录里的相对路径", m.OpenAPI), "写成 \"openapi.yaml\" 这样的相对路径，不能用 .. 或绝对路径")
 		return nil, nil
@@ -734,6 +738,8 @@ func (c *checker) params(t *Tool, op *openapi.Tool, where string) {
 
 func (c *checker) misc(m *Manifest) {
 	for i, app := range m.Apps {
+		app = cleanRelPath(app)
+		m.Apps[i] = app
 		if !fs.ValidPath(app) {
 			c.add("apps.missing", at("apps", i), fmt.Sprintf("应用文件的路径 %q 不对：要是扩展目录里的相对路径", app), "例如 \"apps/hr-helper.yaml\"")
 		} else if _, err := fs.Stat(c.files, app); err != nil {
@@ -741,6 +747,7 @@ func (c *checker) misc(m *Manifest) {
 		}
 	}
 	if m.Icon != "" && m.Kind != KindService {
+		m.Icon = cleanRelPath(m.Icon)
 		if !fs.ValidPath(m.Icon) {
 			c.add("icon.missing", at("icon"), "图标的路径不对：要是扩展目录里的相对路径", "例如 \"icon.svg\"")
 		} else if _, err := fs.Stat(c.files, m.Icon); err != nil {

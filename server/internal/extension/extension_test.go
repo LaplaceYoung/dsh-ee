@@ -86,6 +86,23 @@ func files(m any, extra map[string]string) fstest.MapFS {
 	return fsys
 }
 
+// 作者写 "./openapi.yaml" / "./icon.svg" 是常见相对路径写法，不能判成非法路径。
+func TestDotSlashRelativePaths(t *testing.T) {
+	m := good()
+	m["openapi"] = "./openapi.json"
+	m["icon"] = "./icon.svg"
+	res := Check(files(m, map[string]string{"icon.svg": "<svg/>"}))
+	if !res.OK || res.Errors != 0 {
+		t.Fatalf("带 ./ 的相对路径应通过：%+v", res.Results)
+	}
+	// .. 仍然要拒绝
+	m["openapi"] = "../openapi.json"
+	res = Check(files(m, nil))
+	if res.OK {
+		t.Fatal(".. 路径应被拒绝")
+	}
+}
+
 func TestGoodManifest(t *testing.T) {
 	res := Check(files(good(), nil))
 	if !res.OK || len(res.Results) != 0 {
