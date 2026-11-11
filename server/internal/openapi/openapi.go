@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -90,11 +91,7 @@ func Parse(doc []byte) (*Spec, error) {
 			if err != nil {
 				return nil, fmt.Errorf("%s %s：%w", strings.ToUpper(m), p, err)
 			}
-			base := t.Name
-			for i := 2; used[t.Name]; i++ {
-				t.Name = fmt.Sprintf("%s_%d", truncate(base, 60), i)
-			}
-			used[t.Name] = true
+			t.Name = UniqueToolName(t.Name, used)
 			spec.Tools = append(spec.Tools, t)
 		}
 	}
@@ -102,6 +99,29 @@ func Parse(doc []byte) (*Spec, error) {
 		return nil, errors.New("文档里没有任何操作（paths 为空）")
 	}
 	return spec, nil
+}
+
+// UniqueToolName 返回一个在 used 里没出现过的工具名（大小写不敏感，按数据库 utf8mb4 CI 口径）。
+// 重名时追加 _2、_3…；后缀计入 64 字符预算，避免名字超长。
+func UniqueToolName(base string, used map[string]bool) string {
+	key := strings.ToLower(base)
+	if !used[key] {
+		used[key] = true
+		return base
+	}
+	for i := 2; ; i++ {
+		suffix := "_" + strconv.Itoa(i)
+		head := base
+		if len(head)+len(suffix) > 64 {
+			head = head[:64-len(suffix)]
+		}
+		candidate := head + suffix
+		candidateKey := strings.ToLower(candidate)
+		if !used[candidateKey] {
+			used[candidateKey] = true
+			return candidate
+		}
+	}
 }
 
 var nonName = regexp.MustCompile(`[^A-Za-z0-9]+`)
