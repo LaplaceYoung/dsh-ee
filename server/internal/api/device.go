@@ -196,7 +196,7 @@ func (s *Server) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
-	s.demoStat("dsh_connect", "")
+	s.demoStat("dsh_connect", t.Username)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"access_token": string(plain), "scopes": strings.Split(d.Scopes, ","),
 		"user": map[string]string{"username": t.Username, "department": t.Department}, "expires_at": t.ExpiresAt,

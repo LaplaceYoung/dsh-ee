@@ -151,7 +151,8 @@ func TestDemoSite(t *testing.T) {
 	}
 	if len(events) != 3 || events[0]["event"] != "persona" || events[0]["what"] != personas[0].Username ||
 		events[1]["event"] != "app_open" || events[1]["what"] != personas[0].App ||
-		events[2]["event"] != "dsh_connect" || len(events[0]) != 3 {
+		events[2]["event"] != "dsh_connect" || events[2]["what"] != personas[0].Username ||
+		len(events[0]) != 3 || len(events[1]) != 3 || len(events[2]) != 3 {
 		t.Fatalf("统计应是场景卡片、应用打开、DSH 接入各一行，每行只有时间、事件、对象：%s", raw)
 	}
 
