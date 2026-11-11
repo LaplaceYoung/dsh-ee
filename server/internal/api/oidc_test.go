@@ -237,6 +237,43 @@ func TestOIDCLogin(t *testing.T) {
 		t.Fatal("离开组后应收回映射的角色")
 	}
 
+	// ---- 用户名声明变了、sub 没变：沿用原账号，不新建第二个 ----
+	renamedFirst := newClient(t, ts.URL)
+	if loc := idp.login(t, renamedFirst, map[string]any{"sub": "u-8", "preferred_username": "ren.ame", "name": "任阿梅"}, nil); loc != "/build" {
+		t.Fatalf("改名用例首次登录：%s", loc)
+	}
+	code, body = renamedFirst.do("GET", "/api/auth/me", nil, nil)
+	expect(t, "改名用例 me", code, 200, body)
+	before := decodeAs[struct {
+		ID       int64
+		Username string
+	}](t, body)
+	renamedSecond := newClient(t, ts.URL)
+	if loc := idp.login(t, renamedSecond, map[string]any{"sub": "u-8", "preferred_username": "ren.ame.changed", "name": "任阿梅（改名）"}, nil); loc != "/build" {
+		t.Fatalf("改名后应仍登录原账号：%s", loc)
+	}
+	code, body = renamedSecond.do("GET", "/api/auth/me", nil, nil)
+	expect(t, "改名后 me", code, 200, body)
+	after := decodeAs[struct {
+		ID          int64
+		Username    string
+		DisplayName string `json:"display_name"`
+	}](t, body)
+	if after.ID != before.ID || after.Username != "ren.ame" || after.DisplayName != "任阿梅（改名）" {
+		t.Fatalf("用户名声明变化不应新建账号：before=%+v after=%+v", before, after)
+	}
+	code, body = admin.do("GET", "/api/admin/users", nil, nil)
+	expect(t, "用户列表", code, 200, body)
+	names := map[string]int{}
+	for _, u := range decodeAs[struct {
+		Users []struct{ Username string }
+	}](t, body).Users {
+		names[u.Username]++
+	}
+	if names["ren.ame"] != 1 || names["ren.ame.changed"] != 0 {
+		t.Fatalf("改名后不应出现第二个账号：%v", names)
+	}
+
 	// ---- 失败的情况都回到登录页并说明原因，不建会话 ----
 	fail := func(what string, claims map[string]any, tamper func(url.Values), want string) {
 		t.Helper()

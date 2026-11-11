@@ -149,6 +149,16 @@ func (s *Store) GetUserByUsername(ctx context.Context, username string) (*User, 
 	return scanUser(s.db.QueryRowContext(ctx, "SELECT "+userColumns("")+" FROM users WHERE username = ?", username))
 }
 
+// GetUserByExternalDN 按认证源与外部标识找账号（OIDC 的 sub、LDAP 的 DN）。
+// 用户名声明会变，sub 不变；登录时先按 sub 认人，避免用户名一改就新建第二个账号。
+func (s *Store) GetUserByExternalDN(ctx context.Context, source, dn string) (*User, error) {
+	if dn == "" {
+		return nil, ErrNotFound
+	}
+	return scanUser(s.db.QueryRowContext(ctx,
+		"SELECT "+userColumns("")+" FROM users WHERE auth_source = ? AND external_dn = ? ORDER BY id LIMIT 1", source, dn))
+}
+
 func (s *Store) ListUsers(ctx context.Context) ([]*User, error) {
 	rows, err := s.db.QueryContext(ctx,
 		`SELECT `+userColumns("u.")+`,
