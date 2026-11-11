@@ -20,7 +20,7 @@ const (
 	maxScanFileSize = 2 << 20
 	maxPackageJSON  = 4 << 20
 	// dsh.bundle.patch 内容检查：只留少量 YAML，避免恶意包塞满内存。
-	maxPatchFiles = 8
+	maxPatchFiles = 64
 	maxPatchBytes = 4 << 20
 )
 
