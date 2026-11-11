@@ -197,15 +197,18 @@ var agentExcluded = map[string]string{
 	"POST /api/admin/upstream/import": "离线包导入必须在网页上做",
 
 	// 按员工本人的身份调用（user_identity.go）：凭据和签名密钥都不经过模型
-	"GET /.well-known/jwks.json":                            "ee_jwt 的验签公钥，给企业系统读",
-	"PUT /api/me/connections/{id}/credential":               "员工自己的凭据只在网页上填，不经过模型",
-	"DELETE /api/me/connections/{id}/credential":            "员工自己的凭据只在网页上管，不经过模型",
-	"GET /api/admin/connections/{id}/credentials":           "谁填了凭据只在网页上看",
-	"DELETE /api/admin/connections/{id}/credentials/{user}": "收回员工凭据只在网页上做",
-	"GET /api/admin/ee-jwt":                                 "签名密钥只在网页上看",
-	"POST /api/admin/ee-jwt/rotate":                         "轮换签名密钥只在网页上做",
-	"POST /api/admin/extensions/check":                      "扩展安装前预检由管理员在网页上传 ZIP 完成，不把扩展包交给模型",
-	"POST /api/admin/extensions/install":                    "安装扩展会新增并启用企业连接，只能由管理员在网页确认安装配置和凭据",
+	"GET /.well-known/jwks.json":                                   "ee_jwt 的验签公钥，给企业系统读",
+	"PUT /api/me/connections/{id}/credential":                      "员工自己的凭据只在网页上填，不经过模型",
+	"DELETE /api/me/connections/{id}/credential":                   "员工自己的凭据只在网页上管，不经过模型",
+	"GET /api/admin/connections/{id}/credentials":                  "谁填了凭据只在网页上看",
+	"DELETE /api/admin/connections/{id}/credentials/{user}":        "收回员工凭据只在网页上做",
+	"GET /api/admin/ee-jwt":                                        "签名密钥只在网页上看",
+	"POST /api/admin/ee-jwt/rotate":                                "轮换签名密钥只在网页上做",
+	"POST /api/admin/extensions/check":                             "扩展安装前预检由管理员在网页上传 ZIP 完成，不把扩展包交给模型",
+	"POST /api/admin/extensions/install":                           "安装扩展会新增并启用企业连接，只能由管理员在网页确认安装配置和凭据",
+	"GET /api/admin/connections/{id}/shared-credentials":           "命名共享凭据只在管理员页面查看，不把授权清单交给 Agent 批量枚举",
+	"PUT /api/admin/connections/{id}/shared-credentials/{name}":    "共享凭据只能由管理员写入或替换，密钥不进入模型上下文",
+	"DELETE /api/admin/connections/{id}/shared-credentials/{name}": "删除或收回命名共享凭据由管理员在网页上做",
 }
 
 // agentPending 是还没开放、等后续阶段的路由（管理侧工具）。

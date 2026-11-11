@@ -26,9 +26,11 @@ import requests from "./requests";
 import studio from "./studio";
 import appGuide from "./app-guide";
 import extensions from "./extensions";
+import { sharedCredentials } from "./shared-credentials";
 
 export default {
   ...common,
+  sharedCredentials,
   ...config,
   ...infra,
   ...ops,

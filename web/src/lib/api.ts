@@ -772,7 +772,7 @@ export interface AssetSpec {
   plugins?: string[];
   type?: "mcp" | "openapi";
   url?: string;
-  auth?: { type: "none" | "bearer" | "header"; header?: string };
+  auth?: { type: "none" | "bearer" | "header"; header?: string; shared_name?: string };
   /** 连接：员工身份，和共享凭据并存 */
   user_auth?: UserAuth;
   /** 声明式扩展清单和非 secret 固定配置；安装时已经过静态检查 */
@@ -909,6 +909,7 @@ export interface ConnectionCall {
   latency_ms: number;
   /** 这次调用带的员工身份：没有（只有共享凭据）/ ee_jwt / user_secret */
   auth_mode?: "ee_jwt" | "user_secret";
+  shared_name?: string;
   created_at: string;
 }
 
@@ -1382,6 +1383,20 @@ export interface KBUploadResult {
   updated?: boolean;
 }
 
+export interface NamedSharedCredential {
+  asset_id: number;
+  name: string;
+  secret_hint: string;
+  created_at?: string;
+  updated_at?: string;
+}
+export interface SharedCredentialsResp {
+  default_name: string;
+  legacy_hint: string;
+  credentials: NamedSharedCredential[];
+  count: number;
+}
+
 export const api = {
   /** 演示站：一键以示例员工的身份登录 */
   demoLogin: (username: string) => request<Me>("POST", "/api/auth/demo-login", { username }),
@@ -1618,6 +1633,10 @@ export const api = {
   checkExtension: (file: File) => request<ExtensionCheckResult>("POST", "/api/admin/extensions/check", undefined, { raw: { body: file, type: "application/zip" } }),
   installExtension: (input: { archive: string; server: string; slug?: string; config?: Record<string, unknown>; shared_secret?: string }) =>
     request<{ asset: HubAsset; extension: { id: string; version: string; digest: string }; tools?: number; sync_error?: string }>("POST", "/api/admin/extensions/install", input),
+  sharedCredentials: (id: number) => request<SharedCredentialsResp>("GET", `/api/admin/connections/${id}/shared-credentials`),
+  saveSharedCredential: (id: number, name: string, secret: string) =>
+    request<NamedSharedCredential>("PUT", `/api/admin/connections/${id}/shared-credentials/${encodeURIComponent(name)}`, { secret }),
+  deleteSharedCredential: (id: number, name: string) => request<void>("DELETE", `/api/admin/connections/${id}/shared-credentials/${encodeURIComponent(name)}`),
   testConnection: (spec: AssetSpec, secret?: string, id?: number, slug?: string) =>
     request<ConnTestResult>("POST", "/api/admin/connections/test", { spec, ...(secret !== undefined ? { secret } : {}), ...(id ? { id } : {}), ...(slug ? { slug } : {}) }),
   syncConnection: (id: number) => request<{ ok: boolean; tools?: number; error?: string }>("POST", `/api/admin/connections/${id}/sync`),

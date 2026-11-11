@@ -140,12 +140,13 @@ type ConnectionCall struct {
 	ExtensionID      string
 	ExtensionVersion string
 	ExtensionDigest  string
+	SharedName       string
 }
 
 func (s *Store) RecordConnectionCall(ctx context.Context, c ConnectionCall) error {
 	_, err := s.db.ExecContext(ctx,
-		"INSERT INTO connection_calls (asset_id, tool, user_id, ok, error, latency_ms, auth_mode, extension_id, extension_version, extension_digest, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		c.AssetID, c.Tool, c.UserID, c.OK, truncateRunes(c.Error, 512), c.LatencyMS, c.AuthMode, c.ExtensionID, c.ExtensionVersion, c.ExtensionDigest, now())
+		"INSERT INTO connection_calls (asset_id, tool, user_id, ok, error, latency_ms, auth_mode, extension_id, extension_version, extension_digest, shared_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		c.AssetID, c.Tool, c.UserID, c.OK, truncateRunes(c.Error, 512), c.LatencyMS, c.AuthMode, c.ExtensionID, c.ExtensionVersion, c.ExtensionDigest, c.SharedName, now())
 	return err
 }
 
@@ -160,11 +161,12 @@ type RecentCall struct {
 	ExtensionID      string    `json:"extension_id,omitempty"`
 	ExtensionVersion string    `json:"extension_version,omitempty"`
 	ExtensionDigest  string    `json:"extension_digest,omitempty"`
+	SharedName       string    `json:"shared_name,omitempty"`
 	CreatedAt        time.Time `json:"created_at"`
 }
 
 func (s *Store) RecentConnectionCalls(ctx context.Context, assetID int64, limit int) ([]RecentCall, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT c.tool, COALESCE(u.username, ''), c.ok, c.error, c.latency_ms, c.auth_mode, c.extension_id, c.extension_version, c.extension_digest, c.created_at
+	rows, err := s.db.QueryContext(ctx, `SELECT c.tool, COALESCE(u.username, ''), c.ok, c.error, c.latency_ms, c.auth_mode, c.extension_id, c.extension_version, c.extension_digest, c.shared_name, c.created_at
 		FROM connection_calls c LEFT JOIN users u ON u.id = c.user_id
 		WHERE c.asset_id = ? ORDER BY c.id DESC LIMIT ?`, assetID, limit)
 	if err != nil {
@@ -174,7 +176,7 @@ func (s *Store) RecentConnectionCalls(ctx context.Context, assetID int64, limit 
 	out := []RecentCall{}
 	for rows.Next() {
 		var c RecentCall
-		if err := rows.Scan(&c.Tool, &c.Username, &c.OK, &c.Error, &c.LatencyMS, &c.AuthMode, &c.ExtensionID, &c.ExtensionVersion, &c.ExtensionDigest, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.Tool, &c.Username, &c.OK, &c.Error, &c.LatencyMS, &c.AuthMode, &c.ExtensionID, &c.ExtensionVersion, &c.ExtensionDigest, &c.SharedName, &c.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, c)

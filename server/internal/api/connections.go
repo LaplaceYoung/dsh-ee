@@ -86,16 +86,28 @@ func (s *Server) connHeader(ctx context.Context, assetID int64, sp *assetSpec, o
 	if override != nil {
 		plain = strings.TrimSpace(*override)
 	} else if assetID > 0 {
-		enc, err := s.store.AssetSecret(ctx, assetID)
-		if err != nil {
-			return nil, err
+		var enc []byte
+		var err error
+		if name := sp.Auth.SharedName; name != "" {
+			credential, loadErr := s.store.SharedCredentialSecret(ctx, assetID, name)
+			if errors.Is(loadErr, store.ErrNotFound) {
+				return nil, fmt.Errorf("命名共享凭据 %s 不存在，请先添加该凭据或改回默认", name)
+			}
+			if loadErr != nil {
+				return nil, loadErr
+			}
+			enc = credential.SecretEnc
+		} else {
+			enc, err = s.store.AssetSecret(ctx, assetID)
 		}
-		if len(enc) > 0 {
-			b, err := s.box.Open(enc)
-			if err != nil {
-				return nil, fmt.Errorf("解密连接凭据（主密钥是否换过？）：%w", err)
+		if err == nil && len(enc) > 0 {
+			b, openErr := s.box.Open(enc)
+			if openErr != nil {
+				return nil, fmt.Errorf("解密连接凭据（主密钥是否换过？）：%w", openErr)
 			}
 			plain = string(b)
+		} else if err != nil {
+			return nil, err
 		}
 	}
 	if plain == "" {
@@ -148,7 +160,7 @@ func withCaller(ctx context.Context, v viewer, base string) context.Context {
 // 连接带员工身份时，v 是发起调用的员工、base 是他访问 dsh-ee 的地址；员工身份的请求头每次请求现取
 // （ee_jwt 只有几分钟有效）。
 func (s *Server) connClient(ctx context.Context, a *store.Asset, version int, sp *assetSpec, v viewer, base string) (*mcp.Client, error) {
-	key := fmt.Sprintf("%d|%s|%s", version, a.SecretHint, sp.URL)
+	key := fmt.Sprintf("%d|%s|%s|%s", version, a.SecretHint, sp.URL, sp.Auth.SharedName)
 	ck := connKey{asset: a.ID}
 	if sp.UserAuth != nil {
 		if v.user == nil {
@@ -289,6 +301,7 @@ func (s *Server) callConnectionTool(ctx context.Context, a *store.Asset, t *stor
 	call := store.ConnectionCall{AssetID: a.ID, Tool: t.Name, UserID: v.user.ID, OK: err == nil, LatencyMS: int(time.Since(start).Milliseconds()), AuthMode: mode}
 	if lv, metaErr := s.store.LiveAssetVersion(ctx, a.ID); metaErr == nil {
 		sp := parseSpec(lv.Spec)
+		call.SharedName = sp.Auth.SharedName
 		if sp.Declarative != nil {
 			call.ExtensionID, call.ExtensionVersion, call.ExtensionDigest = sp.Declarative.ID, sp.Declarative.Version, sp.ExtensionDigest
 		}

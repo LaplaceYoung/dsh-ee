@@ -24,10 +24,12 @@ import requests from "./requests";
 import studio from "./studio";
 import appGuide from "./app-guide";
 import extensions from "./extensions";
+import { sharedCredentials } from "./shared-credentials";
 
 /** 中文文案（源语言）。按页面分模块，这里合并成一棵树。 */
 export default {
   ...common,
+  sharedCredentials,
   ...config,
   ...infra,
   ...ops,

@@ -79,6 +79,8 @@ type connAuth struct {
 	// none / bearer（Authorization: Bearer <凭据>）/ header（自定义请求头）
 	Type   string `json:"type"`
 	Header string `json:"header,omitempty"`
+	// 命名共享凭据；空继承 assets.secret_enc（旧行为），有值只认选中的那一份，找不到不回退
+	SharedName string `json:"shared_name,omitempty"`
 }
 
 func limitRunes(s string, n int) bool { return len([]rune(s)) <= n }
@@ -212,6 +214,12 @@ func validateSpec(kind string, sp *assetSpec) string {
 		default:
 			return "认证方式只能是 none / bearer / header"
 		}
+		sp.Auth.SharedName = strings.TrimSpace(sp.Auth.SharedName)
+		if sp.Auth.Type == "none" {
+			sp.Auth.SharedName = ""
+		} else if sp.Auth.SharedName != "" && !sharedCredentialNameRe.MatchString(sp.Auth.SharedName) {
+			return "命名共享凭据的名字只能包含字母、数字、下划线和中划线，最长 40 个字符"
+		}
 		if msg := validateUserAuth(sp); msg != "" {
 			return msg
 		}
@@ -250,6 +258,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 }
 
 var headerNameRe = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+var sharedCredentialNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$`)
 
 var hubKinds = []string{store.KindSkill, store.KindPrompt, store.KindApp, store.KindConnection}
 

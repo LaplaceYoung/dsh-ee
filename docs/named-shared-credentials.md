@@ -1,0 +1,52 @@
+# 多份命名共享凭据
+
+> v0.2 插件第一批中的独立小步：同一个连接保存多份共享凭据，每份命名，连接选择一份使用。这里只指服务端共用账号，不是员工自己的凭据，也不会经过 AI 或 DSH。
+
+## 已实现与边界
+
+- 管理员在连接页添加、替换、删除命名凭据，名称允许字母、数字、下划线和中划线，长度 1–40。示例：`prod`、`test`、`east`。
+- **旧连接不用迁移。** 原来的 `assets.secret_enc` 就是“原连接默认”，`spec.auth.shared_name` 为空时继续使用它，原表单和调用语义不改。
+- 普通连接可分别选择 `prod` / `test`。选择进入连接的 `spec`，管理员保存版本或版本通过审核后才对该连接生效；替换已选凭据的密钥是同一逻辑资源的轮换，下一次调用就用新值。
+- 已选凭据在真实 Bearer / 自定义 Header 转发时用对应密文解密，不以 `secret_hint` 代用。缺名、已删除、密钥解密等错误明确返回，**不静默回退到默认或其它账号**。
+- 正在使用的命名凭据不能删。先选择其它凭据或默认并保存版本，再删除。删除连接同时清理其命名记录。
+- 持久化命名单独存于 `connection_shared_credentials.secret_enc`，沿用 `DSH_EE_SECRET_KEY` 加密。列表、详情、导出及模型上下文中最多只有名称、尾号和时间；`PUT` 输入不返回密文或完整值。原 `Auth.Type=none` 不支持命名凭据。
+- 本次**尚未做单个应用分别选择某份共享凭据**。连接的现有共享选择不会扩大 App/MCP 的 scope；也不代替 `user_secret` / `ee_jwt` 的按人身份。
+
+## 管理界面
+
+1. 管理员打开「能力中心 / 资源 → 连接 → 编辑」。
+2. 已有 Bearer 或自定义 Header 时会出现「命名共享凭据」。选择默认为「原连接默认」，旁边显示原来的尾号。
+3. 「新增命名凭据」填一次名称和密钥。列表只显示尾号，刷新也只能看到尾号。
+4. 「替换密钥」要求新密钥，不能从旧尾号恢复或取回明文。
+5. 选好「此连接使用哪一份」后，再保存连接版本。仅凭新建或删除列表动作，不会静默改掉在用选择。
+6. 连接详情的最近调用里记录 `shared_name`，默认凭据为空。
+
+新连接先保存一次再添加命名凭据，靠真实资源 ID 隔离不同连接的同名账号。普通角色没有管理路由权限。
+
+## API 示例
+
+```text
+GET     /api/admin/connections/{id}/shared-credentials
+PUT     /api/admin/connections/{id}/shared-credentials/prod
+        {"secret":"<只写一次的共享密钥>"}
+DELETE  /api/admin/connections/{id}/shared-credentials/test
+```
+
+连接版本里的选择只有名称，不是密钥：
+
+```json
+{"auth":{"type":"bearer","shared_name":"prod"}}
+```
+
+默认仍是旧的 `auth.type` / `auth.header` / `auth.shared_name=""`。个人凭据和共享凭据仍由既有运行时分别处理。列表与改删三个管理端点都在 `agentExcluded` / `agentPending`，访问失败返回预期的 web-only 提示。
+
+## 验收
+
+- `TestNamedSharedCredentials` 使用真实 TiDB、加密存储和 HTTP 测试上游：默认 → 生产 → 更新生产 → 测试，逐次校验请求头；删除当前选择返回 409；缺少选择明确失败；删除连接后同步清理；最近调用记 `shared_name`。
+- `e2e/tests/30-named-shared-credentials.mjs` 用 Chrome 完成增、改、选、保存版本、删除冲突与回默认，再通过真实 `/mcp` 调上游读取请求头。
+- `docs/images/named-shared-credentials.gif` 是压缩的实际网页操作记录，不是静态拼图。
+
+## 不在此批
+
+- 应用程序把某个连接或参数绑定到不同命名凭据（与声明式扩展参数填充是另一项工作）。
+- 外部扩展自己的 `shared_credentials` 块、APPLICATION / ENV 填充和现有连接自动转换。它们仍按声明式扩展批次分别验收。
