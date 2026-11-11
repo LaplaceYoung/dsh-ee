@@ -519,6 +519,8 @@ type connTestReq struct {
 	Secret *string         `json:"secret"`
 	// 编辑已有连接时传 id：没填凭据就用已存的
 	ID int64 `json:"id"`
+	// 新建连接保存前试连时传页面上的 slug：ee_jwt 默认 aud 用它，不能拿占位 "test" 去签
+	Slug string `json:"slug"`
 }
 
 // POST /api/admin/connections/test：用还没保存的配置试连，返回能发现的工具。
@@ -529,6 +531,10 @@ func (s *Server) handleConnTest(w http.ResponseWriter, r *http.Request) {
 	}
 	sp, _, ok := s.decodeSpec(w, r, store.KindConnection, req.Spec)
 	if !ok {
+		return
+	}
+	if req.Slug != "" && (!slugRe.MatchString(req.Slug) || len(req.Slug) > maxSlug) {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": "连接的标识不合法，应是小写字母、数字和连字符"})
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
@@ -548,7 +554,11 @@ func (s *Server) handleConnTest(w http.ResponseWriter, r *http.Request) {
 				probe, _ = s.store.GetAsset(ctx, req.ID)
 			}
 			if probe == nil {
-				probe = &store.Asset{Slug: "test"}
+				slug := req.Slug
+				if slug == "" {
+					slug = "test"
+				}
+				probe = &store.Asset{Slug: slug}
 			}
 			v, base := viewerOf(r), s.callerBase(r)
 			if _, err := s.userAuthHeader(ctx, probe, sp, v, base); err == nil {
