@@ -36,6 +36,9 @@ type TarballInfo struct {
 	// 用于真正解析 dsh.bundle.patch。
 	YAML       map[string][]byte
 	patchBytes int64
+	// 包内 SKILL.md 的数量与路径（技能由插件运行时注入，能力中心看不到）。
+	Skills     int
+	SkillFiles []string
 }
 
 type SecretHit struct {
@@ -115,6 +118,12 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 			info.Files[rel] = true
 		}
 		base := path.Base(rel)
+		if strings.EqualFold(base, "SKILL.md") {
+			info.Skills++
+			if len(info.SkillFiles) < 20 {
+				info.SkillFiles = append(info.SkillFiles, rel)
+			}
+		}
 		for _, f := range secretFiles {
 			if f.match(base) {
 				info.Secrets = append(info.Secrets, SecretHit{File: rel, Kind: f.kind})
@@ -217,6 +226,16 @@ func Check(m *Manifest, info *TarballInfo, size int64, companyScopes []string) [
 
 	if item := checkBundlePatch(m, info); item != nil {
 		add(item.Key, item.Level, item.Params)
+	}
+
+	if info.Skills > 0 {
+		files := info.SkillFiles
+		if len(files) > 8 {
+			files = append(files[:8:8], "…")
+		}
+		add("skills", LevelWarn, map[string]any{"count": info.Skills, "files": strings.Join(files, "、")})
+	} else if m.IsPlugin {
+		add("skills", LevelPass, nil)
 	}
 
 	if s := m.InstallScripts(); len(s) > 0 {
