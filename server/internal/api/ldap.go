@@ -578,6 +578,7 @@ func (s *Server) syncLDAP(ctx context.Context) (*ldapSyncResult, error) {
 		if err := s.store.DeleteUserSessions(ctx, u.ID); err != nil {
 			return finish(err)
 		}
+		s.purgeUserCredentials(ctx, u.ID)
 		res.Disabled = append(res.Disabled, u.Username)
 		s.auditSystem(ctx, auditUserUpdate, u.Username, map[string]any{"disabled": true, "reason": "ldap_missing"})
 	}

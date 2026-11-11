@@ -88,6 +88,7 @@ func (s *Server) handleMyConnectionCalls(w http.ResponseWriter, r *http.Request)
 }
 
 type myConnection struct {
+	ID          int64  `json:"id"`
 	Slug        string `json:"slug"`
 	Title       string `json:"title"`
 	Description string `json:"description"`
@@ -96,6 +97,8 @@ type myConnection struct {
 	// 我能用的工具
 	Tools      []string `json:"tools"`
 	ToolsTotal int      `json:"tools_total"`
+	// 这个连接按员工本人的身份调用时：用哪种方式，我的凭据填了没有（没填时工具会提示先去填）
+	Credential *myCredential `json:"credential,omitempty"`
 }
 
 // GET /api/me/connections：我能用的企业连接与工具，以及还没权限、可以申请的连接。
@@ -129,6 +132,22 @@ func (s *Server) handleMyConnections(w http.ResponseWriter, r *http.Request) {
 			tools[t.AssetID] = append(tools[t.AssetID], t)
 		}
 	}
+	creds, err := s.store.UserCredentialInfos(ctx, v.user.ID)
+	if err != nil {
+		s.internalErr(w, r, err)
+		return
+	}
+	var onIDs []int64
+	for _, a := range assets {
+		if a.Kind == store.KindConnection && a.Status == store.AssetActive && a.LiveVersion > 0 && available(v, a) {
+			onIDs = append(onIDs, a.ID)
+		}
+	}
+	live, err := s.store.LiveAssetVersions(ctx, onIDs)
+	if err != nil {
+		s.internalErr(w, r, err)
+		return
+	}
 	mine, requestable := []myConnection{}, []map[string]string{}
 	for _, a := range assets {
 		if a.Kind != store.KindConnection || a.Status != store.AssetActive || a.LiveVersion == 0 {
@@ -138,11 +157,14 @@ func (s *Server) handleMyConnections(w http.ResponseWriter, r *http.Request) {
 			requestable = append(requestable, map[string]string{"slug": a.Slug, "title": a.Title, "description": a.Description})
 			continue
 		}
-		c := myConnection{Slug: a.Slug, Title: a.Title, Description: a.Description, Enabled: a.Delivery == store.DeliveryAuto || subs[a.ID], Tools: []string{}, ToolsTotal: len(tools[a.ID])}
+		c := myConnection{ID: a.ID, Slug: a.Slug, Title: a.Title, Description: a.Description, Enabled: a.Delivery == store.DeliveryAuto || subs[a.ID], Tools: []string{}, ToolsTotal: len(tools[a.ID])}
 		for _, t := range tools[a.ID] {
 			if toolAllowed(v, t) {
 				c.Tools = append(c.Tools, t.Name)
 			}
+		}
+		if lv := live[a.ID]; lv != nil {
+			c.Credential = credentialView(parseSpec(lv.Spec).UserAuth, creds, a.ID)
 		}
 		mine = append(mine, c)
 	}

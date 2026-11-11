@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -28,9 +29,15 @@ const (
 	defaultConnTimeout = 30 * time.Second
 )
 
+// connKey 区分上游 MCP 客户端：只有共享凭据的连接所有人共用一个（user 为 0）；
+// 带员工身份的连接每人一个，各自的会话，免得上游把一个人的会话认成另一个人。
+type connKey struct {
+	asset, user int64
+}
+
 type connClients struct {
 	mu sync.Mutex
-	m  map[int64]*cachedConn
+	m  map[connKey]*cachedConn
 }
 
 type cachedConn struct {
@@ -38,9 +45,21 @@ type cachedConn struct {
 	client *mcp.Client
 }
 
+// dropConnClient 丢掉一个连接的全部上游客户端（配置、共享凭据变了，或上游出错要重连）。
 func (s *Server) dropConnClient(id int64) {
 	s.conns.mu.Lock()
-	delete(s.conns.m, id)
+	for k := range s.conns.m {
+		if k.asset == id {
+			delete(s.conns.m, k)
+		}
+	}
+	s.conns.mu.Unlock()
+}
+
+// dropUserConnClient 丢掉一位员工在一个连接上的上游客户端（他的凭据变了）。
+func (s *Server) dropUserConnClient(id, userID int64) {
+	s.conns.mu.Lock()
+	delete(s.conns.m, connKey{id, userID})
 	s.conns.mu.Unlock()
 }
 
@@ -57,7 +76,7 @@ func (s *Server) saveConnSecret(r *http.Request, id int64, plain string) error {
 	return s.store.SetAssetSecret(r.Context(), id, sealed, secret.Hint(plain))
 }
 
-// connHeader 按认证方式拼出访问上游要带的请求头。
+// connHeader 按认证方式拼出访问上游要带的共享凭据请求头。
 func (s *Server) connHeader(ctx context.Context, assetID int64, sp *assetSpec, override *string) (http.Header, error) {
 	h := http.Header{}
 	if sp.Auth == nil || sp.Auth.Type == "none" {
@@ -97,17 +116,51 @@ func (s *Server) connHTTP(sp *assetSpec) *http.Client {
 		t = time.Duration(sp.TimeoutSec) * time.Second
 	}
 	base := s.upstream
-	return &http.Client{Transport: base.Transport, Timeout: t}
+	return &http.Client{Transport: base.Transport, Timeout: t, CheckRedirect: sameHostRedirect}
+}
+
+// sameHostRedirect 不跟随跳到别的主机的重定向。Go 只会在跨域时去掉 Authorization，
+// 自定义请求头（X-API-Key、放员工身份的头）会原样带过去；上游一个重定向就能把凭据送到别处。
+func sameHostRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 5 {
+		return errors.New("重定向次数太多")
+	}
+	if req.URL.Host != via[0].URL.Host {
+		return fmt.Errorf("上游把请求重定向到了另一个地址（%s），为了不把凭据带过去，已停止", req.URL.Host)
+	}
+	return nil
+}
+
+// connCaller 是这一次调用的发起人。放在 context 里交给上游客户端：带员工身份的连接每人缓存一个客户端，
+// 但员工的部门、角色会变，所以请求头每次按当前的身份现取，不用建客户端时的那一份。
+type connCaller struct {
+	v    viewer
+	base string
+}
+
+type connCallerKey struct{}
+
+func withCaller(ctx context.Context, v viewer, base string) context.Context {
+	return context.WithValue(ctx, connCallerKey{}, connCaller{v, base})
 }
 
 // connClient 取一个连接的上游 MCP 客户端；配置或凭据变了就新建。
-func (s *Server) connClient(ctx context.Context, a *store.Asset, version int, sp *assetSpec) (*mcp.Client, error) {
+// 连接带员工身份时，v 是发起调用的员工、base 是他访问 dsh-ee 的地址；员工身份的请求头每次请求现取
+// （ee_jwt 只有几分钟有效）。
+func (s *Server) connClient(ctx context.Context, a *store.Asset, version int, sp *assetSpec, v viewer, base string) (*mcp.Client, error) {
 	key := fmt.Sprintf("%d|%s|%s", version, a.SecretHint, sp.URL)
+	ck := connKey{asset: a.ID}
+	if sp.UserAuth != nil {
+		if v.user == nil {
+			return nil, errors.New("这个连接按员工本人的身份调用，需要知道是谁在调")
+		}
+		ck.user = v.user.ID
+	}
 	s.conns.mu.Lock()
 	if s.conns.m == nil {
-		s.conns.m = map[int64]*cachedConn{}
+		s.conns.m = map[connKey]*cachedConn{}
 	}
-	if c := s.conns.m[a.ID]; c != nil && c.key == key {
+	if c := s.conns.m[ck]; c != nil && c.key == key {
 		s.conns.mu.Unlock()
 		return c.client, nil
 	}
@@ -117,8 +170,22 @@ func (s *Server) connClient(ctx context.Context, a *store.Asset, version int, sp
 		return nil, err
 	}
 	c := &mcp.Client{URL: sp.URL, Header: h, HC: s.connHTTP(sp)}
+	if sp.UserAuth != nil {
+		// 先取一次：没填凭据、签不了令牌这类问题在这里就报出来，不留下一个建不起会话的客户端
+		if _, err := s.userAuthHeader(ctx, a, sp, v, base); err != nil {
+			return nil, err
+		}
+		uid := v.user.ID
+		c.Dynamic = func(ctx context.Context) (http.Header, error) {
+			who, ok := ctx.Value(connCallerKey{}).(connCaller)
+			if !ok || who.v.user == nil || who.v.user.ID != uid {
+				return nil, errors.New("这个连接按员工本人的身份调用，调用时没有带上是谁")
+			}
+			return s.userAuthHeader(ctx, a, sp, who.v, who.base)
+		}
+	}
 	s.conns.mu.Lock()
-	s.conns.m[a.ID] = &cachedConn{key: key, client: c}
+	s.conns.m[ck] = &cachedConn{key: key, client: c}
 	s.conns.mu.Unlock()
 	return c, nil
 }
@@ -177,7 +244,8 @@ func openAPIBase(sp *assetSpec) (string, error) {
 }
 
 // syncConnectionTools 重新发现工具并替换清单，返回工具数。
-func (s *Server) syncConnectionTools(ctx context.Context, id int64) (int, error) {
+// 连接带员工身份时，用 v（点同步的管理员）自己的身份去取工具清单；base 是他访问 dsh-ee 的地址。
+func (s *Server) syncConnectionTools(ctx context.Context, id int64, v viewer, base string) (int, error) {
 	a, err := s.store.GetAsset(ctx, id)
 	if err != nil {
 		return 0, err
@@ -189,11 +257,14 @@ func (s *Server) syncConnectionTools(ctx context.Context, id int64) (int, error)
 	sp := parseSpec(lv.Spec)
 	var client *mcp.Client
 	if sp.Type == "mcp" {
-		if client, err = s.connClient(ctx, a, lv.Version, sp); err != nil {
+		if client, err = s.connClient(ctx, a, lv.Version, sp, v, base); err != nil {
+			if errors.Is(err, errNeedCredential) {
+				return 0, errors.New("这个连接按员工本人的凭据调用：请先在连接页面填上你自己的凭据，再同步工具")
+			}
 			return 0, err
 		}
 	}
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	ctx, cancel := context.WithTimeout(withCaller(ctx, v, base), 60*time.Second)
 	defer cancel()
 	tools, _, err := s.discoverTools(ctx, sp, client)
 	if err != nil {
@@ -208,14 +279,20 @@ func (s *Server) syncConnectionTools(ctx context.Context, id int64) (int, error)
 }
 
 // callConnectionTool 以员工身份调用连接里的一个工具，返回 MCP 工具结果。
-func (s *Server) callConnectionTool(ctx context.Context, a *store.Asset, t *store.ConnectionTool, userID int64, args json.RawMessage) json.RawMessage {
+// v 是发起调用的员工，base 是他访问 dsh-ee 的地址（签 ee_jwt、给授权链接时用）。
+func (s *Server) callConnectionTool(ctx context.Context, a *store.Asset, t *store.ConnectionTool, v viewer, base string, args json.RawMessage) json.RawMessage {
 	start := time.Now()
-	result, err := s.doConnectionCall(ctx, a, t, args)
-	call := store.ConnectionCall{AssetID: a.ID, Tool: t.Name, UserID: userID, OK: err == nil, LatencyMS: int(time.Since(start).Milliseconds())}
+	result, mode, err := s.doConnectionCall(ctx, a, t, v, base, args)
+	call := store.ConnectionCall{AssetID: a.ID, Tool: t.Name, UserID: v.user.ID, OK: err == nil, LatencyMS: int(time.Since(start).Milliseconds()), AuthMode: mode}
 	if err != nil {
 		call.Error = err.Error()
 		result = mcp.TextResult("调用 "+a.Title+" 失败："+err.Error(), true)
-		if !t.ReadOnly && outcomeUnknown(err) {
+		if errors.Is(err, errNeedCredential) {
+			// 还没发请求：告诉模型该让员工去哪里填，别当成对方系统的故障去重试
+			call.Error = "员工还没填自己的凭据"
+			result = mcp.TextResult("调用 "+a.Title+" 需要你本人的凭据，你还没有填。请先打开 "+base+"/assets/"+strconv.FormatInt(a.ID, 10)+
+				" ，在「我的凭据」里填好，再重试。不要用别人的凭据，也不要改用其他工具绕过。", true)
+		} else if !t.ReadOnly && outcomeUnknown(err) {
 			// 请求已经发出去了，只是没等到回复：对方可能已经执行。
 			// 若照常说"失败"，模型会很自然地重试，写操作就可能做两遍（重复建单、重复发消息）。
 			call.Error = "结果不确定：" + err.Error()
@@ -253,59 +330,75 @@ func isErrorResult(raw json.RawMessage) bool {
 	return json.Unmarshal(raw, &r) == nil && r.IsError
 }
 
-func (s *Server) doConnectionCall(ctx context.Context, a *store.Asset, t *store.ConnectionTool, args json.RawMessage) (json.RawMessage, error) {
+// doConnectionCall 发出一次调用；第二个返回值是这次带的员工身份（空 / ee_jwt / user_secret），记进调用记录。
+func (s *Server) doConnectionCall(ctx context.Context, a *store.Asset, t *store.ConnectionTool, v viewer, base string, args json.RawMessage) (json.RawMessage, string, error) {
 	lv, err := s.store.LiveAssetVersion(ctx, a.ID)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	sp := parseSpec(lv.Spec)
+	mode := ""
+	if sp.UserAuth != nil {
+		mode = sp.UserAuth.Mode
+	}
 	switch sp.Type {
 	case "mcp":
-		client, err := s.connClient(ctx, a, lv.Version, sp)
+		client, err := s.connClient(ctx, a, lv.Version, sp, v, base)
 		if err != nil {
-			return nil, err
+			return nil, mode, err
 		}
-		res, err := client.CallTool(ctx, t.Name, args)
+		res, err := client.CallTool(withCaller(ctx, v, base), t.Name, args)
 		if err != nil {
-			s.dropConnClient(a.ID)
-			return nil, err
+			if sp.UserAuth != nil {
+				s.dropUserConnClient(a.ID, v.user.ID)
+			} else {
+				s.dropConnClient(a.ID)
+			}
+			return nil, mode, err
 		}
-		return limitMCPResult(res, connResultLimit), nil
+		return limitMCPResult(res, connResultLimit), mode, nil
 	case "openapi":
 		var op openapi.Operation
 		if err := json.Unmarshal(t.Operation, &op); err != nil {
-			return nil, errors.New("工具缺少接口信息，请重新同步")
+			return nil, mode, errors.New("工具缺少接口信息，请重新同步")
 		}
-		base, err := openAPIBase(sp)
+		root, err := openAPIBase(sp)
 		if err != nil {
-			return nil, err
+			return nil, mode, err
 		}
 		h, err := s.connHeader(ctx, a.ID, sp, nil)
 		if err != nil {
-			return nil, err
+			return nil, mode, err
+		}
+		uh, err := s.userAuthHeader(ctx, a, sp, v, base)
+		if err != nil {
+			return nil, mode, err
+		}
+		for k, vs := range uh {
+			h[k] = vs
 		}
 		var m map[string]any
 		dec := json.NewDecoder(strings.NewReader(string(args)))
 		dec.UseNumber()
 		if len(args) > 0 {
 			if err := dec.Decode(&m); err != nil {
-				return nil, errors.New("参数不是 JSON 对象")
+				return nil, mode, errors.New("参数不是 JSON 对象")
 			}
 		}
-		status, body, err := openapi.Call(ctx, s.connHTTP(sp), base, op, m, h, connResultLimit+1)
+		status, body, err := openapi.Call(ctx, s.connHTTP(sp), root, op, m, h, connResultLimit+1)
 		if err != nil {
-			return nil, err
+			return nil, mode, err
 		}
 		text := string(body)
 		if len(body) > connResultLimit {
 			text = string(body[:connResultLimit]) + "\n…（结果过长，已截断）"
 		}
 		if status >= 400 {
-			return mcp.TextResult(fmt.Sprintf("HTTP %d\n%s", status, text), true), nil
+			return mcp.TextResult(fmt.Sprintf("HTTP %d\n%s", status, text), true), mode, nil
 		}
-		return mcp.TextResult(text, false), nil
+		return mcp.TextResult(text, false), mode, nil
 	}
-	return nil, errors.New("未知的连接类型")
+	return nil, mode, errors.New("未知的连接类型")
 }
 
 // limitMCPResult 让 MCP 连接的结果与 OpenAPI 连接一样受 connResultLimit 约束。
@@ -384,7 +477,7 @@ func (s *Server) handleConnSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.dropConnClient(a.ID)
-	n, err := s.syncConnectionTools(r.Context(), a.ID)
+	n, err := s.syncConnectionTools(r.Context(), a.ID, viewerOf(r), s.callerBase(r))
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
 		return
@@ -448,6 +541,23 @@ func (s *Server) handleConnTest(w http.ResponseWriter, r *http.Request) {
 	var client *mcp.Client
 	if sp.Type == "mcp" {
 		client = &mcp.Client{URL: sp.URL, Header: h, HC: s.connHTTP(sp)}
+		if sp.UserAuth != nil {
+			// 试连时用点「测试」的管理员自己的身份；user_secret 的连接还没保存时没法填凭据，只带共享凭据去试
+			var probe *store.Asset
+			if req.ID > 0 {
+				probe, _ = s.store.GetAsset(ctx, req.ID)
+			}
+			if probe == nil {
+				probe = &store.Asset{Slug: "test"}
+			}
+			v, base := viewerOf(r), s.callerBase(r)
+			if _, err := s.userAuthHeader(ctx, probe, sp, v, base); err == nil {
+				client.Dynamic = func(ctx context.Context) (http.Header, error) { return s.userAuthHeader(ctx, probe, sp, v, base) }
+			} else if !errors.Is(err, errNeedCredential) {
+				writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
+				return
+			}
+		}
 	}
 	start := time.Now()
 	tools, instructions, err := s.discoverTools(ctx, sp, client)
@@ -464,4 +574,14 @@ func (s *Server) handleConnTest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, resp)
+}
+
+// callerBase 是这次请求的人访问 dsh-ee 用的地址：系统设置里填了「访问地址」就用它，否则按请求推断。
+// 签 ee_jwt 时作签发方，所以要稳定：生产环境应当在系统设置里填好。
+func (s *Server) callerBase(r *http.Request) string {
+	base, err := s.connectBase(r.Context(), r)
+	if err != nil {
+		return ""
+	}
+	return base
 }

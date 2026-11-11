@@ -376,7 +376,7 @@ var agentSpecs = map[string]*agentSpec{
 
 	// ---- ee_connections ----
 	"GET /api/me/connections": {
-		Tool: "ee_connections", Action: "mine", Summary: "我能用哪些内部系统及工具；还没权限但可以申请的系统", Effect: effRead,
+		Tool: "ee_connections", Action: "mine", Summary: "我能用哪些内部系统及工具；哪些要我先在网页上填自己的凭据（credential.filled 为 false）；还没权限但可以申请的系统", Effect: effRead,
 	},
 	"POST /api/me/connection-requests": {
 		Tool: "ee_connections", Action: "request_access", Summary: "申请使用某个内部系统（记入审计，管理员处理）", En: "Request access to a connection", Effect: effWrite,

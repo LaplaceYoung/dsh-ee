@@ -55,7 +55,7 @@ func (s *Server) handleWorkbenchPreview(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	out, err := s.runSource(ctx, v, strings.TrimSpace(req.App), src)
+	out, err := s.runSource(ctx, v, s.callerBase(r), strings.TrimSpace(req.App), src)
 	if err != nil {
 		s.writeAppErr(w, r, err)
 		return
@@ -90,7 +90,7 @@ func (s *Server) handleAppDraft(w http.ResponseWriter, r *http.Request) {
 	case "knowledge":
 		slug, sp, notes, err = s.kbDraft(r.Context(), v, strings.TrimSpace(req.Slug))
 	case "connection":
-		slug, sp, notes, err = s.connectionDraft(r.Context(), v, strings.TrimSpace(req.Slug))
+		slug, sp, notes, err = s.connectionDraft(r.Context(), v, s.callerBase(r), strings.TrimSpace(req.Slug))
 	default:
 		writeErr(w, http.StatusBadRequest, "from 只能是 knowledge 或 connection")
 		return
@@ -320,7 +320,7 @@ func rankKey(k string) int {
 	return 3
 }
 
-func (s *Server) connectionDraft(ctx context.Context, v viewer, slug string) (string, *assetSpec, []string, error) {
+func (s *Server) connectionDraft(ctx context.Context, v viewer, base, slug string) (string, *assetSpec, []string, error) {
 	c, err := s.userCatalog(ctx, v)
 	if err != nil {
 		return "", nil, nil, err
@@ -365,7 +365,7 @@ func (s *Server) connectionDraft(ctx context.Context, v viewer, slug string) (st
 		tried++
 		src := &wbSource{Connection: slug, Tool: t.Name}
 		cctx, cancel := context.WithTimeout(ctx, 8*time.Second)
-		out, err := s.runSource(cctx, v, "", src)
+		out, err := s.runSource(cctx, v, base, "", src)
 		cancel()
 		if err != nil || out["error"] != nil || out["forbidden"] != nil {
 			notes = append(notes, fmt.Sprintf("试调 %s 没拿到数据，没放进面板", t.Name))
@@ -572,6 +572,11 @@ func (s *Server) handleAppFileExport(w http.ResponseWriter, r *http.Request) {
 				it.Spec.Auth = &connAuth{Type: xs.Auth.Type, Header: xs.Auth.Header}
 				it.NeedsSecret = xs.Auth.Type != "none"
 			}
+			if xs.UserAuth != nil {
+				// 员工身份的设置里没有凭据，跟着连接一起导出；员工各自的凭据不导出
+				ua := *xs.UserAuth
+				it.Spec.UserAuth = &ua
+			}
 		}
 		f.Connections = append(f.Connections, it)
 	}
@@ -735,7 +740,7 @@ func (s *Server) handleAppImport(w http.ResponseWriter, r *http.Request) {
 		if c.NeedsSecret {
 			it.Note += "；需要在连接设置里填凭据"
 		}
-		if _, err := s.syncConnectionTools(ctx, a.ID); err != nil {
+		if _, err := s.syncConnectionTools(ctx, a.ID, viewerOf(r), s.callerBase(r)); err != nil {
 			it.Note += "；同步工具失败：" + cut(err.Error(), 120)
 		}
 		add(it)

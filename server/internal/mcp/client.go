@@ -62,7 +62,9 @@ type response struct {
 type Client struct {
 	URL    string
 	Header http.Header
-	HC     *http.Client
+	// 每次请求现取的请求头（如只有几分钟有效的身份令牌），和 Header 一起带上；可以为 nil
+	Dynamic func(ctx context.Context) (http.Header, error)
+	HC      *http.Client
 
 	mu      sync.Mutex
 	session string
@@ -94,6 +96,15 @@ func (c *Client) post(ctx context.Context, msg request) (*response, int, error) 
 	for k, vs := range c.Header {
 		for _, v := range vs {
 			req.Header.Add(k, v)
+		}
+	}
+	if c.Dynamic != nil {
+		extra, err := c.Dynamic(ctx)
+		if err != nil {
+			return nil, 0, err
+		}
+		for k, vs := range extra {
+			req.Header[k] = vs
 		}
 	}
 	req.Header.Set("Content-Type", "application/json")

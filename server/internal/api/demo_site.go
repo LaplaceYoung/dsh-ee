@@ -53,6 +53,7 @@ var demoSiteBlocked = map[string]bool{
 	"PUT /api/admin/auth/oidc":        true,
 	"POST /api/admin/auth/oidc/test":  true,
 	"PUT /api/admin/brand/logo":       true,
+	"POST /api/admin/ee-jwt/rotate":   true,
 	// 模型接入：访客填进来的 key 会被别人拿来用
 	"POST /api/admin/providers":            true,
 	"PATCH /api/admin/providers/{id}":      true,

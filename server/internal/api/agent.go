@@ -195,6 +195,15 @@ var agentExcluded = map[string]string{
 	"POST /api/admin/menus/reset":     "全局破坏性操作",
 	"GET /api/admin/upstream/export":  "离线包导出必须在网页上做",
 	"POST /api/admin/upstream/import": "离线包导入必须在网页上做",
+
+	// 按员工本人的身份调用（user_identity.go）：凭据和签名密钥都不经过模型
+	"GET /.well-known/jwks.json":                            "ee_jwt 的验签公钥，给企业系统读",
+	"PUT /api/me/connections/{id}/credential":               "员工自己的凭据只在网页上填，不经过模型",
+	"DELETE /api/me/connections/{id}/credential":            "员工自己的凭据只在网页上管，不经过模型",
+	"GET /api/admin/connections/{id}/credentials":           "谁填了凭据只在网页上看",
+	"DELETE /api/admin/connections/{id}/credentials/{user}": "收回员工凭据只在网页上做",
+	"GET /api/admin/ee-jwt":                                 "签名密钥只在网页上看",
+	"POST /api/admin/ee-jwt/rotate":                         "轮换签名密钥只在网页上做",
 }
 
 // agentPending 是还没开放、等后续阶段的路由（管理侧工具）。

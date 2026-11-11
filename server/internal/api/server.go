@@ -54,6 +54,8 @@ type Options struct {
 	DataHubErr string
 	// 公开演示站；nil 表示正常部署。见 demo_site.go
 	DemoSite *DemoSite
+	// 轮换 ee_jwt 密钥时，新钥匙过多久开始签名；0 用默认的 10 分钟（测试里调短）
+	EEKeyDelay time.Duration
 }
 
 type Server struct {
@@ -74,6 +76,8 @@ type Server struct {
 	streamsOnce sync.Once
 	// 上游 MCP 连接的缓存，按资产 id
 	conns connClients
+	// ee_jwt 的签名密钥（内存里的一份，定期重读库，见 user_identity.go）
+	eeKeyring eeKeyring
 	// 示例内容里演示差旅系统的内存数据
 	demo demoTravel
 	crm  demoCRM

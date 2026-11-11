@@ -92,6 +92,7 @@ export default {
     reset: { title: "恢复默认？", action: "恢复默认" },
     restore: { title: "确认恢复？", action: "恢复" },
     unbind: { title: "确认解除绑定？", action: "解除绑定" },
+    rotate: { title: "轮换密钥？", action: "轮换" },
   },
   api: {
     unreachable: "连不上服务端，请确认 dsh-ee server 已启动",

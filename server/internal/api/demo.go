@@ -430,7 +430,7 @@ func (s *Server) demoImportAsset(r *http.Request, d demoAsset, by int64) (demoIt
 		if err := s.saveConnSecret(r, a.ID, key); err != nil {
 			return it, err
 		}
-		if _, err := s.syncConnectionTools(ctx, a.ID); err != nil {
+		if _, err := s.syncConnectionTools(ctx, a.ID, viewerOf(r), s.callerBase(r)); err != nil {
 			return it, fmt.Errorf("连接已建好，但同步工具失败：%w", err)
 		}
 		// 提交报销单是写操作，默认关着；示例里打开，好让人看到写操作要先过审批卡
