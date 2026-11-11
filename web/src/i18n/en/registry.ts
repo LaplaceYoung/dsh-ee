@@ -33,6 +33,11 @@ export default {
           unreadable: "the patch file is too large or unreadable",
         },
       },
+      skills: {
+        label: "Bundled skills",
+        pass: "No SKILL.md in the package",
+        warn: "The package contains {{count}} skill(s): {{files}}. They are injected by the plugin at runtime, do not appear in the capability hub's Skills tab, and cannot be authorized or unpublished individually.",
+      },
       "install-scripts": {
         label: "Install scripts",
         pass: "Runs no scripts on install",

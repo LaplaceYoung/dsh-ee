@@ -31,6 +31,11 @@ export default {
           unreadable: "patch 文件太大或未能读取",
         },
       },
+      skills: {
+        label: "包内技能",
+        pass: "包内没有 SKILL.md",
+        warn: "包内含 {{count}} 个技能：{{files}}。它们由插件运行时注入，不会出现在能力中心的技能 Tab，也不能按技能单独授权或下架。",
+      },
       "install-scripts": {
         label: "安装脚本",
         pass: "安装时不执行脚本",
