@@ -200,8 +200,9 @@ func (s *Server) discoverTools(ctx context.Context, sp *assetSpec, client *mcp.C
 		if err != nil {
 			return nil, "", err
 		}
+		usedNames := map[string]bool{}
 		for _, t := range tools {
-			name := openapi.ToolName(t.Name)
+			name := openapi.UniqueToolName(openapi.ToolName(t.Name), usedNames)
 			schema := t.InputSchema
 			if len(schema) == 0 {
 				schema = json.RawMessage(`{"type":"object"}`)
