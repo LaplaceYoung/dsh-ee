@@ -660,12 +660,8 @@ func (s *Server) handleHubCreate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "标识只能用小写字母、数字和连字符，例如 expense-policy，最多 48 个字符")
 		return
 	}
-	if req.Slug == kbConn || req.Slug == kbQAName {
-		writeErr(w, http.StatusBadRequest, "标识 "+req.Slug+" 留给知识库使用")
-		return
-	}
-	if req.Slug == appConn || req.Slug == dataConn {
-		writeErr(w, http.StatusBadRequest, "标识 "+req.Slug+" 留给应用数据和数据中台使用")
+	if reservedConnSlug(req.Slug) {
+		writeErr(w, http.StatusBadRequest, "标识 "+req.Slug+" 留给系统连接或内置工具，请换一个")
 		return
 	}
 	sp, raw, ok := s.decodeSpec(w, r, req.Kind, req.Spec)

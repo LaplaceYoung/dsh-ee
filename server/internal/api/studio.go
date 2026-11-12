@@ -142,7 +142,7 @@ func (s *Server) freeSlug(ctx context.Context, slug string) string {
 			suffix := fmt.Sprintf("-%d", i)
 			try = cutSlug(strings.TrimRight(slug[:min(len(slug), maxSlug-len(suffix))], "-") + suffix)
 		}
-		if _, err := s.store.GetAssetBySlug(ctx, try); errors.Is(err, store.ErrNotFound) && try != kbConn && try != kbQAName && try != appConn && try != dataConn {
+		if _, err := s.store.GetAssetBySlug(ctx, try); errors.Is(err, store.ErrNotFound) && !reservedConnSlug(try) {
 			return try
 		}
 	}
@@ -717,7 +717,7 @@ func (s *Server) handleAppImport(w http.ResponseWriter, r *http.Request) {
 			s.internalErr(w, r, err)
 			return
 		}
-		if c.Spec == nil || !v.access.Has(rbac.ConnectionsManage) || !slugRe.MatchString(c.Slug) {
+		if c.Spec == nil || !v.access.Has(rbac.ConnectionsManage) || !slugRe.MatchString(c.Slug) || reservedConnSlug(c.Slug) {
 			it.Result, it.Note = "missing", "目标环境没有这个连接，需要管理员先接入"
 			add(it)
 			continue

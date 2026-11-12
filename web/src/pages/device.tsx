@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { api, formatTime } from "../lib/api";
 import { useAction, useApi } from "../lib/use-api";
 import { ErrorNote, LoadState } from "../components/api-ui";
+import { useStore } from "../lib/store";
 import { Badge, Button, Card, Field, inputCls, PageHeader, Notice, Empty } from "../components/ui";
 
 export default function DevicePage() {
@@ -13,6 +14,7 @@ export default function DevicePage() {
   const code = params.get("code") ?? "";
   const { data, error, loading, reload } = useApi(() => (code ? api.deviceInfo(code) : Promise.resolve(null)));
   const { busy, run } = useAction();
+  const { notify } = useStore();
   const [manual, setManual] = useState("");
   const [done, setDone] = useState<"approved" | "denied" | null>(null);
   const initial = useRef(true);
@@ -27,6 +29,7 @@ export default function DevicePage() {
   const decide = async (approve: boolean) => {
     const r = await run(() => api.approveDevice(code, approve));
     if (r.ok) setDone(approve ? "approved" : "denied");
+    else notify(r.error);
   };
 
   const submit = (e: FormEvent) => {

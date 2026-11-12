@@ -62,10 +62,11 @@ func Hash(s string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// Hint 返回密钥末 4 位，便于管理员辨认。
+// Hint 返回密钥末 4 个字符，便于管理员辨认。按 rune 切，不能把中文/emoji 截成半个。
 func Hint(s string) string {
-	if len(s) <= 4 {
+	runes := []rune(s)
+	if len(runes) <= 4 {
 		return "****"
 	}
-	return "…" + s[len(s)-4:]
+	return "…" + string(runes[len(runes)-4:])
 }

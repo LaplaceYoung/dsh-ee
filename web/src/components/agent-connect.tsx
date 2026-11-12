@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { api, formatTime, type GetStarted, type GetStartedStatus } from "../lib/api";
+import { ApiError, api, formatTime, type GetStarted, type GetStartedStatus } from "../lib/api";
 import { useAction } from "../lib/use-api";
 import { PageLink } from "../lib/menus";
 import { Button, CopyBox, cx, inputCls, PasswordInput, Segmented, Notice, Spinner } from "./ui";
@@ -45,8 +45,9 @@ export function AgentConnect({ admin, onConnected }: { admin: boolean; onConnect
       try {
         const st = await api.getStartedStatus(info.code);
         if (!stop) setStatus(st);
-      } catch {
-        if (!stop) setExpired(true);
+      } catch (error) {
+        // 只有「接入码不存在/不属于当前用户」才是过期；5xx/网络抖动等下一轮再试。
+        if (!stop && error instanceof ApiError && error.status === 404) setExpired(true);
       }
     };
     void tick();

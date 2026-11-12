@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ChevronRight, Folder, FolderOpen, SearchX, FileText } from "lucide-react";
@@ -148,25 +148,36 @@ export function DocList({ kb, docs, folder, setFolder, onChanged }: { kb: KBase;
   const [mode, setMode] = useState<"title" | "content">("title");
   const [filter, setFilter] = useState("");
   const [hits, setHits] = useState<Map<number, KBHit> | null>(null);
+  const searchSeq = useRef(0);
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [moving, setMoving] = useState(false);
 
   // 搜内容：停手 300 毫秒后查，结果按文档聚合（每篇留第一处命中）
   useEffect(() => {
     const q = filter.trim();
-    if (mode !== "content" || !q) return setHits(null);
+    const seq = ++searchSeq.current;
+    if (mode !== "content" || !q) {
+      setHits(null);
+      return;
+    }
     const timer = setTimeout(async () => {
       try {
         const r = await api.searchKB({ query: q, kb_ids: [kb.id], folder: folder ?? "" });
+        // 输入变化后，慢的旧响应不能覆盖新查询的结果。
+        if (seq !== searchSeq.current) return;
         const m = new Map<number, KBHit>();
         for (const h of r.hits) if (!m.has(h.doc)) m.set(h.doc, h);
         for (const d of r.docs ?? []) if (!m.has(d.doc)) m.set(d.doc, { doc: d.doc, title: d.title, snippet: "", heading: "", line: 1, from: 1, to: 1 } as KBHit);
         setHits(m);
       } catch {
-        setHits(new Map());
+        if (seq === searchSeq.current) setHits(new Map());
       }
     }, 300);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      // 卸载/依赖变化时让在途请求作废。
+      if (seq === searchSeq.current) searchSeq.current++;
+    };
   }, [mode, filter, folder, kb.id]);
 
   const q = filter.trim().toLowerCase();
