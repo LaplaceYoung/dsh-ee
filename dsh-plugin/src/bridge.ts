@@ -256,12 +256,18 @@ export class McpBridge {
           // 下面统一退避
         }
         if (signal.aborted) break;
-        await new Promise((resolve) => {
-          const timer = setTimeout(resolve, delay);
-          this.wakeUp = () => { clearTimeout(timer); delay = 1000; resolve(undefined); };
-          signal.addEventListener("abort", () => { clearTimeout(timer); resolve(undefined); }, { once: true });
-        });
-        this.wakeUp = undefined;
+        let onAbort: (() => void) | undefined;
+        try {
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, delay);
+            onAbort = () => { clearTimeout(timer); resolve(undefined); };
+            this.wakeUp = () => { clearTimeout(timer); delay = 1000; resolve(undefined); };
+            signal.addEventListener("abort", onAbort, { once: true });
+          });
+        } finally {
+          if (onAbort) signal.removeEventListener("abort", onAbort);
+          this.wakeUp = undefined;
+        }
         delay = Math.min(delay * 2, 60_000);
       }
     })();

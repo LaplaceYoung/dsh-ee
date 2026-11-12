@@ -304,11 +304,19 @@ function registerCommands(ctx, config, tokens, onLogin = async () => {
 }) {
   const flow = new DeviceFlow(config);
   let pending = null;
+  let starting = false;
   const login = async (rawInput) => {
     if (pending) return { kind: "success", text: `\u8BF7\u5728\u6D4F\u89C8\u5668\u786E\u8BA4\uFF0C\u786E\u8BA4\u7801 ${pending.code}\uFF0C\u94FE\u63A5 ${pending.url}` };
+    if (starting) return { kind: "success", text: "\u6B63\u5728\u53D1\u8D77\u4F01\u4E1A\u767B\u5F55\uFF0C\u8BF7\u7A0D\u5019\u2026" };
     const setupCode = parseSetupCode(rawInput);
     if (String(rawInput ?? "").trim() && !setupCode) return { kind: "error", text: "\u63A5\u5165\u7801\u683C\u5F0F\u4E0D\u5BF9\uFF0C\u5E94\u5F62\u5982 ABCD-EFGH\uFF1B\u4E0D\u5E26\u63A5\u5165\u7801\u76F4\u63A5\u8F93\u5165 /ee-login \u4E5F\u53EF\u4EE5" };
-    const started = await flow.start(setupCode);
+    starting = true;
+    let started;
+    try {
+      started = await flow.start(setupCode);
+    } finally {
+      starting = false;
+    }
     const url = started.verification_uri_complete;
     if (!setupCode) openBrowser(url);
     const task = (async () => {
@@ -770,19 +778,25 @@ ${canonArgs(args)}`, body.preview);
         } catch {
         }
         if (signal.aborted) break;
-        await new Promise((resolve) => {
-          const timer = setTimeout(resolve, delay);
-          this.wakeUp = () => {
-            clearTimeout(timer);
-            delay = 1e3;
-            resolve(void 0);
-          };
-          signal.addEventListener("abort", () => {
-            clearTimeout(timer);
-            resolve(void 0);
-          }, { once: true });
-        });
-        this.wakeUp = void 0;
+        let onAbort;
+        try {
+          await new Promise((resolve) => {
+            const timer = setTimeout(resolve, delay);
+            onAbort = () => {
+              clearTimeout(timer);
+              resolve(void 0);
+            };
+            this.wakeUp = () => {
+              clearTimeout(timer);
+              delay = 1e3;
+              resolve(void 0);
+            };
+            signal.addEventListener("abort", onAbort, { once: true });
+          });
+        } finally {
+          if (onAbort) signal.removeEventListener("abort", onAbort);
+          this.wakeUp = void 0;
+        }
         delay = Math.min(delay * 2, 6e4);
       }
     })();
@@ -3770,7 +3784,7 @@ function apply(ctx, input) {
   bridge.registerLocal("ee_plugins.upload", (args) => uploadPackage(http, args));
   registerApproval(ctx, bridge);
   ctx.effect(async () => {
-    await tokens.importPending();
+    await tokens.importPending().catch(() => void 0);
     const current = await tokens.resolve();
     if (current?.value) await tokens.syncNpmrc(current.value).catch(() => false);
     let skills;
