@@ -14,3 +14,6 @@ deploy/out/
 
 # 安装进来的 Agent skill（可用 lh acceptance install 重新拉取，不入库）
 .agents/skills/
+
+# Local secrets for docker compose
+deploy/.env

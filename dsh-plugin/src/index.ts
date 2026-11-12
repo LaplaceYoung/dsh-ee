@@ -16,6 +16,7 @@ import { setAppSubscription } from "./app-subscription.js";
 import { exchangeWebLink } from "./web-link.js";
 import { BoardStore, ChecklistStore, insertFormRow, writeTableRow, readKBDoc, readWidgetData, registerWorkbenchTool } from "./workbench-host.js";
 import { registerVotes } from "./votes.js";
+import { WriteLog } from "./write-log.js";
 import type { DshContext, PluginConfig } from "./dsh.js";
 
 export const name = "dsh-ee-connect";
@@ -32,6 +33,8 @@ export function apply(ctx: DshContext, input: Partial<PluginConfig>): void {
   const tokens = new TokenManager(ctx, config);
   const http = new HttpClient(tokens);
   const bridge = new McpBridge(ctx, config, http);
+  const writes = new WriteLog();
+  bridge.onWrite = (sessionId, record) => writes.record(sessionId, record);
   let refreshSkills: (() => Promise<void>) | undefined;
   // 员工在 DSH 设置里改过地址的话，从这里开始就用改过的地址
   const server = new ServerSettingsService(config, tokens, async () => {
@@ -100,6 +103,10 @@ export function apply(ctx: DshContext, input: Partial<PluginConfig>): void {
         return checklists.update(app, String(request?.sessionId ?? ""), String(request?.key ?? ""), request?.done ? [id] : [], request?.done ? [] : [id]);
       },
       readKBDoc: (request) => readKBDoc(bridge, request),
+      turnWrites: async (request) => ({
+        base: config.base,
+        writes: writes.between(String(request?.sessionId ?? ""), Number(request?.from), request?.to == null ? undefined : Number(request.to)),
+      }),
       readOverview: () => readEnterpriseOverview(config, http, bridge).catch((error) => ({ failure: overviewFailure(config, error) })),
       login: () => commands.login(),
       doctor: () => runLocalDoctor(ctx, config, tokens, http, bridge, appBindings),

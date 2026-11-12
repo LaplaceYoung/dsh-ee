@@ -778,6 +778,8 @@ export interface AssetSpec {
   openapi?: string;
   instructions?: string;
   timeout_seconds?: number;
+  /** 连接：从声明式扩展装进来的 */
+  extension?: ConnExtension;
 }
 
 export interface HubAsset {
@@ -848,7 +850,82 @@ export interface ConnectionCall {
   latency_ms: number;
   /** 这次调用带的员工身份：没有（只有共享凭据）/ ee_jwt / user_secret */
   auth_mode?: "ee_jwt" | "user_secret";
+  /** 扩展装的连接：扩展的版本和清单摘要（作者/名字@版本#摘要前 12 位） */
+  extension?: string;
   created_at: string;
+}
+
+/** 连接来自声明式扩展：清单和接口文档一起定版，不能在连接页面上单独改。 */
+export interface ConnExtension {
+  id: string;
+  version: string;
+  digest: string;
+  manifest: string;
+  /** 管理员统一设置的参数值（fill: admin） */
+  admin?: Record<string, unknown>;
+}
+
+export interface ExtDiagnostic {
+  code: string;
+  severity: "error" | "warning" | "info";
+  where: string;
+  message: string;
+  fix?: string;
+}
+
+export interface ExtToolInfo {
+  name: string;
+  readOnly: boolean;
+  method?: string;
+  path?: string;
+  listed: boolean;
+  fixed?: { name: string; fill: "app" | "admin"; label?: string; default?: unknown }[];
+  keep?: string[];
+}
+
+export interface ExtAdminParam {
+  key: string;
+  label: string;
+  type?: string;
+  enum?: unknown[];
+  default?: unknown;
+  tools: string[];
+}
+
+/** 安装前给管理员看的计划：检查结果、要设置的参数、新装还是升级、升级时变了什么。 */
+export interface ExtPlan {
+  check: {
+    ok: boolean;
+    identity?: string;
+    kind?: string;
+    digest?: string;
+    servers?: string[];
+    credential?: { mode: "shared" | "user_secret" | "ee_jwt" | "oauth"; header?: string; audience?: string; claims?: string[]; sharedHeader?: string };
+    tools?: ExtToolInfo[];
+    errors: number;
+    warnings: number;
+    results: ExtDiagnostic[];
+  };
+  name: string;
+  description?: string;
+  admin_params: ExtAdminParam[];
+  slug: string;
+  existing?: { id: number; slug: string; title: string; version: string; url?: string };
+  changes: string[];
+  sensitive: string[];
+  admin?: Record<string, unknown>;
+}
+
+/** 上传的扩展：zip 包（base64），或几个文件（相对路径 → 文本）。 */
+export type ExtPackage = { zip: string } | { files: Record<string, string> };
+
+export interface ExtInstallReq {
+  slug?: string;
+  url?: string;
+  auth?: { type: "none" | "bearer" | "header"; header?: string };
+  secret?: string;
+  admin?: Record<string, unknown>;
+  confirm?: boolean;
 }
 
 /** 连接上的员工身份设置：ee_jwt 由 dsh-ee 每次现签，user_secret 由员工自己填。 */
@@ -1556,6 +1633,9 @@ export const api = {
     request<PluginPolicy>("PUT", `/api/admin/plugin-policies/${encName(name)}`, p),
   testConnection: (spec: AssetSpec, secret?: string, id?: number, slug?: string) =>
     request<ConnTestResult>("POST", "/api/admin/connections/test", { spec, ...(secret !== undefined ? { secret } : {}), ...(id ? { id } : {}), ...(slug ? { slug } : {}) }),
+  checkExtension: (pkg: ExtPackage) => request<ExtPlan>("POST", "/api/admin/extensions/check", pkg),
+  installExtension: (pkg: ExtPackage, r: ExtInstallReq) =>
+    request<{ asset: { id: number; slug: string }; identity: string; tools?: number; sync_error?: string; upgraded_from?: string }>("POST", "/api/admin/extensions/install", { ...pkg, ...r }),
   syncConnection: (id: number) => request<{ ok: boolean; tools?: number; error?: string }>("POST", `/api/admin/connections/${id}/sync`),
   setConnectionTool: (id: number, name: string, p: { enabled: boolean; roles: number[] }) =>
     request<void>("PATCH", `/api/admin/connections/${id}/tools/${encodeURIComponent(name)}`, p),

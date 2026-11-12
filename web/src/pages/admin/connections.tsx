@@ -9,6 +9,7 @@ import { useScopeOptions } from "../../components/scope-dialog";
 import { Badge, Button, Card, PageHeader, Segmented, Empty } from "../../components/ui";
 import { DataHubPanel } from "../../components/data-hub";
 import { EeJwtKeysCard } from "../../components/connection-identity";
+import { InstallExtensionButton } from "../../components/extension-install";
 
 export default function AdminConnections() {
   const { t } = useTranslation();
@@ -28,9 +29,12 @@ export default function AdminConnections() {
         desc={t("connections.desc")}
         actions={
           tab === "connections" ? (
-            <Button onClick={() => navigate("/assets/new?kind=connection")}>
-              <Plus size={15} /> {t("connections.add")}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <InstallExtensionButton />
+              <Button onClick={() => navigate("/assets/new?kind=connection")}>
+                <Plus size={15} /> {t("connections.add")}
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -78,7 +82,10 @@ export default function AdminConnections() {
                     <tr key={c.id} className="cursor-pointer border-t border-neutral-100 hover:bg-neutral-50" onClick={() => navigate(assetPath(c.id))}>
                       <td className="px-5 py-3">
                         <div className="text-neutral-900">{c.spec.title}</div>
-                        <div className="font-mono text-xs text-neutral-500">{c.slug}</div>
+                        <div className="font-mono text-xs text-neutral-500">
+                          {c.slug}
+                          {c.spec.extension && <span className="ml-2">{c.spec.extension.id}@{c.spec.extension.version}</span>}
+                        </div>
                       </td>
                       <td className="px-5 py-3 text-neutral-700">{c.spec.type === "openapi" ? t("connections.typeOpenapi") : t("connections.typeMcp")}</td>
                       <td className="px-5 py-3 text-right tabular-nums">

@@ -1,5 +1,9 @@
 import type { DshContext, PluginConfig } from "./dsh.js";
 import type { HttpClient } from "./http.js";
+import { resultOk, writeOf, type WriteRecord } from "./write-log.js";
+
+/** 写操作发生后通知调用方（记到本机按会话的写操作日志）；拿不到会话 id 时不记。 */
+export type WriteListener = (sessionId: string, record: WriteRecord) => void;
 
 /** 服务端在 tools/list 的 _meta.dshee.actions 里标注的写 / 危险操作；没标注的 action 都是只读。 */
 export interface ActionMeta {
@@ -77,6 +81,8 @@ export class McpBridge {
   /** 服务端在 tools/list 里标了 readOnlyHint 的工具（服务端工具名）；工作台取数只能用它们 */
   private readOnly = new Set<string>();
   readonly status = { lastSyncAt: 0, tools: 0, error: "" };
+  /** 有写操作完成时调用；index.ts 接到 WriteLog 上 */
+  onWrite?: WriteListener;
 
   constructor(private ctx: DshContext, private config: PluginConfig, private http: HttpClient) {}
 
@@ -145,6 +151,19 @@ export class McpBridge {
     }
   }
 
+  /** 写操作记一笔；记录失败不能影响工具结果。exec.agent.session.id 是调用它的会话。 */
+  private noteWrite(tool: any, args: any, exec: any, at: number, ok: boolean): void {
+    const sessionId = exec?.agent?.session?.id;
+    if (!this.onWrite || typeof sessionId !== "string" || !sessionId) return;
+    const write = writeOf(tool, args);
+    if (!write) return;
+    try {
+      this.onWrite(sessionId, { at, tool: String(tool.name), ok, ...write });
+    } catch {
+      // 本机日志写不进去（磁盘满、权限）只是少一条提示
+    }
+  }
+
   private register(tool: any): void {
     const name = `mcp__${this.config.serverName}__${tool.name}`;
     const actions = tool._meta?.dshee?.actions;
@@ -156,11 +175,19 @@ export class McpBridge {
       description: tool.description || tool.name,
       parameters: tool.inputSchema || { type: "object", properties: {} },
       output: { schema: {}, render: (_args: unknown, value: unknown) => [{ type: "text", text: renderResult(value) }] },
-      execute: async (args: any) => {
+      execute: async (args: any, exec?: any) => {
         const local = this.local.get(`${tool.name}.${args?.action}`);
         if (local) return local(args);
-        const result = await this.rpc("tools/call", { name: tool.name, arguments: args }, 0);
+        const at = Date.now();
+        let result: any;
+        try {
+          result = await this.rpc("tools/call", { name: tool.name, arguments: args }, 0);
+        } catch (error) {
+          this.noteWrite(tool, args, exec, at, false);
+          throw error;
+        }
         this.remember(name, args, result);
+        this.noteWrite(tool, args, exec, at, resultOk(result));
         return result;
       },
     });
