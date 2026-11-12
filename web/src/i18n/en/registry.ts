@@ -38,6 +38,14 @@ export default {
         pass: "No SKILL.md in the package",
         warn: "The package contains {{count}} skill(s): {{files}}. They are injected by the plugin at runtime, do not appear in the capability hub's Skills tab, and cannot be authorized or unpublished individually.",
       },
+      cordis: {
+        label: "Cordis dependency",
+        warn: "The package puts {{packages}} in dependencies. DSH already provides Cordis; a second copy breaks service injection and lifecycle. Move them to peerDependencies (or devDependencies if they are build-only).",
+      },
+      "cordis-peer": {
+        label: "Cordis version",
+        warn: "The Cordis peer range {{range}} does not include {{want}}, used by DSH 0.2.2. Keep it only if you intentionally support older hosts.",
+      },
       "install-scripts": {
         label: "Install scripts",
         pass: "Runs no scripts on install",

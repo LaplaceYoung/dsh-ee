@@ -227,6 +227,12 @@ func Check(m *Manifest, info *TarballInfo, size int64, companyScopes []string) [
 	if item := checkBundlePatch(m, info); item != nil {
 		add(item.Key, item.Level, item.Params)
 	}
+	if item := checkCordisDependency(m); item != nil {
+		add(item.Key, item.Level, item.Params)
+	}
+	if item := checkCordisPeerRange(m); item != nil {
+		add(item.Key, item.Level, item.Params)
+	}
 
 	if info.Skills > 0 {
 		files := info.SkillFiles
