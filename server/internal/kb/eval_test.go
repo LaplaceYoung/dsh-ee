@@ -89,6 +89,11 @@ func TestRetrievalEval(t *testing.T) {
 		{"API 限流 QPS", 201},
 		{"429 错误", 201},
 		{"Bearer token 鉴权", 201},
+		{"出差 住宿 多少钱", 102},
+		{"迟到 怎么算", 101},
+		{"公司电脑 安装 软件", 103},
+		{"租户 QPS 限制", 201},
+		{"限流 退避 重试", 201},
 	}
 	top1, rr, n := 0, 0.0, 0
 	for _, tc := range cases {
