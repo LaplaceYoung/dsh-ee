@@ -68,7 +68,7 @@ DSH 的 `dsh plugin add` 在 profile 目录里转发给 pnpm，所以「能力�
 
 - **packument / tarball**：`GET /npm/<包名>`（支持 `Accept: application/vnd.npm.install-v1+json` 精简文档）、`GET /npm/<包名>/-/<文件>.tgz`。tarball 按 sha512 内容寻址存在 `DSH_EE_DATA_DIR/blobs`。
 - **发布**：`npm publish` / `pnpm publish`，或网页上传 `npm pack` 的 `.tgz`。只能发布到企业作用域（系统设置里的主作用域 + 其它内部作用域）；包的第一个发布者是负责人，之后只有他和有「管理能力与审核」权限的人能发新版本；同一版本号永远不能重发（被驳回、下架的也不行）。对外的清单以 **tarball 里的 package.json 为准**，与发布元数据不一致（name / version / 摘要）直接拒收，防 manifest confusion。
-- **审核状态**（逐版本）：`pending` 待审核 → `published` 已上架 / `rejected` 已驳回；已上架可 `unpublished` 下架，下架与驳回可恢复。只有 `published` 的版本出现在 packument、能下载、进 DSH 索引；`latest` 指向未上架版本时自动回落到最高的已上架正式版。收录模式为「开放」时发布即上架（自动检查有失败项的仍进待审核）。
+- **审核状态**（逐版本）：`pending` 待审核 → `published` 已上架 / `rejected` 已驳回；已上架可 `unpublished` 下架，下架与驳回可恢复。只有 `published` 的版本出现在 packument、能下载、进 DSH 索引；`latest` 指向未上架版本时自动回落到最高的已上架正式版。收录模式为「开放」时发布即上架（自动检查有失败项的仍进待审核）。npm CLI 或网页上传产生待审版本时，可按飞书设置发出审批卡，卡内通过/驳回复用同一个审核器，发布者收到结果通知；批量预载与导入的卡片另列后续批次。详见 [docs/feishu.md](../docs/feishu.md)。
 - **自动检查**（发布、预载、导入时做，审核页展示）：`dsh.bundle` 与 `patch` 文件是否存在且路径安全、安装脚本、疑似密钥与敏感文件（`.env`、`.npmrc`、私钥、各家 token 格式）、License、`engines.dsh`、社区依赖、体积。
 - **企业作用域永不回源**：作用域内的包名、以及曾经在本地托管过的包名，无论设置怎么改都只查本地，防依赖混淆。
 - **回源**：「按需回源并缓存」时，作用域之外的包取上游 packument（磁盘缓存 5 分钟，带 ETag 重新验证，上游不可用时用旧缓存），tarball 第一次下载时拉取、校验 integrity 后存下；「只提供已预载的包」或离线模式下只用本地已有的版本。**声明了 `dsh.bundle` 的上游版本（即社区插件）在白名单模式下必须先在本地审核上架才可见**，普通依赖不需要审核。
