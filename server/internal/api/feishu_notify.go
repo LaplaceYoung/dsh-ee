@@ -382,6 +382,8 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 			return "", owner, errors.New("范围分享已被其他人处理")
 		}
 		return a.Title, a.OwnerID, nil
+	case store.FeishuActionNpmVersion:
+		return s.applyFeishuNpmDecision(ctx, v, action, decision)
 	case store.FeishuActionAccess:
 		q, err := s.store.GetPendingAccessRequest(ctx, action.SubID)
 		if err != nil {

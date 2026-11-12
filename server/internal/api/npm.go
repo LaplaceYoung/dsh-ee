@@ -356,6 +356,7 @@ func (s *Server) handleNpmPublish(w http.ResponseWriter, r *http.Request, c *npm
 	s.log.Info("npm publish", "pkg", res.Name, "version", res.Version, "status", res.Status, "user", c.user.Username)
 	s.auditAs(r, c.user, auditPackagePublish, res.Name+"@"+res.Version, map[string]any{"via": "npm", "status": res.Status})
 	if res.Status == store.StatusPending {
+		s.feishuNpmPublish(r, res, c.user.ID)
 		// npm 会把这个头原样打印成 npm notice。HTTP 头按 Latin-1 解码，中文会乱码，只能写 ASCII
 		w.Header().Set("npm-notice", res.Name+"@"+res.Version+" is pending review: it becomes installable after an admin approves it in dsh-ee (Review queue)")
 	}

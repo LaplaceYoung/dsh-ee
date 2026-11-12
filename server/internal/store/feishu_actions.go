@@ -11,6 +11,7 @@ const (
 	FeishuActionHubVersion = "hub_version"
 	FeishuActionScope      = "scope_request"
 	FeishuActionAccess     = "access_request"
+	FeishuActionNpmVersion = "npm_version"
 
 	FeishuActionPending    = "pending"
 	FeishuActionProcessing = "processing"

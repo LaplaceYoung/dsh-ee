@@ -521,6 +521,7 @@ func (s *Server) handleReview(w http.ResponseWriter, r *http.Request) {
 		detail["action"] = req.Action
 		s.audit(r, auditPackageStatus, target, detail)
 	}
+	s.feishuNpmResultFromWeb(r.Context(), req.Name, req.Version, req.Action)
 	writeJSON(w, http.StatusOK, map[string]any{"changed": n})
 }
 
@@ -578,6 +579,7 @@ func (s *Server) handleUploadPackage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit(r, auditPackagePublish, res.Name+"@"+res.Version, map[string]any{"via": "web", "status": res.Status})
+	s.feishuNpmPublish(r, res, u.ID)
 	writeJSON(w, http.StatusCreated, res)
 }
 
