@@ -678,6 +678,8 @@ func (s *Server) handleMCP(w http.ResponseWriter, r *http.Request) {
 					"description": "【" + cn.spec.Title + "】" + t.Description,
 					"inputSchema": t.InputSchema,
 					"annotations": map[string]any{"readOnlyHint": t.ReadOnly},
+					// 接入插件在写操作那一轮末尾放「已留痕」提示，链接到这个连接的网页详情
+					"_meta": map[string]any{"dshee": map[string]any{"asset": cn.asset.ID, "system": cn.spec.Title}},
 				})
 			}
 		}

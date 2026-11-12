@@ -15,6 +15,8 @@ export interface ClientServiceActions {
   readChecklists: (request: { app: string; sessionId: string }) => Promise<any>;
   setChecklist: (request: { app: string; sessionId: string; key: string; id: string; done: boolean }) => Promise<any>;
   readKBDoc: (request: { doc: number; version?: number; from: number; to: number }) => Promise<any>;
+  /** 某个会话在 [from, to] 之间经接入插件做的写操作，对话里那一轮末尾展示 */
+  turnWrites: (request: { sessionId: string; from: number; to?: number }) => Promise<any>;
   login: () => Promise<any>;
   doctor: () => Promise<any>;
   serverSettings: () => Promise<any>;
@@ -95,6 +97,11 @@ export class DshEEClientService extends TypertRemoteService {
   @Remote
   async kbDoc(request: { doc: number; version?: number; from: number; to: number }): Promise<any> {
     return this.actions.readKBDoc(request);
+  }
+
+  @Remote
+  async turnWrites(request: { sessionId: string; from: number; to?: number }): Promise<any> {
+    return this.actions.turnWrites(request);
   }
 
   @Remote
