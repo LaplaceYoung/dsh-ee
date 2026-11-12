@@ -558,10 +558,8 @@ func connSlugProblem(slug string) string {
 		return "标识不能以 " + systemSkillPrefix + " 开头，这是系统技能的前缀"
 	case !slugRe.MatchString(slug) || len(slug) > maxSlug:
 		return "标识只能用小写字母、数字和连字符，例如 oa，最多 48 个字符"
-	case slug == kbConn || slug == kbQAName:
-		return "标识 " + slug + " 留给知识库使用"
-	case slug == appConn || slug == dataConn:
-		return "标识 " + slug + " 留给应用数据和数据中台使用"
+	case reservedConnSlug(slug):
+		return "标识 " + slug + " 留给系统连接或内置工具，请换一个"
 	}
 	return ""
 }
