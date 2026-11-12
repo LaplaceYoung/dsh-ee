@@ -28,7 +28,7 @@ dsh-ee extension check extensions/examples/demo-declarative --json   # 给 Agent
 
 - 三个查询工具直接可用，`create_ticket` 是写操作，默认不启用，在连接详情页打开；
 - `body.priority` 不会出现在给模型的工具定义里，按安装时设置的值（默认「中」）发出去；
-- `list_tickets` 的返回只保留 `keep` 里的字段；
+- `list_tickets` 的返回只保留 `keep` 里的字段（列表包在 `items` 里，所以写成 `items.id`、`items.title`……）；
 - 每次调用的记录里都带 `dsh-ee/demo-itsm@0.1.0#<摘要>`。
 
 ## 改成你自己的

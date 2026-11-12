@@ -518,7 +518,8 @@ extensions/
 | 清单 v1、`extension check --json`、规格文件、声明式示例、技能的声明式部分 | ✅ | `extensions/`、`server/internal/extension` |
 | 安装声明式扩展（上传 zip 或清单 + 接口文档 → 检查 → 安装计划 → 装成连接；升级时新增的写操作、只读变写、凭据模式和地址的变化先停用或要确认） | ✅ | `server/internal/api/extensions.go`，管理后台「企业连接 → 安装扩展」 |
 | 参数 `fill`：`admin` 由管理员安装时设置，`app` 先取清单的 default；两种都不出现在给模型的工具定义里 | ✅（`app` 按应用固定还没做） | `extension.Tool.Schema` / `Fix` |
-| `keep` 只保留返回字段、请求只发往清单列出的地址、调用记录带扩展版本和摘要 | ✅ | 同上 |
+| `keep` 只保留返回字段（可写到第二层：`items.id`）、请求只发往清单列出的地址、调用记录带扩展版本和摘要 | ✅ | 同上 |
+| `shared` 模式由清单指定共享凭据的请求头（`credential.header`）；管理员填的值按清单的类型和可选值核对；`minVersion` 高于当前版本的不让装；扩展装的连接不能换成另一个扩展或变回手工连接 | ✅ | `server/internal/api/extensions.go` |
 | 从 Git 仓库安装（§9.2） | ⏳ | |
 | 多份共享凭据（§7.1） | ⏳ | |
 | 现有连接自动转换成扩展（§11） | ⏳ | |

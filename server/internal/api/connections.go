@@ -413,7 +413,7 @@ func (s *Server) doConnectionCall(ctx context.Context, a *store.Asset, t *store.
 		}
 		text := string(body)
 		if len(body) > connResultLimit {
-			text = string(body[:connResultLimit]) + "\n…（结果过长，已截断）"
+			text = strings.ToValidUTF8(string(body[:connResultLimit]), "") + "\n…（结果过长，已截断）"
 		}
 		if status >= 400 {
 			return mcp.TextResult(fmt.Sprintf("HTTP %d\n%s", status, text), true), mode, ext, nil
