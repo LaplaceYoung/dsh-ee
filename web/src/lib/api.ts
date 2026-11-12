@@ -519,7 +519,7 @@ export type LdapInput = LdapConfig & { bindPassword?: string };
 
 export interface OidcConfig {
   enabled: boolean;
-  preset: "keycloak" | "authing" | "azure" | "custom";
+  preset: "keycloak" | "authing" | "azure" | "custom" | "feishu";
   name: string;
   issuer: string;
   clientId: string;
@@ -531,6 +531,13 @@ export interface OidcConfig {
   groupsClaim: string;
   roleMappings: { group: string; roleId: number }[];
   autoCreate: boolean;
+  feishuApiBase?: string;
+  feishuSync?: boolean;
+  feishuSyncDisable?: boolean;
+  feishuNotify?: boolean;
+  feishuNotifyActions?: boolean;
+  /** 飞书开发者后台的 Verification Token；开卡片审批必须填 */
+  feishuVerificationToken?: string;
 }
 
 export interface OidcView extends OidcConfig {
@@ -539,6 +546,18 @@ export interface OidcView extends OidcConfig {
 }
 
 export type OidcInput = OidcConfig & { clientSecret?: string };
+
+export interface FeishuSyncResult {
+  at: string;
+  ok: boolean;
+  error?: string;
+  remote: number;
+  created: number;
+  reconciled: number;
+  disabled: string[];
+  conflicts: string[];
+  skipped: string[];
+}
 
 export interface OidcTestResult {
   ok: boolean;
@@ -1511,6 +1530,9 @@ export const api = {
   oidc: () => request<OidcView>("GET", "/api/admin/auth/oidc"),
   saveOidc: (c: OidcInput) => request<OidcView>("PUT", "/api/admin/auth/oidc", c),
   testOidc: (c: OidcInput) => request<OidcTestResult>("POST", "/api/admin/auth/oidc/test", c),
+  feishuSyncStatus: () => request<{ last: FeishuSyncResult | null }>("GET", "/api/admin/auth/feishu/sync"),
+  syncFeishu: () => request<FeishuSyncResult>("POST", "/api/admin/auth/feishu/sync"),
+  feishuWorkspaceURL: (next: string) => request<{ url: string; next: string }>("GET", `/api/admin/auth/feishu/workspace-url?next=${encodeURIComponent(next)}`),
   monthlyReport: (month: string) =>
     request<MonthlyReport>("GET", `/api/admin/report/monthly?month=${encodeURIComponent(month)}&tz=${-new Date().getTimezoneOffset()}`),
   saveReportParams: (p: ReportParams) => request<ReportParams>("PUT", "/api/admin/report/params", p),

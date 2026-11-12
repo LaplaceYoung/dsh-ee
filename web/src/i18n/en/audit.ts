@@ -67,7 +67,7 @@ export default {
       asset: { create: "Created capability", version: "Submitted version", edit: "Changed availability", delete: "Deleted capability", scope_request: "Requested wider availability" },
       connection: { tool: "Configured connection tool", request: "Requested a connection", credential_set: "Saved a connection credential", credential_delete: "Deleted a connection credential", credential_revoke: "Revoked an employee's connection credential", ee_jwt_rotate: "Rotated the ee_jwt signing key", shared_credential_set: "Saved a named shared credential", shared_credential_delete: "Deleted a named shared credential" },
       connect: { publish: "Published connect plugin" },
-      oidc: { update: "Changed OIDC config" },
+      oidc: { update: "Changed OIDC config", feishu_sync: "Synced Feishu organization" },
       access: { request: "Requested access" },
       app: { export: "Exported app", import: "Imported app" },
       demo: { clear: "Cleared demo data", import: "Imported demo data" },

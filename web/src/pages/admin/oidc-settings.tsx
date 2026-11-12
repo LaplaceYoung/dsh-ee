@@ -9,13 +9,14 @@ import { useAction, useApi } from "../../lib/use-api";
 import { useLabels } from "../../lib/labels";
 import { ErrorNote, LoadState } from "../../components/api-ui";
 import { Combobox } from "../../components/pickers";
-import { Badge, Button, cx, Field, inputBase, inputCls, PasswordInput, ToggleRow } from "../../components/ui";
+import { Badge, Button, CopyBox, cx, Field, inputBase, inputCls, PasswordInput, ToggleRow } from "../../components/ui";
 
 const PRESETS: Record<OidcConfig["preset"], Partial<OidcConfig>> = {
   keycloak: { preset: "keycloak", scopes: "profile email", usernameClaim: "preferred_username", nameClaim: "name", emailClaim: "email", departmentClaim: "department", groupsClaim: "groups" },
   authing: { preset: "authing", scopes: "profile email roles", usernameClaim: "preferred_username", nameClaim: "name", emailClaim: "email", departmentClaim: "department", groupsClaim: "roles" },
   azure: { preset: "azure", scopes: "profile email", usernameClaim: "preferred_username", nameClaim: "name", emailClaim: "email", departmentClaim: "department", groupsClaim: "groups" },
   custom: { preset: "custom" },
+  feishu: { preset: "feishu", name: "飞书", issuer: "https://accounts.feishu.cn", feishuApiBase: "https://open.feishu.cn", scopes: "profile email", usernameClaim: "preferred_username", nameClaim: "name", emailClaim: "email", departmentClaim: "department", groupsClaim: "groups" },
 };
 
 function configOf(v: OidcView): OidcConfig {
@@ -43,6 +44,11 @@ export default function OidcSettings() {
   const [test, setTest] = useState<OidcTestResult | null>(null);
   const save = useAction();
   const tester = useAction();
+  const syncStatus = useApi(api.feishuSyncStatus);
+  const synchronize = useAction();
+  const workspace = useAction();
+  const [workspaceNext, setWorkspaceNext] = useState("/go");
+  const [workspaceLink, setWorkspaceLink] = useState("");
 
   useEffect(() => {
     if (!data) return;
@@ -83,6 +89,21 @@ export default function OidcSettings() {
     const r = await tester.run(() => api.testOidc(input()));
     if (r.ok) setTest(r.value);
     else setTest({ ok: false, error: r.error });
+  };
+
+  const onSync = async () => {
+    const r = await synchronize.run(api.syncFeishu);
+    if (!r.ok) return setSaveError(r.error);
+    syncStatus.reload();
+    if (!r.value.ok) return setSaveError(r.value.error ?? t("oidcAdmin.feishu.failed"));
+    notify(t("oidcAdmin.feishu.syncDone", { created: r.value.created, reconciled: r.value.reconciled, disabled: r.value.disabled.length }));
+  };
+
+  const onWorkspace = async () => {
+    const r = await workspace.run(() => api.feishuWorkspaceURL(workspaceNext));
+    if (!r.ok) return notify(r.error);
+    setWorkspaceLink(r.value.url);
+    if (!(await copyText(r.value.url))) return notify(t("common.copyFailed"));
   };
 
   return (
@@ -195,6 +216,54 @@ export default function OidcSettings() {
         </div>
 
         <ToggleRow label={t("oidcAdmin.autoCreate")} desc={t("oidcAdmin.autoCreateDesc")} checked={form.autoCreate} onChange={(v) => set({ autoCreate: v })} />
+        {form.preset === "feishu" && (
+          <section className="space-y-4" data-feishu-sync>
+            <SubHeading>{t("oidcAdmin.feishu.title")}</SubHeading>
+            <p className="text-xs leading-5 text-neutral-500">{t("oidcAdmin.feishu.desc")}</p>
+            <Field label={t("oidcAdmin.feishu.apiBase")} hint={t("oidcAdmin.feishu.apiBaseHint")}>
+              <input className={cx(inputCls, "font-mono")} value={form.feishuApiBase ?? ""} onChange={(e) => set({ feishuApiBase: e.target.value })} />
+            </Field>
+            <ToggleRow label={t("oidcAdmin.feishu.autoSync")} desc={t("oidcAdmin.feishu.autoSyncDesc")} checked={!!form.feishuSync} onChange={(v) => set({ feishuSync: v })} />
+            <ToggleRow label={t("oidcAdmin.feishu.syncDisable")} desc={t("oidcAdmin.feishu.syncDisableDesc")} checked={!!form.feishuSyncDisable} onChange={(v) => set({ feishuSyncDisable: v })} />
+            <ToggleRow label={t("oidcAdmin.feishu.notify")} desc={t("oidcAdmin.feishu.notifyDesc")} checked={!!form.feishuNotify} onChange={(v) => set({ feishuNotify: v })} />
+            <ToggleRow label={t("oidcAdmin.feishu.notifyActions")} desc={t("oidcAdmin.feishu.notifyActionsDesc")} checked={!!form.feishuNotifyActions} onChange={(v) => set({ feishuNotifyActions: v })} />
+            {form.feishuNotifyActions && (
+              <Field label={t("oidcAdmin.feishu.verificationToken")} hint={t("oidcAdmin.feishu.verificationTokenHint")}>
+                <input className={cx(inputCls, "font-mono")} autoComplete="off" value={form.feishuVerificationToken ?? ""} onChange={(e) => set({ feishuVerificationToken: e.target.value })} />
+              </Field>
+            )}
+            <Field label={t("oidcAdmin.feishu.workspaceNext")} hint={t("oidcAdmin.feishu.workspaceNextHint")}>
+              <div className="flex flex-wrap gap-2">
+                <input className={cx(inputCls, "min-w-56 flex-1 font-mono")} value={workspaceNext} onChange={(e) => setWorkspaceNext(e.target.value)} placeholder="/a/team-outing" aria-label={t("oidcAdmin.feishu.workspaceNext")} />
+                <Button type="button" variant="secondary" disabled={workspace.busy || dirty} onClick={() => void onWorkspace()}>{t("oidcAdmin.feishu.workspaceLink")}</Button>
+              </div>
+            </Field>
+            {workspaceLink && <CopyBox text={workspaceLink} wrap />}
+            <Field label={t("oidcAdmin.feishu.callbackLink")}>
+              <CopyBox text={`${window.location.origin}/api/auth/feishu/card`} wrap />
+            </Field>
+            <p className="text-xs leading-5 text-neutral-500">{t("oidcAdmin.feishu.workbookNote")}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Button type="button" variant="secondary" disabled={dirty || synchronize.busy || !form.feishuApiBase} onClick={() => void onSync()}>
+                {synchronize.busy ? t("oidcAdmin.feishu.syncing") : t("oidcAdmin.feishu.syncNow")}
+              </Button>
+              {dirty && <span className="text-sm text-amber-700">{t("oidcAdmin.feishu.saveFirst")}</span>}
+            </div>
+            {syncStatus.data?.last && (
+              <div className="space-y-1 rounded-md border border-neutral-200 p-3 text-xs text-neutral-600">
+                <div>{t("oidcAdmin.feishu.lastAt", { time: syncStatus.data.last.at })}</div>
+                {syncStatus.data.last.ok ? (
+                  <div>{t("oidcAdmin.feishu.lastResult", { remote: syncStatus.data.last.remote, created: syncStatus.data.last.created, reconciled: syncStatus.data.last.reconciled, disabled: syncStatus.data.last.disabled.length, conflicts: syncStatus.data.last.conflicts.length })}</div>
+                ) : (
+                  <div className="text-red-700">{syncStatus.data.last.error}</div>
+                )}
+                {syncStatus.data.last.conflicts.length > 0 && <div className="break-all">{t("oidcAdmin.feishu.conflicts", { users: syncStatus.data.last.conflicts.join("、") })}</div>}
+                {syncStatus.data.last.disabled.length > 0 && <div className="break-all">{t("oidcAdmin.feishu.disabled", { users: syncStatus.data.last.disabled.join("、") })}</div>}
+                {syncStatus.data.last.skipped.length > 0 && <div className="break-all">{t("oidcAdmin.feishu.skipped", { count: syncStatus.data.last.skipped.length })}</div>}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       <ErrorNote>{saveError}</ErrorNote>

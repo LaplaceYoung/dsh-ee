@@ -320,9 +320,10 @@ func currentAccess(r *http.Request) *rbac.Access {
 
 func notFound(err error) bool { return errors.Is(err, store.ErrNotFound) }
 
-// RunBackground 跑定时任务：LDAP、插件更新、接入插件与 Desktop 版本同步。
+// RunBackground 跑定时任务：LDAP、飞书组织同步、插件更新、接入插件与 Desktop 版本同步。
 func (s *Server) RunBackground(ctx context.Context) {
 	go s.runLDAPSync(ctx)
+	go s.runFeishuSync(ctx)
 	go s.runElevationExpiry(ctx)
 	go s.runAppRowPurge(ctx)
 	go s.runDshReleases(ctx)

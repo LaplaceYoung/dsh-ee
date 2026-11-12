@@ -50,6 +50,15 @@ type Config struct {
 	RoleMappings []RoleMapping `json:"roleMappings"`
 	// IdP 里有、dsh-ee 还没有的账号首次登录时自动创建
 	AutoCreate bool `json:"autoCreate"`
+	// 飞书：通讯录 API 根地址与组织同步开关。其它 IdP 忽略。
+	FeishuAPIBase       string `json:"feishuApiBase,omitempty"`
+	FeishuSync          bool   `json:"feishuSync"`
+	FeishuSyncDisable   bool   `json:"feishuSyncDisable"`
+	FeishuNotify        bool   `json:"feishuNotify"`
+	FeishuNotifyActions bool   `json:"feishuNotifyActions"`
+	// 飞书开发者后台「事件与回调 → 加密策略」里的 Verification Token。卡片回调是公开接口，
+	// 靠它确认请求确实是飞书发来的；开卡片审批必须填。
+	FeishuVerificationToken string `json:"feishuVerificationToken,omitempty"`
 }
 
 type RoleMapping struct {
@@ -74,6 +83,8 @@ func Defaults() *Config {
 
 // Validate 规范化配置，返回给管理员看的错误。
 func (c *Config) Validate() string {
+	c.FeishuAPIBase = strings.TrimRight(strings.TrimSpace(c.FeishuAPIBase), "/")
+	c.FeishuVerificationToken = strings.TrimSpace(c.FeishuVerificationToken)
 	for _, p := range []*string{&c.Name, &c.Issuer, &c.ClientID, &c.Scopes, &c.UsernameClaim, &c.NameClaim, &c.EmailClaim, &c.DepartmentClaim, &c.GroupsClaim, &c.Preset} {
 		*p = strings.TrimSpace(*p)
 	}
@@ -99,6 +110,15 @@ func (c *Config) Validate() string {
 	}
 	if c.ClientID == "" {
 		return "Client ID 必填"
+	}
+	if c.FeishuAPIBase != "" {
+		u, err := url.Parse(c.FeishuAPIBase)
+		if err != nil || u.Host == "" || u.User != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			return "飞书通讯录 API 地址必须是完整且不带账号密码的 http(s) 地址"
+		}
+	}
+	if c.Preset == "feishu" && c.FeishuNotifyActions && c.FeishuVerificationToken == "" {
+		return "开启卡片内通过 / 驳回，要先填飞书的 Verification Token（开发者后台 → 事件与回调 → 加密策略）"
 	}
 	for i, m := range c.RoleMappings {
 		c.RoleMappings[i].Group = strings.TrimSpace(m.Group)

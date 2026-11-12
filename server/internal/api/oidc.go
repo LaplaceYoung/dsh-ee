@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hikariming/dsh-ee/server/internal/feishu"
 	"github.com/hikariming/dsh-ee/server/internal/oidc"
 	"github.com/hikariming/dsh-ee/server/internal/rbac"
 	"github.com/hikariming/dsh-ee/server/internal/secret"
@@ -320,6 +321,10 @@ func (s *Server) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) finishOIDCLogin(w http.ResponseWriter, r *http.Request, cfg *oidc.Config, id oidc.Identity, next string) {
+	// 飞书本体和其它 OIDC 身份源共用登录流程；给 open_id 加来源前缀，后续组织同步不会误伤其它 IdP 的 sub。
+	if cfg.Preset == "feishu" && !strings.HasPrefix(id.Subject, "feishu:") {
+		id.Subject = feishu.ExternalSubject(id.Subject)
+	}
 	u, err := s.provisionOIDC(r.Context(), cfg, id)
 	switch {
 	case errors.Is(err, errNotProvisioned), errors.Is(err, errBadCredentials), errors.Is(err, errOIDCConflict), errors.Is(err, errOIDCIdentity), errors.Is(err, errOIDCNoSubject):

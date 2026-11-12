@@ -65,7 +65,7 @@ export default {
       asset: { create: "新建能力", version: "提交新版本", edit: "修改范围或上下架", delete: "删除能力", scope_request: "申请扩大可用范围" },
       connection: { tool: "设置连接工具", request: "申请使用企业连接", credential_set: "填写连接凭据", credential_delete: "删除连接凭据", credential_revoke: "收回员工的连接凭据", ee_jwt_rotate: "轮换 ee_jwt 签名密钥", shared_credential_set: "保存命名共享凭据", shared_credential_delete: "删除命名共享凭据" },
       connect: { publish: "发布接入插件" },
-      oidc: { update: "修改 OIDC 配置" },
+      oidc: { update: "修改 OIDC 配置", feishu_sync: "飞书组织同步" },
       access: { request: "申请访问" },
       app: { export: "导出应用", import: "导入应用" },
       demo: { clear: "清空演示数据", import: "导入演示数据" },

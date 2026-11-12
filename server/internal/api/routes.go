@@ -87,6 +87,7 @@ func (s *Server) routes() []route {
 		pub("GET /api/auth/methods", s.handleAuthMethods),
 		pub("GET /api/auth/oidc/start", s.handleOIDCStart),
 		pub("GET /api/auth/oidc/callback", s.handleOIDCCallback),
+		pub("POST /api/auth/feishu/card", s.handleFeishuCard),
 		pub("GET /api/auth/handoff", s.handleAuthHandoff),
 		pub("POST /api/auth/login", s.handleLogin),
 		pub("POST /api/auth/demo-login", s.handleDemoLogin),
@@ -187,6 +188,9 @@ func (s *Server) routes() []route {
 		prm("GET /api/admin/auth/oidc", s.handleGetOIDC, rbac.SettingsManage),
 		prm("PUT /api/admin/auth/oidc", s.handlePutOIDC, rbac.SettingsManage),
 		prm("POST /api/admin/auth/oidc/test", s.handleTestOIDC, rbac.SettingsManage),
+		prm("GET /api/admin/auth/feishu/sync", s.handleFeishuSyncStatus, rbac.SettingsManage),
+		prm("POST /api/admin/auth/feishu/sync", s.handleSyncFeishu, rbac.SettingsManage),
+		prm("GET /api/admin/auth/feishu/workspace-url", s.handleFeishuWorkspaceURL, rbac.SettingsManage),
 
 		// 能力中心：技能、提示词、微应用、企业连接，插件的可用范围与下发方式
 		prm("GET /api/hub", s.handleHub, rbac.PortalView),
