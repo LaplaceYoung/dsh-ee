@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/fs"
 	"path"
+	"slices"
 	"strings"
 	"testing/fstest"
 )
@@ -52,7 +53,8 @@ func ReadZip(b []byte) (map[string][]byte, error) {
 		if f.FileInfo().IsDir() {
 			continue
 		}
-		name := path.Clean(strings.TrimPrefix(f.Name, "./"))
+		// 有些 Windows 上的压缩工具用反斜杠分隔路径
+		name := path.Clean(strings.TrimPrefix(strings.ReplaceAll(f.Name, "\\", "/"), "./"))
 		if !fs.ValidPath(name) || strings.HasPrefix(name, "__MACOSX/") || path.Base(name) == ".DS_Store" {
 			continue
 		}
@@ -155,6 +157,29 @@ func (m *Manifest) AdminParams() []AdminParam {
 	return out
 }
 
+// CheckValue 核对管理员给这个参数填的值：类型要和清单写的一致，有可选值的只能从里面选。
+// 返回给填的人看的问题，没问题是空串。
+func (p AdminParam) CheckValue(raw json.RawMessage) string {
+	name := p.Label
+	if name == "" {
+		name = p.Key
+	}
+	if p.Type != "" && !jsonIs(raw, p.Type) {
+		return fmt.Sprintf("参数「%s」要填 %s 类型的值", name, p.Type)
+	}
+	if len(p.Enum) > 0 {
+		var v any
+		if json.Unmarshal(raw, &v) != nil {
+			return fmt.Sprintf("参数「%s」的设置值不是合法的 JSON", name)
+		}
+		got, _ := json.Marshal(v)
+		if !slices.ContainsFunc(p.Enum, func(c any) bool { b, err := json.Marshal(c); return err == nil && bytes.Equal(b, got) }) {
+			return fmt.Sprintf("参数「%s」只能从清单给出的选项里选", name)
+		}
+	}
+	return ""
+}
+
 // Schema 把清单对一个工具的补充叠加到接口文档生成的参数定义上：
 // 不由模型填的参数（fill: app / admin）从定义里拿掉，模型看不到也就没法填；
 // 由模型填的参数换上清单里写的说明、可选值。
@@ -246,6 +271,13 @@ func addRequired(schema map[string]any, name string) {
 // admin 是安装时管理员设置的值（键见 AdminKey）；没设置就用清单里的 default。
 // fill: app 的参数目前取清单里的 default（按应用固定在之后的版本里做）。
 func (t *Tool) Fix(args map[string]any, admin map[string]json.RawMessage) error {
+	// 请求体里有不由模型填的字段时，body 必须是对象：模型把整个 body 传成字符串或数组，
+	// 这里就没法把那些字段换掉或拿掉，不能原样发出去
+	if b, ok := args["body"]; ok && b != nil && len(t.fixedBody()) > 0 {
+		if _, isObj := b.(map[string]any); !isObj {
+			return errors.New("参数 body 要是一个 JSON 对象")
+		}
+	}
 	for _, p := range t.Params {
 		if p.Fill != FillApp && p.Fill != FillAdmin {
 			continue
@@ -297,7 +329,9 @@ func (t *Tool) Fix(args map[string]any, admin map[string]json.RawMessage) error 
 	return nil
 }
 
-// Keep 只保留返回结果里的这些字段：结果是对象就筛它的字段，是数组就筛每一项。
+// Keep 只保留返回结果里的这些字段。写第一层的字段名：结果是对象就筛它的字段，是数组就筛每一项。
+// 「字段.子字段」再往里一层：那个字段是对象就筛它的子字段，是数组就筛它每一项的子字段——
+// {"items": [...], "total": 1} 这样包了一层的列表，写 items.id、items.title、total。
 // 不是 JSON 或结构对不上时原样返回（宁可多给，也不丢掉模型需要的内容）。
 func Keep(body []byte, keep []string) []byte {
 	if len(keep) == 0 {
@@ -309,32 +343,66 @@ func Keep(body []byte, keep []string) []byte {
 	if dec.Decode(&v) != nil {
 		return body
 	}
-	pick := func(x any) any {
-		m, ok := x.(map[string]any)
-		if !ok {
-			return x
+	var whole, parents []string
+	sub := map[string][]string{}
+	for _, k := range keep {
+		parent, child, dotted := strings.Cut(k, ".")
+		switch {
+		case !dotted:
+			whole = append(whole, k)
+		case parent != "" && child != "" && !strings.Contains(child, "."):
+			if sub[parent] == nil {
+				parents = append(parents, parent)
+			}
+			sub[parent] = append(sub[parent], child)
 		}
-		out := map[string]any{}
-		for _, k := range keep {
+	}
+	pick := func(m map[string]any, fields []string) map[string]any {
+		out := make(map[string]any, len(fields))
+		for _, k := range fields {
 			if val, ok := m[k]; ok {
 				out[k] = val
 			}
 		}
 		return out
 	}
-	switch x := v.(type) {
-	case []any:
-		for i := range x {
-			x[i] = pick(x[i])
+	// each 对一个对象、或数组里的每个对象做同一件事；别的值原样留着
+	each := func(x any, f func(map[string]any) map[string]any) any {
+		switch y := x.(type) {
+		case map[string]any:
+			return f(y)
+		case []any:
+			for i, item := range y {
+				if m, ok := item.(map[string]any); ok {
+					y[i] = f(m)
+				}
+			}
 		}
-	case map[string]any:
-		v = pick(x)
+		return x
+	}
+	top := func(m map[string]any) map[string]any {
+		out := pick(m, whole)
+		for _, parent := range parents {
+			if _, kept := out[parent]; kept {
+				continue // 整个字段都留了，不用再筛里面
+			}
+			if x, ok := m[parent]; ok {
+				out[parent] = each(x, func(o map[string]any) map[string]any { return pick(o, sub[parent]) })
+			}
+		}
+		return out
+	}
+	switch v.(type) {
+	case []any, map[string]any:
+		v = each(v, top)
 	default:
 		return body
 	}
-	out, err := json.Marshal(v)
-	if err != nil {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if enc.Encode(v) != nil {
 		return body
 	}
-	return out
+	return bytes.TrimRight(buf.Bytes(), "\n")
 }

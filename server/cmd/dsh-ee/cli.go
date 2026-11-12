@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/hikariming/dsh-ee/server/internal/extension"
@@ -59,6 +60,10 @@ func cliExtension(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 || args[0] != "check" {
 		fmt.Fprint(stderr, cliUsage)
 		return 2
+	}
+	if slices.ContainsFunc(args[1:], func(a string) bool { return a == "-h" || a == "--help" || a == "help" }) {
+		fmt.Fprint(stdout, cliUsage)
+		return 0
 	}
 	rest, asJSON, err := flags(args[1:])
 	if err != nil || len(rest) != 1 {

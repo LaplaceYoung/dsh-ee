@@ -167,7 +167,71 @@ func TestKeep(t *testing.T) {
 			t.Errorf("Keep(%s) = %s，期望 %s", in, got, want)
 		}
 	}
+	// 包了一层的列表：items.<字段> 筛每一项，total 整个留；整个字段留了就不再筛里面
+	nested := []struct {
+		keep     []string
+		in, want string
+	}{
+		{[]string{"items.id", "items.title", "total"}, `{"items":[{"id":1,"title":"中文<b>","body":"long"}],"total":1,"page":2}`, `{"items":[{"id":1,"title":"中文<b>"}],"total":1}`},
+		{[]string{"data.name"}, `{"data":{"name":"a","secret":"x"},"code":0}`, `{"data":{"name":"a"}}`},
+		{[]string{"items", "items.id"}, `{"items":[{"id":1,"x":2}]}`, `{"items":[{"id":1,"x":2}]}`},
+		{[]string{"items.id"}, `[{"items":[{"id":1,"x":2}],"n":1}]`, `[{"items":[{"id":1}]}]`},
+		{[]string{"items.id"}, `{"items":"not a list"}`, `{"items":"not a list"}`},
+	}
+	for _, c := range nested {
+		if got := string(Keep([]byte(c.in), c.keep)); got != c.want {
+			t.Errorf("Keep(%s, %v) = %s，期望 %s", c.in, c.keep, got, c.want)
+		}
+	}
 	if got := string(Keep([]byte(`{"a":1}`), nil)); got != `{"a":1}` {
 		t.Errorf("没写 keep 应原样返回：%s", got)
+	}
+}
+
+// 请求体里有不由模型填的字段时，body 传成字符串或数组不放行。
+func TestToolFixRejectsNonObjectBody(t *testing.T) {
+	tool := &Tool{Name: "create", Params: []Param{{Name: "body.priority", Fill: FillAdmin}}}
+	for _, body := range []any{`{"priority":"高"}`, []any{1}} {
+		if err := tool.Fix(map[string]any{"body": body}, nil); err == nil {
+			t.Errorf("body 是 %T 时应拒绝", body)
+		}
+	}
+	if err := tool.Fix(map[string]any{"body": map[string]any{"title": "x"}}, nil); err != nil {
+		t.Fatal(err)
+	}
+	// 没有固定的请求体字段时不管 body 的样子
+	if err := (&Tool{Name: "search"}).Fix(map[string]any{"body": "text"}, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestAdminParamCheckValue(t *testing.T) {
+	p := AdminParam{Key: "level", Label: "级别", Type: "string", Enum: []any{"低", "中"}}
+	for raw, ok := range map[string]bool{`"低"`: true, `"高"`: false, `1`: false} {
+		if msg := p.CheckValue(json.RawMessage(raw)); (msg == "") != ok {
+			t.Errorf("CheckValue(%s) = %q", raw, msg)
+		}
+	}
+	if msg := (AdminParam{Key: "n", Type: "integer"}).CheckValue(json.RawMessage(`1.5`)); msg == "" {
+		t.Error("1.5 不是整数")
+	}
+	if msg := (AdminParam{Key: "any"}).CheckValue(json.RawMessage(`{"a":1}`)); msg != "" {
+		t.Errorf("没写类型的不限：%s", msg)
+	}
+}
+
+// 用反斜杠分隔路径的 zip（一些 Windows 上的压缩工具）也认。
+func TestReadZipBackslash(t *testing.T) {
+	files := exampleFiles(t)
+	win := map[string][]byte{}
+	for name, b := range files {
+		win[`demo-declarative\`+name] = b
+	}
+	got, err := ReadZip(zipOf(t, win))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res := CheckFiles(got); !res.OK {
+		t.Fatalf("反斜杠路径的包应通过检查：%+v", res.Results)
 	}
 }

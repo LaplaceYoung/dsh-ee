@@ -50,6 +50,10 @@ const goodDoc = `{"openapi":"3.0.0","info":{"title":"OA"},"servers":[{"url":"htt
  "/search":{"post":{"operationId":"search_forms","requestBody":{"content":{"application/json":{"schema":{"type":"object"}}}}}}},
  "components":{"schemas":{"Form":{"type":"object","properties":{"id":{"type":"string"},"title":{"type":"string"},"state":{"type":"string"},"auditTrail":{"type":"array"}}}}}}`
 
+// wrappedDoc 和 goodDoc 一样，只是 list_forms 的返回把列表包在 items 里。
+var wrappedDoc = strings.Replace(goodDoc, `"schema":{"type":"array","items":{"$ref":"#/components/schemas/Form"}}`,
+	`"schema":{"type":"object","properties":{"items":{"type":"array","items":{"$ref":"#/components/schemas/Form"}},"total":{"type":"integer"}}}`, 1)
+
 func good() map[string]any {
 	return map[string]any{
 		"id": "acme/oa", "version": "1.2.0", "name": "Acme OA", "description": "查询和提交 OA 审批单", "kind": "declarative",
@@ -254,6 +258,9 @@ func TestCheckReports(t *testing.T) {
 			tool(2, "params", []any{map[string]any{"name": "body.status", "fill": "admin", "label": "状态", "default": "done"}})(m)
 		}},
 		{name: "keep 里写了返回里没有的字段", code: "keep.unknown", where: "#/tools/0/keep/1", edit: tool(0, "keep", []any{"id", "status"})},
+		{name: "keep 写到了第三层", code: "keep.unknown", where: "#/tools/0/keep/0", edit: tool(0, "keep", []any{"a.b.c", "id"})},
+		{name: "列表包了一层，keep 却直接写每一项的字段", code: "keep.wrapped", where: "#/tools/0/keep", extra: map[string]string{"openapi.json": wrappedDoc}},
+		{name: "包了一层的列表里没有这个子字段", code: "keep.unknown", where: "#/tools/0/keep/1", edit: tool(0, "keep", []any{"items.id", "items.nope", "total"}), extra: map[string]string{"openapi.json": wrappedDoc}},
 		{name: "fill 不对", code: "param.fill_invalid", where: "#/tools/0/params/0/fill", edit: tool(0, "params", []any{map[string]any{"name": "status", "fill": "user"}})},
 		{name: "参数类型不对", code: "param.type_invalid", where: "#/tools/0/params/0/type", edit: tool(0, "params", []any{map[string]any{"name": "status", "type": "text"}})},
 		{name: "人填的参数没有 label", code: "param.label_missing", where: "#/tools/0/params/0/label", edit: tool(0, "params", []any{map[string]any{"name": "status", "fill": "app"}})},
@@ -546,5 +553,36 @@ func TestSchemas(t *testing.T) {
 			t.Fatalf("错误码表里的 %s 重复或不完整", c.Code)
 		}
 		seen[c.Code] = true
+	}
+}
+
+// 包了一层的列表：写成 items.<字段> 加上第一层要留的字段，一条都不报。
+func TestKeepWrappedList(t *testing.T) {
+	m := good()
+	m["tools"].([]any)[0].(map[string]any)["keep"] = []any{"items.id", "items.title", "total"}
+	res := Check(files(m, map[string]string{"openapi.json": wrappedDoc}))
+	if !res.OK || len(res.Results) != 0 {
+		t.Fatalf("items.<字段> 的写法不该报：%+v", res.Results)
+	}
+	shape, known := responseShape([]byte(wrappedDoc), "GET", "/forms")
+	if !known || !slices.Equal(shape.fields, []string{"items", "total"}) || !slices.Equal(shape.sub["items"], []string{"auditTrail", "id", "state", "title"}) {
+		t.Fatalf("返回结构读得不对：%+v", shape)
+	}
+}
+
+// shared 模式下 header 是共享凭据放的位置：不报，检查结果里写明。
+func TestSharedCredentialHeader(t *testing.T) {
+	m := good()
+	m["credential"] = map[string]any{"mode": "shared", "header": "x-api-key"}
+	res := Check(files(m, nil))
+	if !res.OK || len(res.Results) != 0 {
+		t.Fatalf("shared 模式写 header 不该报：%+v", res.Results)
+	}
+	if cr := res.Credential; cr == nil || cr.Mode != CredShared || cr.Header != "X-Api-Key" {
+		t.Fatalf("检查结果里应写明共享凭据放在哪个请求头：%+v", res.Credential)
+	}
+	m["credential"] = map[string]any{"mode": "shared"}
+	if res := Check(files(m, nil)); res.Credential == nil || res.Credential.Header != "" {
+		t.Fatalf("没写 header 时由管理员安装时选：%+v", res.Credential)
 	}
 }

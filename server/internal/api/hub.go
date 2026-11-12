@@ -790,6 +790,15 @@ func (s *Server) handleHubNewVersion(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if a.Kind == store.KindConnection && a.LiveVersion > 0 {
+		if msg, err := s.checkExtensionChange(r.Context(), a, sp); err != nil {
+			s.internalErr(w, r, err)
+			return
+		} else if msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
+	}
 	if a.Kind == store.KindApp && a.LiveVersion > 0 {
 		if msg, err := s.checkAppTablesChange(r.Context(), a, sp); err != nil {
 			s.internalErr(w, r, err)

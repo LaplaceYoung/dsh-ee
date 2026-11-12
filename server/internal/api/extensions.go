@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/hikariming/dsh-ee/server/internal/extension"
@@ -77,17 +78,22 @@ func validateExtension(sp *assetSpec) string {
 			return msg
 		}
 	}
-	keys := map[string]bool{}
+	params := map[string]extension.AdminParam{}
 	for _, p := range m.AdminParams() {
-		keys[p.Key] = true
+		params[p.Key] = p
 	}
 	for k, v := range e.Admin {
-		if !keys[k] {
+		p, ok := params[k]
+		// 没填（null、空串）当作没设置：用清单里的 default，必填又没有 default 的由安装那一步拦下
+		if blank := strings.TrimSpace(string(v)); !ok || blank == "" || blank == "null" || blank == `""` {
 			delete(e.Admin, k)
 			continue
 		}
 		if !json.Valid(v) {
 			return "参数 " + k + " 的设置值不是合法的 JSON"
+		}
+		if msg := p.CheckValue(v); msg != "" {
+			return msg
 		}
 	}
 	if len(e.Admin) == 0 {
@@ -145,6 +151,58 @@ func (e *connExtension) prepare(root, tool string, args map[string]any) ([]strin
 		return nil, err
 	}
 	return mt.Keep, nil
+}
+
+// extensionCompat 检查扩展要求的最低 dsh-ee 版本。开发版（版本号不是 x.y.z）不拦。
+func extensionCompat(m *extension.Manifest, current string) string {
+	if m.MinVersion == "" {
+		return ""
+	}
+	cur, ok1 := semverCore(current)
+	min, ok2 := semverCore(m.MinVersion)
+	if ok1 && ok2 && slices.Compare(cur[:], min[:]) < 0 {
+		return fmt.Sprintf("这个扩展要求 dsh-ee %s 以上，当前是 %s；请先升级 dsh-ee", m.MinVersion, current)
+	}
+	return ""
+}
+
+func semverCore(v string) (out [3]int, ok bool) {
+	v = strings.TrimPrefix(strings.TrimSpace(v), "v")
+	if i := strings.IndexAny(v, "-+"); i >= 0 {
+		v = v[:i]
+	}
+	parts := strings.Split(v, ".")
+	if len(parts) != 3 {
+		return out, false
+	}
+	for i, p := range parts {
+		n, err := strconv.Atoi(p)
+		if err != nil || n < 0 {
+			return out, false
+		}
+		out[i] = n
+	}
+	return out, true
+}
+
+// checkExtensionChange 拦下会让一个连接「换了身份」的新版本：扩展装出来的连接只能升级成同一个扩展的另一个版本。
+// 应用和员工是按连接名用它的工具的，连接名背后换成另一个扩展、或悄悄变回手工连接
+// （清单规定的地址、固定参数、返回筛选就都不管用了），都不该发生。
+func (s *Server) checkExtensionChange(ctx context.Context, a *store.Asset, sp *assetSpec) (string, error) {
+	lv, err := s.store.LiveAssetVersion(ctx, a.ID)
+	if err != nil {
+		return "", err
+	}
+	old := parseSpec(lv.Spec).Extension
+	switch {
+	case old == nil:
+		return "", nil
+	case sp.Extension == nil:
+		return "这个连接是扩展 " + old.ID + " 装出来的，不能改成手工连接；要换掉请删除后重新接入", nil
+	case sp.Extension.ID != old.ID:
+		return fmt.Sprintf("这个连接装的是扩展 %s，不能换成另一个扩展 %s；请把它作为新的扩展安装", old.ID, sp.Extension.ID), nil
+	}
+	return "", nil
 }
 
 // ---- 管理接口 ----
@@ -235,6 +293,12 @@ func (s *Server) planExtension(ctx context.Context, files map[string][]byte) (*e
 		res.Errors++
 		res.Results = append([]extension.Diagnostic{{Code: "kind.unsupported", Severity: extension.SevError, Where: extension.ManifestFile + "#/kind",
 			Message: "这个版本的 dsh-ee 只能安装声明式扩展", Fix: "服务扩展、端侧扩展在后面的版本支持；现有的 MCP 服务可以直接在企业连接里接入"}}, res.Results...)
+	}
+	if msg := extensionCompat(m, s.opts.Version); msg != "" && res.OK {
+		res.OK = false
+		res.Errors++
+		res.Results = append([]extension.Diagnostic{{Code: "min_version.too_new", Severity: extension.SevError, Where: extension.ManifestFile + "#/minVersion",
+			Message: msg, Fix: "升级 dsh-ee，或装这个扩展的旧版本"}}, res.Results...)
 	}
 	p.Name, p.Description = m.Name.Any(), m.Description.Any()
 	if p.AdminParams = m.AdminParams(); p.AdminParams == nil {
@@ -381,7 +445,7 @@ func (s *Server) handleExtInstall(w http.ResponseWriter, r *http.Request) {
 	if p.Existing != nil {
 		// 升级：沿用原来的共享凭据放法（清单没规定时）、超时和使用说明
 		if _, osp, err := s.findExtension(ctx, m.ID); err == nil && osp != nil {
-			if m.Credential == nil || (m.Credential.Mode == extension.CredShared && req.Auth == nil) {
+			if m.Credential == nil || (m.Credential.Mode == extension.CredShared && m.Credential.Header == "" && req.Auth == nil) {
 				sp.Auth = osp.Auth
 			}
 			sp.TimeoutSec, sp.Instructions = osp.TimeoutSec, osp.Instructions
@@ -471,6 +535,10 @@ func extCredential(c *extension.Credential, shared *connAuth) (*connAuth, *connU
 		return none, nil
 	}
 	if c.Mode == extension.CredShared {
+		// 清单写了共享凭据放在哪个请求头的，以清单为准：对方要 X-API-Key 时不用管理员去猜
+		if c.Header != "" {
+			return &connAuth{Type: "header", Header: c.Header}, nil
+		}
 		if shared == nil {
 			shared = &connAuth{Type: "bearer"}
 		}

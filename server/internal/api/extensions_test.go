@@ -70,7 +70,7 @@ func extManifest(version, server string, listReadOnly bool, extraServers ...stri
   "tools": [
     { "name": "list_tickets", "readOnly": %t, "description": "按状态列出工单", "keep": ["id", "title"] },
     { "name": "create_ticket", "params": [
-      { "name": "body.priority", "fill": "admin", "label": "Agent 建单的优先级", "default": "中" }
+      { "name": "body.priority", "fill": "admin", "type": "string", "label": "Agent 建单的优先级", "default": "中" }
     ] }
   ]
 }`, version, servers, listReadOnly)
@@ -92,12 +92,14 @@ func TestDeclarativeExtension(t *testing.T) {
 
 	// 假的工单系统：记下收到的请求
 	var mu sync.Mutex
-	var gotAuth, gotBody string
+	var gotAuth, gotBody, gotKey string
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		gotAuth = r.Header.Get("Authorization")
+		gotAuth, gotKey = r.Header.Get("Authorization"), r.Header.Get("X-API-Key")
 		switch r.Method + " " + r.URL.Path {
+		case "GET /api/assets":
+			w.Write([]byte(`{"records":[{"assetNo":"A-001","owner":"王芳","purchase_price":8999}],"total":1,"debug":"x"}`))
 		case "GET /api/tickets":
 			w.Write([]byte(`[{"id":1,"title":"VPN 连不上","internal_note":"只给 IT 看"}]`))
 		case "POST /api/tickets":
@@ -172,6 +174,12 @@ func TestDeclarativeExtension(t *testing.T) {
 	code, body = admin.do("POST", "/api/admin/extensions/install", bad, nil)
 	expect(t, "检查不过的扩展", code, 400, body)
 
+	// 管理员填的值类型要和清单写的一致
+	wrong := pkg(extManifest("1.0.0", up.URL, true))
+	wrong["admin"] = map[string]any{"priority": 5}
+	code, body = admin.do("POST", "/api/admin/extensions/install", wrong, nil)
+	expect(t, "参数类型不对", code, 400, body)
+
 	// 2. 安装
 	req := pkg(extManifest("1.0.0", up.URL, true))
 	req["admin"] = map[string]any{"priority": "低"}
@@ -220,6 +228,12 @@ func TestDeclarativeExtension(t *testing.T) {
 		t.Fatalf("应带管理员设置的优先级：%s", gotBody)
 	}
 
+	// 模型把整个 body 传成字符串想绕过：不发请求
+	gotBody = ""
+	if text, isErr = call("itsm__create_ticket", map[string]any{"body": `{"title":"x","priority":"高"}`}); !isErr || gotBody != "" {
+		t.Fatalf("body 不是对象时不该发出去：%v %s（body %s）", isErr, text, gotBody)
+	}
+
 	// 6. 调用记录写明扩展的版本和摘要
 	code, body = admin.do("GET", fmt.Sprintf("/api/hub/%d", inst.Asset.ID), nil, nil)
 	expect(t, "连接详情", code, 200, body)
@@ -227,7 +241,7 @@ func TestDeclarativeExtension(t *testing.T) {
 		Calls []struct{ Tool, Extension string }
 		Asset struct{ Spec map[string]any }
 	}](t, body)
-	if len(detail.Calls) != 2 || !strings.HasPrefix(detail.Calls[0].Extension, "acme/itsm@1.0.0#") || len(detail.Calls[0].Extension) != len("acme/itsm@1.0.0#")+12 {
+	if len(detail.Calls) != 3 || !strings.HasPrefix(detail.Calls[0].Extension, "acme/itsm@1.0.0#") || len(detail.Calls[0].Extension) != len("acme/itsm@1.0.0#")+12 {
 		t.Fatalf("调用记录应带扩展版本：%s", body)
 	}
 
@@ -244,6 +258,15 @@ func TestDeclarativeExtension(t *testing.T) {
 	code, body = admin.do("POST", fmt.Sprintf("/api/hub/%d/versions", inst.Asset.ID), map[string]any{"spec": sp}, nil)
 	expect(t, "根地址改到清单之外", code, 400, body)
 	sp["url"] = up.URL
+	// 不能悄悄变回手工连接：清单规定的地址、固定参数、返回筛选就都不管用了
+	ext := sp["extension"]
+	delete(sp, "extension")
+	code, body = admin.do("POST", fmt.Sprintf("/api/hub/%d/versions", inst.Asset.ID), map[string]any{"spec": sp}, nil)
+	expect(t, "变回手工连接", code, 400, body)
+	if !strings.Contains(string(body), "不能改成手工连接") {
+		t.Fatalf("应说明原因：%s", body)
+	}
+	sp["extension"] = ext
 	sp["timeout_seconds"] = 20
 	code, body = admin.do("POST", fmt.Sprintf("/api/hub/%d/versions", inst.Asset.ID), map[string]any{"spec": sp}, nil)
 	expect(t, "改超时这类连接设置", code, 201, body)
@@ -274,4 +297,52 @@ func TestDeclarativeExtension(t *testing.T) {
 	if text, isErr = call("itsm__create_ticket", map[string]any{"body": map[string]any{"title": "换鼠标"}}); isErr || gotAuth != "Bearer svc-token" || !strings.Contains(gotBody, `"priority":"低"`) {
 		t.Fatalf("升级后：%v %s（auth %q，body %s）", isErr, text, gotAuth, gotBody)
 	}
+
+	// 9. 清单指定共享凭据放在哪个请求头；列表包了一层时 keep 写到第二层
+	assets := map[string]any{"files": map[string]string{"openapi.yaml": extAssetsOpenAPI, "dsh-ee.extension.json": fmt.Sprintf(`{
+  "id": "acme/assets", "version": "1.0.0", "name": "固定资产", "description": "查固定资产", "kind": "declarative",
+  "openapi": "openapi.yaml", "servers": [%q],
+  "credential": { "mode": "shared", "header": "X-API-Key" },
+  "tools": [ { "name": "list_assets", "readOnly": true, "keep": ["records.assetNo", "records.owner", "total"] } ]
+}`, up.URL)}}
+	// 提交上来的放法不算数，以清单为准
+	assets["auth"] = map[string]any{"type": "bearer"}
+	assets["secret"] = "key-123"
+	code, body = admin.do("POST", "/api/admin/extensions/install", assets, nil)
+	expect(t, "安装第二个扩展", code, 201, body)
+	res := dsh.rpc("tools/call", map[string]any{"name": "assets__list_assets", "arguments": map[string]any{}})
+	out, _ := json.Marshal(res["result"])
+	if !strings.Contains(string(out), "A-001") || !strings.Contains(string(out), "total") || strings.Contains(string(out), "purchase_price") || strings.Contains(string(out), "debug") {
+		t.Fatalf("包了一层的列表应按 records.<字段> 筛：%s", out)
+	}
+	if gotKey != "key-123" || gotAuth != "" {
+		t.Fatalf("共享凭据应放在清单指定的 X-API-Key 里：key %q auth %q", gotKey, gotAuth)
+	}
 }
+
+const extAssetsOpenAPI = `openapi: 3.0.3
+info: { title: Assets, version: "1" }
+paths:
+  /api/assets:
+    get:
+      operationId: list_assets
+      summary: List assets
+      responses:
+        "200":
+          description: ok
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total: { type: integer }
+                  debug: { type: string }
+                  records:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        assetNo: { type: string }
+                        owner: { type: string }
+                        purchase_price: { type: number }
+`

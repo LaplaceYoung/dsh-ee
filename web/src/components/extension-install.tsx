@@ -105,7 +105,7 @@ export function InstallExtensionButton() {
       api.installExtension(pkg, {
         slug: plan.existing ? undefined : slug.trim(),
         url: url.trim() || undefined,
-        auth: shared && !plan.existing ? { type: authType, header: authType === "header" ? authHeader.trim() : undefined } : undefined,
+        auth: shared && !plan.existing && !plan.check.credential?.header ? { type: authType, header: authType === "header" ? authHeader.trim() : undefined } : undefined,
         secret: secret.trim() ? secret.trim() : undefined,
         admin: values,
         confirm,
@@ -250,7 +250,13 @@ export function InstallExtensionButton() {
 
                     {needsSecret && (
                       <>
-                        {cred?.mode === "shared" && !plan.existing && (
+                        {/* 清单写了共享凭据放在哪个请求头的，以清单为准，不让选 */}
+                        {cred?.mode === "shared" && cred.header && (
+                          <Field label={t("connections.authHeaderName")}>
+                            <input className={cx(inputCls, "font-mono")} value={cred.header} readOnly disabled />
+                          </Field>
+                        )}
+                        {cred?.mode === "shared" && !cred.header && !plan.existing && (
                           <Field label={t("connections.auth")}>
                             <Segmented
                               value={authType}
@@ -263,12 +269,12 @@ export function InstallExtensionButton() {
                             />
                           </Field>
                         )}
-                        {cred?.mode === "shared" && !plan.existing && authType === "header" && (
+                        {cred?.mode === "shared" && !cred.header && !plan.existing && authType === "header" && (
                           <Field label={t("connections.authHeaderName")}>
                             <input className={cx(inputCls, "font-mono")} value={authHeader} onChange={(e) => setAuthHeader(e.target.value)} />
                           </Field>
                         )}
-                        {!(cred?.mode === "shared" && !plan.existing && authType === "none") && (
+                        {!(cred?.mode === "shared" && !cred.header && !plan.existing && authType === "none") && (
                           <Field label={t("connections.secret")} hint={plan.existing ? t("extensions.secretKeep") : t("connections.secretHint")}>
                             <PasswordInput label={t("connections.secret")} className={inputCls} autoComplete="new-password" value={secret} onChange={(e) => setSecret(e.target.value)} />
                           </Field>
