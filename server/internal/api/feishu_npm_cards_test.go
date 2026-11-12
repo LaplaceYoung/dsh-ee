@@ -153,6 +153,23 @@ func TestFeishuNpmReviewCards(t *testing.T) {
 	code, body = admin.do("POST", "/api/admin/review", map[string]any{"name": "@acme/web-card", "version": "0.2.0", "action": "reject", "note": "网页说明"}, nil)
 	expect(t, "网页审核插件", code, http.StatusOK, body)
 	expectMessage("@acme/web-card@0.2.0 · 已驳回")
+
+	// registry 允许包名 214、semver 128，合计 343 个 ASCII 字节。
+	// 对象索引只能限前缀，不能因旧卡片的有限 object_key 丢掉这次合法操作。
+	maxName := "@acme/" + strings.Repeat("n", 208)
+	maxVersion := "0.0.0-" + strings.Repeat("a", 122)
+	if len(maxName)+1+len(maxVersion) != 343 {
+		t.Fatal("边界夹具未达到允许的最大对象键长度")
+	}
+	code, body = publisherClient.do("PUT", "/npm/"+url.PathEscape(maxName), publish(maxName, maxVersion), publishHeader)
+	expect(t, "最长合法包名与版本进入待审", code, http.StatusCreated, body)
+	actionID, messageID = fakeCardAction(t, messages, 3)
+	code, body = cardCallback(actionID, messageID, "ou-reviewer", "approve")
+	expectToast(t, "最长合法包名和版本也能审批", code, body, "success", "已通过")
+	longPublished, err := st.GetVersion(ctx, maxName, maxVersion)
+	if err != nil || longPublished.Status != store.StatusPublished {
+		t.Fatalf("完整长对象键的审批结果应保存：%+v err=%v", longPublished, err)
+	}
 	messages.mu.Lock()
 	all := append([]feishuMessage(nil), messages.messages...)
 	messages.mu.Unlock()

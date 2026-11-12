@@ -126,7 +126,7 @@ API（均要求系统设置权限，不走 Agent）：
 
 `TestFeishuKBGapNotification`：相同语义的零命中检索去重通知，聚合最近一次文案与次数，不会在下次同步重复发送。
 
-`TestFeishuNpmReviewCards`：真实 TiDB 与 npm CLI/网页上传产生待审版本；密文回调批准、驳回，网页审核结果通知，以及人员缺权/停用后不能审批。
+`TestFeishuNpmReviewCards`：真实 TiDB 与 npm CLI/网页上传产生待审版本；密文回调批准、驳回，网页审核结果通知，以及人员缺权/停用后不能审批。还使用合法包名 214 字节、版本 128 字节的数据验证 `0028_npm_review_cards.sql` 真实迁移、发卡与最后状态落库。
 
 `e2e/tests/33-feishu-npm-cards.mjs`：真实 OIDC、npm CLI、审核页面与本地 Feishu 兼容卡片按钮。卡片按钮发出符合 Feishu schema 2.0 的回调，随后验证版本实际上架/驳回。兼容预览器明确标注「本地验证」，不声称已经过生产 Feishu 租户。
 
@@ -158,7 +158,7 @@ API（均要求系统设置权限，不走 Agent）：
 ### NPM 插件审核卡（本批新增）
 
 - npm CLI 的 `registry.Publish` 与网页上传 `.tgz` 产生待审版本后，给当前拥有插件审核权限的飞书用户发卡。直接开放上架的版本不发待审卡。
-- 使用 `npm_version` 动作及 `包名@版本` 对象键，继续复用现有一次性动作与回调，不另建 NPM 审核引擎，也不新增迁移。
+- 使用 `npm_version` 动作及 `包名@版本` 对象键，继续复用现有一次性动作与回调，不另建 NPM 审核引擎。`0028_npm_review_cards.sql` 将对象键扩展到最长 343 个 ASCII 字节，并保留有界前缀索引。
 - 回调通过当前 `plugins.manage` 校验和版本待审检查，随后调用既有 `registry.Review`，转到 **published / rejected**。网页审批也调用同一个审核器，有飞书身份的发布者收到结果通知。
 - 卡片按钮驳回只记录 `from_feishu` 来源备注；网页的人工驳回理由单独保留，不伪造员工在卡片里写了理由。
 - 上游预载、离线导入等批量入口暂未接入待审卡片；本批不把通知范围扩大到整个 NPM 同步流程。
