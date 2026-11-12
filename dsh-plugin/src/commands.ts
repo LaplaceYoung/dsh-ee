@@ -20,11 +20,20 @@ export interface CommandsHandle {
 export function registerCommands(ctx: DshContext, config: PluginConfig, tokens: TokenManager, onLogin: () => Promise<void> = async () => {}): CommandsHandle {
   const flow = new DeviceFlow(config);
   let pending: { code: string; url: string; task: Promise<void> } | null = null;
+  // flow.start 是网络请求；pending 要等它回来才赋值，中间这段用 starting 防并发。
+  let starting = false;
   const login = async (rawInput?: string): Promise<CommandResult> => {
     if (pending) return { kind: "success", text: `请在浏览器确认，确认码 ${pending.code}，链接 ${pending.url}` };
+    if (starting) return { kind: "success", text: "正在发起企业登录，请稍候…" };
     const setupCode = parseSetupCode(rawInput);
     if (String(rawInput ?? "").trim() && !setupCode) return { kind: "error", text: "接入码格式不对，应形如 ABCD-EFGH；不带接入码直接输入 /ee-login 也可以" };
-    const started = await flow.start(setupCode);
+    starting = true;
+    let started;
+    try {
+      started = await flow.start(setupCode);
+    } finally {
+      starting = false;
+    }
     const url = started.verification_uri_complete;
     // 带接入码时网页「开始使用」页正开着，会自己显示确认按钮，不再另开浏览器
     if (!setupCode) openBrowser(url);

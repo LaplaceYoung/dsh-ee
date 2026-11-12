@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -262,13 +263,47 @@ func (s *Server) handleFeishuWorkspaceURL(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, map[string]string{"url": s.publicBase(r) + "/api/auth/oidc/start?next=" + url.QueryEscape(next), "next": next})
 }
 
+// feishuCardEvent 是回调里用得上的几项，从飞书的 schema 2.0 回调里取出来。
 type feishuCardEvent struct {
-	Type        string          `json:"type"`
-	EventID     string          `json:"event_id"`
-	OperatorID  string          `json:"operator_id"`
-	MessageID   string          `json:"message_id"`
-	ActionTag   string          `json:"action_tag"`
-	ActionValue json.RawMessage `json:"action_value"`
+	Type        string
+	EventID     string
+	OperatorID  string
+	MessageID   string
+	ActionTag   string
+	ActionValue json.RawMessage
+}
+
+// feishuCallback 是飞书发来的回调原文（card.action.trigger，schema 2.0）。
+// 配置回调地址时飞书先发一次 url_verification（type / token / challenge 在最外层）。
+// 见 https://open.feishu.cn/document/feishu-cards/card-callback-communication
+type feishuCallback struct {
+	Type      string `json:"type"`
+	Token     string `json:"token"`
+	Challenge string `json:"challenge"`
+	Encrypt   string `json:"encrypt"`
+	Header    struct {
+		EventID   string `json:"event_id"`
+		Token     string `json:"token"`
+		EventType string `json:"event_type"`
+		AppID     string `json:"app_id"`
+	} `json:"header"`
+	Event struct {
+		Operator struct {
+			OpenID string `json:"open_id"`
+		} `json:"operator"`
+		Action struct {
+			Tag   string          `json:"tag"`
+			Value json.RawMessage `json:"value"`
+		} `json:"action"`
+		Context struct {
+			OpenMessageID string `json:"open_message_id"`
+		} `json:"context"`
+	} `json:"event"`
+}
+
+// feishuTokenOK 用常数时间比对 Verification Token。没配置的一律不过。
+func feishuTokenOK(want, got string) bool {
+	return want != "" && subtle.ConstantTimeCompare([]byte(want), []byte(got)) == 1
 }
 
 func feishuEventAction(raw json.RawMessage) (actionID, decision string, err error) {
@@ -367,19 +402,41 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 	}
 }
 
-// POST /api/auth/feishu/card：卡片操作回调。无需登录网页，但 action id、消息号、操作者、当前权限、状态和过期都要通过。
+// POST /api/auth/feishu/card：卡片操作回调。无需登录网页，但要先过 Verification Token，
+// 之后 action id、消息号、操作者、当前权限、状态和过期都要通过。
 func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
-	var event feishuCardEvent
-	// 飞书事件还有 timestamp/chat_id/token/action_name 等附加字段，不能用精简结构 DisallowUnknownFields 拒掉。
+	// 飞书事件还有 create_time / tenant_key / host 等附加字段，不能用 DisallowUnknownFields 拒掉。
+	var cb feishuCallback
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
-	if err := dec.Decode(&event); err != nil {
-		writeErr(w, http.StatusBadRequest, "飞书回调 JSON 格式错误："+err.Error())
+	if err := dec.Decode(&cb); err != nil {
+		writeErr(w, http.StatusBadRequest, "飞书回调 JSON 格式错误")
 		return
 	}
 	cfg, err := s.loadOIDC(r.Context())
 	if err != nil || !cfg.Enabled || cfg.Preset != "feishu" || !cfg.FeishuNotifyActions {
 		writeErr(w, http.StatusNotFound, "飞书卡片回调未开启")
 		return
+	}
+	if cb.Encrypt != "" {
+		writeErr(w, http.StatusBadRequest, "这个版本不支持加密的回调：请在飞书开发者后台清空 Encrypt Key，只用 Verification Token")
+		return
+	}
+	// 这是公开接口：先确认请求是飞书发来的，再看内容。操作人身份取自回调，token 不对就不能信
+	if cb.Type == "url_verification" {
+		if !feishuTokenOK(cfg.FeishuVerificationToken, cb.Token) {
+			writeErr(w, http.StatusForbidden, "Verification Token 不对")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"challenge": cb.Challenge})
+		return
+	}
+	if !feishuTokenOK(cfg.FeishuVerificationToken, cb.Header.Token) || (cb.Header.AppID != "" && cb.Header.AppID != cfg.ClientID) {
+		writeErr(w, http.StatusForbidden, "回调不是这个飞书应用发来的（Verification Token 或 App ID 不对）")
+		return
+	}
+	event := feishuCardEvent{
+		Type: cb.Header.EventType, EventID: cb.Header.EventID, OperatorID: cb.Event.Operator.OpenID,
+		MessageID: cb.Event.Context.OpenMessageID, ActionTag: cb.Event.Action.Tag, ActionValue: cb.Event.Action.Value,
 	}
 	if event.Type != "card.action.trigger" || event.ActionTag != "button" || event.OperatorID == "" || event.MessageID == "" || event.EventID == "" {
 		writeErr(w, http.StatusBadRequest, "不是有效的卡片按钮事件")

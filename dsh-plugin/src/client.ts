@@ -10,6 +10,7 @@ import { registerWorkbench } from "./workbench-client.js";
 import { registerVotes } from "./votes.js";
 import { registerEeSave } from "./ee-save.js";
 import { registerServerSettings } from "./settings-view.js";
+import { registerTurnWrites } from "./turn-writes-client.js";
 
 export const inject = ["slots", "remote", "sidebarRightTabs", "sidebarRight", "sessions", "conversation", "workspaces"];
 
@@ -34,6 +35,7 @@ const clientRemote = createTypertRemoteInfo({
     "dshEE/board": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/checklists": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/setChecklist": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
+    "dshEE/turnWrites": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/overview": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/login": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/doctor": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
@@ -147,6 +149,12 @@ export async function apply(ctx: any): Promise<void> {
     apps.setWorkbenchOpener(workbench.openWorkbench);
     registerVotes(ctx, remote, unwrapRemote);
     registerEeSave(ctx);
+    // 一轮末尾的「已留痕」提示不能拖死后面的品牌：宿主没有这个槽位时 inject 会一直等着，不会抛错
+    try {
+      registerTurnWrites(ctx, remote, unwrapRemote);
+    } catch {
+      // 宿主不认这个槽位
+    }
     const readBrand = async (): Promise<BrandViewData> => unwrapRemote(await Promise.race([
       remote.brand(),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("读取企业品牌超时")), 10_000)),

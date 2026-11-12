@@ -120,11 +120,11 @@ API（均要求系统设置权限，不走 Agent）：
 
 `TestFeishuKBGapNotification`：相同语义的零命中检索去重通知，聚合最近一次文案与次数，不会在下次同步重复发送。
 
-`e2e/tests/29-feishu-cards.mjs`：实际发出卡片、回调批准版本、重复回调 409；另有 `docs/images/feishu-approval-cards.gif` 记录页面和工作台入口。
+`e2e/tests/32-feishu-cards.mjs`：实际发出卡片、回调批准版本、重复回调 409；另有 `docs/images/feishu-approval-cards.gif` 记录页面和工作台入口。
 
 ### 浏览器交互与录屏
 
-`e2e/tests/28-feishu-org-sync.mjs` 在本机起一个同时实现 OIDC discovery、JWKS、授权码 + PKCE、tenant token 和通讯录的假飞书：
+`e2e/tests/31-feishu-org-sync.mjs` 在本机起一个同时实现 OIDC discovery、JWKS、授权码 + PKCE、tenant token 和通讯录的假飞书：
 
 - 管理员选择飞书预设，填写凭据并保存，secret 不显示；
 - 点击立即同步，确认飞书员工和研发部建号成功；
@@ -149,10 +149,14 @@ API（均要求系统设置权限，不走 Agent）：
 
 动作状态为 `pending → processing → done/failed`：先校验卡号、动作是否存在、是否过期，再校验操作者和当前 RBAC，随后原子占位，最后按原有审批规则落库。并发或重放不能重复执行，失败不能伪称批准成功。
 
-- 只处理 `card.action.trigger` 的 button 事件，action_value 兼容对象与 JSON 字符串。
+- 只处理 `card.action.trigger`（schema 2.0）的 button 事件：操作人取 `event.operator.open_id`，消息号取 `event.context.open_message_id`，按钮值取 `event.action.value`（兼容对象与 JSON 字符串）。
+- 回调是公开接口，先核对 `header.token` 等于设置里填的 **Verification Token**（常数时间比较），`header.app_id` 等于 App ID；不对的一律 403，不看内容。开卡片审批必须先填 Verification Token。
+- 配置回调地址时飞书发的 `url_verification` 会原样回 `challenge`（同样要 token 对）。
+- 不支持 Encrypt Key 加密的回调：飞书后台的 Encrypt Key 要留空。
+- 审批失败（已处理、过期、没权限）目前返回非 200，飞书客户端会显示通用的失败提示而不是具体原因；改成 200 + 错误 toast 留给后续。
 - 操作者必须映射到未禁用的飞书来源 `open_id` 账号；当前管理员、维护者、申请审批人权限重新判定，不能靠旧卡片永远拥有权限。
 - 同一审批 token 30 分钟过期、只允许执行一次真实决定；重复回调返回 409，并附明确 toast。
-- 独立一次性 action id 是高熵授权凭据，**不把按钮中的对象 ID 当作权限证明，也不伪造 Feishu 签名算法**。生产回调应只经 HTTPS 使用。
+- 独立一次性 action id 是高熵授权凭据，**不把按钮中的对象 ID 当作权限证明**。生产回调应只经 HTTPS 使用。
 
 ### 工作台免登打开应用
 

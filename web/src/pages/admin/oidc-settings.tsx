@@ -227,6 +227,11 @@ export default function OidcSettings() {
             <ToggleRow label={t("oidcAdmin.feishu.syncDisable")} desc={t("oidcAdmin.feishu.syncDisableDesc")} checked={!!form.feishuSyncDisable} onChange={(v) => set({ feishuSyncDisable: v })} />
             <ToggleRow label={t("oidcAdmin.feishu.notify")} desc={t("oidcAdmin.feishu.notifyDesc")} checked={!!form.feishuNotify} onChange={(v) => set({ feishuNotify: v })} />
             <ToggleRow label={t("oidcAdmin.feishu.notifyActions")} desc={t("oidcAdmin.feishu.notifyActionsDesc")} checked={!!form.feishuNotifyActions} onChange={(v) => set({ feishuNotifyActions: v })} />
+            {form.feishuNotifyActions && (
+              <Field label={t("oidcAdmin.feishu.verificationToken")} hint={t("oidcAdmin.feishu.verificationTokenHint")}>
+                <input className={cx(inputCls, "font-mono")} autoComplete="off" value={form.feishuVerificationToken ?? ""} onChange={(e) => set({ feishuVerificationToken: e.target.value })} />
+              </Field>
+            )}
             <Field label={t("oidcAdmin.feishu.workspaceNext")} hint={t("oidcAdmin.feishu.workspaceNextHint")}>
               <div className="flex flex-wrap gap-2">
                 <input className={cx(inputCls, "min-w-56 flex-1 font-mono")} value={workspaceNext} onChange={(e) => setWorkspaceNext(e.target.value)} placeholder="/a/team-outing" aria-label={t("oidcAdmin.feishu.workspaceNext")} />

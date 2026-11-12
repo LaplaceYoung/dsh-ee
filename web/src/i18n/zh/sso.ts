@@ -64,6 +64,8 @@ export default {
       notifyDesc: "审核结果、新建或扩大范围的申请、待补文档都发给对应处理人；发送失败不会改变网页中的结果。",
       notifyActions: "允许卡片内通过 / 驳回",
       notifyActionsDesc: "独立开关。按钮会携带一次性 action id，并校验审批人当前权限、消息号、状态与过期时间；不是只靠按钮上的对象 id 做决定。",
+      verificationToken: "Verification Token",
+      verificationTokenHint: "飞书开发者后台 → 事件与回调 → 加密策略里的 Verification Token。卡片回调是公开地址，dsh-ee 靠它确认请求是飞书发来的。回调地址填 <dsh-ee 地址>/api/auth/feishu/card；Encrypt Key 留空（这个版本不支持加密回调）。",
       workspaceNext: "工作台首页路径",
       workspaceNextHint: "应用用 /a/<应用标识>；/go 则进入默认工作台。员工从飞书进入后仍需完成同一套 OIDC，但不会重复输入 dsh-ee 密码。",
       workspaceLink: "复制工作台入口",

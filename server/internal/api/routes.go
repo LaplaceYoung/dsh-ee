@@ -209,7 +209,12 @@ func (s *Server) routes() []route {
 		prm("POST /api/admin/hub/review", s.handleHubReview, rbac.PluginsManage),
 		prm("POST /api/admin/hub/scope-review", s.handleHubScopeReview, rbac.PluginsManage),
 		prm("PUT /api/admin/plugin-policies/{name...}", s.handlePutPluginPolicy, rbac.PluginsManage),
+		prm("GET /api/admin/connections/{id}/shared-credentials", s.handleListSharedCredentials, rbac.ConnectionsManage),
+		prm("PUT /api/admin/connections/{id}/shared-credentials/{name}", s.handlePutSharedCredential, rbac.ConnectionsManage),
+		prm("DELETE /api/admin/connections/{id}/shared-credentials/{name}", s.handleDeleteSharedCredential, rbac.ConnectionsManage),
 		prm("POST /api/admin/connections/test", s.handleConnTest, rbac.ConnectionsManage),
+		prm("POST /api/admin/extensions/check", s.handleExtCheck, rbac.ConnectionsManage),
+		prm("POST /api/admin/extensions/install", s.handleExtInstall, rbac.ConnectionsManage),
 		prm("POST /api/admin/connections/{id}/sync", s.handleConnSync, rbac.ConnectionsManage),
 		prm("PATCH /api/admin/connections/{id}/tools/{name}", s.handleConnTool, rbac.ConnectionsManage),
 		// 按员工本人的身份调用（user_identity.go）：谁填了凭据、ee_jwt 的签名密钥和公钥

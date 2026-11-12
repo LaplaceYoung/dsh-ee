@@ -36,6 +36,14 @@ export default {
         pass: "包内没有 SKILL.md",
         warn: "包内含 {{count}} 个技能：{{files}}。它们由插件运行时注入，不会出现在能力中心的技能 Tab，也不能按技能单独授权或下架。",
       },
+      cordis: {
+        label: "Cordis 依赖",
+        warn: "包把 {{packages}} 放进了 dependencies：DSH 已提供 Cordis，双份会导致服务注入和生命周期错乱；请移到 peerDependencies（仅构建用可放 devDependencies）。",
+      },
+      "cordis-peer": {
+        label: "Cordis 版本",
+        warn: "peerDependencies 的 Cordis 范围 {{range}} 不包含当前 DSH 0.2.2 使用的 {{want}}；如果还要兼容旧宿主，请确认范围。",
+      },
       "install-scripts": {
         label: "安装脚本",
         pass: "安装时不执行脚本",

@@ -58,7 +58,7 @@ type FixedParam struct {
 // CredentialInfo 是清单声明的凭据用法，按实际生效的样子写出来。
 type CredentialInfo struct {
 	Mode string `json:"mode"`
-	// 员工身份放在哪个请求头（shared 模式没有）
+	// 员工身份放在哪个请求头；shared 模式下是清单指定的共享凭据位置（没指定就是空，由管理员安装时选）
 	Header   string   `json:"header,omitempty"`
 	Audience string   `json:"audience,omitempty"`
 	Claims   []string `json:"claims,omitempty"`
@@ -403,11 +403,12 @@ func (c *checker) credential(m *Manifest) *CredentialInfo {
 		return nil
 	}
 	info := &CredentialInfo{Mode: cr.Mode}
+	// shared 模式下 header 是共享凭据放的位置（不写就由管理员安装时选）；其余模式下是员工身份放的位置
 	if cr.Mode != CredShared {
 		info.Header = "Authorization: Bearer"
-		if cr.Header != "" {
-			info.Header = canonical(cr.Header)
-		}
+	}
+	if cr.Header != "" {
+		info.Header = canonical(cr.Header)
 	}
 	if cr.Mode == CredEEJWT {
 		info.Audience, info.Claims = cr.Audience, cr.Claims
@@ -418,8 +419,8 @@ func (c *checker) credential(m *Manifest) *CredentialInfo {
 	if cr.Header != "" && !headerRe.MatchString(cr.Header) {
 		c.add("credential.header_invalid", at("credential", "header"), fmt.Sprintf("请求头名字 %q 不对", cr.Header), "例如 \"X-User-Token\"；留空就是 Authorization: Bearer")
 	}
-	if cr.Mode == CredShared && (cr.Header != "" || cr.Shared != nil) {
-		c.add("credential.field_unused", at("credential"), "shared 模式只有一份共享凭据，header 和 shared 不起作用", "删掉 header / shared；共享凭据放在哪个请求头由管理员安装时选")
+	if cr.Mode == CredShared && cr.Shared != nil {
+		c.add("credential.field_unused", at("credential", "shared"), "shared 模式只有一份共享凭据，shared 不起作用", "删掉 shared；共享凭据要放在别的请求头里，写 \"header\": \"X-API-Key\"")
 	}
 	if cr.Mode != CredEEJWT && (cr.Audience != "" || len(cr.Claims) > 0) {
 		c.add("credential.field_unused", at("credential"), "audience 和 claims 只在 ee_jwt 模式下有用", "删掉它们，或把 mode 改成 ee_jwt")
@@ -646,15 +647,38 @@ func fixedParams(t *Tool) []FixedParam {
 	return out
 }
 
-// keep 检查「只保留这些字段」写的是不是返回里真有的字段。接口文档没写返回结构时查不了，不报。
+// keep 检查「只保留这些字段」写得对不对：写法只能是「字段」或「字段.子字段」；
+// 接口文档写了返回结构时，再查字段是不是真有。接口文档没写返回结构时查不了字段，不报。
 func (c *checker) keep(t *Tool, op *openapi.Tool, doc []byte, where string) {
-	fields, known := responseFields(doc, op.Op.Method, op.Op.Path)
-	if !known {
-		return
+	shape, known := responseShape(doc, op.Op.Method, op.Op.Path)
+	// 最常见的写错：列表包在 items / data 里，keep 却直接写每一项的字段，结果返回给模型的是空的
+	if known && !slices.ContainsFunc(t.Keep, func(k string) bool { return slices.Contains(shape.fields, strings.Split(k, ".")[0]) }) {
+		for _, parent := range shape.fields {
+			subs := shape.sub[parent]
+			if len(subs) > 0 && !slices.ContainsFunc(t.Keep, func(k string) bool { return !slices.Contains(subs, k) }) {
+				c.add("keep.wrapped", where+"/keep", fmt.Sprintf("工具 %s 的返回把内容包在 %s 里，keep 写的却是 %s 里面的字段：照现在的写法，返回给模型的会是空的", t.Name, parent, parent),
+					fmt.Sprintf("写成 \"%s.<字段名>\"，例如把 %q 改成 \"%s.%s\"；%s 之外还要留的第一层字段（比如总数）也要写上", parent, t.Keep[0], parent, t.Keep[0], parent))
+				return
+			}
+		}
 	}
 	for i, k := range t.Keep {
-		if !slices.Contains(fields, k) {
-			c.add("keep.unknown", fmt.Sprintf("%s/keep/%d", where, i), fmt.Sprintf("工具 %s 的返回里没有字段 %s，写了也留不下任何东西", t.Name, k), "接口文档里这个接口返回的字段："+strings.Join(fields, "、"))
+		kw := fmt.Sprintf("%s/keep/%d", where, i)
+		parent, child, dotted := strings.Cut(k, ".")
+		if parent == "" || (dotted && (child == "" || strings.Contains(child, "."))) {
+			c.add("keep.unknown", kw, fmt.Sprintf("工具 %s 的 keep 里 %q 写法不对：只能写第一层的字段名，或「字段.子字段」（到第二层为止）", t.Name, k),
+				"返回是 {\"items\": [...], \"total\": 1} 这样包了一层的列表时，写成 \"items.id\"、\"items.title\"、\"total\"")
+			continue
+		}
+		if !known {
+			continue
+		}
+		if !slices.Contains(shape.fields, parent) {
+			c.add("keep.unknown", kw, fmt.Sprintf("工具 %s 的返回里没有字段 %s，写了也留不下任何东西", t.Name, parent), "接口文档里这个接口返回的字段："+strings.Join(shape.fields, "、"))
+			continue
+		}
+		if subs, ok := shape.sub[parent]; dotted && ok && !slices.Contains(subs, child) {
+			c.add("keep.unknown", kw, fmt.Sprintf("工具 %s 返回的 %s 里没有字段 %s，写了也留不下任何东西", t.Name, parent, child), fmt.Sprintf("接口文档里 %s 的字段：%s", parent, strings.Join(subs, "、")))
 		}
 	}
 }
@@ -850,12 +874,26 @@ func jsonIs(raw json.RawMessage, typ string) bool {
 	return true
 }
 
-// responseFields 取一个接口成功返回的第一层字段名：返回对象就是它的字段，返回数组就是每一项的字段。
-// 接口文档没写返回结构（没有 responses、不是 JSON、没有 properties）时 known 为 false。
+// respShape 是一个接口成功返回的样子，只到第二层。
+type respShape struct {
+	// 第一层的字段：返回对象就是它的字段，返回数组就是每一项的字段
+	fields []string
+	// 第一层字段 → 它里面的字段（它是对象），或它每一项的字段（它是数组）；接口文档没写到这一层的不在里面
+	sub map[string][]string
+}
+
+// responseFields 取一个接口成功返回的第一层字段名。
 func responseFields(doc []byte, method, path string) (fields []string, known bool) {
+	shape, known := responseShape(doc, method, path)
+	return shape.fields, known
+}
+
+// responseShape 从接口文档里取一个接口成功返回的结构。
+// 接口文档没写返回结构（没有 responses、不是 JSON、没有 properties）时 known 为 false。
+func responseShape(doc []byte, method, path string) (shape respShape, known bool) {
 	var root map[string]any
 	if yaml.Unmarshal(doc, &root) != nil {
-		return nil, false
+		return shape, false
 	}
 	get := func(v any, keys ...string) any {
 		for _, k := range keys {
@@ -905,11 +943,27 @@ func responseFields(doc []byte, method, path string) (fields []string, known boo
 		if len(props) == 0 {
 			continue
 		}
-		for name := range props {
-			fields = append(fields, name)
+		shape.sub = map[string][]string{}
+		for name, p := range props {
+			shape.fields = append(shape.fields, name)
+			ps := deref(p)
+			if items := deref(ps["items"]); ps != nil && ps["type"] == "array" && items != nil {
+				ps = items
+			}
+			if ps == nil {
+				continue
+			}
+			if inner, _ := ps["properties"].(map[string]any); len(inner) > 0 {
+				var names []string
+				for n := range inner {
+					names = append(names, n)
+				}
+				sort.Strings(names)
+				shape.sub[name] = names
+			}
 		}
-		sort.Strings(fields)
-		return fields, true
+		sort.Strings(shape.fields)
+		return shape, true
 	}
-	return nil, false
+	return shape, false
 }

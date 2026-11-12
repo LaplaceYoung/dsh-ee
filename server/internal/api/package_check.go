@@ -17,6 +17,12 @@ import (
 // readPackageTarball 读取并解包网页上传的 .tgz。失败时已经写好响应，ok 为 false。
 // 发布和预检共用这一份解析，保证两条路径对同一个包给出同样的错误。
 func (s *Server) readPackageTarball(w http.ResponseWriter, r *http.Request) (raw []byte, info *registry.TarballInfo, m *registry.Manifest, ok bool) {
+	// 数据目录不可写/磁盘满时 newRegistry 返回 nil，但服务仍会启动；
+	// 这里要按文档承诺降级成 503，而不是在 s.registry.MaxTarball 上 panic。
+	if s.registry == nil {
+		writeErr(w, http.StatusServiceUnavailable, "npm 源暂不可用：服务端数据目录未初始化或不可写")
+		return nil, nil, nil, false
+	}
 	mt, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if mt != "application/octet-stream" && mt != "application/gzip" && mt != "application/x-gzip" {
 		writeErr(w, http.StatusUnsupportedMediaType, "请求体必须是 .tgz（application/octet-stream）")

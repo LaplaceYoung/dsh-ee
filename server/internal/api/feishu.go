@@ -138,7 +138,8 @@ func (s *Server) syncFeishu(ctx context.Context) (*feishuSyncResult, error) {
 			return finish(err)
 		}
 		for _, u := range existing {
-			if !strings.HasPrefix(u.ExternalDN, "feishu:") || seen[u.ExternalDN] {
+			// 已经禁用的不用每一轮再禁一次、再记一条审计
+			if u.Disabled || !strings.HasPrefix(u.ExternalDN, "feishu:") || seen[u.ExternalDN] {
 				continue
 			}
 			yes := true

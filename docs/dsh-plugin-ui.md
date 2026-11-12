@@ -61,3 +61,14 @@
 3. 同时占用这些插槽不会和官方插件冲突（品牌插槽是 single slot，曾经需要禁用 `ui-brand-official`）。
 
 三条都通过再按上面的顺序往下做。
+
+## 进度（2026-11-11）
+
+| 项 | 状态 | 说明 |
+|---|---|---|
+| 1 企业面板 | 已做 | `status-view.ts`，`sidebar.right.pane.tab` |
+| 2 微应用 | 已做，换了插槽 | 首屏用 `conversation.hero.options`（输入框下的横排），侧栏用 `sidebar.footer.action`。**不用** `conversation.hero.agentPreset`：它是 single 槽位，占了会顶掉 DSH 自带的 Agent preset 选择器；`sidebar.panellist` 是打开主区面板的图标，不适合列应用 |
+| 3 提示词变 `/命令` | 已由技能覆盖 | 目录里的提示词以 `user_invocable` 技能下发，DSH 的 `/` 菜单本来就列出可由用户调用的技能，不再另注册命令。企业名前缀和「常用」小条没做 |
+| 4 会话头部 | 已做 | `conversation.session.header.utilities` |
+| 5 设置页 | 已做 | `settings-view.ts`，`settings.section` |
+| 6 写操作之后的提示 | 已做，DSH Desktop 0.2.2-rc.1 实测通过 | 接入插件后端在调用 dsh-ee 写工具时按会话记到 `$DSH_HOME/dsh-ee/writes/<会话>.json`（`write-log.ts`）；`conversation.chat.turnTail` 按这一轮的起止时间取出，显示「已在 dsh-ee 留痕」和连接的网页详情链接（`turn-writes-*.ts`）。服务端在 `tools/list` 的 `_meta.dshee` 里带上连接的 `asset` 和 `system`。额度提示没做 |

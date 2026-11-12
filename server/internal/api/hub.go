@@ -67,6 +67,8 @@ type assetSpec struct {
 	TimeoutSec   int       `json:"timeout_seconds,omitempty"`
 	// 连接：员工身份（ee_jwt / user_secret），和上面的共享凭据并存；见 user_identity.go
 	UserAuth *connUserAuth `json:"user_auth,omitempty"`
+	// 连接：从声明式扩展装进来的（extensions.go）。清单和接口文档一起定版，不能单独改
+	Extension *connExtension `json:"extension,omitempty"`
 }
 
 // connAuth 是连接上游的认证方式；凭据本身单独加密存放，不在版本内容里。
@@ -74,6 +76,8 @@ type connAuth struct {
 	// none / bearer（Authorization: Bearer <凭据>）/ header（自定义请求头）
 	Type   string `json:"type"`
 	Header string `json:"header,omitempty"`
+	// 命名共享凭据；空继承 assets.secret_enc（旧行为），有值只认选中的那一份，找不到不回退
+	SharedName string `json:"shared_name,omitempty"`
 }
 
 func limitRunes(s string, n int) bool { return len([]rune(s)) <= n }
@@ -108,7 +112,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 		}
 		sp.Persona, sp.Starters, sp.Skills, sp.Connections, sp.Plugins, sp.Knowledge = "", nil, nil, nil, nil, nil
 		sp.Icon, sp.Launch, sp.Workbench, sp.Template, sp.Tables, sp.Web, sp.Highlights = "", "", nil, false, nil, false, nil
-		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions = "", "", nil, nil, "", ""
+		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions, sp.Extension = "", "", nil, nil, "", "", nil
 	case store.KindApp:
 		sp.Persona = strings.TrimSpace(sp.Persona)
 		if sp.Persona == "" {
@@ -182,7 +186,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 			return "开放网页版需要工作台里至少有一个业务面板（panel）"
 		}
 		sp.Body, sp.WhenToUse, sp.ModelInvocable = "", "", nil
-		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions = "", "", nil, nil, "", ""
+		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions, sp.Extension = "", "", nil, nil, "", "", nil
 	case store.KindConnection:
 		if sp.Type != "mcp" && sp.Type != "openapi" {
 			return "连接类型只能是 mcp 或 openapi"
@@ -207,6 +211,12 @@ func validateSpec(kind string, sp *assetSpec) string {
 		default:
 			return "认证方式只能是 none / bearer / header"
 		}
+		sp.Auth.SharedName = strings.TrimSpace(sp.Auth.SharedName)
+		if sp.Auth.Type == "none" {
+			sp.Auth.SharedName = ""
+		} else if sp.Auth.SharedName != "" && !sharedCredentialNameRe.MatchString(sp.Auth.SharedName) {
+			return "命名共享凭据的名字只能包含字母、数字、下划线和中划线，最长 40 个字符"
+		}
 		if msg := validateUserAuth(sp); msg != "" {
 			return msg
 		}
@@ -225,6 +235,9 @@ func validateSpec(kind string, sp *assetSpec) string {
 		if sp.TimeoutSec < 0 || sp.TimeoutSec > 120 {
 			return "超时应在 1–120 秒之间"
 		}
+		if msg := validateExtension(sp); msg != "" {
+			return msg
+		}
 		sp.Body, sp.WhenToUse, sp.ModelInvocable = "", "", nil
 		sp.Persona, sp.Starters, sp.Skills, sp.Connections, sp.Plugins, sp.Knowledge = "", nil, nil, nil, nil, nil
 		sp.Icon, sp.Launch, sp.Workbench, sp.Template = "", "", nil, false
@@ -235,6 +248,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 }
 
 var headerNameRe = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
+var sharedCredentialNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$`)
 
 var hubKinds = []string{store.KindSkill, store.KindPrompt, store.KindApp, store.KindConnection}
 
@@ -655,17 +669,19 @@ func (s *Server) handleHubCreate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "标识只能用小写字母、数字和连字符，例如 expense-policy，最多 48 个字符")
 		return
 	}
-	if req.Slug == kbConn || req.Slug == kbQAName {
-		writeErr(w, http.StatusBadRequest, "标识 "+req.Slug+" 留给知识库使用")
-		return
-	}
-	if req.Slug == appConn || req.Slug == dataConn {
-		writeErr(w, http.StatusBadRequest, "标识 "+req.Slug+" 留给应用数据和数据中台使用")
+	if reservedConnSlug(req.Slug) {
+		writeErr(w, http.StatusBadRequest, "标识 "+req.Slug+" 留给系统连接或内置工具，请换一个")
 		return
 	}
 	sp, raw, ok := s.decodeSpec(w, r, req.Kind, req.Spec)
 	if !ok {
 		return
+	}
+	if req.Kind == store.KindConnection {
+		if msg, _ := s.checkSharedName(r.Context(), 0, sp); msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
 	}
 	scope := store.Scope{All: true}
 	if req.Scope != nil {
@@ -787,6 +803,24 @@ func (s *Server) handleHubNewVersion(w http.ResponseWriter, r *http.Request) {
 	sp, raw, ok := s.decodeSpec(w, r, a.Kind, req.Spec)
 	if !ok {
 		return
+	}
+	if a.Kind == store.KindConnection {
+		if msg, err := s.checkSharedName(r.Context(), a.ID, sp); err != nil {
+			s.internalErr(w, r, err)
+			return
+		} else if msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
+	}
+	if a.Kind == store.KindConnection && a.LiveVersion > 0 {
+		if msg, err := s.checkExtensionChange(r.Context(), a, sp); err != nil {
+			s.internalErr(w, r, err)
+			return
+		} else if msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
 	}
 	if a.Kind == store.KindApp && a.LiveVersion > 0 {
 		if msg, err := s.checkAppTablesChange(r.Context(), a, sp); err != nil {

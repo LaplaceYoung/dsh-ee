@@ -103,10 +103,20 @@ func (f *fakeFeishuMessages) interactiveAction(t *testing.T, index int) (actionI
 	return "", ""
 }
 
+const feishuTestToken = "vt-test-token"
+
 func cardEvent(actionID, messageID, operator string, decision any) map[string]any {
+	// 飞书 card.action.trigger 的真实结构（schema 2.0）
 	return map[string]any{
-		"type": "card.action.trigger", "event_id": "evt-" + secret.Token(), "operator_id": operator, "message_id": messageID,
-		"action_tag": "button", "action_value": map[string]any{"action_id": actionID, "decision": decision}, "timestamp": "extra-field-allowed",
+		"schema": "2.0",
+		"header": map[string]any{"event_id": "evt-" + secret.Token(), "token": feishuTestToken, "create_time": "1700000000000", "event_type": "card.action.trigger", "tenant_key": "t1", "app_id": "dsh-ee"},
+		"event": map[string]any{
+			"operator": map[string]any{"tenant_key": "t1", "open_id": operator, "union_id": "on-x"},
+			"token":    "c-update-token",
+			"action":   map[string]any{"value": map[string]any{"action_id": actionID, "decision": decision}, "tag": "button", "timezone": "Asia/Shanghai"},
+			"host":     "im_message",
+			"context":  map[string]any{"open_message_id": messageID, "open_chat_id": "oc-x"},
+		},
 	}
 }
 
@@ -180,6 +190,11 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 		"enabled": true, "preset": "feishu", "issuer": idp.URL, "clientId": "dsh-ee", "clientSecret": "idp-secret",
 		"feishuApiBase": idp.URL, "feishuNotify": true, "feishuNotifyActions": true, "autoCreate": true,
 	}, nil)
+	expect(t, "没填 Verification Token 不能开卡片审批", code, 400, body)
+	code, body = admin.do("PUT", "/api/admin/auth/oidc", map[string]any{
+		"enabled": true, "preset": "feishu", "issuer": idp.URL, "clientId": "dsh-ee", "clientSecret": "idp-secret",
+		"feishuApiBase": idp.URL, "feishuNotify": true, "feishuNotifyActions": true, "feishuVerificationToken": feishuTestToken, "autoCreate": true,
+	}, nil)
 	expect(t, "开启飞书通知与卡片", code, 200, body)
 	if strings.Contains(string(body), "idp-secret") {
 		t.Fatalf("secret 泄露：%s", body)
@@ -194,6 +209,30 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 		Asset struct{ ID int64 } `json:"asset"`
 	}](t, body).Asset.ID
 	actionID, messageID := fakeNotices.interactiveAction(t, 0)
+
+	// 公开接口：token 不对、别的应用发来的、旧的扁平格式，都不处理
+	forged := cardEvent(actionID, messageID, "ou-reviewer", "approve")
+	forged["header"].(map[string]any)["token"] = "guess"
+	code, body = admin.do("POST", "/api/auth/feishu/card", forged, nil)
+	expect(t, "Verification Token 不对", code, 403, body)
+	other := cardEvent(actionID, messageID, "ou-reviewer", "approve")
+	other["header"].(map[string]any)["app_id"] = "cli_other"
+	code, body = admin.do("POST", "/api/auth/feishu/card", other, nil)
+	expect(t, "别的应用的回调", code, 403, body)
+	code, body = admin.do("POST", "/api/auth/feishu/card", map[string]any{"type": "card.action.trigger", "event_id": "e", "operator_id": "ou-reviewer", "message_id": messageID,
+		"action_tag": "button", "action_value": map[string]any{"action_id": actionID, "decision": "approve"}}, nil)
+	expect(t, "不带 token 的自造格式", code, 403, body)
+	if v, err := st.LiveAssetVersion(ctx, assetID); err == nil && v.Status == store.StatusPublished {
+		t.Fatal("伪造的回调不该让版本上架")
+	}
+	// 配置回调地址时飞书发的验证请求
+	code, body = admin.do("POST", "/api/auth/feishu/card", map[string]any{"type": "url_verification", "token": feishuTestToken, "challenge": "abc123"}, nil)
+	expect(t, "url_verification", code, 200, body)
+	if !strings.Contains(string(body), `"challenge":"abc123"`) {
+		t.Fatalf("应原样回 challenge：%s", body)
+	}
+	code, body = admin.do("POST", "/api/auth/feishu/card", map[string]any{"type": "url_verification", "token": "guess", "challenge": "abc123"}, nil)
+	expect(t, "url_verification 的 token 不对", code, 403, body)
 
 	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, "om-wrong", "ou-reviewer", "approve"), nil)
 	expect(t, "消息号不匹配必须拒绝", code, 409, body)
@@ -220,9 +259,9 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 	expect(t, "员工权限申请", code, 201, body)
 	actionID, messageID = fakeNotices.interactiveAction(t, 1)
 	// 同时验证 action_value 的字符串 JSON，而不是只测直接 object 的理想路径。
-	var value map[string]any = cardEvent(actionID, messageID, "ou-reviewer", "approve")["action_value"].(map[string]any)
 	event := cardEvent(actionID, messageID, "ou-reviewer", "approve")
-	event["action_value"] = string(feishuMustJSON(t, value))
+	action := event["event"].(map[string]any)["action"].(map[string]any)
+	action["value"] = string(feishuMustJSON(t, action["value"].(map[string]any)))
 	code, body = admin.do("POST", "/api/auth/feishu/card", event, nil)
 	expect(t, "飞书权限申请通过", code, 200, body)
 	// 工作台首页只生成合法的站内 OIDC 起点，不接受管理路径。

@@ -66,6 +66,8 @@ export default {
       notifyDesc: "Review outcomes, new or expanded scope requests and missing-document reminders are sent to the proper reviewers. Delivery failures never change the web result.",
       notifyActions: "Allow approve / reject in cards",
       notifyActionsDesc: "Independent switch. Buttons use a one-time action ID and re-check current reviewer permissions, message ID, state and expiry. The object ID in a button alone never grants approval rights.",
+      verificationToken: "Verification Token",
+      verificationTokenHint: "From the Feishu developer console → Events & Callbacks → Encryption Strategy. The card callback is a public URL; dsh-ee uses this token to confirm requests come from Feishu. Set the callback URL to <dsh-ee URL>/api/auth/feishu/card and leave Encrypt Key empty (encrypted callbacks are not supported in this version).",
       workspaceNext: "Workbench home path",
       workspaceNextHint: "Use /a/<app-slug> for a web app, or /go for the default workbench. Users complete the same OIDC flow without typing another dsh-ee password.",
       workspaceLink: "Copy workbench entry URL",

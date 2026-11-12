@@ -84,7 +84,7 @@ export default async function (t) {
     await login(employee, `card-author-${tag}`, "employee-password-1");
     const cfg = await api(admin, "PUT", "/api/admin/auth/oidc", {
       enabled: true, preset: "feishu", name: "飞书", issuer: fake.url, clientId: "dsh-ee", clientSecret: "idp-secret",
-      feishuApiBase: fake.url, feishuSync: true, feishuSyncDisable: false, feishuNotify: true, feishuNotifyActions: true, autoCreate: true,
+      feishuApiBase: fake.url, feishuSync: true, feishuSyncDisable: false, feishuNotify: true, feishuNotifyActions: true, feishuVerificationToken: "vt-e2e", autoCreate: true,
     });
     assertEq(cfg.status, 200, "开启飞书通知与卡片审批");
     let synced = await api(admin, "POST", "/api/admin/auth/feishu/sync");
@@ -106,7 +106,7 @@ export default async function (t) {
     const actionID = buttons.actions[0].value.action_id;
     const callback = await admin.evaluate(async ({ actionID }) => {
       const r = await fetch("/api/auth/feishu/card", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "card.action.trigger", event_id: "evt-once", operator_id: "ou-reviewer", message_id: "om-1", action_tag: "button", action_value: { action_id: actionID, decision: "approve" } }) });
+        body: JSON.stringify({ schema: "2.0", header: { event_id: "evt-once", token: "vt-e2e", event_type: "card.action.trigger", app_id: "dsh-ee" }, event: { operator: { open_id: "ou-reviewer" }, action: { tag: "button", value: { action_id: actionID, decision: "approve" } }, context: { open_message_id: "om-1" } } }) });
       return { status: r.status, data: await r.json() };
     }, { actionID });
     assertEq(callback.status, 200, "真实飞书回调通过审批");
@@ -117,7 +117,7 @@ export default async function (t) {
 
     const replay = await admin.evaluate(async ({ actionID }) => {
       const r = await fetch("/api/auth/feishu/card", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: "card.action.trigger", event_id: "evt-replay", operator_id: "ou-reviewer", message_id: "om-1", action_tag: "button", action_value: { action_id: actionID, decision: "approve" } }) });
+        body: JSON.stringify({ schema: "2.0", header: { event_id: "evt-replay", token: "vt-e2e", event_type: "card.action.trigger", app_id: "dsh-ee" }, event: { operator: { open_id: "ou-reviewer" }, action: { tag: "button", value: { action_id: actionID, decision: "approve" } }, context: { open_message_id: "om-1" } } }) });
       return r.status;
     }, { actionID });
     assertEq(replay, 409, "同一动作不能重复审批");

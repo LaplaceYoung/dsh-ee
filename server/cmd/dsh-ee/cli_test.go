@@ -47,6 +47,11 @@ func TestCLI(t *testing.T) {
 		t.Fatalf("--json 输出不对：%d\n%s", code, out)
 	}
 
+	// extension check --help 给用法，不当成不认识的参数
+	if _, code, out, errOut := cli("extension", "check", "--help"); code != 0 || !strings.Contains(out, "dsh-ee extension check") || strings.Contains(errOut, "不认识") {
+		t.Fatalf("--help 应给用法：%d\n%s\n%s", code, out, errOut)
+	}
+
 	// 弄坏的扩展：退出码 1，每条结果都有位置和改法
 	dir := t.TempDir()
 	for _, name := range []string{"dsh-ee.extension.json", "openapi.yaml"} {

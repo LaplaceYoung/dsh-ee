@@ -1,6 +1,6 @@
 # 接入与扩展方案（草案，2026-11-11 第四稿）
 
-> 状态：设计稿，还没开工。§13 记了已定的事和还没定的问题，§14 是对照代码做的一次评审（可行性、取舍、风险）。这是对 [roadmap.md](./roadmap.md) 阶段 D / E 的细化，v0.1 的范围冻结不受影响。
+> 状态：第 1 批进行中（进度见 §12.1）。§13 记了已定的事和还没定的问题，§14 是对照代码做的一次评审（可行性、取舍、风险）。这是对 [roadmap.md](./roadmap.md) 阶段 D / E 的细化，v0.1 的范围冻结不受影响。
 >
 > 配套文档：[access-control.md](./access-control.md)（可配置的管理角色、扩展字段和访问规则）、[agent-dev.md](./agent-dev.md)（让 Agent 完成扩展和权限配置的开发）。三份文档的先后顺序统一写在本文 §12。
 >
@@ -311,6 +311,8 @@ Dify 的模型插件和 Agent 策略插件不做：dsh-ee 不自己跑 AI（road
 ### 7.1 凭据的两层
 
 - **共享凭据**（照 Dify）：管理员配。同一个扩展可以存**多份**，各自命名（比如「生产」「测试」「华东子公司」），有一份默认；应用可以指定用哪一份。保存前调扩展的 `validate`。
+
+  实现进度：[named-shared-credentials.md](./named-shared-credentials.md) 已落地服务端连接的多份凭据、原默认兼容、切换与审计。按应用指定凭据及声明式扩展的 `validate`，尚不在该批次。
 - **员工凭据**（dsh-ee 比 Dify 多的部分）：每个员工自己的，在「我的连接」里管理。
 
 ### 7.2 凭据模式
@@ -509,6 +511,20 @@ extensions/
 | **第 3 批：扩展字段 + 访问规则** | [access-control.md](./access-control.md) §4～§5，组织同步带字段，扩展带字段 | 按文档等级、项目控制谁能看 | v0.3 或 v0.4；和第 2 批互不依赖，哪个需求先来就先做哪个 |
 | **第 4 批：管理角色 + 配置交给 Agent** | 可关闭的超级管理员、互斥角色、双人批准；配置导出 / `plan` / `test` / `apply`、`explain` / `simulate`；另外两个技能 | 几个管理员各管一块；权限配置交给 Agent 做 | 第 3 批之后 |
 | **第 5 批：端侧扩展** | TS SDK、`webSignIn`、本机回报审计、Agent 适配器 | 接没有接口、只能用员工登录态的老系统 | 取决于 §13 待定 2、3 的真机验证 |
+
+### 12.1 第 1 批的进度
+
+| 项 | 状态 | 在哪 |
+|---|---|---|
+| `ee_jwt`、`user_secret`、「我的连接」 | ✅ | [ee-jwt.md](./ee-jwt.md)、`server/internal/api/user_identity.go` |
+| 清单 v1、`extension check --json`、规格文件、声明式示例、技能的声明式部分 | ✅ | `extensions/`、`server/internal/extension` |
+| 安装声明式扩展（上传 zip 或清单 + 接口文档 → 检查 → 安装计划 → 装成连接；升级时新增的写操作、只读变写、凭据模式和地址的变化先停用或要确认） | ✅ | `server/internal/api/extensions.go`，管理后台「企业连接 → 安装扩展」 |
+| 参数 `fill`：`admin` 由管理员安装时设置，`app` 先取清单的 default；两种都不出现在给模型的工具定义里 | ✅（`app` 按应用固定还没做） | `extension.Tool.Schema` / `Fix` |
+| `keep` 只保留返回字段（可写到第二层：`items.id`）、请求只发往清单列出的地址、调用记录带扩展版本和摘要 | ✅ | 同上 |
+| `shared` 模式由清单指定共享凭据的请求头（`credential.header`）；管理员填的值按清单的类型和可选值核对；`minVersion` 高于当前版本的不让装；扩展装的连接不能换成另一个扩展或变回手工连接 | ✅ | `server/internal/api/extensions.go` |
+| 从 Git 仓库安装（§9.2） | ⏳ | |
+| 多份共享凭据（§7.1） | ✅ 连接级选择（按应用指定哪一份还没做） | [named-shared-credentials.md](./named-shared-credentials.md)、`server/internal/api/shared_credentials.go` |
+| 现有连接自动转换成扩展（§11） | ⏳ | |
 
 **有人要才做**（设计留着，不排期）：签名和签名策略、自动升级策略、企业目录、`/extensions` 列表页和安装按钮、反向连接和远程调试、网盘类知识源、事件、通知渠道、权限策略扩展、字段填充、审计投递、更多内置扩展、Python SDK、服务端无头浏览器、token exchange。
 

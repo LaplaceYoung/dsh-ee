@@ -214,7 +214,7 @@ var HttpClient = class {
   constructor(tokens) {
     this.tokens = tokens;
   }
-  async fetch(path7, init = {}, timeoutMs = 3e4) {
+  async fetch(path8, init = {}, timeoutMs = 3e4) {
     const current = await this.tokens.resolve();
     const headers = new Headers(init.headers);
     if (current?.value) headers.set("Authorization", `Bearer ${current.value}`);
@@ -223,15 +223,15 @@ var HttpClient = class {
     if (!headers.has("X-DshEE-Host")) headers.set("X-DshEE-Host", dshHost());
     const timeout = timeoutMs > 0 ? AbortSignal.timeout(timeoutMs) : void 0;
     const signal = init.signal && timeout ? AbortSignal.any([init.signal, timeout]) : timeout ?? init.signal ?? void 0;
-    const response = await fetch(`${config.base}${path7}`, { ...init, headers, signal });
+    const response = await fetch(`${config.base}${path8}`, { ...init, headers, signal });
     if (response.status === 401 && current?.value) {
       const body = await response.clone().json().catch(() => null);
       if (body?.code?.startsWith("token_")) await this.tokens.invalidate(current.value);
     }
     return response;
   }
-  async json(path7, init) {
-    const response = await this.fetch(path7, init);
+  async json(path8, init) {
+    const response = await this.fetch(path8, init);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return response.json();
   }
@@ -304,11 +304,19 @@ function registerCommands(ctx, config, tokens, onLogin = async () => {
 }) {
   const flow = new DeviceFlow(config);
   let pending = null;
+  let starting = false;
   const login = async (rawInput) => {
     if (pending) return { kind: "success", text: `\u8BF7\u5728\u6D4F\u89C8\u5668\u786E\u8BA4\uFF0C\u786E\u8BA4\u7801 ${pending.code}\uFF0C\u94FE\u63A5 ${pending.url}` };
+    if (starting) return { kind: "success", text: "\u6B63\u5728\u53D1\u8D77\u4F01\u4E1A\u767B\u5F55\uFF0C\u8BF7\u7A0D\u5019\u2026" };
     const setupCode = parseSetupCode(rawInput);
     if (String(rawInput ?? "").trim() && !setupCode) return { kind: "error", text: "\u63A5\u5165\u7801\u683C\u5F0F\u4E0D\u5BF9\uFF0C\u5E94\u5F62\u5982 ABCD-EFGH\uFF1B\u4E0D\u5E26\u63A5\u5165\u7801\u76F4\u63A5\u8F93\u5165 /ee-login \u4E5F\u53EF\u4EE5" };
-    const started = await flow.start(setupCode);
+    starting = true;
+    let started;
+    try {
+      started = await flow.start(setupCode);
+    } finally {
+      starting = false;
+    }
     const url = started.verification_uri_complete;
     if (!setupCode) openBrowser(url);
     const task = (async () => {
@@ -483,6 +491,78 @@ function appWebUrl(base, app) {
   return app.asset_id ? `${base}/assets/${app.asset_id}` : void 0;
 }
 
+// src/write-log.ts
+import fs2 from "node:fs";
+import path3 from "node:path";
+import { createHash } from "node:crypto";
+var MAX_PER_SESSION = 200;
+function writeOf(tool, args) {
+  if (!tool || tool.annotations?.readOnlyHint === true) return void 0;
+  const meta = tool._meta?.dshee ?? {};
+  const actions = meta.actions;
+  if (actions && typeof actions === "object") {
+    const action = actions[String(args?.action)];
+    if (!action) return void 0;
+    if (action.e === "danger" && !args?.confirm) return void 0;
+    return { label: String(action.zh || args?.action) };
+  }
+  const name2 = String(tool.name ?? "");
+  const short = name2.includes("__") ? name2.slice(name2.indexOf("__") + 2) : name2;
+  const asset = Number(meta.asset);
+  return {
+    label: short,
+    ...typeof meta.system === "string" && meta.system ? { system: meta.system } : systemOf(tool.description),
+    ...Number.isInteger(asset) && asset > 0 ? { asset } : {}
+  };
+}
+function systemOf(description) {
+  const match = /^【([^】]{1,80})】/.exec(String(description ?? ""));
+  return match ? { system: match[1] } : {};
+}
+function resultOk(result) {
+  return !(result && typeof result === "object" && result.isError === true);
+}
+function writesBetween(records, from, to) {
+  return records.filter((item) => item.at >= from && (to === void 0 || item.at <= to));
+}
+var safeName = /^[A-Za-z0-9_-]{1,80}$/;
+var WriteLog = class {
+  constructor(dir = path3.join(dshHome(), "dsh-ee", "writes")) {
+    this.dir = dir;
+  }
+  sequence = 0;
+  file(sessionId) {
+    if (typeof sessionId !== "string" || !sessionId) throw new Error("\u4F1A\u8BDD id \u4E0D\u5408\u6CD5");
+    const name2 = safeName.test(sessionId) ? sessionId : createHash("sha256").update(sessionId).digest("hex").slice(0, 32);
+    return path3.join(this.dir, `${name2}.json`);
+  }
+  read(sessionId) {
+    try {
+      const value = JSON.parse(fs2.readFileSync(this.file(sessionId), "utf8"));
+      if (value?.sessionId !== sessionId || !Array.isArray(value?.writes)) return [];
+      return value.writes;
+    } catch {
+      return [];
+    }
+  }
+  record(sessionId, item) {
+    const writes = [...this.read(sessionId), item].slice(-MAX_PER_SESSION);
+    const file = this.file(sessionId);
+    fs2.mkdirSync(this.dir, { recursive: true, mode: 448 });
+    const temp = `${file}.${process.pid}.${++this.sequence}.tmp`;
+    try {
+      fs2.writeFileSync(temp, JSON.stringify({ sessionId, writes }) + "\n", { mode: 384 });
+      fs2.renameSync(temp, file);
+    } finally {
+      if (fs2.existsSync(temp)) fs2.unlinkSync(temp);
+    }
+  }
+  between(sessionId, from, to) {
+    if (typeof sessionId !== "string" || !sessionId || !Number.isFinite(from)) return [];
+    return writesBetween(this.read(sessionId), from, Number.isFinite(to) ? to : void 0);
+  }
+};
+
 // src/bridge.ts
 function renderResult(value) {
   if (value && Array.isArray(value.content)) {
@@ -546,6 +626,8 @@ var McpBridge = class {
   /** 服务端在 tools/list 里标了 readOnlyHint 的工具（服务端工具名）；工作台取数只能用它们 */
   readOnly = /* @__PURE__ */ new Set();
   status = { lastSyncAt: 0, tools: 0, error: "" };
+  /** 有写操作完成时调用；index.ts 接到 WriteLog 上 */
+  onWrite;
   async rpc(method, params, timeoutMs = 3e4, retried = false) {
     const headers = { "content-type": "application/json", accept: "application/json, text/event-stream" };
     if (this.session) headers["Mcp-Session-Id"] = this.session;
@@ -602,6 +684,17 @@ ${canonArgs(args)}`, body.preview);
     } catch {
     }
   }
+  /** 写操作记一笔；记录失败不能影响工具结果。exec.agent.session.id 是调用它的会话。 */
+  noteWrite(tool, args, exec, at, ok) {
+    const sessionId = exec?.agent?.session?.id;
+    if (!this.onWrite || typeof sessionId !== "string" || !sessionId) return;
+    const write2 = writeOf(tool, args);
+    if (!write2) return;
+    try {
+      this.onWrite(sessionId, { at, tool: String(tool.name), ok, ...write2 });
+    } catch {
+    }
+  }
   register(tool) {
     const name2 = `mcp__${this.config.serverName}__${tool.name}`;
     const actions = tool._meta?.dshee?.actions;
@@ -613,11 +706,19 @@ ${canonArgs(args)}`, body.preview);
       description: tool.description || tool.name,
       parameters: tool.inputSchema || { type: "object", properties: {} },
       output: { schema: {}, render: (_args, value) => [{ type: "text", text: renderResult(value) }] },
-      execute: async (args) => {
+      execute: async (args, exec) => {
         const local = this.local.get(`${tool.name}.${args?.action}`);
         if (local) return local(args);
-        const result = await this.rpc("tools/call", { name: tool.name, arguments: args }, 0);
+        const at = Date.now();
+        let result;
+        try {
+          result = await this.rpc("tools/call", { name: tool.name, arguments: args }, 0);
+        } catch (error) {
+          this.noteWrite(tool, args, exec, at, false);
+          throw error;
+        }
         this.remember(name2, args, result);
+        this.noteWrite(tool, args, exec, at, resultOk(result));
         return result;
       }
     });
@@ -677,19 +778,25 @@ ${canonArgs(args)}`, body.preview);
         } catch {
         }
         if (signal.aborted) break;
-        await new Promise((resolve) => {
-          const timer = setTimeout(resolve, delay);
-          this.wakeUp = () => {
-            clearTimeout(timer);
-            delay = 1e3;
-            resolve(void 0);
-          };
-          signal.addEventListener("abort", () => {
-            clearTimeout(timer);
-            resolve(void 0);
-          }, { once: true });
-        });
-        this.wakeUp = void 0;
+        let onAbort;
+        try {
+          await new Promise((resolve) => {
+            const timer = setTimeout(resolve, delay);
+            onAbort = () => {
+              clearTimeout(timer);
+              resolve(void 0);
+            };
+            this.wakeUp = () => {
+              clearTimeout(timer);
+              delay = 1e3;
+              resolve(void 0);
+            };
+            signal.addEventListener("abort", onAbort, { once: true });
+          });
+        } finally {
+          if (onAbort) signal.removeEventListener("abort", onAbort);
+          this.wakeUp = void 0;
+        }
         delay = Math.min(delay * 2, 6e4);
       }
     })();
@@ -2886,8 +2993,8 @@ function validateName(subject, value) {
 }
 
 // src/brand.ts
-var _vote_dec, _writeTableRow_dec, _insertFormRow_dec, _webLink_dec, _updatePlugin_dec, _saveServer_dec, _testServer_dec, _serverSettings_dec, _doctor_dec, _login_dec, _overview_dec, _kbDoc_dec, _setChecklist_dec, _checklists_dec, _board_dec, _workbenchData_dec, _unbindApp_dec, _bindApp_dec, _appBindings_dec, _disableApp_dec, _enableApp_dec, _availableApps_dec, _apps_dec, _brand_dec, _a, _init;
-var DshEEClientService = class extends (_a = TypertRemoteService, _brand_dec = [Remote], _apps_dec = [Remote], _availableApps_dec = [Remote], _enableApp_dec = [Remote], _disableApp_dec = [Remote], _appBindings_dec = [Remote], _bindApp_dec = [Remote], _unbindApp_dec = [Remote], _workbenchData_dec = [Remote], _board_dec = [Remote], _checklists_dec = [Remote], _setChecklist_dec = [Remote], _kbDoc_dec = [Remote], _overview_dec = [Remote], _login_dec = [Remote], _doctor_dec = [Remote], _serverSettings_dec = [Remote], _testServer_dec = [Remote], _saveServer_dec = [Remote], _updatePlugin_dec = [Remote], _webLink_dec = [Remote], _insertFormRow_dec = [Remote], _writeTableRow_dec = [Remote], _vote_dec = [Remote], _a) {
+var _vote_dec, _writeTableRow_dec, _insertFormRow_dec, _webLink_dec, _updatePlugin_dec, _saveServer_dec, _testServer_dec, _serverSettings_dec, _doctor_dec, _login_dec, _overview_dec, _turnWrites_dec, _kbDoc_dec, _setChecklist_dec, _checklists_dec, _board_dec, _workbenchData_dec, _unbindApp_dec, _bindApp_dec, _appBindings_dec, _disableApp_dec, _enableApp_dec, _availableApps_dec, _apps_dec, _brand_dec, _a, _init;
+var DshEEClientService = class extends (_a = TypertRemoteService, _brand_dec = [Remote], _apps_dec = [Remote], _availableApps_dec = [Remote], _enableApp_dec = [Remote], _disableApp_dec = [Remote], _appBindings_dec = [Remote], _bindApp_dec = [Remote], _unbindApp_dec = [Remote], _workbenchData_dec = [Remote], _board_dec = [Remote], _checklists_dec = [Remote], _setChecklist_dec = [Remote], _kbDoc_dec = [Remote], _turnWrites_dec = [Remote], _overview_dec = [Remote], _login_dec = [Remote], _doctor_dec = [Remote], _serverSettings_dec = [Remote], _testServer_dec = [Remote], _saveServer_dec = [Remote], _updatePlugin_dec = [Remote], _webLink_dec = [Remote], _insertFormRow_dec = [Remote], _writeTableRow_dec = [Remote], _vote_dec = [Remote], _a) {
   constructor(ctx, actions) {
     super(ctx, "dshEE");
     this.actions = actions;
@@ -2931,6 +3038,9 @@ var DshEEClientService = class extends (_a = TypertRemoteService, _brand_dec = [
   }
   async kbDoc(request) {
     return this.actions.readKBDoc(request);
+  }
+  async turnWrites(request) {
+    return this.actions.turnWrites(request);
   }
   async overview() {
     return this.actions.readOverview();
@@ -2980,6 +3090,7 @@ __decorateElement(_init, 1, "board", _board_dec, DshEEClientService);
 __decorateElement(_init, 1, "checklists", _checklists_dec, DshEEClientService);
 __decorateElement(_init, 1, "setChecklist", _setChecklist_dec, DshEEClientService);
 __decorateElement(_init, 1, "kbDoc", _kbDoc_dec, DshEEClientService);
+__decorateElement(_init, 1, "turnWrites", _turnWrites_dec, DshEEClientService);
 __decorateElement(_init, 1, "overview", _overview_dec, DshEEClientService);
 __decorateElement(_init, 1, "login", _login_dec, DshEEClientService);
 __decorateElement(_init, 1, "doctor", _doctor_dec, DshEEClientService);
@@ -3031,10 +3142,10 @@ async function readEnterpriseOverview(config, http, bridge) {
 }
 
 // src/server-settings.ts
-import fs2 from "node:fs";
-import path3 from "node:path";
+import fs3 from "node:fs";
+import path4 from "node:path";
 function serverSettingsPath() {
-  return path3.join(dshHome(), "dsh-ee", "server.json");
+  return path4.join(dshHome(), "dsh-ee", "server.json");
 }
 function normalizeBase(input) {
   const raw = String(input ?? "").trim().replace(/\/+$/, "");
@@ -3048,7 +3159,7 @@ function normalizeBase(input) {
 }
 function readBaseOverride() {
   try {
-    const data = JSON.parse(fs2.readFileSync(serverSettingsPath(), "utf8"));
+    const data = JSON.parse(fs3.readFileSync(serverSettingsPath(), "utf8"));
     return normalizeBase(data.base);
   } catch {
     return void 0;
@@ -3057,11 +3168,11 @@ function readBaseOverride() {
 function writeBaseOverride(base) {
   const file = serverSettingsPath();
   if (!base) {
-    fs2.rmSync(file, { force: true });
+    fs3.rmSync(file, { force: true });
     return;
   }
-  fs2.mkdirSync(path3.dirname(file), { recursive: true, mode: 448 });
-  fs2.writeFileSync(file, `${JSON.stringify({ base }, null, 2)}
+  fs3.mkdirSync(path4.dirname(file), { recursive: true, mode: 448 });
+  fs3.writeFileSync(file, `${JSON.stringify({ base }, null, 2)}
 `, { mode: 384 });
 }
 function reason(error) {
@@ -3179,9 +3290,9 @@ async function updateConnect(ctx, config, http) {
 }
 
 // src/upload.ts
-import fs3 from "node:fs";
+import fs4 from "node:fs";
 import os3 from "node:os";
-import path4 from "node:path";
+import path5 from "node:path";
 var MAX_BYTES = 128 * 1024 * 1024;
 function fail(text) {
   return { content: [{ type: "text", text }], isError: true };
@@ -3189,11 +3300,11 @@ function fail(text) {
 async function uploadPackage(http, args) {
   const raw = String(args.path ?? "").trim();
   if (!raw) return fail("\u7F3A\u5C11 path\uFF1A.tgz \u6587\u4EF6\u7684\u672C\u673A\u8DEF\u5F84");
-  const file = path4.resolve(raw.startsWith("~") ? path4.join(os3.homedir(), raw.slice(1)) : raw);
+  const file = path5.resolve(raw.startsWith("~") ? path5.join(os3.homedir(), raw.slice(1)) : raw);
   if (!/\.(tgz|tar\.gz)$/i.test(file)) return fail("\u53EA\u80FD\u4E0A\u4F20 npm pack \u751F\u6210\u7684 .tgz \u6587\u4EF6");
   let stat;
   try {
-    stat = fs3.statSync(file);
+    stat = fs4.statSync(file);
   } catch {
     return fail(`\u627E\u4E0D\u5230\u6587\u4EF6\uFF1A${file}`);
   }
@@ -3204,7 +3315,7 @@ async function uploadPackage(http, args) {
     response = await http.fetch("/api/agent/packages", {
       method: "POST",
       headers: { "content-type": "application/octet-stream" },
-      body: fs3.readFileSync(file)
+      body: fs4.readFileSync(file)
     });
   } catch {
     return fail("\u8FDE\u4E0D\u4E0A dsh-ee\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u6216 VPN");
@@ -3215,10 +3326,10 @@ async function uploadPackage(http, args) {
 }
 
 // src/app-bindings.ts
-import fs4 from "node:fs";
-import path5 from "node:path";
+import fs5 from "node:fs";
+import path6 from "node:path";
 var AppBindings = class {
-  constructor(file = path5.join(dshHome(), "dsh-ee", "apps.json")) {
+  constructor(file = path6.join(dshHome(), "dsh-ee", "apps.json")) {
     this.file = file;
   }
   sequence = 0;
@@ -3246,9 +3357,9 @@ var AppBindings = class {
   }
   read() {
     this.warningMessage = "";
-    if (!fs4.existsSync(this.file)) return { version: 1, bindings: {} };
+    if (!fs5.existsSync(this.file)) return { version: 1, bindings: {} };
     try {
-      const value = JSON.parse(fs4.readFileSync(this.file, "utf8"));
+      const value = JSON.parse(fs5.readFileSync(this.file, "utf8"));
       if (value?.version !== 1 || !value.bindings || typeof value.bindings !== "object" || Array.isArray(value.bindings)) throw new Error("invalid");
       const bindings = {};
       for (const [name2, binding] of Object.entries(value.bindings)) {
@@ -3263,15 +3374,15 @@ var AppBindings = class {
     }
   }
   write(bindings) {
-    fs4.mkdirSync(path5.dirname(this.file), { recursive: true, mode: 448 });
+    fs5.mkdirSync(path6.dirname(this.file), { recursive: true, mode: 448 });
     const temp = `${this.file}.${process.pid}.${++this.sequence}.tmp`;
     try {
-      fs4.writeFileSync(temp, JSON.stringify({ version: 1, bindings }, null, 2) + "\n", { mode: 384 });
-      fs4.renameSync(temp, this.file);
-      fs4.chmodSync(this.file, 384);
+      fs5.writeFileSync(temp, JSON.stringify({ version: 1, bindings }, null, 2) + "\n", { mode: 384 });
+      fs5.renameSync(temp, this.file);
+      fs5.chmodSync(this.file, 384);
       this.warningMessage = "";
     } finally {
-      if (fs4.existsSync(temp)) fs4.unlinkSync(temp);
+      if (fs5.existsSync(temp)) fs5.unlinkSync(temp);
     }
   }
 };
@@ -3307,9 +3418,9 @@ async function exchangeWebLink(base, http, url) {
 }
 
 // src/workbench-host.ts
-import fs5 from "node:fs";
-import path6 from "node:path";
-import { createHash } from "node:crypto";
+import fs6 from "node:fs";
+import path7 from "node:path";
+import { createHash as createHash2 } from "node:crypto";
 
 // src/workbench.ts
 var checklistKey = (pane, widget) => `${pane}:${widget}`;
@@ -3473,25 +3584,25 @@ async function verifyCitations(tools, blocks) {
   });
   return { blocks: out, bad, stale };
 }
-var safeName = /^[A-Za-z0-9_-]{1,80}$/;
+var safeName2 = /^[A-Za-z0-9_-]{1,80}$/;
 function sessionFile(dir, app, sessionId) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(app) || app.length > 48) throw new Error("\u5FAE\u5E94\u7528\u540D\u4E0D\u5408\u6CD5");
   if (typeof sessionId !== "string" || !sessionId) throw new Error("\u4F1A\u8BDD id \u4E0D\u5408\u6CD5");
-  const session = safeName.test(sessionId) ? sessionId : createHash("sha256").update(sessionId).digest("hex").slice(0, 32);
-  return path6.join(dir, `${app}--${session}.json`);
+  const session = safeName2.test(sessionId) ? sessionId : createHash2("sha256").update(sessionId).digest("hex").slice(0, 32);
+  return path7.join(dir, `${app}--${session}.json`);
 }
 function writeAtomic(dir, file, value, sequence) {
-  fs5.mkdirSync(dir, { recursive: true, mode: 448 });
+  fs6.mkdirSync(dir, { recursive: true, mode: 448 });
   const temp = `${file}.${process.pid}.${sequence}.tmp`;
   try {
-    fs5.writeFileSync(temp, JSON.stringify(value) + "\n", { mode: 384 });
-    fs5.renameSync(temp, file);
+    fs6.writeFileSync(temp, JSON.stringify(value) + "\n", { mode: 384 });
+    fs6.renameSync(temp, file);
   } finally {
-    if (fs5.existsSync(temp)) fs5.unlinkSync(temp);
+    if (fs6.existsSync(temp)) fs6.unlinkSync(temp);
   }
 }
 var BoardStore = class {
-  constructor(dir = path6.join(dshHome(), "dsh-ee", "boards")) {
+  constructor(dir = path7.join(dshHome(), "dsh-ee", "boards")) {
     this.dir = dir;
   }
   sequence = 0;
@@ -3500,7 +3611,7 @@ var BoardStore = class {
   }
   read(app, sessionId) {
     try {
-      const value = JSON.parse(fs5.readFileSync(this.file(app, sessionId), "utf8"));
+      const value = JSON.parse(fs6.readFileSync(this.file(app, sessionId), "utf8"));
       if (value?.app !== app || value?.sessionId !== sessionId || !Array.isArray(value?.blocks)) return void 0;
       return value;
     } catch {
@@ -3516,13 +3627,13 @@ var BoardStore = class {
 };
 var maxChecked = 100;
 var ChecklistStore = class {
-  constructor(dir = path6.join(dshHome(), "dsh-ee", "checklists")) {
+  constructor(dir = path7.join(dshHome(), "dsh-ee", "checklists")) {
     this.dir = dir;
   }
   sequence = 0;
   read(app, sessionId) {
     try {
-      const value = JSON.parse(fs5.readFileSync(sessionFile(this.dir, app, sessionId), "utf8"));
+      const value = JSON.parse(fs6.readFileSync(sessionFile(this.dir, app, sessionId), "utf8"));
       if (value?.app !== app || value?.sessionId !== sessionId || typeof value?.lists !== "object" || !value.lists) return void 0;
       return value;
     } catch {
@@ -3661,6 +3772,8 @@ function apply(ctx, input) {
   const tokens = new TokenManager(ctx, config);
   const http = new HttpClient(tokens);
   const bridge = new McpBridge(ctx, config, http);
+  const writes = new WriteLog();
+  bridge.onWrite = (sessionId, record) => writes.record(sessionId, record);
   let refreshSkills;
   const server = new ServerSettingsService(config, tokens, async () => {
     const current = await tokens.resolve();
@@ -3671,7 +3784,7 @@ function apply(ctx, input) {
   bridge.registerLocal("ee_plugins.upload", (args) => uploadPackage(http, args));
   registerApproval(ctx, bridge);
   ctx.effect(async () => {
-    await tokens.importPending();
+    await tokens.importPending().catch(() => void 0);
     const current = await tokens.resolve();
     if (current?.value) await tokens.syncNpmrc(current.value).catch(() => false);
     let skills;
@@ -3726,6 +3839,10 @@ function apply(ctx, input) {
         return checklists.update(app, String(request?.sessionId ?? ""), String(request?.key ?? ""), request?.done ? [id] : [], request?.done ? [] : [id]);
       },
       readKBDoc: (request) => readKBDoc(bridge, request),
+      turnWrites: async (request) => ({
+        base: config.base,
+        writes: writes.between(String(request?.sessionId ?? ""), Number(request?.from), request?.to == null ? void 0 : Number(request.to))
+      }),
       readOverview: () => readEnterpriseOverview(config, http, bridge).catch((error) => ({ failure: overviewFailure(config, error) })),
       login: () => commands.login(),
       doctor: () => runLocalDoctor(ctx, config, tokens, http, bridge, appBindings),

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { getEventListeners } from "node:events";
 import { test } from "node:test";
 import { listChangedCounter, McpBridge } from "../src/bridge.js";
 import { normalizeConfig } from "../src/config.js";
@@ -150,4 +151,27 @@ test("sync re-registers a tool whose definition changed and leaves unchanged one
   assert.equal(registered.get("mcp__acme__data__dataset").description, "可用的数据集：\n- sales\n- hr");
   assert.equal(bridge.isReadOnlyTool("data__dataset"), false, "只读标记要跟着更新");
   assert.ok(bridge.hasTool("lookup"));
+});
+
+
+test("退避等待不会累积 abort 监听器", async () => {
+  const ctx = { tools: { register() { return () => undefined; } } };
+  let calls = 0;
+  const http = {
+    async fetch() {
+      calls++;
+      throw new TypeError("offline");
+    },
+  };
+  const bridge = new McpBridge(ctx as any, normalizeConfig({ base: "http://localhost", serverName: "acme" }), http as any);
+  await bridge.start();
+  const signal = (bridge as any).controller.signal as AbortSignal;
+  const deadline = Date.now() + 5_000;
+  while (calls < 5 && Date.now() < deadline) {
+    bridge.wake();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
+  assert.ok(calls >= 5, `应至少重试 5 次，实际 ${calls}`);
+  assert.ok(getEventListeners(signal, "abort").length <= 1, `abort 监听器应被摘掉，实际 ${getEventListeners(signal, "abort").length}`);
+  bridge.stop();
 });
