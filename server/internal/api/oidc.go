@@ -33,6 +33,8 @@ const (
 type oidcStored struct {
 	oidc.Config
 	ClientSecretEnc string `json:"clientSecretEnc,omitempty"`
+	// 飞书回调的 Encrypt Key，同样加密保存
+	FeishuEncryptKeyEnc string `json:"feishuEncryptKeyEnc,omitempty"`
 }
 
 func (s *Server) loadOIDC(ctx context.Context) (*oidc.Config, error) {
@@ -55,6 +57,17 @@ func (s *Server) loadOIDC(ctx context.Context) (*oidc.Config, error) {
 		}
 		cfg.ClientSecret = string(pw)
 	}
+	if st.FeishuEncryptKeyEnc != "" {
+		raw, err := base64.StdEncoding.DecodeString(st.FeishuEncryptKeyEnc)
+		if err != nil {
+			return nil, err
+		}
+		key, err := s.box.Open(raw)
+		if err != nil {
+			return nil, fmt.Errorf("解密飞书 Encrypt Key（主密钥是否换过？）: %w", err)
+		}
+		cfg.FeishuEncryptKey = string(key)
+	}
 	return &cfg, nil
 }
 
@@ -66,6 +79,13 @@ func (s *Server) saveOIDC(ctx context.Context, cfg *oidc.Config, userID int64) e
 			return err
 		}
 		st.ClientSecretEnc = base64.StdEncoding.EncodeToString(sealed)
+	}
+	if cfg.FeishuEncryptKey != "" {
+		sealed, err := s.box.Seal([]byte(cfg.FeishuEncryptKey))
+		if err != nil {
+			return err
+		}
+		st.FeishuEncryptKeyEnc = base64.StdEncoding.EncodeToString(sealed)
 	}
 	return s.store.PutSettingJSON(ctx, oidcSettingsKey, st, userID)
 }
@@ -95,8 +115,10 @@ func (s *Server) oidcRedirect(r *http.Request) string { return s.publicBase(r) +
 
 type oidcView struct {
 	oidc.Config
-	ClientSecretSet bool   `json:"clientSecretSet"`
-	RedirectURI     string `json:"redirectUri"`
+	ClientSecretSet bool `json:"clientSecretSet"`
+	// 飞书 Encrypt Key 只告诉页面填没填，不回显
+	FeishuEncryptKeySet bool   `json:"feishuEncryptKeySet"`
+	RedirectURI         string `json:"redirectUri"`
 }
 
 // GET /api/admin/auth/oidc
@@ -106,13 +128,16 @@ func (s *Server) handleGetOIDC(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, oidcView{Config: *cfg, ClientSecretSet: cfg.ClientSecret != "", RedirectURI: s.oidcRedirect(r)})
+	writeJSON(w, http.StatusOK, oidcView{Config: *cfg, ClientSecretSet: cfg.ClientSecret != "", FeishuEncryptKeySet: cfg.FeishuEncryptKey != "", RedirectURI: s.oidcRedirect(r)})
 }
 
 // oidcInput：clientSecret 不传表示沿用已存的，传空串表示清除。
 type oidcInput struct {
 	oidc.Config
 	ClientSecret *string `json:"clientSecret"`
+	// 同 clientSecret：不传沿用已存的，传空串清除
+	FeishuEncryptKey    *string `json:"feishuEncryptKey"`
+	FeishuEncryptKeySet *bool   `json:"feishuEncryptKeySet"`
 	// 只读字段，页面会原样带回来
 	ClientSecretSet *bool   `json:"clientSecretSet"`
 	RedirectURI     *string `json:"redirectUri"`
@@ -128,6 +153,15 @@ func (s *Server) resolveOIDCInput(ctx context.Context, in *oidcInput) (*oidc.Con
 			return nil, "", err
 		}
 		cfg.ClientSecret = cur.ClientSecret
+	}
+	if in.FeishuEncryptKey != nil {
+		cfg.FeishuEncryptKey = strings.TrimSpace(*in.FeishuEncryptKey)
+	} else {
+		cur, err := s.loadOIDC(ctx)
+		if err != nil {
+			return nil, "", err
+		}
+		cfg.FeishuEncryptKey = cur.FeishuEncryptKey
 	}
 	if msg := cfg.Validate(); msg != "" {
 		return nil, msg, nil

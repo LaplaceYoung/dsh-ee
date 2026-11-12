@@ -23,6 +23,8 @@ type fakeFeishuContacts struct {
 	department feishu.Department
 	users      []feishu.User
 	fail       bool
+	// 单独查一名员工时的回答：open_id → resigned / noauth / invalid；没写的是在职
+	single map[string]string
 }
 
 func (f *fakeFeishuContacts) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -44,6 +46,19 @@ func (f *fakeFeishuContacts) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"items": []feishu.Department{f.department}, "has_more": false}})
 		case strings.Contains(r.URL.Path, "/users/find_by_department"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"items": f.users, "has_more": false}})
+		case strings.HasPrefix(r.URL.Path, "/open-apis/contact/v3/users/"):
+			id := strings.TrimPrefix(r.URL.Path, "/open-apis/contact/v3/users/")
+			switch f.single[id] {
+			case "noauth":
+				w.WriteHeader(400)
+				_ = json.NewEncoder(w).Encode(map[string]any{"code": 41050, "msg": "no user authority"})
+			case "invalid":
+				w.WriteHeader(400)
+				_ = json.NewEncoder(w).Encode(map[string]any{"code": 41012, "msg": "user id invalid"})
+			default:
+				_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"user": map[string]any{
+					"open_id": id, "status": map[string]any{"is_resigned": f.single[id] == "resigned", "is_activated": true}}}})
+			}
 		default:
 			http.NotFound(w, r)
 		}
@@ -134,11 +149,11 @@ func TestFeishuLoginAndOrganizationSync(t *testing.T) {
 		t.Fatalf("应有员工与映射角色两个角色：%+v err=%v", access, err)
 	}
 
-	// bob 从目录消失、carol 明确冻结，都应按同一开关禁用；alice 不受影响。
-	contacts.users = append(contacts.users[:1], feishu.User{OpenID: "ou-3", Name: "柯若", Email: "carol@example.com", DepartmentIDs: []string{"dep-sales"}, Membership: struct {
-		IsDeleted bool `json:"is_deleted"`
-		IsFrozen  bool `json:"is_frozen"`
-	}{IsDeleted: true}})
+	// bob 从目录消失且飞书确认已离职、carol 在目录里明确冻结，都应按同一开关禁用；alice 不受影响。
+	carol := feishu.User{OpenID: "ou-3", Name: "柯若", Email: "carol@example.com", DepartmentIDs: []string{"dep-sales"}}
+	carol.Status.IsFrozen = true
+	contacts.users = append(contacts.users[:1], carol)
+	contacts.single = map[string]string{"ou-2": "resigned"}
 	code, body = admin.do("POST", "/api/admin/auth/feishu/sync", nil, nil)
 	expect(t, "目录缺席但尚未打开禁用", code, 200, body)
 	if _, err := st.GetUserByUsername(ctx, "bob"); err != nil {
@@ -162,6 +177,29 @@ func TestFeishuLoginAndOrganizationSync(t *testing.T) {
 	if err != nil || alice.Disabled {
 		t.Fatalf("不应误禁用仍存在的 alice：%+v err=%v", alice, err)
 	}
+
+	// 目录里没看到不等于离职：alice 不在这次的目录里，但飞书说应用看不到她（通讯录权限范围变小了）、
+	// 或者干脆查不到、或者说她还在职——都不禁用，列出来给管理员。
+	dave := feishu.User{OpenID: "ou-4", Name: "戴维", Email: "dave@example.com", DepartmentIDs: []string{"dep-sales"}}
+	contacts.users = []feishu.User{dave}
+	for _, state := range []string{"noauth", "invalid", ""} {
+		contacts.single["ou-1"] = state
+		code, body = admin.do("POST", "/api/admin/auth/feishu/sync", nil, nil)
+		expect(t, "目录里没有 alice（"+state+"）", code, 200, body)
+		var kept struct {
+			OK       bool
+			Disabled []string
+			Kept     []string
+		}
+		if err := json.Unmarshal(body, &kept); err != nil || !kept.OK || len(kept.Disabled) != 0 || len(kept.Kept) != 1 || !strings.HasPrefix(kept.Kept[0], "alice") {
+			t.Fatalf("飞书没有明确说离职的不该禁用（%s）：%s err=%v", state, body, err)
+		}
+		if alice, err = st.GetUserByUsername(ctx, "alice"); err != nil || alice.Disabled {
+			t.Fatalf("alice 不该被禁用（%s）：%+v err=%v", state, alice, err)
+		}
+	}
+	// 已经禁用的 bob、carol 不再每一轮重复禁用
+	contacts.users = append(contacts.users, feishu.User{OpenID: "ou-1", Name: "吴安", Email: "alice@example.com", DepartmentIDs: []string{"dep-sales"}})
 
 	// 目录响应坚决不用来代替禁用：整轮失败不应禁用 alice，错误不泄露 client secret。
 	contacts.fail = true

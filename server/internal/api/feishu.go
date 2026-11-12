@@ -24,6 +24,8 @@ type feishuSyncResult struct {
 	Disabled   []string  `json:"disabled"`
 	Conflicts  []string  `json:"conflicts"`
 	Skipped    []string  `json:"skipped"`
+	// 目录里没看到、但飞书没有明确说离职或冻结的账号：没有禁用，列出来给管理员确认
+	Kept []string `json:"kept"`
 }
 
 func (s *Server) feishuConfig(ctx context.Context) (*oidc.Config, error) {
@@ -56,7 +58,7 @@ func externalDeptNames(dir *feishu.Directory, ids []string) ([]string, []string)
 }
 
 func (s *Server) syncFeishu(ctx context.Context) (*feishuSyncResult, error) {
-	res := &feishuSyncResult{At: time.Now().UTC(), Disabled: []string{}, Conflicts: []string{}, Skipped: []string{}}
+	res := &feishuSyncResult{At: time.Now().UTC(), Disabled: []string{}, Conflicts: []string{}, Skipped: []string{}, Kept: []string{}}
 	finish := func(err error) (*feishuSyncResult, error) {
 		if err != nil {
 			res.Error = err.Error()
@@ -82,10 +84,13 @@ func (s *Server) syncFeishu(ctx context.Context) (*feishuSyncResult, error) {
 	}
 	res.Remote = len(dir.Users)
 	seen := map[string]bool{}
+	// 目录里明确标了冻结 / 离职的
+	gone := map[string]bool{}
 	for _, remote := range dir.Users {
 		subject := feishu.ExternalSubject(remote.OpenID)
-		// 目录明确标记删除/冻结也不是「仍然存在」，应与缺席一样进入禁用流程（仍需 SyncDisable）。
+		// 目录明确标记冻结/离职也不是「仍然存在」，进入禁用流程（仍需 SyncDisable）。
 		seen[subject] = !remote.Disabled()
+		gone[subject] = remote.Disabled()
 		if remote.Disabled() {
 			res.Skipped = append(res.Skipped, remote.OpenID)
 			continue
@@ -142,6 +147,23 @@ func (s *Server) syncFeishu(ctx context.Context) (*feishuSyncResult, error) {
 			if u.Disabled || !strings.HasPrefix(u.ExternalDN, "feishu:") || seen[u.ExternalDN] {
 				continue
 			}
+			// 目录里没看到不等于离职：应用的通讯录权限范围可能只覆盖一部分员工。
+			// 单独向飞书确认，只有飞书明确说冻结 / 离职才禁用；看不到、查不到的留着，列给管理员。
+			if !gone[u.ExternalDN] {
+				state, err := client.UserState(ctx, feishuOpenID(u))
+				if err != nil {
+					return finish(err)
+				}
+				if state != feishu.UserGone {
+					why := map[feishu.UserState]string{
+						feishu.UserActive:     "飞书里仍在职，但不在这次拉到的目录里",
+						feishu.UserOutOfScope: "不在飞书应用的通讯录权限范围内，看不到状态",
+						feishu.UserUnknown:    "飞书查不到这个账号",
+					}[state]
+					res.Kept = append(res.Kept, u.Username+"（"+why+"）")
+					continue
+				}
+			}
 			yes := true
 			if err := s.store.UpdateUser(ctx, u.ID, store.UserPatch{Disabled: &yes}); err != nil {
 				return finish(err)
@@ -154,7 +176,7 @@ func (s *Server) syncFeishu(ctx context.Context) (*feishuSyncResult, error) {
 			s.auditSystem(ctx, auditUserUpdate, u.Username, map[string]any{"disabled": true, "reason": "feishu_missing"})
 		}
 	}
-	s.auditSystem(ctx, auditFeishuSync, "", map[string]any{"remote": res.Remote, "created": res.Created, "reconciled": res.Reconciled, "disabled": len(res.Disabled), "conflicts": len(res.Conflicts)})
+	s.auditSystem(ctx, auditFeishuSync, "", map[string]any{"remote": res.Remote, "created": res.Created, "reconciled": res.Reconciled, "disabled": len(res.Disabled), "kept": len(res.Kept), "conflicts": len(res.Conflicts)})
 	s.feishuNotifyKBGaps(ctx)
 	return finish(nil)
 }

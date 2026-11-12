@@ -67,6 +67,11 @@ func (c *Client) call(ctx context.Context, method, endpoint string, reqBody any,
 		return errors.New("飞书响应超过 1 MB")
 	}
 	if resp.StatusCode != http.StatusOK {
+		// 业务错误（比如 41050 没有这个员工的权限）飞书用 HTTP 400 加 code 返回，把 code 留给调用方判断
+		var env envelope
+		if json.Unmarshal(raw, &env) == nil && env.Code != 0 {
+			return &APIError{Status: resp.StatusCode, Code: env.Code, Msg: env.Msg}
+		}
 		return fmt.Errorf("飞书接口返回 %d：%s", resp.StatusCode, clip(string(raw), 200))
 	}
 	if strings.Contains(endpoint, "tenant_access_token/internal") {
@@ -77,10 +82,27 @@ func (c *Client) call(ctx context.Context, method, endpoint string, reqBody any,
 		return err
 	}
 	if env.Code != 0 {
-		return fmt.Errorf("飞书接口错误 %d：%s", env.Code, env.Msg)
+		return &APIError{Status: resp.StatusCode, Code: env.Code, Msg: env.Msg}
 	}
 	return json.Unmarshal(env.Data, output)
 }
+
+// APIError 是飞书接口返回的业务错误。
+type APIError struct {
+	Status int
+	Code   int
+	Msg    string
+}
+
+func (e *APIError) Error() string { return fmt.Sprintf("飞书接口错误 %d：%s", e.Code, e.Msg) }
+
+// 查单个员工时用得上的错误码（contact/v3/users/:user_id）。
+const (
+	// CodeNoUserAuthority：应用的通讯录权限范围里没有这个员工
+	CodeNoUserAuthority = 41050
+	// CodeUserIDInvalid：这个 open_id 查不到
+	CodeUserIDInvalid = 41012
+)
 
 func (c *Client) tenantToken(ctx context.Context) (string, error) {
 	var out struct {
@@ -114,13 +136,55 @@ type User struct {
 	Email         string   `json:"email"`
 	EmployeeNo    string   `json:"employee_no"`
 	DepartmentIDs []string `json:"department_ids"`
-	Membership    struct {
-		IsDeleted bool `json:"is_deleted"`
-		IsFrozen  bool `json:"is_frozen"`
-	} `json:"membership,omitempty"`
+	// 飞书通讯录里的员工状态：冻结、离职、主动退出
+	Status struct {
+		IsFrozen   bool `json:"is_frozen"`
+		IsResigned bool `json:"is_resigned"`
+		IsExited   bool `json:"is_exited"`
+	} `json:"status,omitempty"`
 }
 
-func (u User) Disabled() bool { return u.Membership.IsDeleted || u.Membership.IsFrozen }
+// Disabled 报告飞书是否明确说这个人不能再用了（冻结、离职或退出）。
+func (u User) Disabled() bool { return u.Status.IsFrozen || u.Status.IsResigned || u.Status.IsExited }
+
+// UserState 是单独向飞书确认一名员工时得到的结论。
+type UserState int
+
+const (
+	// UserUnknown：飞书查不到这个 open_id，说不清是删了还是别的原因
+	UserUnknown UserState = iota
+	// UserActive：还在职，只是这次没出现在目录里
+	UserActive
+	// UserGone：飞书明确说冻结、离职或退出了
+	UserGone
+	// UserOutOfScope：应用的通讯录权限范围里没有这个人，看不到他的状态
+	UserOutOfScope
+)
+
+// UserState 单独查一名员工。目录里没看到一个人，不等于他离职了：也可能是应用的通讯录权限范围
+// 只覆盖了一部分员工。按目录禁用账号之前用它确认。
+func (c *Client) UserState(ctx context.Context, openID string) (UserState, error) {
+	token, err := c.tenantToken(ctx)
+	if err != nil {
+		return UserUnknown, err
+	}
+	var out struct {
+		User User `json:"user"`
+	}
+	err = c.call(ctx, http.MethodGet, "/open-apis/contact/v3/users/"+url.PathEscape(openID)+"?user_id_type=open_id", nil, &out, token)
+	var apiErr *APIError
+	switch {
+	case errors.As(err, &apiErr) && apiErr.Code == CodeNoUserAuthority:
+		return UserOutOfScope, nil
+	case errors.As(err, &apiErr) && apiErr.Code == CodeUserIDInvalid:
+		return UserUnknown, nil
+	case err != nil:
+		return UserUnknown, err
+	case out.User.Disabled():
+		return UserGone, nil
+	}
+	return UserActive, nil
+}
 
 type Directory struct {
 	Departments map[string]string
