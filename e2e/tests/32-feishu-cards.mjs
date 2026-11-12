@@ -110,7 +110,7 @@ export default async function (t) {
       return { status: r.status, data: await r.json() };
     }, { actionID });
     assertEq(callback.status, 200, "真实飞书回调通过审批");
-    assertEq(callback.data.status, "approved", "审批结果固定为 approved");
+    assertEq(callback.data.toast?.type, "success", "审批通过回成功提示");
     const published = await api(admin, "GET", `/api/hub/${assetID}`);
     assertEq(published.data.versions.find((v) => v.version === 1).status, "published", "卡片批准后版本上架");
     step("真实发送卡片，审批回调通过，版本上架");
@@ -118,9 +118,10 @@ export default async function (t) {
     const replay = await admin.evaluate(async ({ actionID }) => {
       const r = await fetch("/api/auth/feishu/card", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schema: "2.0", header: { event_id: "evt-replay", token: "vt-e2e", event_type: "card.action.trigger", app_id: "dsh-ee" }, event: { operator: { open_id: "ou-reviewer" }, action: { tag: "button", value: { action_id: actionID, decision: "approve" } }, context: { open_message_id: "om-1" } } }) });
-      return r.status;
+      return { status: r.status, data: await r.json() };
     }, { actionID });
-    assertEq(replay, 409, "同一动作不能重复审批");
+    assertEq(replay.status, 200, "重复回调也回 200，原因写在提示里");
+    assertEq(replay.data.toast?.type, "info", "同一动作不能重复审批");
     await shot(admin, "feishu-card-approved");
     step("同一动作重放返回 409，没有重复生效");
 

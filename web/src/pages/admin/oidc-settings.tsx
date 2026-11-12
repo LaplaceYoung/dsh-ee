@@ -232,6 +232,11 @@ export default function OidcSettings() {
                 <input className={cx(inputCls, "font-mono")} autoComplete="off" value={form.feishuVerificationToken ?? ""} onChange={(e) => set({ feishuVerificationToken: e.target.value })} />
               </Field>
             )}
+            {form.feishuNotifyActions && (
+              <Field label={t("oidcAdmin.feishu.encryptKey")} hint={form.feishuEncryptKeySet && form.feishuEncryptKey === undefined ? t("oidcAdmin.feishu.encryptKeySetHint") : t("oidcAdmin.feishu.encryptKeyHint")}>
+                <input className={cx(inputCls, "font-mono")} type="password" autoComplete="new-password" value={form.feishuEncryptKey ?? ""} placeholder={form.feishuEncryptKeySet ? "••••••••" : ""} onChange={(e) => set({ feishuEncryptKey: e.target.value })} />
+              </Field>
+            )}
             <Field label={t("oidcAdmin.feishu.workspaceNext")} hint={t("oidcAdmin.feishu.workspaceNextHint")}>
               <div className="flex flex-wrap gap-2">
                 <input className={cx(inputCls, "min-w-56 flex-1 font-mono")} value={workspaceNext} onChange={(e) => setWorkspaceNext(e.target.value)} placeholder="/a/team-outing" aria-label={t("oidcAdmin.feishu.workspaceNext")} />
@@ -259,6 +264,7 @@ export default function OidcSettings() {
                 )}
                 {syncStatus.data.last.conflicts.length > 0 && <div className="break-all">{t("oidcAdmin.feishu.conflicts", { users: syncStatus.data.last.conflicts.join("、") })}</div>}
                 {syncStatus.data.last.disabled.length > 0 && <div className="break-all">{t("oidcAdmin.feishu.disabled", { users: syncStatus.data.last.disabled.join("、") })}</div>}
+                {(syncStatus.data.last.kept?.length ?? 0) > 0 && <div className="break-all text-amber-700">{t("oidcAdmin.feishu.kept", { users: syncStatus.data.last.kept!.join("、") })}</div>}
                 {syncStatus.data.last.skipped.length > 0 && <div className="break-all">{t("oidcAdmin.feishu.skipped", { count: syncStatus.data.last.skipped.length })}</div>}
               </div>
             )}

@@ -59,6 +59,8 @@ type Config struct {
 	// 飞书开发者后台「事件与回调 → 加密策略」里的 Verification Token。卡片回调是公开接口，
 	// 靠它确认请求确实是飞书发来的；开卡片审批必须填。
 	FeishuVerificationToken string `json:"feishuVerificationToken,omitempty"`
+	// 飞书后台同一页的 Encrypt Key（可选）。填了，回调就按加密的收；不参与 JSON，由调用方加密保存。
+	FeishuEncryptKey string `json:"-"`
 }
 
 type RoleMapping struct {
@@ -85,6 +87,7 @@ func Defaults() *Config {
 func (c *Config) Validate() string {
 	c.FeishuAPIBase = strings.TrimRight(strings.TrimSpace(c.FeishuAPIBase), "/")
 	c.FeishuVerificationToken = strings.TrimSpace(c.FeishuVerificationToken)
+	c.FeishuEncryptKey = strings.TrimSpace(c.FeishuEncryptKey)
 	for _, p := range []*string{&c.Name, &c.Issuer, &c.ClientID, &c.Scopes, &c.UsernameClaim, &c.NameClaim, &c.EmailClaim, &c.DepartmentClaim, &c.GroupsClaim, &c.Preset} {
 		*p = strings.TrimSpace(*p)
 	}

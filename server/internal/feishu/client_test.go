@@ -104,7 +104,7 @@ func TestExternalSubjectAndDisabled(t *testing.T) {
 		t.Fatalf("外部身份前缀不对：%s", got)
 	}
 	var user User
-	user.Membership.IsFrozen = true
+	user.Status.IsFrozen = true
 	if !user.Disabled() {
 		t.Fatal("冻结员工应识别为禁用")
 	}

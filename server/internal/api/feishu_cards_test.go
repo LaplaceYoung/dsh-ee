@@ -1,8 +1,14 @@
 package api_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -105,6 +111,35 @@ func (f *fakeFeishuMessages) interactiveAction(t *testing.T, index int) (actionI
 
 const feishuTestToken = "vt-test-token"
 
+// expectToast：来源对了以后，结果一律是 HTTP 200 加一条 toast，响应体里只有 toast。
+func expectToast(t *testing.T, what string, code int, body []byte, kind, contains string) {
+	t.Helper()
+	var out map[string]struct{ Type, Content string }
+	if code != 200 || json.Unmarshal(body, &out) != nil || len(out) != 1 || out["toast"].Type != kind || !strings.Contains(out["toast"].Content, contains) {
+		t.Fatalf("%s：应回 200 和 %s toast（含「%s」），得到 %d %s", what, kind, contains, code, body)
+	}
+}
+
+// feishuEncrypt 按飞书的办法加密一份回调，并算出签名头。
+func feishuEncrypt(t *testing.T, encryptKey string, event any) (body []byte, headers map[string]string) {
+	t.Helper()
+	plain := feishuMustJSON(t, event)
+	pad := aes.BlockSize - len(plain)%aes.BlockSize
+	plain = append(plain, bytes.Repeat([]byte{byte(pad)}, pad)...)
+	key := sha256.Sum256([]byte(encryptKey))
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	iv := make([]byte, aes.BlockSize)
+	_, _ = rand.Read(iv)
+	out := make([]byte, len(plain))
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(out, plain)
+	body, _ = json.Marshal(map[string]string{"encrypt": base64.StdEncoding.EncodeToString(append(iv, out...))})
+	sum := sha256.Sum256(append([]byte("1700000000"+"nonce-1"+encryptKey), body...))
+	return body, map[string]string{"X-Lark-Request-Timestamp": "1700000000", "X-Lark-Request-Nonce": "nonce-1", "X-Lark-Signature": hex.EncodeToString(sum[:])}
+}
+
 func cardEvent(actionID, messageID, operator string, decision any) map[string]any {
 	// 飞书 card.action.trigger 的真实结构（schema 2.0）
 	return map[string]any{
@@ -184,6 +219,7 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 	applicantClient := newClient(t, ts.URL)
 	code, body = applicantClient.do("POST", "/api/auth/login", map[string]string{"username": "applicant", "password": "applicant-password-1"}, nil)
 	expect(t, "普通员工登录", code, 200, body)
+	mkUser("bystander", "feishu:ou-bystander", []int64{member.ID})
 	_ = reviewer // 卡片原文也验证 reviewer 是否只是用于回调的匹配人，而不是客户端管理员本人。
 
 	code, body = admin.do("PUT", "/api/admin/auth/oidc", map[string]any{
@@ -235,22 +271,25 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 	expect(t, "url_verification 的 token 不对", code, 403, body)
 
 	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, "om-wrong", "ou-reviewer", "approve"), nil)
-	expect(t, "消息号不匹配必须拒绝", code, 409, body)
+	expectToast(t, "消息号不匹配必须拒绝", code, body, "error", "对不上")
 	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-attacker", "approve"), nil)
-	expect(t, "未知操作人不能审核", code, 403, body)
+	expectToast(t, "未知操作人不能审核", code, body, "error", "未在 dsh-ee 开通")
 	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-author", "approve"), nil)
-	expect(t, "普通员工不能越权审核", code, 403, body)
-	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-reviewer", "approve"), nil)
-	expect(t, "飞书审批通过", code, 200, body)
-	if !strings.Contains(string(body), `"status":"approved"`) || !strings.Contains(string(body), `"type":"success"`) {
-		t.Fatalf("回调 toast 不正确：%s", body)
+	expectToast(t, "没有飞书身份的本地账号不能审核", code, body, "error", "未在 dsh-ee 开通")
+	// 有飞书账号但没有审核权限的人点了（比如卡片被转发）：告诉他没权限，卡片不作废，审批人还能用
+	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-bystander", "approve"), nil)
+	expectToast(t, "普通员工不能越权审核", code, body, "error", "没有权限")
+	if v, err := st.LiveAssetVersion(ctx, assetID); err == nil && v.Status == store.StatusPublished {
+		t.Fatal("没权限的人点了不该上架")
 	}
+	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-reviewer", "approve"), nil)
+	expectToast(t, "飞书审批通过", code, body, "success", "已通过")
 	version, err := st.LiveAssetVersion(ctx, assetID)
 	if err != nil || version.Status != store.StatusPublished {
 		t.Fatalf("审批后技能应上架：%+v err=%v", version, err)
 	}
 	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-reviewer", "approve"), nil)
-	expect(t, "重复回调不能重复审批", code, 409, body)
+	expectToast(t, "重复回调不能重复审批", code, body, "info", "已经处理过")
 
 	// 限制为财务可用，作者研发部的人发起权限申请；再让审批人打开。
 	code, body = admin.do("PATCH", fmt.Sprintf("/api/hub/%d", assetID), map[string]any{"scope": map[string]any{"departments": []string{"财务部"}}}, nil)
@@ -263,7 +302,7 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 	action := event["event"].(map[string]any)["action"].(map[string]any)
 	action["value"] = string(feishuMustJSON(t, action["value"].(map[string]any)))
 	code, body = admin.do("POST", "/api/auth/feishu/card", event, nil)
-	expect(t, "飞书权限申请通过", code, 200, body)
+	expectToast(t, "飞书权限申请通过", code, body, "success", "已通过")
 	// 工作台首页只生成合法的站内 OIDC 起点，不接受管理路径。
 	code, body = admin.do("GET", "/api/admin/auth/feishu/workspace-url?next=/a/team-outing", nil, nil)
 	expect(t, "生成工作台入口", code, 200, body)
@@ -288,13 +327,56 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 	}](t, body).Asset.ID
 	actionID, messageID = fakeNotices.interactiveAction(t, 2)
 	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-reviewer", "reject"), nil)
-	expect(t, "飞书驳回通过 toast", code, 200, body)
-	if !strings.Contains(string(body), `"status":"rejected"`) || !strings.Contains(string(body), `"content":"已驳回"`) {
-		t.Fatalf("驳回 toast 或状态不对：%s", body)
-	}
+	expectToast(t, "飞书驳回", code, body, "success", "已驳回")
 	rejected, err := st.GetAssetVersion(ctx, rejectedID, 1)
 	if err != nil || rejected.Status != store.StatusRejected {
 		t.Fatalf("驳回后不应上架，状态应为 rejected：%+v err=%v", rejected, err)
+	}
+
+	// 填了 Encrypt Key：回调按加密的收，密钥不回显
+	settings := decodeAs[map[string]any](t, mustGet(t, admin, "/api/admin/auth/oidc"))
+	delete(settings, "clientSecret")
+	settings["feishuEncryptKey"] = "ek-secret-1"
+	code, body = admin.do("PUT", "/api/admin/auth/oidc", settings, nil)
+	expect(t, "填 Encrypt Key", code, 200, body)
+	view := string(mustGet(t, admin, "/api/admin/auth/oidc"))
+	if strings.Contains(view, "ek-secret-1") || !strings.Contains(view, `"feishuEncryptKeySet":true`) {
+		t.Fatalf("Encrypt Key 不该回显，只说填没填：%s", view)
+	}
+	code, body = authorClient.do("POST", "/api/hub", map[string]any{
+		"kind": "skill", "slug": "feishu-encrypted-skill",
+		"spec": map[string]any{"title": "加密回调技能", "description": "encrypted", "body": "检查加密回调"},
+	}, nil)
+	expect(t, "提交第三个待审技能", code, 201, body)
+	encID := decodeAs[struct {
+		Asset struct{ ID int64 } `json:"asset"`
+	}](t, body).Asset.ID
+	actionID, messageID = fakeNotices.interactiveAction(t, 3)
+	good := cardEvent(actionID, messageID, "ou-reviewer", "approve")
+	code, body = admin.do("POST", "/api/auth/feishu/card", good, nil)
+	expect(t, "配了 Encrypt Key 后不收明文", code, 403, body)
+	enc, hdr := feishuEncrypt(t, "wrong-key", good)
+	code, body = admin.do("POST", "/api/auth/feishu/card", json.RawMessage(enc), hdr)
+	expect(t, "用别的密钥加密的", code, 403, body)
+	enc, hdr = feishuEncrypt(t, "ek-secret-1", good)
+	hdr["X-Lark-Signature"] = strings.Repeat("0", 64)
+	code, body = admin.do("POST", "/api/auth/feishu/card", json.RawMessage(enc), hdr)
+	expect(t, "签名不对", code, 403, body)
+	if v, err := st.GetAssetVersion(ctx, encID, 1); err != nil || v.Status != store.StatusPending {
+		t.Fatalf("没通过来源校验的回调不该改状态：%+v err=%v", v, err)
+	}
+	// 配置回调地址时的验证请求也是加密的，不带签名
+	enc, _ = feishuEncrypt(t, "ek-secret-1", map[string]any{"type": "url_verification", "token": feishuTestToken, "challenge": "enc-challenge"})
+	code, body = admin.do("POST", "/api/auth/feishu/card", json.RawMessage(enc), nil)
+	expect(t, "加密的 url_verification", code, 200, body)
+	if !strings.Contains(string(body), `"challenge":"enc-challenge"`) {
+		t.Fatalf("应原样回 challenge：%s", body)
+	}
+	enc, hdr = feishuEncrypt(t, "ek-secret-1", good)
+	code, body = admin.do("POST", "/api/auth/feishu/card", json.RawMessage(enc), hdr)
+	expectToast(t, "加密回调审批通过", code, body, "success", "已通过")
+	if v, err := st.GetAssetVersion(ctx, encID, 1); err != nil || v.Status != store.StatusPublished {
+		t.Fatalf("加密回调通过后应上架：%+v err=%v", v, err)
 	}
 }
 

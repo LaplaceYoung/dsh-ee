@@ -2,9 +2,16 @@ package api
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -339,6 +346,9 @@ func (s *Server) feishuOperator(ctx context.Context, event feishuCardEvent) (vie
 	return viewer{user: u, access: access}, nil
 }
 
+// errFeishuForbidden：点按钮的人没有这条审批的权限。卡片留给有权限的人，不作废。
+var errFeishuForbidden = errors.New("没有权限")
+
 func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *store.FeishuCardAction, decision string) (string, *int64, error) {
 	var owner *int64
 	switch action.Kind {
@@ -348,7 +358,7 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 			return "", owner, err
 		}
 		if !v.manages(a.Kind) {
-			return "", owner, errors.New("你没有审核这个版本的权限")
+			return "", owner, fmt.Errorf("%w：你没有审核这个版本的权限", errFeishuForbidden)
 		}
 		to := store.StatusRejected
 		if decision == "approve" {
@@ -365,7 +375,7 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 			return "", owner, err
 		}
 		if !v.manages(a.Kind) {
-			return "", owner, errors.New("你没有处理范围分享的权限")
+			return "", owner, fmt.Errorf("%w：你没有处理范围分享的权限", errFeishuForbidden)
 		}
 		ok, err := s.store.ResolveAssetScope(ctx, a.ID, decision == "approve", "from_feishu")
 		if err != nil || !ok {
@@ -382,7 +392,7 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 			return "", owner, err
 		}
 		if !allowed {
-			return "", owner, errors.New("你不是这条申请的审批人")
+			return "", owner, fmt.Errorf("%w：你不是这条申请的审批人", errFeishuForbidden)
 		}
 		if decision == "approve" {
 			if err := s.grantAccess(ctx, q); err != nil {
@@ -402,13 +412,60 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 	}
 }
 
-// POST /api/auth/feishu/card：卡片操作回调。无需登录网页，但要先过 Verification Token，
+// feishuDecrypt 解开加密的回调：密钥是 Encrypt Key 的 SHA-256，AES-256-CBC，密文前 16 字节是 IV，PKCS#7 填充。
+// 见 https://open.feishu.cn/document/server-docs/event-subscription-guide/event-subscription-configure-/encrypt-key-encryption-configuration-case
+func feishuDecrypt(encryptKey, encrypted string) ([]byte, error) {
+	raw, err := base64.StdEncoding.DecodeString(encrypted)
+	if err != nil || len(raw) < 2*aes.BlockSize || len(raw)%aes.BlockSize != 0 {
+		return nil, errors.New("密文格式不对")
+	}
+	key := sha256.Sum256([]byte(encryptKey))
+	block, err := aes.NewCipher(key[:])
+	if err != nil {
+		return nil, err
+	}
+	plain := make([]byte, len(raw)-aes.BlockSize)
+	cipher.NewCBCDecrypter(block, raw[:aes.BlockSize]).CryptBlocks(plain, raw[aes.BlockSize:])
+	pad := int(plain[len(plain)-1])
+	if pad == 0 || pad > aes.BlockSize || pad > len(plain) {
+		return nil, errors.New("解不开：Encrypt Key 不对")
+	}
+	for _, b := range plain[len(plain)-pad:] {
+		if int(b) != pad {
+			return nil, errors.New("解不开：Encrypt Key 不对")
+		}
+	}
+	return plain[:len(plain)-pad], nil
+}
+
+// feishuSignatureOK 核对飞书的请求签名：sha256(timestamp + nonce + Encrypt Key + 原始请求体) 的十六进制。
+func feishuSignatureOK(r *http.Request, encryptKey string, body []byte) bool {
+	h := sha256.New()
+	h.Write([]byte(r.Header.Get("X-Lark-Request-Timestamp") + r.Header.Get("X-Lark-Request-Nonce") + encryptKey))
+	h.Write(body)
+	want := hex.EncodeToString(h.Sum(nil))
+	return subtle.ConstantTimeCompare([]byte(want), []byte(strings.ToLower(r.Header.Get("X-Lark-Signature")))) == 1
+}
+
+// feishuToast 是给点按钮的人看的结果。飞书要求回调一律回 HTTP 200，内容只有 toast；
+// 回别的状态码，飞书客户端只会显示一句通用的「出错了」，看不到原因。
+func feishuToast(w http.ResponseWriter, kind, content string) {
+	writeJSON(w, http.StatusOK, map[string]any{"toast": map[string]any{"type": kind, "content": content}})
+}
+
+// POST /api/auth/feishu/card：卡片操作回调。无需登录网页，但要先确认请求是飞书发来的
+// （Verification Token；填了 Encrypt Key 的还要能解开、签名对得上），
 // 之后 action id、消息号、操作者、当前权限、状态和过期都要通过。
+// 来源不对的回 4xx；来源对了以后，审批办不成的原因用 toast 告诉点按钮的人。
 func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, "飞书回调读不了")
+		return
+	}
 	// 飞书事件还有 create_time / tenant_key / host 等附加字段，不能用 DisallowUnknownFields 拒掉。
 	var cb feishuCallback
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
-	if err := dec.Decode(&cb); err != nil {
+	if err := json.Unmarshal(body, &cb); err != nil {
 		writeErr(w, http.StatusBadRequest, "飞书回调 JSON 格式错误")
 		return
 	}
@@ -417,11 +474,32 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "飞书卡片回调未开启")
 		return
 	}
-	if cb.Encrypt != "" {
-		writeErr(w, http.StatusBadRequest, "这个版本不支持加密的回调：请在飞书开发者后台清空 Encrypt Key，只用 Verification Token")
+	// 这是公开接口：先确认请求是飞书发来的，再看内容。操作人身份取自回调，来源不对就不能信
+	switch {
+	case cb.Encrypt != "" && cfg.FeishuEncryptKey == "":
+		writeErr(w, http.StatusBadRequest, "回调是加密的：请在 dsh-ee 的飞书设置里填上 Encrypt Key，或在飞书开发者后台清空它")
 		return
+	case cb.Encrypt == "" && cfg.FeishuEncryptKey != "":
+		// 配了 Encrypt Key 飞书就只发加密的；明文的不是飞书发的
+		writeErr(w, http.StatusForbidden, "回调没有加密，不是这个飞书应用发来的")
+		return
+	case cb.Encrypt != "":
+		// 带了签名的要对得上（配置回调地址时的验证请求不带签名）
+		if r.Header.Get("X-Lark-Signature") != "" && !feishuSignatureOK(r, cfg.FeishuEncryptKey, body) {
+			writeErr(w, http.StatusForbidden, "回调签名不对")
+			return
+		}
+		plain, err := feishuDecrypt(cfg.FeishuEncryptKey, cb.Encrypt)
+		if err != nil {
+			writeErr(w, http.StatusForbidden, "回调解不开：Encrypt Key 和飞书后台的不一致")
+			return
+		}
+		cb = feishuCallback{}
+		if err := json.Unmarshal(plain, &cb); err != nil {
+			writeErr(w, http.StatusForbidden, "回调解不开：Encrypt Key 和飞书后台的不一致")
+			return
+		}
 	}
-	// 这是公开接口：先确认请求是飞书发来的，再看内容。操作人身份取自回调，token 不对就不能信
 	if cb.Type == "url_verification" {
 		if !feishuTokenOK(cfg.FeishuVerificationToken, cb.Token) {
 			writeErr(w, http.StatusForbidden, "Verification Token 不对")
@@ -443,17 +521,15 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	actionID, decision, actionErr := feishuEventAction(event.ActionValue)
-	if actionErr != nil || actionID == "" {
-		writeErr(w, http.StatusBadRequest, "无法解析审批动作 action_id")
+	if actionErr != nil || actionID == "" || (decision != "approve" && decision != "reject") {
+		writeErr(w, http.StatusBadRequest, "这不是 dsh-ee 发出的审批按钮")
 		return
 	}
-	if decision != "approve" && decision != "reject" {
-		writeErr(w, http.StatusBadRequest, "审批动作只能是 approve / reject")
-		return
-	}
-	action, err := s.store.FeishuCardAction(r.Context(), secret.Hash(actionID))
+	// 从这里开始请求确实来自飞书：办不成的原因回给点按钮的人
+	hash := secret.Hash(actionID)
+	action, err := s.store.FeishuCardAction(r.Context(), hash)
 	if notFound(err) {
-		writeErr(w, http.StatusNotFound, "审批动作不存在")
+		feishuToast(w, "error", "这张卡片已经失效，请到 dsh-ee 网页上处理")
 		return
 	}
 	if err != nil {
@@ -461,28 +537,36 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if action.MessageID != event.MessageID {
-		writeErr(w, http.StatusConflict, "卡片与审批动作不匹配")
+		feishuToast(w, "error", "卡片和审批对不上，请到 dsh-ee 网页上处理")
 		return
 	}
-	if action.Status != store.FeishuActionPending || time.Now().After(action.ExpiresAt) {
-		writeErr(w, http.StatusConflict, "审批动作已过期或已处理")
+	if action.Status != store.FeishuActionPending {
+		feishuToast(w, "info", "这条审批已经处理过了")
+		return
+	}
+	if time.Now().After(action.ExpiresAt) {
+		feishuToast(w, "error", "这张卡片已经过期，请到 dsh-ee 网页上处理")
 		return
 	}
 	operator, err := s.feishuOperator(r.Context(), event)
 	if err != nil {
-		writeErr(w, http.StatusForbidden, err.Error())
+		feishuToast(w, "error", err.Error())
 		return
 	}
-	if err := s.store.BeginFeishuCardAction(r.Context(), secret.Hash(actionID), event.EventID); err != nil {
-		writeErr(w, http.StatusConflict, "这条动作已由其他人处理，请不要重复操作")
+	if err := s.store.BeginFeishuCardAction(r.Context(), hash, event.EventID); err != nil {
+		feishuToast(w, "info", "这条审批已经处理过了")
 		return
 	}
-	hash := secret.Hash(actionID)
 	title, ownerID, err := s.applyFeishuDecision(r.Context(), operator, action, decision)
+	if errors.Is(err, errFeishuForbidden) {
+		_ = s.store.ReleaseFeishuCardAction(r.Context(), hash)
+		feishuToast(w, "error", err.Error())
+		return
+	}
 	if err != nil {
 		_ = s.store.FinishFeishuCardAction(r.Context(), hash, store.FeishuActionFailed, err.Error())
 		s.log.Warn("飞书审批失败", "kind", action.Kind, "err", err)
-		writeErr(w, http.StatusConflict, err.Error())
+		feishuToast(w, "error", err.Error())
 		return
 	}
 	if err := s.store.FinishFeishuCardAction(r.Context(), hash, store.FeishuActionDone, decision); err != nil {
@@ -492,16 +576,8 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 	if action.Kind == store.FeishuActionAccess {
 		s.auditAs(r, operator.user, "access.request_"+decision, title, map[string]any{"via": "feishu"})
 	} else {
-		s.auditAs(r, operator.user, "review."+map[string]string{"approve": "approve", "reject": "reject"}[decision], title, map[string]any{"via": "feishu"})
+		s.auditAs(r, operator.user, "review."+decision, title, map[string]any{"via": "feishu"})
 	}
 	s.notifyFeishuResult(ownerID, title, decision)
-	resultText := map[string]string{"approve": "已通过", "reject": "已驳回"}[decision]
-	status := "rejected"
-	if decision == "approve" {
-		status = "approved"
-	}
-	writeJSON(w, http.StatusOK, map[string]any{
-		"title": title, "status": status,
-		"toast": map[string]any{"type": "success", "content": resultText},
-	})
+	feishuToast(w, "success", map[string]string{"approve": "已通过", "reject": "已驳回"}[decision]+"："+title)
 }

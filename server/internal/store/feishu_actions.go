@@ -88,6 +88,14 @@ func (s *Store) BeginFeishuCardAction(ctx context.Context, hash, eventID string)
 	return nil
 }
 
+// ReleaseFeishuCardAction 把占用中的动作放回待处理：点按钮的人没有权限时用，
+// 不能让一个无权的人把审批人的卡片点废。
+func (s *Store) ReleaseFeishuCardAction(ctx context.Context, hash string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE feishu_card_actions SET status='pending', event_id='', updated_at=?
+		WHERE action_hash=? AND status='processing'`, now(), hash)
+	return err
+}
+
 // FinishFeishuCardAction 终态只允许从 processing 进入，失败也保留可观测结果，不伪装成成功。
 func (s *Store) FinishFeishuCardAction(ctx context.Context, hash, status, result string) error {
 	res, err := s.db.ExecContext(ctx, `UPDATE feishu_card_actions SET status=?, result=?, completed_at=?, updated_at=?

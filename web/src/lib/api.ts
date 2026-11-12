@@ -538,6 +538,9 @@ export interface OidcConfig {
   feishuNotifyActions?: boolean;
   /** 飞书开发者后台的 Verification Token；开卡片审批必须填 */
   feishuVerificationToken?: string;
+  /** 飞书 Encrypt Key：只写，不回显；不传沿用已存的，传空串清除 */
+  feishuEncryptKey?: string;
+  feishuEncryptKeySet?: boolean;
 }
 
 export interface OidcView extends OidcConfig {
@@ -557,6 +560,8 @@ export interface FeishuSyncResult {
   disabled: string[];
   conflicts: string[];
   skipped: string[];
+  /** 目录里没看到、但飞书没有明确说离职或冻结的账号：没有禁用 */
+  kept?: string[];
 }
 
 export interface OidcTestResult {
