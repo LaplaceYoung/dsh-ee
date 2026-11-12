@@ -125,7 +125,7 @@ func workbenchHomeApp(c *dshCatalog, base string) (*dshApp, *dshSkill, string) {
 	}, {
 		ID: "apps", Type: "panel", Title: "我的应用",
 		Widgets: []wbWidget{{Type: "table", Title: "我的应用", Rows: "items",
-			Source: &wbSource{Connection: homeConn, Tool: "apps"},
+			Source:  &wbSource{Connection: homeConn, Tool: "apps"},
 			Columns: []wbColumn{{Field: "icon", Title: ""}, {Field: "title", Title: "应用"}, {Field: "uses", Title: "近 30 天我用过"}}}},
 	}, {
 		ID: "usage", Type: "panel", Title: "本月用量",
@@ -134,9 +134,9 @@ func workbenchHomeApp(c *dshCatalog, base string) (*dshApp, *dshSkill, string) {
 	}, {
 		ID: "new", Type: "panel", Title: "新上线",
 		Widgets: []wbWidget{{Type: "table", Title: fmt.Sprintf("最近 %d 天新上线", homeNewDays), Rows: "items",
-			Source: &wbSource{Connection: homeConn, Tool: "new"},
+			Source:  &wbSource{Connection: homeConn, Tool: "new"},
 			Columns: []wbColumn{{Field: "icon", Title: ""}, {Field: "title", Title: "应用"}, {Field: "created_at", Title: "上线时间", Format: "date"}},
-			Empty: &wbEmpty{Text: "最近没有新上线的应用"}}},
+			Empty:   &wbEmpty{Text: "最近没有新上线的应用"}}},
 	}}
 	wb := &appWorkbench{Panes: panes}
 

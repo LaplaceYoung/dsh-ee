@@ -311,6 +311,8 @@ Dify 的模型插件和 Agent 策略插件不做：dsh-ee 不自己跑 AI（road
 ### 7.1 凭据的两层
 
 - **共享凭据**（照 Dify）：管理员配。同一个扩展可以存**多份**，各自命名（比如「生产」「测试」「华东子公司」），有一份默认；应用可以指定用哪一份。保存前调扩展的 `validate`。
+
+  实现进度：[named-shared-credentials.md](./named-shared-credentials.md) 已落地服务端连接的多份凭据、原默认兼容、切换与审计。按应用指定凭据及声明式扩展的 `validate`，尚不在该批次。
 - **员工凭据**（dsh-ee 比 Dify 多的部分）：每个员工自己的，在「我的连接」里管理。
 
 ### 7.2 凭据模式
@@ -521,7 +523,7 @@ extensions/
 | `keep` 只保留返回字段（可写到第二层：`items.id`）、请求只发往清单列出的地址、调用记录带扩展版本和摘要 | ✅ | 同上 |
 | `shared` 模式由清单指定共享凭据的请求头（`credential.header`）；管理员填的值按清单的类型和可选值核对；`minVersion` 高于当前版本的不让装；扩展装的连接不能换成另一个扩展或变回手工连接 | ✅ | `server/internal/api/extensions.go` |
 | 从 Git 仓库安装（§9.2） | ⏳ | |
-| 多份共享凭据（§7.1） | ⏳ | |
+| 多份共享凭据（§7.1） | ✅ 连接级选择（按应用指定哪一份还没做） | [named-shared-credentials.md](./named-shared-credentials.md)、`server/internal/api/shared_credentials.go` |
 | 现有连接自动转换成扩展（§11） | ⏳ | |
 
 **有人要才做**（设计留着，不排期）：签名和签名策略、自动升级策略、企业目录、`/extensions` 列表页和安装按钮、反向连接和远程调试、网盘类知识源、事件、通知渠道、权限策略扩展、字段填充、审计投递、更多内置扩展、Python SDK、服务端无头浏览器、token exchange。

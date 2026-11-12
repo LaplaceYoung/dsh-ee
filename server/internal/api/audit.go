@@ -57,6 +57,8 @@ const (
 	auditAssetDelete            = "asset.delete"
 	auditScopeRequest           = "asset.scope_request"
 	auditConnTool               = "connection.tool"
+	auditSharedCredentialSet    = "connection.shared_credential_set"
+	auditSharedCredentialDelete = "connection.shared_credential_delete"
 	auditCredentialSet          = "connection.credential_set"
 	auditCredentialDelete       = "connection.credential_delete"
 	auditCredentialRevoke       = "connection.credential_revoke"

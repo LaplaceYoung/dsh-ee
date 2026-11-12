@@ -318,6 +318,31 @@ func TestDeclarativeExtension(t *testing.T) {
 	if gotKey != "key-123" || gotAuth != "" {
 		t.Fatalf("共享凭据应放在清单指定的 X-API-Key 里：key %q auth %q", gotKey, gotAuth)
 	}
+
+	// 10. 扩展装的连接也能选命名共享凭据：放在哪个请求头照清单，用哪一份是管理员选的，升级不改掉
+	aid := decodeAs[struct{ Asset struct{ ID int64 } }](t, body).Asset.ID
+	code, body = admin.do("PUT", fmt.Sprintf("/api/admin/connections/%d/shared-credentials/east", aid), map[string]string{"secret": "east-key"}, nil)
+	expect(t, "加一份命名凭据", code, 200, body)
+	code, body = admin.do("GET", fmt.Sprintf("/api/hub/%d", aid), nil, nil)
+	expect(t, "第二个扩展的详情", code, 200, body)
+	asp := decodeAs[struct{ Asset struct{ Spec map[string]any } }](t, body).Asset.Spec
+	asp["auth"] = map[string]any{"type": "bearer", "shared_name": "east"}
+	code, body = admin.do("POST", fmt.Sprintf("/api/hub/%d/versions", aid), map[string]any{"spec": asp}, nil)
+	expect(t, "选命名凭据", code, 201, body)
+	dsh.rpc("tools/call", map[string]any{"name": "assets__list_assets", "arguments": map[string]any{}})
+	if gotKey != "east-key" || gotAuth != "" {
+		t.Fatalf("应用选中的那一份，仍放在清单指定的请求头：key %q auth %q", gotKey, gotAuth)
+	}
+	files := assets["files"].(map[string]string)
+	files["dsh-ee.extension.json"] = strings.Replace(files["dsh-ee.extension.json"], `"version": "1.0.0"`, `"version": "1.0.1"`, 1)
+	delete(assets, "secret")
+	code, body = admin.do("POST", "/api/admin/extensions/install", assets, nil)
+	expect(t, "升级第二个扩展", code, 201, body)
+	gotKey = ""
+	dsh.rpc("tools/call", map[string]any{"name": "assets__list_assets", "arguments": map[string]any{}})
+	if gotKey != "east-key" {
+		t.Fatalf("升级后应沿用选中的命名凭据：key %q", gotKey)
+	}
 }
 
 const extAssetsOpenAPI = `openapi: 3.0.3

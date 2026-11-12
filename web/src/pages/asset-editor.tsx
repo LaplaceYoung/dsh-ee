@@ -18,6 +18,7 @@ import { parseTables, TablesField, tablesText as tablesToText } from "../compone
 import { LivePreview } from "../components/live-preview";
 import { AppAgentGuide } from "../components/app-agent-guide";
 import { UserAuthFields } from "../components/connection-identity";
+import { NamedSharedCredentials } from "../components/named-shared-credentials";
 
 const KINDS: AssetKind[] = ["skill", "prompt", "app", "connection"];
 const textareaCls = "w-full rounded-md border border-neutral-300 bg-card px-3 py-2 text-sm outline-none placeholder:text-neutral-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
@@ -73,7 +74,7 @@ function Section({ title, children }: { title?: string; children: ReactNode }) {
 }
 
 /** 连接的配置：方式、地址、接口文档、认证与凭据、说明。 */
-function ConnectionFields({ spec, set, secret, setSecret, secretHint, slug }: { spec: AssetSpec; set: (p: Partial<AssetSpec>) => void; secret: string; setSecret: (v: string) => void; secretHint?: string; slug: string }) {
+function ConnectionFields({ spec, set, secret, setSecret, secretHint, slug, assetId }: { spec: AssetSpec; set: (p: Partial<AssetSpec>) => void; secret: string; setSecret: (v: string) => void; secretHint?: string; slug: string; assetId?: number }) {
   const { t } = useTranslation();
   const file = useRef<HTMLInputElement>(null);
   const auth = spec.auth ?? { type: "none" };
@@ -152,7 +153,7 @@ function ConnectionFields({ spec, set, secret, setSecret, secretHint, slug }: { 
         <div className="grid gap-4 sm:grid-cols-2">
           {auth.type === "header" && (
             <Field label={t("connections.authHeaderName")}>
-              <input className={cx(inputCls, "font-mono")} value={auth.header ?? ""} onChange={(e) => set({ auth: { type: "header", header: e.target.value } })} />
+              <input className={cx(inputCls, "font-mono")} value={auth.header ?? ""} onChange={(e) => set({ auth: { ...auth, type: "header", header: e.target.value } })} />
             </Field>
           )}
           <Field label={t("connections.secret")} hint={t("connections.secretHint")}>
@@ -167,6 +168,7 @@ function ConnectionFields({ spec, set, secret, setSecret, secretHint, slug }: { 
           </Field>
         </div>
       )}
+      <NamedSharedCredentials assetId={assetId} spec={spec} set={set} />
       {!ext && <UserAuthFields spec={spec} set={set} slug={slug} />}
       <Field label={t("connections.instructions")} hint={t("connections.instructionsHint")}>
         <textarea className={cx(textareaCls, "h-20")} value={spec.instructions ?? ""} onChange={(e) => set({ instructions: e.target.value })} />
@@ -485,7 +487,7 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
         )}
         {kind === "connection" && (
           <Section>
-            <ConnectionFields spec={spec} set={set} secret={secret} setSecret={setSecret} secretHint={existing.data?.asset.secret_hint} slug={slug} />
+            <ConnectionFields spec={spec} set={set} secret={secret} setSecret={setSecret} secretHint={existing.data?.asset.secret_hint} slug={slug} assetId={editing ? Number(id) : undefined} />
             <div className="flex flex-wrap items-center gap-3">
               <Button type="button" variant="secondary" disabled={busy} onClick={runTest}>
                 {busy ? t("connections.testing") : t("connections.test")}
