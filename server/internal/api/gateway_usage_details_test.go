@@ -97,7 +97,9 @@ func TestGatewayRecordsUsageDetails(t *testing.T) {
 	f := newPrincipalFixture(t)
 	up, bodies := newUsageDetailsUpstream(t)
 	ctx := context.Background()
-	if _, err := f.st.DB().ExecContext(ctx, "UPDATE providers SET base_url = ?", up.URL); err != nil {
+	// 测试夹具把上游换成本用例的假服务：base_url 和 key 绑定的 origin 要一起改，
+	// 否则会被「key 绑定的 origin 与 base_url 不一致」的守卫拦下（这不是本用例要测的行为）。
+	if _, err := f.st.DB().ExecContext(ctx, "UPDATE providers SET base_url = ?, api_key_origin = ?", up.URL, up.URL); err != nil {
 		t.Fatal(err)
 	}
 	u := f.user(t, "usage-details", nil)
@@ -165,7 +167,8 @@ func TestGatewayUsageDetailsMetrics(t *testing.T) {
 	f := newPrincipalFixtureWith(t, func(o *api.Options) { o.Metrics = true })
 	up, _ := newUsageDetailsUpstream(t)
 	ctx := context.Background()
-	if _, err := f.st.DB().ExecContext(ctx, "UPDATE providers SET base_url = ?", up.URL); err != nil {
+	// 同上：换上游地址时同步更新 key 绑定的 origin，避免被残余风险守卫拦下。
+	if _, err := f.st.DB().ExecContext(ctx, "UPDATE providers SET base_url = ?, api_key_origin = ?", up.URL, up.URL); err != nil {
 		t.Fatal(err)
 	}
 	u := f.user(t, "usage-metrics", nil)
