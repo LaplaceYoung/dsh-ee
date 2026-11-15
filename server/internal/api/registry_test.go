@@ -387,6 +387,21 @@ func TestRegistry(t *testing.T) {
 		}
 	})
 
+	t.Run("npm 保留名不可发布也不可读", func(t *testing.T) {
+		// npm 的保留名（node_modules、favicon.ico，大小写不敏感）：发布端和读取端都必须是 400，
+		// 不能只在发布路径拒绝，否则会留下「能进库但读不到」的口子。
+		for _, name := range []string{"node_modules", "NODE_MODULES", "Node_Modules", "favicon.ico", "FAVICON.ICO"} {
+			pkg := pluginPkg(name, "1.0.0", nil)
+			code, body := anon.do("PUT", "/npm/"+name, publishBody(name, "1.0.0", makeTgz(t, pkg, bundleFile), pkg, ""), npm(pubTok))
+			expect(t, "发布保留名 "+name, code, 400, body)
+			code, body = anon.do("GET", "/npm/"+name, nil, npm(readTok))
+			expect(t, "读取保留名 "+name, code, 400, body)
+		}
+		// npm 只限制无作用域的保留名：@acme/node_modules 名字合法，只是企业作用域里没有这个包。
+		code, body := anon.do("GET", "/npm/@acme%2fnode_modules", nil, npm(readTok))
+		expect(t, "scoped 保留名合法", code, 404, body)
+	})
+
 	t.Run("审核通过后可安装", func(t *testing.T) {
 		code, body := alice.do("POST", "/api/admin/review", map[string]string{"name": "@acme/hello", "version": "1.0.0", "action": "approve"}, nil)
 		expect(t, "员工不能审核", code, 403, body)
