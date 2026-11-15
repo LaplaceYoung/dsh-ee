@@ -173,7 +173,7 @@ function AccessDialog({ kb, open, onOpenChange, onSaved }: { kb: KBase; open: bo
           <Button
             disabled={busy}
             onClick={async () => {
-              const r = await run(() => api.patchKB(kb.id, { scope, maintainers: maint }));
+              const r = await run(() => api.patchKB(kb.id, { scope, maintainers: maint, updated_at: kb.updated_at }));
               if (r.ok) {
                 onOpenChange(false);
                 onSaved();

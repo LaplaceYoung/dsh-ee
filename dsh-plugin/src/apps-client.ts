@@ -345,5 +345,12 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
       return () => { listeners.delete(listener); };
     },
     setWorkbenchOpener: (opener: typeof workbenchOpener) => { workbenchOpener = opener; },
+    /** 新会话里打开一个应用或专家（可带一条示例开始）；返回给员工看的提示，空串表示成功 */
+    summon: (app: CatalogApp, starter?: string) => {
+      markSeen(app);
+      return openWithFallback(app, (target) => launcher.launchNew(target, starter));
+    },
+    /** 启用、停用之后刷新应用列表（左侧栏和首屏） */
+    reloadApps: () => refresh(),
   };
 }

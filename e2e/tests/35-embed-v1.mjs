@@ -129,6 +129,7 @@ export default async function (t) {
     assert(state.ready, "宿主应收到 ready");
     assertEq(state.ready.app?.slug, slug, "ready 带应用标识");
     assert(state.ready.supports?.includes("connect-v1"), "ready 声明 connect-v1：" + JSON.stringify(state.ready));
+    assertEq(state.ready.locale, "zh-CN", "ready 带当前界面语言 locale");
     assert(state.authRequests.includes("missing"), "没有 cookie 时应发 auth-required(missing)：" + JSON.stringify(state.authRequests));
     assertEq(state.session.limited, true, "嵌入会话是 limited");
     assert(state.session.user?.display_name, "session 带用户展示名");

@@ -591,6 +591,9 @@ func (s *Store) InstallCounts(ctx context.Context, names []string) (map[string]i
 			out[n] = c
 		}
 		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("读取包下载统计: %w", err)
+		}
 	}
 	return out, nil
 }
@@ -717,9 +720,12 @@ type SyncJob struct {
 	CreatedBy  *int64          `json:"created_by"`
 	CreatedAt  time.Time       `json:"created_at"`
 	FinishedAt *time.Time      `json:"finished_at"`
+	// Owner 是创建任务的实例地址（cfg.Addr），用于多实例下的作业级归属；
+	// 不出现在 API 响应里，避免公开接口跟着变。
+	Owner string `json:"-"`
 }
 
-const jobCols = "id, kind, status, params, total, done, failed, bytes, log, created_by, created_at, finished_at"
+const jobCols = "id, kind, status, params, total, done, failed, bytes, log, created_by, created_at, finished_at, owner"
 
 func scanJob(row interface{ Scan(...any) error }) (*SyncJob, error) {
 	var j SyncJob
@@ -727,7 +733,7 @@ func scanJob(row interface{ Scan(...any) error }) (*SyncJob, error) {
 	var log sql.NullString
 	var by sql.NullInt64
 	var fin sql.NullTime
-	err := row.Scan(&j.ID, &j.Kind, &j.Status, &params, &j.Total, &j.Done, &j.Failed, &j.Bytes, &log, &by, &j.CreatedAt, &fin)
+	err := row.Scan(&j.ID, &j.Kind, &j.Status, &params, &j.Total, &j.Done, &j.Failed, &j.Bytes, &log, &by, &j.CreatedAt, &fin, &j.Owner)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -750,8 +756,8 @@ func (s *Store) CreateJob(ctx context.Context, j *SyncJob) error {
 	if j.Status == "" {
 		j.Status = "running"
 	}
-	res, err := s.db.ExecContext(ctx, "INSERT INTO sync_jobs (kind, status, params, total, log, created_by, created_at) VALUES (?, ?, ?, ?, '', ?, ?)",
-		j.Kind, j.Status, string(j.Params), j.Total, j.CreatedBy, j.CreatedAt)
+	res, err := s.db.ExecContext(ctx, "INSERT INTO sync_jobs (kind, status, params, total, log, created_by, created_at, owner) VALUES (?, ?, ?, ?, '', ?, ?, ?)",
+		j.Kind, j.Status, string(j.Params), j.Total, j.CreatedBy, j.CreatedAt, j.Owner)
 	if err != nil {
 		return err
 	}
@@ -793,8 +799,11 @@ func (s *Store) ListJobs(ctx context.Context, limit int) ([]*SyncJob, error) {
 	return out, rows.Err()
 }
 
-// FailRunningJobs 在启动时把上次没跑完（进程退出）的任务标成中断。
-func (s *Store) FailRunningJobs(ctx context.Context) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE sync_jobs SET status = 'interrupted', finished_at = ? WHERE status = 'running'", now())
+// FailRunningJobs 在启动时把本实例上次没跑完（进程退出）的任务标成中断。
+// owner 是本实例地址（cfg.Addr）；其它实例地址上的 running 任务不动——那是别的
+// 在线实例正在跑的任务。owner 为空串的是升级前旧版本创建的任务，没有归属信息，
+// 无法判断属于哪个实例，按原语义一并标中断。
+func (s *Store) FailRunningJobs(ctx context.Context, owner string) error {
+	_, err := s.db.ExecContext(ctx, "UPDATE sync_jobs SET status = 'interrupted', finished_at = ? WHERE status = 'running' AND (owner = ? OR owner = '')", now(), owner)
 	return err
 }

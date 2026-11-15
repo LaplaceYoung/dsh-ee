@@ -295,3 +295,20 @@ func TestRegistryProblem(t *testing.T) {
 		}
 	}
 }
+
+// auto_upgrade=true 是合法声明，但本期不执行自动升级：校验通过 + 给一条 warning，
+// 让管理员在目录校验结果里就看到这个边界。
+func TestValidateAutoUpgrade(t *testing.T) {
+	doc := validDoc()
+	if r := Validate(doc, Options{}); !r.OK || issueCodes(r, "warning")["entry.auto_upgrade"] {
+		t.Fatalf("没声明 auto_upgrade 时不该有相关提示：%+v", r)
+	}
+	doc.Entries[0].AutoUpgrade = true
+	r := Validate(doc, Options{})
+	if !r.OK {
+		t.Fatalf("auto_upgrade 是合法字段，不应报错：%+v", r.Issues)
+	}
+	if !issueCodes(r, "warning")["entry.auto_upgrade"] || issueCodes(r, "error")["entry.auto_upgrade"] {
+		t.Fatalf("auto_upgrade=true 应只给 warning：%+v", r.Issues)
+	}
+}

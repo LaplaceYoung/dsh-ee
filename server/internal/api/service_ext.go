@@ -813,7 +813,11 @@ func (s *Server) handleExtEndpoint(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	if !s.extEndpointRate.allow(token) {
+	// 限流键必须用客户端 IP，不能用 URL 里的 token：这个入口不需要登录，token 是
+	// 攻击者可控的——每换一个随机 token 就是一个新键，等于没有限流；而且新键会让
+	// keyRate 的 map 无界增长。clientIP 只采信可信代理写的 X-Forwarded-For，
+	// 直连的客户端伪造不了。
+	if !s.extEndpointRate.allow(s.clientIP(r)) {
 		writeErr(w, http.StatusTooManyRequests, "请求太频繁")
 		return
 	}
@@ -883,11 +887,23 @@ func forwardHeaders(h http.Header) map[string][]string {
 }
 
 // keyRate 是按键的每分钟限流（进程内）。
+//
+// 键是客户端 IP（/x/<token>/… 回调地址的限流），可能被大量不同的来源填充，所以
+// map 必须有上界：与 rate_limit.go 的 tokenRate 同一套做法——键数达到 maxExtRateKeys
+// 后，新的键一律记进 extRateOverflowID 溢出桶；过期窗口只在 lastPurge 满一分钟时
+// 清扫一次，内存有界，也不会每个请求都扫一遍 map。
 type keyRate struct {
-	mu    sync.Mutex
-	limit int
-	m     map[string]*keyWindow
+	mu        sync.Mutex
+	limit     int
+	m         map[string]*keyWindow
+	lastPurge time.Time
 }
+
+const (
+	// 一个限流窗口内最多记多少个键；超出后新键共用一个溢出桶。
+	maxExtRateKeys    = 10000
+	extRateOverflowID = "\x00overflow"
+)
 
 type keyWindow struct {
 	start time.Time
@@ -901,11 +917,19 @@ func (k *keyRate) allow(key string) bool {
 		k.m = map[string]*keyWindow{}
 	}
 	now := time.Now()
-	if len(k.m) > 10000 {
+	if len(k.m) >= maxExtRateKeys && now.Sub(k.lastPurge) >= time.Minute {
+		// 顺手清掉过期窗口；限频，避免大量新键时每个请求都扫一遍 map
 		for name, w := range k.m {
 			if now.Sub(w.start) > time.Minute {
 				delete(k.m, name)
 			}
+		}
+		k.lastPurge = now
+	}
+	if len(k.m) >= maxExtRateKeys {
+		// 已经不认识的键一律进溢出桶，已有的键继续用自己的窗口
+		if _, ok := k.m[key]; !ok {
+			key = extRateOverflowID
 		}
 	}
 	w := k.m[key]

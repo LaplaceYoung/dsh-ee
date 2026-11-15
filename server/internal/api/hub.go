@@ -57,6 +57,16 @@ type assetSpec struct {
 	Web bool `json:"web,omitempty"`
 	// 微应用：「它能帮你做什么」的要点，最多 3 条
 	Highlights []string `json:"highlights,omitempty"`
+	// 微应用的形态：空（普通微应用）或 expert（专家，docs/expert-center.md §4.1）。
+	// 专家不带工作台、数据表和网页版；示例问题就是任务示例，第一条在「召唤」时预填
+	Form string `json:"form,omitempty"`
+	// 专家：擅长领域标签，最多 6 个
+	Expertise []string `json:"expertise,omitempty"`
+	// 专家：工作方法（Markdown），拼在人设后面
+	Method string `json:"method,omitempty"`
+	// 专家团队：成员专家的标识。DSH 还不能由插件发起多角色协作（docs/expert-center.md §9），
+	// 所以由组长在一个会话里依次按成员的角色说明完成各自部分，最后汇总
+	Members []string `json:"members,omitempty"`
 
 	// 连接：mcp（上游 MCP 服务地址）或 openapi（接口根地址 + 文档）
 	Type         string    `json:"type,omitempty"`
@@ -112,6 +122,7 @@ func validateSpec(kind string, sp *assetSpec) string {
 		}
 		sp.Persona, sp.Starters, sp.Skills, sp.Connections, sp.Plugins, sp.Knowledge = "", nil, nil, nil, nil, nil
 		sp.Icon, sp.Launch, sp.Workbench, sp.Template, sp.Tables, sp.Web, sp.Highlights = "", "", nil, false, nil, false, nil
+		sp.Form, sp.Expertise, sp.Method, sp.Members = "", nil, "", nil
 		sp.Type, sp.URL, sp.Auth, sp.UserAuth, sp.OpenAPI, sp.Instructions, sp.Extension = "", "", nil, nil, "", "", nil
 	case store.KindApp:
 		sp.Persona = strings.TrimSpace(sp.Persona)
@@ -169,6 +180,9 @@ func validateSpec(kind string, sp *assetSpec) string {
 			return msg
 		}
 		if sp.Knowledge, msg = clean(sp.Knowledge, 20, slugRe.MatchString, "知识库"); msg != "" {
+			return msg
+		}
+		if msg := validateExpert(sp, clean); msg != "" {
 			return msg
 		}
 		if msg := validateTables(sp.Tables); msg != "" {
@@ -241,11 +255,56 @@ func validateSpec(kind string, sp *assetSpec) string {
 		sp.Body, sp.WhenToUse, sp.ModelInvocable = "", "", nil
 		sp.Persona, sp.Starters, sp.Skills, sp.Connections, sp.Plugins, sp.Knowledge = "", nil, nil, nil, nil, nil
 		sp.Icon, sp.Launch, sp.Workbench, sp.Template = "", "", nil, false
+		sp.Form, sp.Expertise, sp.Method, sp.Members = "", nil, "", nil
 	default:
 		return "未知的能力类型"
 	}
 	return ""
 }
+
+// validateExpert 检查专家形态的字段；普通微应用清掉这些字段。
+func validateExpert(sp *assetSpec, clean func([]string, int, func(string) bool, string) ([]string, string)) string {
+	sp.Form = strings.TrimSpace(sp.Form)
+	switch sp.Form {
+	case "", formApp:
+		sp.Form, sp.Expertise, sp.Method, sp.Members = "", nil, "", nil
+		return ""
+	case formExpert:
+	default:
+		return "形态只能是 app 或 expert"
+	}
+	if sp.Workbench != nil || len(sp.Tables) > 0 || sp.Web {
+		return "专家不带工作台、数据表和网页版；需要这些的请做成微应用"
+	}
+	if sp.Template {
+		return "专家不能设为样板"
+	}
+	var msg string
+	if sp.Expertise, msg = clean(sp.Expertise, 6, func(s string) bool { return limitRunes(s, 20) }, "擅长领域"); msg != "" {
+		return msg
+	}
+	if len(sp.Expertise) == 0 {
+		sp.Expertise = nil
+	}
+	sp.Method = strings.TrimSpace(sp.Method)
+	if len(sp.Method) > 16<<10 {
+		return "工作方法不能超过 16 KB"
+	}
+	if sp.Members, msg = clean(sp.Members, 5, slugRe.MatchString, "团队成员"); msg != "" {
+		return msg
+	}
+	if len(sp.Members) == 0 {
+		sp.Members = nil
+	}
+	return ""
+}
+
+const (
+	formApp    = "app"
+	formExpert = "expert"
+)
+
+func isExpert(sp *assetSpec) bool { return sp != nil && sp.Form == formExpert }
 
 var headerNameRe = regexp.MustCompile(`^[A-Za-z0-9-]{1,64}$`)
 var sharedCredentialNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,39}$`)
@@ -303,9 +362,30 @@ func (v viewer) manages(kind string) bool {
 
 func (v viewer) owns(a *store.Asset) bool { return a.OwnerID != nil && *a.OwnerID == v.user.ID }
 
-// available 是员工能看到并启用的资产：已上架、没下架、在可用范围内。
+// available 是员工能看到并启用的资产：已上架、没下架、在可用范围内，
+// 所在分类对他可见，也没被禁用策略挡住（docs/expert-center.md §5.2）。
 func available(v viewer, a *store.Asset) bool {
-	return a.Status == store.AssetActive && a.LiveVersion > 0 && v.inScope(a.Scope)
+	return unavailableReason(v, a) == ""
+}
+
+// 资产对某个人不可用的原因；空表示可用。分类与禁用的原因见 store.Gate*。
+const (
+	reasonUnpublished = "unpublished"
+	reasonNotLive     = "not_live"
+	reasonOutOfScope  = "out_of_scope"
+)
+
+// unavailableReason 按 §5.2 的顺序给出第一个挡住的原因。
+func unavailableReason(v viewer, a *store.Asset) string {
+	switch {
+	case a.Status != store.AssetActive:
+		return reasonUnpublished
+	case a.LiveVersion == 0:
+		return reasonNotLive
+	case !v.inScope(a.Scope):
+		return reasonOutOfScope
+	}
+	return a.Gate(v.user.ID, v.user.Department, v.access.RoleIDs)
 }
 
 // ---- 变化通知：DSH 的 MCP 长连接与技能目录轮询据此刷新 ----
@@ -614,12 +694,14 @@ func (s *Server) handleHubDetail(w http.ResponseWriter, r *http.Request) {
 // ---- 新建与提交新版本 ----
 
 type hubCreateReq struct {
-	Kind     string          `json:"kind"`
-	Slug     string          `json:"slug"`
-	Category string          `json:"category"`
-	Spec     json.RawMessage `json:"spec"`
-	Scope    *store.Scope    `json:"scope"`
-	Delivery string          `json:"delivery"`
+	Kind     string `json:"kind"`
+	Slug     string `json:"slug"`
+	Category string `json:"category"`
+	// 受管分类；优先于 category 文本
+	CategoryID *int64          `json:"category_id"`
+	Spec       json.RawMessage `json:"spec"`
+	Scope      *store.Scope    `json:"scope"`
+	Delivery   string          `json:"delivery"`
 	// 连接的上游凭据（只写，不回显）
 	Secret *string `json:"secret"`
 }
@@ -732,10 +814,19 @@ func (s *Server) handleHubCreate(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
+	catID, catName, msg, err := s.resolveCategory(r.Context(), req.Kind, req.CategoryID, &req.Category)
+	if err != nil {
+		s.internalErr(w, r, err)
+		return
+	}
+	if msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
+		return
+	}
 	owner := v.user.ID
 	a := &store.Asset{
 		Kind: req.Kind, Slug: req.Slug, Title: sp.Title, Description: sp.Description,
-		Category: truncateStr(strings.TrimSpace(req.Category), 32), OwnerID: &owner, Scope: scope, Delivery: delivery,
+		Category: catName, CategoryID: catID, OwnerID: &owner, Scope: scope, Delivery: delivery,
 	}
 	if err := s.store.CreateAsset(r.Context(), a, raw, status, v.user.ID); err != nil {
 		if errors.Is(err, store.ErrDuplicate) {
@@ -745,8 +836,11 @@ func (s *Server) handleHubCreate(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
-	// 自己做的能力默认在自己的 DSH 里启用，方便试用
-	_ = s.store.Subscribe(r.Context(), v.user.ID, a.ID)
+	// 自己做的能力默认在自己的 DSH 里启用，方便试用；
+	// 订阅失败只影响这一项是否自动启用，不阻塞创建，记录待查。
+	if err := s.store.Subscribe(r.Context(), v.user.ID, a.ID); err != nil {
+		s.log.Warn("自动订阅能力失败", "user", v.user.ID, "asset", a.ID, "err", err)
+	}
 	resp := map[string]any{"asset": a, "status": status}
 	if req.Kind == store.KindConnection {
 		if req.Secret != nil {
@@ -900,12 +994,19 @@ func (s *Server) handleHubNewVersion(w http.ResponseWriter, r *http.Request) {
 }
 
 type hubPatchReq struct {
-	Category *string      `json:"category"`
+	Category *string `json:"category"`
+	// 受管分类；0 表示取消归类。和 category 同时给时以它为准
+	CategoryID *int64 `json:"category_id"`
+	// 精选（只有管理员能设）
+	Featured *bool        `json:"featured"`
 	Scope    *store.Scope `json:"scope"`
 	Delivery *string      `json:"delivery"`
 	// active / unpublished
 	Status *string `json:"status"`
 	Note   string  `json:"note"`
+	// 改范围时必须带上打开页面时读到的 updated_at：范围是整段覆盖的，
+	// 用旧快照保存会悄悄丢掉这期间别人新审批进来的授权。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // PATCH /api/hub/{id}：可用范围与分类（负责人或管理员）、下发方式与上下架（管理员）。
@@ -924,14 +1025,31 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "只有负责人或管理员能修改")
 		return
 	}
-	if (req.Delivery != nil || req.Status != nil) && !manage {
-		writeErr(w, http.StatusForbidden, "修改下发方式与上下架需要管理权限")
+	if (req.Delivery != nil || req.Status != nil || req.Featured != nil) && !manage {
+		writeErr(w, http.StatusForbidden, "修改下发方式、精选与上下架需要管理权限")
 		return
 	}
-	p := store.AssetPatch{Category: req.Category, Delivery: req.Delivery, Status: req.Status}
-	if req.Category != nil {
-		c := truncateStr(strings.TrimSpace(*req.Category), 32)
-		p.Category = &c
+	p := store.AssetPatch{Delivery: req.Delivery, Status: req.Status, Featured: req.Featured}
+	if req.Category != nil || req.CategoryID != nil {
+		catID, catName, msg, err := s.resolveCategory(r.Context(), a.Kind, req.CategoryID, req.Category)
+		if err != nil {
+			s.internalErr(w, r, err)
+			return
+		}
+		if msg != "" {
+			writeErr(w, http.StatusBadRequest, msg)
+			return
+		}
+		zero := int64(0)
+		if catID == nil {
+			catID = &zero
+		}
+		p.Category, p.CategoryID = &catName, catID
+	}
+	// 范围是整段覆盖的：必须带上读到的 updated_at，避免拿旧快照覆盖期间的新授权
+	if req.Scope != nil && req.UpdatedAt == nil {
+		writeErr(w, http.StatusBadRequest, "改范围要带上 updated_at；请刷新页面后重试")
+		return
 	}
 	// 负责人（没有管理权限）把范围改大：新范围进入审核，通过前照旧
 	var requested *store.Scope
@@ -945,7 +1063,7 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 		if needReview {
 			requested = &sc
 		} else {
-			p.Scope = &sc
+			p.Scope, p.ExpectedUpdatedAt = &sc, req.UpdatedAt
 		}
 	}
 	if req.Delivery != nil {
@@ -964,24 +1082,34 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// 申请也带着范围快照：先做并发检查，失败就整单不落库，免得旧快照把申请本身也写歪
+	if requested != nil {
+		if err := s.store.RequestAssetScope(r.Context(), a.ID, *requested, req.UpdatedAt); err != nil {
+			if errors.Is(err, store.ErrConflict) {
+				writeErr(w, http.StatusConflict, "范围已被其他人修改，请刷新后重试")
+				return
+			}
+			s.internalErr(w, r, err)
+			return
+		}
+	}
+	if requested == nil && p.Scope != nil && a.PendingScope != nil {
+		// 改成了不用审核的范围，原来的申请作废。清空必须和范围保存同一条 UPDATE、同一次
+		// updated_at 检查：拆成两句时「保存成功 → 清空」之间的窗口会把并发提交的新申请清掉。
+		p.ClearPendingScope = true
+	}
 	if err := s.store.UpdateAsset(r.Context(), a.ID, p); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			writeErr(w, http.StatusConflict, "范围已被其他人修改，请刷新后重试")
+			return
+		}
 		s.internalErr(w, r, err)
 		return
 	}
 	if requested != nil {
-		if err := s.store.RequestAssetScope(r.Context(), a.ID, *requested); err != nil {
-			s.internalErr(w, r, err)
-			return
-		}
 		a.PendingScope = requested
 		s.feishuReviewScope(a)
 		s.audit(r, auditScopeRequest, a.Kind+":"+a.Slug, map[string]any{"id": a.ID, "scope": requested})
-	} else if p.Scope != nil && a.PendingScope != nil {
-		// 改成了不用审核的范围，原来的申请作废
-		if err := s.store.ClearAssetScopeRequest(r.Context(), a.ID); err != nil {
-			s.internalErr(w, r, err)
-			return
-		}
 	}
 	detail := map[string]any{"id": a.ID}
 	if p.Scope != nil {
@@ -989,6 +1117,12 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if p.Delivery != nil {
 		detail["delivery"] = *p.Delivery
+	}
+	if p.CategoryID != nil {
+		detail["category_id"] = *p.CategoryID
+	}
+	if p.Featured != nil {
+		detail["featured"] = *p.Featured
 	}
 	if p.Status != nil {
 		detail["status"] = *p.Status
@@ -1264,7 +1398,10 @@ func (s *Server) handleHubReview(w http.ResponseWriter, r *http.Request) {
 	if to == store.StatusPublished && req.Version > a.LiveVersion {
 		if pv, err := s.store.GetAssetVersion(r.Context(), a.ID, req.Version); err == nil {
 			sp := parseSpec(pv.Spec)
-			_ = s.store.UpdateAsset(r.Context(), a.ID, store.AssetPatch{Title: &sp.Title, Description: &sp.Description})
+			// 审核已成功落库，标题/描述同步失败只影响列表展示，不回滚审核结果，记录待查。
+			if uerr := s.store.UpdateAsset(r.Context(), a.ID, store.AssetPatch{Title: &sp.Title, Description: &sp.Description}); uerr != nil {
+				s.log.Warn("同步资产标题/描述失败", "asset", a.ID, "version", req.Version, "err", uerr)
+			}
 		}
 	}
 	action := auditReviewApprove
@@ -1282,6 +1419,8 @@ func (s *Server) handleHubReview(w http.ResponseWriter, r *http.Request) {
 type pluginPolicyReq struct {
 	Scope    store.Scope `json:"scope"`
 	Delivery string      `json:"delivery"`
+	// 更新已有策略时要带上 GET /api/hub 里读到的 updated_at；第一次设置（还没有记录）可以不带。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // PUT /api/admin/plugin-policies/{name...}
@@ -1306,7 +1445,11 @@ func (s *Server) handlePutPluginPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := store.PluginPolicy{Name: name, Scope: req.Scope.Normalize(), Delivery: req.Delivery}
-	if err := s.store.SetPluginPolicy(r.Context(), p, currentUser(r).ID); err != nil {
+	if err := s.store.SetPluginPolicy(r.Context(), &p, currentUser(r).ID, req.UpdatedAt); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			writeErr(w, http.StatusConflict, "插件策略已被其他人修改，请刷新后重试")
+			return
+		}
 		s.internalErr(w, r, err)
 		return
 	}

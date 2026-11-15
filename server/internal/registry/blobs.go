@@ -38,7 +38,7 @@ type Digest struct {
 	Size      int64
 }
 
-var ErrTooLarge = errors.New("tarball 超过大小上限")
+var ErrTooLarge = errors.New("Tarball exceeds the size limit")
 
 // Put 写入并返回摘要；超过 limit 字节时返回 ErrTooLarge。
 func (b *Blobs) Put(r io.Reader, limit int64) (Digest, error) {
@@ -86,7 +86,7 @@ func (b *Blobs) Put(r io.Reader, limit int64) (Digest, error) {
 // Open 打开已存的 tarball。
 func (b *Blobs) Open(key string) (*os.File, error) {
 	if !blobKey.MatchString(key) {
-		return nil, fmt.Errorf("非法的 blob key %q", key)
+		return nil, fmt.Errorf("Invalid blob key %q", key)
 	}
 	return os.Open(b.path(key))
 }
@@ -112,7 +112,7 @@ func CheckIntegrity(d Digest, integrity, shasum string) error {
 				if part == d.Integrity {
 					return nil
 				}
-				return fmt.Errorf("sha512 不一致：声明 %s，实际 %s", part, d.Integrity)
+				return fmt.Errorf("sha512 mismatch: declared %s, actual %s", part, d.Integrity)
 			}
 		}
 	}
@@ -120,11 +120,11 @@ func CheckIntegrity(d Digest, integrity, shasum string) error {
 		if shasum == d.Shasum {
 			return nil
 		}
-		return fmt.Errorf("shasum 不一致：声明 %s，实际 %s", shasum, d.Shasum)
+		return fmt.Errorf("shasum mismatch: declared %s, actual %s", shasum, d.Shasum)
 	}
 	if integrity != "" {
 		// 只有 sha1 / sha256 形式的 integrity、也没有 shasum：极老的包，无法用 sha512 校验
-		return errors.New("integrity 里没有 sha512，且缺少 shasum")
+		return errors.New("integrity contains no sha512 and shasum is missing")
 	}
-	return errors.New("元数据没有 integrity 与 shasum，无法校验")
+	return errors.New("Metadata has neither integrity nor shasum, so it cannot be verified")
 }

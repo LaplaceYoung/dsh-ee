@@ -558,6 +558,10 @@ func (s *Server) loadSecretConnection(w http.ResponseWriter, r *http.Request) (*
 
 // PUT /api/me/connections/{id}/credential {secret}：填或更新自己在这个连接上的凭据。
 func (s *Server) handleSetMyCredential(w http.ResponseWriter, r *http.Request) {
+	// 这份凭据会以员工本人的身份发给上游，不能让从 DSH 打开的网页会话替员工换掉。
+	if !s.requireFullSession(w, r) {
+		return
+	}
 	a, ok := s.loadSecretConnection(w, r)
 	if !ok {
 		return
@@ -590,6 +594,9 @@ func (s *Server) handleSetMyCredential(w http.ResponseWriter, r *http.Request) {
 
 // DELETE /api/me/connections/{id}/credential：删掉自己在这个连接上的凭据。
 func (s *Server) handleDeleteMyCredential(w http.ResponseWriter, r *http.Request) {
+	if !s.requireFullSession(w, r) {
+		return
+	}
 	a, ok := s.loadConnection(w, r)
 	if !ok {
 		return

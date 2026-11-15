@@ -119,7 +119,10 @@ function DataSetEditor({ initial, autoParams, onDone, onCancel }: { initial?: Da
   };
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    const res = await run(() => api.dataSetSave({ slug: slug.trim(), title: title.trim(), description: description.trim(), sql, params, scope }, !!initial));
+    const res = await run(() => api.dataSetSave({
+      slug: slug.trim(), title: title.trim(), description: description.trim(), sql, params, scope,
+      ...(initial ? { updated_at: initial.updated_at } : {}),
+    }, !!initial));
     if (!res.ok) return setError(res.error);
     onDone();
   };

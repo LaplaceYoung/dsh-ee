@@ -1,10 +1,13 @@
 import { useState } from "react";
+import { formatDateOnly, formatNumber } from "@/lib/format";
 import { cx } from "./ui";
 
-/** 接口给的 YYYY-MM-DD → 轴上的 M/D。 */
+/** 接口给的 YYYY-MM-DD → 轴上的「月/日」，顺序与分隔符跟界面语言（en 11/14、es 14/11）。 */
 function dayLabel(date: string) {
-  const [, m, d] = date.split("-");
-  return `${Number(m)}/${Number(d)}`;
+  const [y, m, d] = date.split("-").map(Number);
+  if (!y || !m || !d) return date;
+  // 用本地日期构造，避免 new Date("YYYY-MM-DD") 按 UTC 解析后在东半球以外差一天。
+  return formatDateOnly(new Date(y, m - 1, d), undefined, { month: "numeric", day: "numeric" });
 }
 
 /** 刻度取整到 max 之上；全为 0 时给一个最小刻度，柱子贴着基线。 */
@@ -23,7 +26,7 @@ export function DailyBars({
   dates,
   unit,
   height = "h-56",
-  format = (v: number) => v.toLocaleString(),
+  format = (v: number) => formatNumber(v),
 }: {
   values: number[];
   dates: string[];
@@ -98,7 +101,7 @@ export function BarList({ rows, highlight }: { rows: { label: string; value: num
               {r.label}
               {r.hint && <span className="ml-1.5 text-xs text-neutral-500">{r.hint}</span>}
             </span>
-            <span className="text-neutral-900 tabular-nums">{r.value.toLocaleString()}</span>
+            <span className="text-neutral-900 tabular-nums">{formatNumber(r.value)}</span>
           </div>
           <div className="mt-1 h-1.5 rounded-full bg-neutral-100">
             <div

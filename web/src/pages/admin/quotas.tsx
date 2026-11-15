@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useState, type FormEvent } from "react";
 import { api, formatTime, type User } from "../../lib/api";
+import { formatNumber } from "../../lib/format";
 import { useStore } from "../../lib/store";
 import { useAction, useApi } from "../../lib/use-api";
 import { ErrorNote, LoadState, ModelsCell, QuotaBar } from "../../components/api-ui";
@@ -182,7 +183,7 @@ export default function AdminQuotas() {
       <Card>
         <CardHeader
           title={t("quotas.allUsers")}
-          aside={users ? t("quotas.summary", { users: users.length, assigned, tokens: totalUsed.toLocaleString() }) : undefined}
+          aside={users ? t("quotas.summary", { users: users.length, assigned, tokens: formatNumber(totalUsed) }) : undefined}
         />
         <LoadState loading={loading && !users} error={error} onRetry={reload}>
           <DataTable

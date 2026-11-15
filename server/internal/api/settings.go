@@ -137,7 +137,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		next.Brand.Theme.Tokens = maps.Clone(cur.Brand.Theme.Tokens)
 	}
 	if msg := validateSettings(&next); msg != "" {
-		writeErr(w, http.StatusBadRequest, msg)
+		writeErrCode(w, http.StatusBadRequest, codeSettingsInvalidValue, nil, msg)
 		return
 	}
 	// 认证方式由 LDAP 配置的开关决定；LogoRev 只能由 logo 上传接口更新。
@@ -153,7 +153,8 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		if !a.Has(sectionPerms(name)...) {
-			writeErr(w, http.StatusForbidden, "没有权限修改「"+cv.Type().Field(i).Tag.Get("json")+"」设置")
+			field := cv.Type().Field(i).Tag.Get("json")
+			writeErrCode(w, http.StatusForbidden, codeSettingsForbidden, map[string]any{"field": field}, "没有权限修改「"+field+"」设置")
 			return
 		}
 		changed = append(changed, cv.Type().Field(i).Tag.Get("json"))

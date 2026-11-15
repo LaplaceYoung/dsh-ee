@@ -42,6 +42,13 @@ type AppSettings struct {
 		AllowAlpha            bool   `json:"allowAlpha"`
 		AllowCommunityDesktop bool   `json:"allowCommunityDesktop"`
 	} `json:"distribution"`
+	// 企业目录的部署策略（docs/plugin-signing.md §8）。本期只存 / 只读展示，不执行自动升级：
+	// 目录条目自己还要声明 auto_upgrade=true 才「允许」被自动升级；真正升级仍要管理员显式触发。
+	Directory struct {
+		// 总开关，默认 false。本期打开也只会让更新检查多看一眼条目的 auto_upgrade 声明，
+		// 不会有任何自动安装 / 升级动作。
+		AutoUpgrade bool `json:"autoUpgrade"`
+	} `json:"directory"`
 	Brand struct {
 		Enabled bool   `json:"enabled"`
 		Name    string `json:"name"`
@@ -136,6 +143,8 @@ func DefaultSettings() *AppSettings {
 	s.Distribution.AutoSync = "notify"
 	s.Distribution.KeepVersions = 3
 	s.Distribution.AllowCommunityDesktop = true
+	// 企业目录：自动升级默认关闭，本期也不会执行（只存 / 只读展示）
+	s.Directory.AutoUpgrade = false
 	s.Connect.Enabled = true
 	s.Connect.Model = true
 	s.Connect.Market = true

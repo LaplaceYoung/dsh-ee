@@ -26,7 +26,7 @@ var UpstreamRegistries = map[string]string{
 
 const maxPackumentSize = 256 << 20
 
-var ErrUpstreamNotFound = errors.New("上游没有这个包")
+var ErrUpstreamNotFound = errors.New("Upstream has no such package")
 
 // Upstream 访问上游 npm registry，packument 缓存在磁盘上：TTL 内直接用，过期后带 ETag 重新验证，
 // 上游不可用时退回旧缓存，保证内网安装不因外网抖动失败。
@@ -141,7 +141,7 @@ func (u *Upstream) fetch(ctx context.Context, base, name, key string, maxAge tim
 	}
 	resp, err := u.hc.Do(req)
 	if err != nil {
-		return u.stale(key, bodyPath, meta, fmt.Errorf("访问上游 %s：%w", pkgURL, err))
+		return u.stale(key, bodyPath, meta, fmt.Errorf("Accessing upstream %s: %w", pkgURL, err))
 	}
 	defer resp.Body.Close()
 
@@ -154,7 +154,7 @@ func (u *Upstream) fetch(ctx context.Context, base, name, key string, maxAge tim
 		u.writeMeta(metaPath, cacheMeta{URL: pkgURL, Status: http.StatusNotFound, FetchedAt: time.Now()})
 		return nil, ErrUpstreamNotFound
 	case resp.StatusCode != http.StatusOK:
-		return u.stale(key, bodyPath, meta, fmt.Errorf("上游 %s 返回 %d", pkgURL, resp.StatusCode))
+		return u.stale(key, bodyPath, meta, fmt.Errorf("Upstream %s returned %d", pkgURL, resp.StatusCode))
 	}
 
 	tmp, err := os.CreateTemp(u.dir, "fetch-*")
@@ -165,10 +165,10 @@ func (u *Upstream) fetch(ctx context.Context, base, name, key string, maxAge tim
 	n, err := io.Copy(tmp, io.LimitReader(resp.Body, maxPackumentSize+1))
 	tmp.Close()
 	if err != nil {
-		return u.stale(key, bodyPath, meta, fmt.Errorf("读取上游 %s：%w", pkgURL, err))
+		return u.stale(key, bodyPath, meta, fmt.Errorf("Reading upstream %s: %w", pkgURL, err))
 	}
 	if n > maxPackumentSize {
-		return nil, fmt.Errorf("上游 %s 的 packument 超过 %d MB", name, maxPackumentSize>>20)
+		return nil, fmt.Errorf("Packument from upstream %s exceeds %d MB", name, maxPackumentSize>>20)
 	}
 	b, err := os.ReadFile(tmp.Name())
 	if err != nil {
@@ -179,7 +179,7 @@ func (u *Upstream) fetch(ctx context.Context, base, name, key string, maxAge tim
 		return u.stale(key, bodyPath, meta, err)
 	}
 	if doc.Name != "" && doc.Name != name {
-		return nil, fmt.Errorf("上游返回的包名 %q 与请求的 %q 不一致", doc.Name, name)
+		return nil, fmt.Errorf("Package name %q returned by upstream does not match the requested %q", doc.Name, name)
 	}
 	doc.Name = name
 	if err := os.Rename(tmp.Name(), bodyPath); err != nil {
@@ -300,24 +300,24 @@ func (u *Upstream) isTrustedOrigin(rawURL string) bool {
 func (u *Upstream) ValidateUpstreamURL(ctx context.Context, rawURL string) error {
 	pu, err := url.Parse(rawURL)
 	if err != nil || (pu.Scheme != "https" && pu.Scheme != "http") || pu.Host == "" {
-		return fmt.Errorf("非法的上游 tarball 地址 %q", rawURL)
+		return fmt.Errorf("Invalid upstream tarball URL %q", rawURL)
 	}
 	host := pu.Hostname()
 	if host == "" {
-		return fmt.Errorf("非法的上游 tarball 地址 %q", rawURL)
+		return fmt.Errorf("Invalid upstream tarball URL %q", rawURL)
 	}
 	if u.allowPrivate || u.isTrustedOrigin(rawURL) {
 		return nil
 	}
 	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
 	if err != nil {
-		return fmt.Errorf("解析上游 tarball 地址 %s：%w", host, err)
+		return fmt.Errorf("Resolving upstream tarball URL %s: %w", host, err)
 	}
 	for _, addr := range ips {
 		if !blockedUpstreamIP(addr.IP) {
 			continue
 		}
-		return fmt.Errorf("上游 tarball 地址 %s 解析到内网地址 %s，已拒绝；内部镜像请设置 DSH_EE_UPSTREAM_ALLOW_PRIVATE=1", host, addr.IP)
+		return fmt.Errorf("Upstream tarball URL %s resolves to internal address %s; rejected. For an internal mirror, set DSH_EE_UPSTREAM_ALLOW_PRIVATE=1", host, addr.IP)
 	}
 	return nil
 }
@@ -336,24 +336,24 @@ func (u *Upstream) FetchTarball(ctx context.Context, blobs *Blobs, rawURL, integ
 	client := *u.hc
 	client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 		if len(via) >= 5 {
-			return fmt.Errorf("重定向次数过多")
+			return fmt.Errorf("Too many redirects")
 		}
 		return u.ValidateUpstreamURL(req.Context(), req.URL.String())
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return Digest{}, fmt.Errorf("下载 %s：%w", rawURL, err)
+		return Digest{}, fmt.Errorf("Downloading %s: %w", rawURL, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return Digest{}, fmt.Errorf("下载 %s：上游返回 %d", rawURL, resp.StatusCode)
+		return Digest{}, fmt.Errorf("Downloading %s: upstream returned %d", rawURL, resp.StatusCode)
 	}
 	d, err := blobs.Put(resp.Body, limit)
 	if err != nil {
-		return Digest{}, fmt.Errorf("下载 %s：%w", rawURL, err)
+		return Digest{}, fmt.Errorf("Downloading %s: %w", rawURL, err)
 	}
 	if err := CheckIntegrity(d, integrity, shasum); err != nil {
-		return Digest{}, fmt.Errorf("%s 校验失败：%w", rawURL, err)
+		return Digest{}, fmt.Errorf("%s checksum verification failed: %w", rawURL, err)
 	}
 	return d, nil
 }

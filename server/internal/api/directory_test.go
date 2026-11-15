@@ -41,12 +41,13 @@ type dirPlan struct {
 		} `json:"signature"`
 	} `json:"document"`
 	Entries []struct {
-		Index   int    `json:"index"`
-		ID      string `json:"id"`
-		Name    string `json:"name"`
-		Kind    string `json:"kind"`
-		Version string `json:"version"`
-		Issues  []struct {
+		Index       int    `json:"index"`
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		Kind        string `json:"kind"`
+		Version     string `json:"version"`
+		AutoUpgrade bool   `json:"auto_upgrade"`
+		Issues      []struct {
 			Severity string `json:"severity"`
 			Code     string `json:"code"`
 		} `json:"issues"`
