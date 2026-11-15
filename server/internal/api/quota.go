@@ -92,12 +92,12 @@ func (s *Server) handleUpdateUserQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !req.MonthlyTokenLimit.Set && !req.AllowedModels.Set && !req.QuotaExpiresAt.Set {
-		writeErr(w, http.StatusBadRequest, "没有要修改的额度字段")
+		writeErrCode(w, http.StatusBadRequest, codeQuotaNothingToUpdate, nil, "没有要修改的额度字段")
 		return
 	}
 	u, err := s.store.GetUser(r.Context(), id)
 	if notFound(err) {
-		writeErr(w, http.StatusNotFound, "用户不存在")
+		writeErrCode(w, http.StatusNotFound, codeUserNotFound, nil, "用户不存在")
 		return
 	}
 	if err != nil {
@@ -112,7 +112,7 @@ func (s *Server) handleUpdateUserQuota(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.MonthlyTokenLimit.Set {
 		if req.MonthlyTokenLimit.Value != nil && *req.MonthlyTokenLimit.Value < 0 {
-			writeErr(w, http.StatusBadRequest, "monthly_token_limit 不能为负数；0 表示不分配额度，null 表示不限额")
+			writeErrCode(w, http.StatusBadRequest, codeQuotaInvalidLimit, nil, "monthly_token_limit 不能为负数；0 表示不分配额度，null 表示不限额")
 			return
 		}
 		q.MonthlyTokenLimit = req.MonthlyTokenLimit.Value
@@ -124,7 +124,7 @@ func (s *Server) handleUpdateUserQuota(w http.ResponseWriter, r *http.Request) {
 		if req.QuotaExpiresAt.Value != nil {
 			t := req.QuotaExpiresAt.Value.UTC()
 			if !t.After(time.Now()) {
-				writeErr(w, http.StatusBadRequest, "quota_expires_at 必须是将来的时间")
+				writeErrCode(w, http.StatusBadRequest, codeQuotaInvalidExpiry, nil, "quota_expires_at 必须是将来的时间")
 				return
 			}
 			q.QuotaExpiresAt = &t
@@ -134,7 +134,7 @@ func (s *Server) handleUpdateUserQuota(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.SetUserQuota(r.Context(), id, q); err != nil {
 		if notFound(err) {
-			writeErr(w, http.StatusNotFound, "用户不存在")
+			writeErrCode(w, http.StatusNotFound, codeUserNotFound, nil, "用户不存在")
 			return
 		}
 		s.internalErr(w, r, err)
@@ -205,17 +205,17 @@ func (s *Server) handleCreateMyKey(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
-		writeErr(w, http.StatusBadRequest, "name 不能为空")
+		writeErrCode(w, http.StatusBadRequest, codeKeyInvalidName, nil, "name 不能为空")
 		return
 	}
 	if len([]rune(req.Name)) > 128 {
-		writeErr(w, http.StatusBadRequest, "name 不能超过 128 个字符")
+		writeErrCode(w, http.StatusBadRequest, codeKeyNameTooLong, nil, "name 不能超过 128 个字符")
 		return
 	}
 	if req.ExpiresAt != nil {
 		t := req.ExpiresAt.UTC()
 		if !t.After(time.Now()) {
-			writeErr(w, http.StatusBadRequest, "expires_at 必须是将来的时间")
+			writeErrCode(w, http.StatusBadRequest, codeKeyInvalidExpiry, nil, "expires_at 必须是将来的时间")
 			return
 		}
 		req.ExpiresAt = &t
@@ -227,7 +227,7 @@ func (s *Server) handleCreateMyKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n >= maxKeysPerUser {
-		writeErr(w, http.StatusBadRequest, "最多同时保留 "+strconv.Itoa(maxKeysPerUser)+" 个有效 key，请先吊销不用的")
+		writeErrCode(w, http.StatusBadRequest, codeKeyLimitReached, map[string]any{"max": maxKeysPerUser}, "最多同时保留 "+strconv.Itoa(maxKeysPerUser)+" 个有效 key，请先吊销不用的")
 		return
 	}
 
@@ -257,7 +257,7 @@ func (s *Server) handleRevokeMyKey(w http.ResponseWriter, r *http.Request) {
 	k, err := s.store.GetAPIKey(r.Context(), id)
 	// 不是自己的 key 一律按不存在处理，不暴露别人的 key id
 	if notFound(err) || (err == nil && k.UserID != currentUser(r).ID) {
-		writeErr(w, http.StatusNotFound, "key 不存在")
+		writeErrCode(w, http.StatusNotFound, codeKeyNotFound, nil, "key 不存在")
 		return
 	}
 	if err != nil {
@@ -266,7 +266,7 @@ func (s *Server) handleRevokeMyKey(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.RevokeAPIKey(r.Context(), id); err != nil {
 		if notFound(err) {
-			writeErr(w, http.StatusNotFound, "key 已吊销")
+			writeErrCode(w, http.StatusNotFound, codeKeyRevoked, nil, "key 已吊销")
 			return
 		}
 		s.internalErr(w, r, err)

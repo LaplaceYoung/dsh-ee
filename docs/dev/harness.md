@@ -53,6 +53,8 @@ curl -fsS "$BASE/v1/chat/completions" \
 
 额度、审计、上游故障转移由 dsh-ee 处理；错误与常见原因见 [l1-client.md](../l1-client.md) 的「常见错误」表。
 
+**上游共享文件（DeepSeek `file_id`）默认不开放**：DeepSeek Files 是上游账号级资源，员工令牌与管理员共用上游 key，所以 dsh-ee 在转发前扫描请求里的文件引用（`file` 块的 `file_id`、`document` / `image` 的 `source.file_id`）。普通员工默认 403 `file_access_denied` 且不请求上游；管理员（账号有任一管理权限）与 `account_type=bot` 的机器人账号放行。需要全体员工引用共享文件时显式设置 `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true`（默认 `false`，fail closed）。覆盖 `/v1/chat/completions` 与 `/v1/messages`；后续新增的模型入口必须复用同一判定。详见 [Anthropic Messages 兼容](./anthropic-api.md#2-鉴权与权限)。
+
 同一组模型也有 **Anthropic Messages 兼容端点** `POST /v1/messages`（别名 `POST /anthropic/v1/messages`，
 兼容 DeepSeek 的 `ANTHROPIC_BASE_URL=<base>/anthropic` 习惯）：Claude Code / Anthropic SDK 用
 `x-api-key` 或 `Authorization: Bearer` 带上同一个企业令牌即可，模型名仍填 dsh-ee 的对外模型名

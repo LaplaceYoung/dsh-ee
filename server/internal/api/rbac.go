@@ -71,23 +71,31 @@ func outranks(actor, target *rbac.Access) bool {
 	return true
 }
 
+// codedErr 是一次待写回的拒绝：机器码 + 插值参数 + 中文默认文案。给「先做校验、
+// 再由调用方决定状态码并写回」的辅助函数用（见 checkGrantable）。
+type codedErr struct {
+	code   string
+	params map[string]any
+	msg    string
+}
+
 // checkGrantable 校验当前用户能否把这些角色授予别人：角色必须存在；
 // 超级管理员角色只有超级管理员能授；其它角色的权限必须是自己权限的子集。
-func (s *Server) checkGrantable(r *http.Request, roleIDs []int64) (string, bool) {
+func (s *Server) checkGrantable(r *http.Request, roleIDs []int64) (*codedErr, bool) {
 	actor := currentAccess(r)
 	for _, id := range roleIDs {
 		role, err := s.store.GetRole(r.Context(), id)
 		if err != nil {
-			return "角色不存在：" + itoa64(id), false
+			return &codedErr{code: codeRoleUnknown, params: map[string]any{"id": id}, msg: "角色不存在：" + itoa64(id)}, false
 		}
 		if role.IsSuper && !actor.Super {
-			return "只有超级管理员能授予「" + role.Name + "」", false
+			return &codedErr{code: codeRoleGrantSuperForbidden, params: map[string]any{"role": role.Name}, msg: "只有超级管理员能授予「" + role.Name + "」"}, false
 		}
 		if !subset(actor, role.Permissions) {
-			return "不能授予超出自己权限的角色「" + role.Name + "」", false
+			return &codedErr{code: codeRoleGrantOverreach, params: map[string]any{"role": role.Name}, msg: "不能授予超出自己权限的角色「" + role.Name + "」"}, false
 		}
 	}
-	return "", true
+	return nil, true
 }
 
 // ---- 用户的角色 ----
@@ -107,7 +115,7 @@ func (s *Server) handleSetUserRoles(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := s.store.GetUser(r.Context(), id); err != nil {
 		if notFound(err) {
-			writeErr(w, http.StatusNotFound, "用户不存在")
+			writeErrCode(w, http.StatusNotFound, codeUserNotFound, nil, "用户不存在")
 			return
 		}
 		s.internalErr(w, r, err)
@@ -119,12 +127,12 @@ func (s *Server) handleSetUserRoles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !outranks(currentAccess(r), target) {
-		writeErr(w, http.StatusForbidden, "不能修改权限比自己大的用户")
+		writeErrCode(w, http.StatusForbidden, codeUserOutrankedRoles, nil, "不能修改权限比自己大的用户")
 		return
 	}
 	ids := dedupe(req.RoleIDs)
-	if msg, ok := s.checkGrantable(r, ids); !ok {
-		writeErr(w, http.StatusForbidden, msg)
+	if e, ok := s.checkGrantable(r, ids); !ok {
+		writeErrCode(w, http.StatusForbidden, e.code, e.params, e.msg)
 		return
 	}
 	// 管理约束：不能给自己授权、互斥角色、双人批准（admin_policy.go）
@@ -162,7 +170,7 @@ func (s *Server) handleSetUserRoles(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if n == 0 {
-				writeErr(w, http.StatusBadRequest, "这是最后一个启用中的超级管理员，不能取消")
+				writeErrCode(w, http.StatusBadRequest, codeUserLastSuperAdminUnassign, nil, "这是最后一个启用中的超级管理员，不能取消")
 				return
 			}
 		}
@@ -212,11 +220,11 @@ func (s *Server) handleCreatePermission(w http.ResponseWriter, r *http.Request) 
 		Description: strings.TrimSpace(req.Description),
 	}
 	if !permCodeRe.MatchString(p.Code) {
-		writeErr(w, http.StatusBadRequest, "权限点代码以小写字母开头，只含小写字母、数字和 . _ : -，2 到 64 个字符")
+		writeErrCode(w, http.StatusBadRequest, codePermInvalidCode, nil, "权限点代码以小写字母开头，只含小写字母、数字和 . _ : -，2 到 64 个字符")
 		return
 	}
 	if p.Name == "" || len([]rune(p.Name)) > 128 {
-		writeErr(w, http.StatusBadRequest, "名称不能为空，且不超过 128 个字符")
+		writeErrCode(w, http.StatusBadRequest, codePermInvalidName, nil, "名称不能为空，且不超过 128 个字符")
 		return
 	}
 	if p.Group == "" {
@@ -224,7 +232,7 @@ func (s *Server) handleCreatePermission(w http.ResponseWriter, r *http.Request) 
 	}
 	if err := s.store.CreatePermission(r.Context(), p); err != nil {
 		if errors.Is(err, store.ErrDuplicate) {
-			writeErr(w, http.StatusConflict, "权限点代码已存在")
+			writeErrCode(w, http.StatusConflict, codePermExists, nil, "权限点代码已存在")
 			return
 		}
 		s.internalErr(w, r, err)
@@ -239,9 +247,9 @@ func (s *Server) handleDeletePermission(w http.ResponseWriter, r *http.Request) 
 	if err := s.store.DeletePermission(r.Context(), code); err != nil {
 		switch {
 		case notFound(err):
-			writeErr(w, http.StatusNotFound, "权限点不存在")
+			writeErrCode(w, http.StatusNotFound, codePermNotFound, nil, "权限点不存在")
 		case errors.Is(err, store.ErrInUse):
-			writeErr(w, http.StatusConflict, errMsg(err))
+			writeErrCode(w, http.StatusConflict, codePermInUse, nil, errMsg(err))
 		default:
 			s.internalErr(w, r, err)
 		}
@@ -276,12 +284,12 @@ func (s *Server) validPermissions(w http.ResponseWriter, r *http.Request, codes 
 	}
 	for _, c := range codes {
 		if !known[c] {
-			writeErr(w, http.StatusBadRequest, "权限点不存在："+c)
+			writeErrCode(w, http.StatusBadRequest, codePermUnknown, map[string]any{"code": c}, "权限点不存在："+c)
 			return nil, false
 		}
 	}
 	if !subset(currentAccess(r), codes) {
-		writeErr(w, http.StatusForbidden, "不能授予自己没有的权限")
+		writeErrCode(w, http.StatusForbidden, codePermGrantOverreach, nil, "不能授予自己没有的权限")
 		return nil, false
 	}
 	return codes, true
@@ -304,11 +312,11 @@ func (s *Server) handleCreateRole(w http.ResponseWriter, r *http.Request) {
 	}
 	role := &store.Role{Code: strings.TrimSpace(req.Code), Name: strings.TrimSpace(req.Name), Description: strings.TrimSpace(req.Description)}
 	if !roleCodeRe.MatchString(role.Code) {
-		writeErr(w, http.StatusBadRequest, "角色代码以小写字母开头，只含小写字母、数字和 . _ -，2 到 64 个字符")
+		writeErrCode(w, http.StatusBadRequest, codeRoleInvalidCode, nil, "角色代码以小写字母开头，只含小写字母、数字和 . _ -，2 到 64 个字符")
 		return
 	}
 	if role.Name == "" || len([]rune(role.Name)) > 128 {
-		writeErr(w, http.StatusBadRequest, "名称不能为空，且不超过 128 个字符")
+		writeErrCode(w, http.StatusBadRequest, codeRoleInvalidName, nil, "名称不能为空，且不超过 128 个字符")
 		return
 	}
 	perms, ok := s.validPermissions(w, r, req.Permissions)
@@ -318,7 +326,7 @@ func (s *Server) handleCreateRole(w http.ResponseWriter, r *http.Request) {
 	role.Permissions = perms
 	if err := s.store.CreateRole(r.Context(), role); err != nil {
 		if errors.Is(err, store.ErrDuplicate) {
-			writeErr(w, http.StatusConflict, "角色代码已存在")
+			writeErrCode(w, http.StatusConflict, codeRoleExists, nil, "角色代码已存在")
 			return
 		}
 		s.internalErr(w, r, err)
@@ -348,7 +356,7 @@ func (s *Server) handleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 	role, err := s.store.GetRole(r.Context(), id)
 	if notFound(err) {
-		writeErr(w, http.StatusNotFound, "角色不存在")
+		writeErrCode(w, http.StatusNotFound, codeRoleNotFound, nil, "角色不存在")
 		return
 	}
 	if err != nil {
@@ -357,19 +365,19 @@ func (s *Server) handleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := currentAccess(r)
 	if role.IsSuper && !actor.Super {
-		writeErr(w, http.StatusForbidden, "只有超级管理员能修改超级管理员角色")
+		writeErrCode(w, http.StatusForbidden, codeRoleSuperModifyForbidden, nil, "只有超级管理员能修改超级管理员角色")
 		return
 	}
 	// 改一个自己权限覆盖不了的角色，等于替别人做决定，同样拒绝
 	if !subset(actor, role.Permissions) {
-		writeErr(w, http.StatusForbidden, "这个角色有你没有的权限，不能修改")
+		writeErrCode(w, http.StatusForbidden, codeRoleOutrankedUpdate, nil, "这个角色有你没有的权限，不能修改")
 		return
 	}
 	p := store.RolePatch{}
 	if req.Name != nil {
 		n := strings.TrimSpace(*req.Name)
 		if n == "" || len([]rune(n)) > 128 {
-			writeErr(w, http.StatusBadRequest, "名称不能为空，且不超过 128 个字符")
+			writeErrCode(w, http.StatusBadRequest, codeRoleInvalidName, nil, "名称不能为空，且不超过 128 个字符")
 			return
 		}
 		p.Name = &n
@@ -380,7 +388,7 @@ func (s *Server) handleUpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Permissions != nil {
 		if role.IsSuper {
-			writeErr(w, http.StatusBadRequest, "超级管理员自动拥有全部权限，不需要单独配置")
+			writeErrCode(w, http.StatusBadRequest, codeRoleSuperPermissionsImplicit, nil, "超级管理员自动拥有全部权限，不需要单独配置")
 			return
 		}
 		perms, ok := s.validPermissions(w, r, *req.Permissions)
@@ -413,7 +421,7 @@ func (s *Server) handleDeleteRole(w http.ResponseWriter, r *http.Request) {
 	}
 	role, err := s.store.GetRole(r.Context(), id)
 	if notFound(err) {
-		writeErr(w, http.StatusNotFound, "角色不存在")
+		writeErrCode(w, http.StatusNotFound, codeRoleNotFound, nil, "角色不存在")
 		return
 	}
 	if err != nil {
@@ -421,12 +429,12 @@ func (s *Server) handleDeleteRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !subset(currentAccess(r), role.Permissions) {
-		writeErr(w, http.StatusForbidden, "这个角色有你没有的权限，不能删除")
+		writeErrCode(w, http.StatusForbidden, codeRoleOutrankedDelete, nil, "这个角色有你没有的权限，不能删除")
 		return
 	}
 	if err := s.store.DeleteRole(r.Context(), id); err != nil {
 		if errors.Is(err, store.ErrInUse) {
-			writeErr(w, http.StatusConflict, errMsg(err))
+			writeErrCode(w, http.StatusConflict, codeRoleInUse, nil, errMsg(err))
 			return
 		}
 		s.internalErr(w, r, err)
@@ -506,8 +514,8 @@ type menuReq struct {
 
 // validateMenu 校验并规范化一项菜单；selfID 为 0 表示新建。
 func (s *Server) validateMenu(w http.ResponseWriter, r *http.Request, req menuReq, selfID int64) (*store.Menu, bool) {
-	bad := func(msg string) (*store.Menu, bool) {
-		writeErr(w, http.StatusBadRequest, msg)
+	bad := func(code string, params map[string]any, msg string) (*store.Menu, bool) {
+		writeErrCode(w, http.StatusBadRequest, code, params, msg)
 		return nil, false
 	}
 	m := &store.Menu{
@@ -519,10 +527,10 @@ func (s *Server) validateMenu(w http.ResponseWriter, r *http.Request, req menuRe
 		m.Visible = *req.Visible
 	}
 	if m.Title == "" || len([]rune(m.Title)) > 64 {
-		return bad("标题不能为空，且不超过 64 个字符")
+		return bad(codeMenuInvalidTitle, nil, "标题不能为空，且不超过 64 个字符")
 	}
 	if m.Icon != "" && !iconRe.MatchString(m.Icon) {
-		return bad("图标名只能包含字母和数字")
+		return bad(codeMenuInvalidIcon, nil, "图标名只能包含字母和数字")
 	}
 	all, err := s.store.ListMenus(r.Context())
 	if err != nil {
@@ -533,14 +541,14 @@ func (s *Server) validateMenu(w http.ResponseWriter, r *http.Request, req menuRe
 	case "group":
 		m.Path, m.PageKey = "", ""
 		if m.ParentID != nil {
-			return bad("分组只能放在顶层")
+			return bad(codeMenuGroupNotTop, nil, "分组只能放在顶层")
 		}
 		if selfID != 0 {
 			for _, x := range all {
 				if x.ID == selfID && x.Kind != "group" {
 					for _, y := range all {
 						if y.ParentID != nil && *y.ParentID == selfID {
-							return bad("有子项的菜单不能改成分组")
+							return bad(codeMenuGroupHasChildren, nil, "有子项的菜单不能改成分组")
 						}
 					}
 				}
@@ -551,29 +559,29 @@ func (s *Server) validateMenu(w http.ResponseWriter, r *http.Request, req menuRe
 			m.Path = strings.TrimRight(m.Path, "/")
 		}
 		if !pathRe.MatchString(m.Path) || strings.Contains(m.Path, "//") {
-			return bad("路由以 / 开头，只能包含小写字母、数字和 - _ /")
+			return bad(codeMenuInvalidPath, nil, "路由以 / 开头，只能包含小写字母、数字和 - _ /")
 		}
 		for _, rp := range reservedPaths {
 			if m.Path == rp || (rp != "/" && strings.HasPrefix(m.Path, rp+"/")) {
-				return bad("路由 " + rp + " 是系统保留的，换一个")
+				return bad(codeMenuReservedPath, map[string]any{"path": rp}, "路由 "+rp+" 是系统保留的，换一个")
 			}
 		}
 		if !pageKeyRe.MatchString(m.PageKey) {
-			return bad("请选择页面组件（page_key）")
+			return bad(codeMenuMissingPageKey, nil, "请选择页面组件（page_key）")
 		}
 		for _, x := range all {
 			if x.ID != selfID && x.Kind == "page" && x.Path == m.Path {
-				return bad("路由 " + m.Path + " 已被「" + x.Title + "」使用")
+				return bad(codeMenuPathInUse, map[string]any{"path": m.Path, "title": x.Title}, "路由 "+m.Path+" 已被「"+x.Title+"」使用")
 			}
 		}
 	case "link":
 		m.PageKey = ""
 		u, err := url.Parse(m.Path)
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-			return bad("外部链接必须是 http(s) 地址")
+			return bad(codeMenuInvalidLink, nil, "外部链接必须是 http(s) 地址")
 		}
 	default:
-		return bad("kind 只能是 group、page 或 link")
+		return bad(codeMenuInvalidKind, nil, "kind 只能是 group、page 或 link")
 	}
 	if m.ParentID != nil {
 		var parent *store.Menu
@@ -583,7 +591,7 @@ func (s *Server) validateMenu(w http.ResponseWriter, r *http.Request, req menuRe
 			}
 		}
 		if parent == nil || parent.Kind != "group" {
-			return bad("上级必须是一个分组")
+			return bad(codeMenuInvalidParent, nil, "上级必须是一个分组")
 		}
 	}
 	if m.Permission != "" {
@@ -593,7 +601,7 @@ func (s *Server) validateMenu(w http.ResponseWriter, r *http.Request, req menuRe
 			return nil, false
 		}
 		if !ok {
-			return bad("权限点不存在：" + m.Permission)
+			return bad(codePermUnknown, map[string]any{"code": m.Permission}, "权限点不存在："+m.Permission)
 		}
 	}
 	return m, true
@@ -627,7 +635,7 @@ func (s *Server) handleUpdateMenu(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := s.store.GetMenu(r.Context(), id); err != nil {
 		if notFound(err) {
-			writeErr(w, http.StatusNotFound, "菜单不存在")
+			writeErrCode(w, http.StatusNotFound, codeMenuNotFound, nil, "菜单不存在")
 			return
 		}
 		s.internalErr(w, r, err)
@@ -658,9 +666,9 @@ func (s *Server) handleDeleteMenu(w http.ResponseWriter, r *http.Request) {
 	if err := s.store.DeleteMenu(r.Context(), id); err != nil {
 		switch {
 		case notFound(err):
-			writeErr(w, http.StatusNotFound, "菜单不存在")
+			writeErrCode(w, http.StatusNotFound, codeMenuNotFound, nil, "菜单不存在")
 		case errors.Is(err, store.ErrInUse):
-			writeErr(w, http.StatusConflict, errMsg(err))
+			writeErrCode(w, http.StatusConflict, codeMenuInUse, nil, errMsg(err))
 		default:
 			s.internalErr(w, r, err)
 		}
@@ -691,13 +699,13 @@ func (s *Server) handleReorderMenus(w http.ResponseWriter, r *http.Request) {
 	for _, it := range req.Items {
 		m := byID[it.ID]
 		if m == nil {
-			writeErr(w, http.StatusBadRequest, "菜单不存在："+itoa64(it.ID))
+			writeErrCode(w, http.StatusBadRequest, codeMenuUnknown, map[string]any{"id": it.ID}, "菜单不存在："+itoa64(it.ID))
 			return
 		}
 		if it.ParentID != nil {
 			p := byID[*it.ParentID]
 			if p == nil || p.Kind != "group" || m.Kind == "group" {
-				writeErr(w, http.StatusBadRequest, "只能把页面或链接放进分组里")
+				writeErrCode(w, http.StatusBadRequest, codeMenuInvalidGroupChild, nil, "只能把页面或链接放进分组里")
 				return
 			}
 		}

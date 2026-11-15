@@ -248,7 +248,7 @@ func (s *Service) StartSync(ctx context.Context, kind string, params SyncParams,
 		return nil, err
 	}
 	raw, _ := json.Marshal(params)
-	j := &store.SyncJob{Kind: kind, Params: raw, Total: len(params.Roots)}
+	j := &store.SyncJob{Kind: kind, Params: raw, Total: len(params.Roots), Owner: s.owner}
 	if by != 0 {
 		j.CreatedBy = &by
 	}

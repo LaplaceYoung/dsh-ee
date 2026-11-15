@@ -2,6 +2,8 @@
 
 覆盖范围（与 TypeScript 版对齐，但更小）：
   - 发现文档 / 能力摘要 / 模型目录 / 非流式 chat completion
+  - 思考模式参数（thinking / reasoning_effort）与 reasoning_content 类型
+  - DeepSeek Chatbot 透传参数（tools / safety_check / title）与拒绝/标题/工具过程类型
   - 设备码登录（申请 + 轮询）
   - MCP：initialize / ping / tools/list（cursor 分页）/ tools/call + 写确认 _meta
   - 统一错误与限流头解析
@@ -27,6 +29,15 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Tuple
+
+from .types import (
+    ChatCompletion,
+    ChatMessage,
+    DeepSeekSafetyCheck,
+    DeepSeekTitleConfig,
+    ReasoningEffort,
+    ThinkingConfig,
+)
 
 __all__ = [
     "DshClient",
@@ -646,11 +657,43 @@ class DshClient:
     def chat_completion(
         self,
         model: str,
-        messages: Iterable[Mapping[str, Any]],
+        messages: Iterable[ChatMessage],
+        *,
+        thinking: Optional[ThinkingConfig] = None,
+        reasoning_effort: Optional[ReasoningEffort] = None,
+        tools: Optional[Iterable[Mapping[str, Any]]] = None,
+        safety_check: Optional[DeepSeekSafetyCheck] = None,
+        title: Optional[DeepSeekTitleConfig] = None,
         **params: Any,
-    ) -> Dict[str, Any]:
-        """POST /v1/chat/completions（非流式）。额外字段按 OpenAI chat completions 透传。"""
+    ) -> ChatCompletion:
+        """POST /v1/chat/completions（非流式）。
+
+        ``thinking`` / ``reasoning_effort`` / ``tools`` / ``safety_check`` / ``title`` 原样转发给
+        上游（网关不做白名单/映射）。响应里的 ``choices[].message.reasoning_content`` 是思维链，
+        ``message.server_tool_calls`` / ``message.annotations`` / ``message.title`` /
+        ``message.refusal`` 是 DeepSeek Chatbot 扩展，均由上游原样返回。
+
+        - 请求携带 ``tools`` 时，历史 assistant 消息必须保留 ``reasoning_content``；
+        - 带服务端工具（deepseek_web_search / deepseek_read_url）的轮次，多轮要把
+          ``server_tool_calls``（含 ``kind`` / ``signature``）原样回传；
+        - 内容安全拒答时 ``finish_reason`` 为 ``content_filter``，``message.refusal`` 是说明；
+        - ``latest_reminder`` 消息（role=latest_reminder）必须紧贴其 user 消息之前，content 用
+          :func:`dsh_ee_harness.types.format_latest_reminder` 生成；
+        - 文件/文档用 ``file`` 内容块（``file_id`` / ``file_data``）或 Messages API 的
+          ``document`` 块引用；文件需先通过 DeepSeek Files API 上传，dsh-ee 只透传 chat 请求；
+        - dsh-ee 与 SDK 都不执行服务端工具，搜索/读链接由上游完成。
+        """
         body: Dict[str, Any] = {"model": model, "messages": list(messages), "stream": False}
+        if thinking is not None:
+            body["thinking"] = thinking
+        if reasoning_effort is not None:
+            body["reasoning_effort"] = reasoning_effort
+        if tools is not None:
+            body["tools"] = list(tools)
+        if safety_check is not None:
+            body["safety_check"] = safety_check
+        if title is not None:
+            body["title"] = title
         body.update(params)
         payload = self._request_json(self._send("POST", "/v1/chat/completions", body=body))
         if not _is_record(payload) or not isinstance(payload.get("choices"), list):

@@ -127,13 +127,18 @@ func updateUpstreamModel(t *testing.T, f *principalFixture, public, upstream str
 
 // TestAnthropicNativeDeepSeekPassthrough 覆盖：x-api-key/Bearer、anthropic 头透传、model 改写、
 // 非流式/流式逐字节转发、原生错误逐字节转发、usage 旁路记账（含无 usage 估算）与 401/403/429/404。
+// 文件/vision 块只有管理员与机器人账号能引用（file_id 访问拦截），这里用机器人账号覆盖原生透传。
 func TestAnthropicNativeDeepSeekPassthrough(t *testing.T) {
 	captures := make(chan nativeRequestCapture, 8)
 	f := newAnthropicFixtureVendor(t, nativeAnthropicUpstream(t, captures), "deepseek", nil)
 	updateUpstreamModel(t, f, "chat", "deepseek-flash-native")
-	u := f.user(t, "anthropic-native", nil)
-	f.token(t, u.ID, "ee_at_native", []string{rbac.ScopeModels}, nil, nil)
 	ctx := context.Background()
+	admin, err := f.st.GetUserByUsername(ctx, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := f.botUser(t, "anthropic-native", admin.ID)
+	f.token(t, u.ID, "ee_at_native", []string{rbac.ScopeModels}, nil, nil)
 	monthTokens := func() int64 {
 		used, err := f.st.MonthTokensByUser(ctx, u.ID)
 		if err != nil {
@@ -161,6 +166,12 @@ func TestAnthropicNativeDeepSeekPassthrough(t *testing.T) {
 		"X-Api-Key":         "ee_at_native",
 		"Anthropic-Version": "2023-06-01",
 		"Anthropic-Beta":    "files-api-2025-04-14",
+	}
+	// 额度等错误断言用不带文件引用的请求体：普通员工引用 file_id 会被 403 file_access_denied
+	// 提前拦下，会盖住既有的 429/403 断言。
+	plainBody := map[string]any{
+		"model": "chat", "max_tokens": 8,
+		"messages": []map[string]any{{"role": "user", "content": "hi"}},
 	}
 	code, body := newClient(t, f.ts.URL).do("POST", "/v1/messages", reqBody, headers)
 	expect(t, "原生非流式透传", code, http.StatusOK, body)
@@ -245,7 +256,7 @@ func TestAnthropicNativeDeepSeekPassthrough(t *testing.T) {
 	assertAnthropicErr(t, "原生模型不在范围", code, 403, body, "permission_error", "不能使用模型")
 	noQuota := f.user(t, "anthropic-native-noquota", new(int64))
 	f.token(t, noQuota.ID, "ee_at_native_noquota", []string{rbac.ScopeModels}, nil, nil)
-	code, body = newClient(t, f.ts.URL).do("POST", "/v1/messages", reqBody, map[string]string{"X-Api-Key": "ee_at_native_noquota"})
+	code, body = newClient(t, f.ts.URL).do("POST", "/v1/messages", plainBody, map[string]string{"X-Api-Key": "ee_at_native_noquota"})
 	assertAnthropicErr(t, "原生未分配额度", code, 429, body, "rate_limit_error", "额度")
 	missing := map[string]any{"model": "missing-model", "max_tokens": 8,
 		"messages": []map[string]any{{"role": "user", "content": "hi"}}}

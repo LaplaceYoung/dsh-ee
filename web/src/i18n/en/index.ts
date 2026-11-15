@@ -26,15 +26,18 @@ import requests from "./requests";
 import studio from "./studio";
 import appGuide from "./app-guide";
 import { sharedCredentials } from "./shared-credentials";
+import apiErrors from "./api-errors";
 import ext from "./ext";
 import signingKeys from "./signing-keys";
 import directory from "./directory";
 import devdocs from "./devdocs";
 import embed from "./embed";
+import expertCenter from "./expert-center";
 
 export default {
   ...common,
   sharedCredentials,
+  apiErrors,
   ...config,
   ...infra,
   ...ops,
@@ -64,4 +67,5 @@ export default {
   ...directory,
   ...devdocs,
   ...embed,
+  ...expertCenter,
 } satisfies Messages<typeof zh>;

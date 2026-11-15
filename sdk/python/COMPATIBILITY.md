@@ -25,6 +25,7 @@ Python 客户端按服务端实际响应退化：
 | MCP `tools/list` cursor 分页、写确认 `_meta` | #128 | 一次返回全量、无 `nextCursor`；确认信息只在文本里 |
 | `/v1/*`、`/mcp` 的 `X-RateLimit-*` / `Retry-After` / `X-Request-Id` | #129 | 无这些响应头；不自动重试 |
 | 令牌 `client_kind`（`dsh` / `third_party`） | #132 | 旧令牌按 `dsh` 语义；第三方写确认建议重新签发 |
+| 思考模式能力声明（`/v1/models` 的 `capabilities.reasoning`、发现文档 `models.reasoning`） | 本仓库思考模式 PR | `/v1/models` 无 `capabilities` 字段、发现文档无 `models.reasoning`；`thinking`/`reasoning_effort` 一直原样透传，不影响非流式调用 |
 
 `e2e/tests/35-harness-sdk.mjs`（Node）对同一套契约做 mock/live 分层验证；Python 测试为纯假
 transport 单测，不依赖服务端 PR。
@@ -32,7 +33,31 @@ transport 单测，不依赖服务端 PR。
 ## 3. 模型面（OpenAI chat completions 子集）
 
 - `list_models()`：`{object:"list", data:[{id, object, owned_by}]}`。
-- `chat_completion()`：非流式 `POST /v1/chat/completions`，请求体按 OpenAI shape 透传。
+- `chat_completion()`：非流式 `POST /v1/chat/completions`，请求体按 OpenAI shape 透传；
+  `thinking` / `reasoning_effort` 原样转发，响应里的 `choices[].message.reasoning_content`
+  原样返回（只支持非流式）。
+- 请求携带 `tools` 时，历史 assistant 消息的 `reasoning_content` **必须原样回传**，否则上游会
+  返回 400；不带 `tools` 时可省略。这是客户端责任：dsh-ee 网关照转不校验。
+- DeepSeek Chatbot 扩展同样是透传：请求 `tools` 里的服务端工具（`deepseek_web_search` /
+  `deepseek_read_url`）、`safety_check`、`title` 原样转发；响应 `message.server_tool_calls` /
+  `message.annotations` / `message.title` / `message.refusal` 原样返回。dsh-ee 与 Python SDK
+  都不解析、不改写、不执行这些工具（搜索/读链接由上游完成）。
+- 服务端工具轮次的多轮请求要把历史 assistant 消息的 `server_tool_calls` 原样回传，尤其 `kind` 与
+  `signature`；丢失 `signature` 请求仍成功但页面不进上下文。
+- 内容安全拒答：`finish_reason: "content_filter"` + `message.refusal`；Messages API 形状为
+  `stop_reason: "refusal"` + `stop_details`（`DeepSeekStopDetails`）。
+- 启用 Chatbot 能力后，上游会忽略部分采样参数（`temperature` / `top_p` / `frequency_penalty` /
+  `presence_penalty` / `stop` / `seed` / `n` 等），`max_tokens` 仍生效；dsh-ee 不改写请求。
+- `latest_reminder`：`messages` 里的 `{"role":"latest_reminder","content":"<date>,<weekday>,<location>,<platform>,<language>"}`
+  （`DeepSeekLatestReminder` / `format_latest_reminder()`），必须紧贴其对应的 `user` 消息之前；
+  位置/格式错误由上游 400，content 非字符串为 422。dsh-ee/SDK 只透传，不校验时间或语言取值。
+- `file` 内容块：引用 DeepSeek Files API 的 `file_id`，或内联 `file_data`（base64 data URL，可带
+  `filename`），二者恰好二选一。**文件必须先通过 DeepSeek Files API 上传/解析；dsh-ee 的 `/v1`
+  只透传 chat 请求，不代理 `/files`，本 SDK 也不实现 Files API。** 文档（PDF/Word/PPT 等）只能用
+  `file_id` 引用；Messages API 形状的 `document` 块类型（`source.type = file / text`）也提供，
+  但 SDK 不调用 Messages API。
+- Chatbot 相关限制与错误由上游决定（单请求最多 20 个文档/文本 ≤8 MiB、上传大小与解析时限等）；
+  dsh-ee 原样返回上游错误。
 - **不支持流式 chat**（`urllib` 一次性读 body）；需要流式请用 TypeScript 版。
 - **不支持** Anthropic Messages、OpenAI Responses 等其它协议，也不兼容 Claude Code / Codex
   的专有请求格式；Claude Code / Codex 只能作为 MCP 客户端使用 `/mcp` 工具面。

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { Download, Pencil, Trash2 } from "lucide-react";
 import { api, formatTime, type AppField, type AppRow, type AppTable, type AppTableInfo } from "../lib/api";
+import { formatNumber } from "../lib/format";
 import { useAction, useApi } from "../lib/use-api";
 import { useConfirm } from "../lib/confirm";
 import { LoadState } from "./api-ui";
@@ -66,7 +67,7 @@ export function TablesField({ text, onText }: { text: string; onText: (text: str
 function cell(f: AppField, v: unknown): string {
   if (v === null || v === undefined || v === "") return "—";
   if (f.kind === "bool") return v ? "✓" : "✗";
-  if (f.kind === "money" && typeof v === "number") return `¥${v.toLocaleString()}`;
+  if (f.kind === "money" && typeof v === "number") return `¥${formatNumber(v)}`;
   return String(v);
 }
 

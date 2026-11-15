@@ -16,18 +16,25 @@
 | 发现文档（ETag 缓存）/ 能力摘要 / 模型目录 | ✅ | ✅ |
 | chat completion 非流式 | ✅ | ✅ |
 | chat completion SSE 流式 | ✅ | — |
+| Chatbot 流式事件（`server_tool_event` / `delta.title`）类型 | ✅ | 仅类型 |
 | 设备码登录（申请 / 轮询 / `slow_down`） | ✅ | ✅ |
 | MCP initialize / `tools/list` 分页 / `tools/call` | ✅ | ✅ |
 | 写确认 `_meta["dsh-ee/confirmation"]` | ✅ | ✅ |
+| DeepSeek Chatbot 扩展类型（server tools / safety / title / 拒答 / latest_reminder / file·document；仅透传） | ✅ | ✅ |
 | 错误壳 / `X-RateLimit-*` / `Retry-After` 解析 | ✅ | ✅ |
 
 示例与兼容性：
 
-- 示例（MCP-only Claude Code / Codex、通用 Harness、浏览器 CORS）：[`examples/`](examples/README.md)
+- 示例（MCP-only Claude Code / Codex、通用 Harness、浏览器 CORS、思考模式、Chatbot 服务端工具）：
+  [`examples/`](examples/README.md)
 - 兼容性矩阵：[`typescript/COMPATIBILITY.md`](typescript/COMPATIBILITY.md)、
   [`python/COMPATIBILITY.md`](python/COMPATIBILITY.md)
 - 变更记录：[`typescript/CHANGELOG.md`](typescript/CHANGELOG.md)、
   [`python/CHANGELOG.md`](python/CHANGELOG.md)
+
+> DeepSeek Chatbot 的搜索/阅读链接/内容安全审核/会话标题由上游服务端执行；`latest_reminder`
+> 只是 messages 里的标记消息；文件/文档需先通过 DeepSeek Files API 上传（dsh-ee 只透传 chat 请求，
+> 不代理 `/files`）。dsh-ee 与 SDK 只透传字段和提供类型，不实现服务端工具或文件解析逻辑。
 
 依赖的服务端契约：
 

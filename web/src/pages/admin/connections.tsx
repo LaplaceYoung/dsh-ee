@@ -2,6 +2,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Plus } from "lucide-react";
 import { api } from "../../lib/api";
+import { formatNumber } from "../../lib/format";
 import { useApi } from "../../lib/use-api";
 import { assetPath, scopeSummary } from "../../lib/hub";
 import { LoadState } from "../../components/api-ui";
@@ -91,7 +92,7 @@ export default function AdminConnections() {
                       <td className="px-5 py-3 text-right tabular-nums">
                         {c.tools} / {c.tools_total}
                       </td>
-                      <td className="px-5 py-3 text-right tabular-nums">{c.uses.toLocaleString()}</td>
+                      <td className="px-5 py-3 text-right tabular-nums">{formatNumber(c.uses)}</td>
                       <td className="px-5 py-3 text-neutral-700">
                         {scopeSummary(t, c.scope, opts.roleName)}
                         {c.delivery === "auto" && (

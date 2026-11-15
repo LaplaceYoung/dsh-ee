@@ -138,7 +138,8 @@ func TestKnowledge(t *testing.T) {
 	expect(t, "重复标识", code, 409, body)
 
 	// carol 当差旅库的维护者
-	code, body = admin.do("PATCH", "/api/kb/"+itoa(travel), map[string]any{"maintainers": map[string]any{"users": []int64{ids["carol"]}}}, nil)
+	code, body = admin.do("PATCH", "/api/kb/"+itoa(travel), map[string]any{"maintainers": map[string]any{"users": []int64{ids["carol"]}},
+		"updated_at": scopeToken(t, admin, "/api/kb/"+itoa(travel))}, nil)
 	expect(t, "设维护者", code, 200, body)
 
 	// 上传：bob 不是维护者
