@@ -44,18 +44,23 @@ lang: zh-CN
 | [responses-api.md](./responses-api.md) | Harness 接入 | Codex / OpenAI Agents SDK 等 Responses 客户端调 `POST /v1/responses`：请求映射、output item、SSE 与 v0 边界 |
 | [chatbot.md](./chatbot.md) | Harness 接入 | DeepSeek Chatbot 的联网工具、内容安全与会话标题：注入开关、透传规则与能力声明 |
 
-站内页面还会做标题、摘要、标签与正文的客户端全文搜索（中文两字词直接子串匹配，多词要求全部命中；`⌘K` 里也有一组「文档」），逻辑见 `web/src/data/dev-docs-search.ts`，不需要另建搜索索引。
+站内页面还会做标题、摘要、标签与正文的客户端全文搜索（按界面语言取对应语言的标题/摘要/正文，中文两字词直接子串匹配，多词要求全部命中；`⌘K` 里也有一组「文档」），逻辑见 `web/src/data/dev-docs-search.ts`，不需要另建搜索索引。
 
 构建期同时生成 `web/public/llms.txt`：给 Agent 的入口（站内文档清单 + 发现/模型/MCP/错误码等契约链接），部署后 `/llms.txt` 匿名可读。契约入口在 [`scripts/docs/manifest.json`](../../scripts/docs/manifest.json) 的 `llms.contracts` 里配置：站内路径写 `url`，仓库文档写 `docs`（生成器会检查该文件存在，避免 llms.txt 断链）；`repository` 决定「查看源文件」和仓库契约链接指向的仓库。
 
-站内页面用的 front matter 字段：`slug`（站内路由 `/docs/<slug>`，只允许小写字母、数字、连字符）、`category`（`start` / `harness` / `plugin` / `extension` / `access` / `publish` / `quality`）、`title`、`title_en`、`summary`、`summary_en`、`tags`（可选，用于搜索）、`updated_at`（可选，`YYYY-MM-DD`，展示在列表与详情页）。整块 front matter 是可选的：没有时 slug 取文件名、标题取正文第一个一/二/三级标题、摘要取第一段、分类用白名单里的 `defaultCategory`；但站内页面建议写全。
+站内页面用的 front matter 字段：`slug`（站内路由 `/docs/<slug>`，只允许小写字母、数字、连字符）、`category`（`start` / `harness` / `plugin` / `extension` / `access` / `publish` / `quality`）、`title` / `title_en` / `title_es` / `title_pt` / `title_hi`、`summary` / `summary_en` / `summary_es` / `summary_pt` / `summary_hi`、`tags`（可选，用于搜索）、`updated_at`（可选，`YYYY-MM-DD`，展示在列表与详情页）。整块 front matter 是可选的：没有时 slug 取文件名、标题取正文第一个一/二/三级标题、摘要取第一段、分类用白名单里的 `defaultCategory`；但站内页面建议写全。
+
+标题与摘要五语（`zh` / `en` / `es` / `pt` / `hi`）：中文是源语言（`title` / `summary`），其它语言用同名 `_<lang>` 后缀字段；生成物 `web/src/generated/dev-docs.ts` 始终输出五个键，**缺译按「该语言 → en → zh」回退**（`_en` 缺省也回退中文）。站内页面与 `⌘K` 搜索按界面语言取值（`web/src/lib/dev-docs-i18n.ts` 的 `pickLocalized`）。
+
+正文也分语言：中文正文在 `docs/dev/<文件>`（front matter 之后），其它语言放在镜像目录 `docs/<lang>/<文件>`（`docs/en/dev/overview.md` / `docs/es/dev/...` / `docs/pt/...` / `docs/hi/...`）。译文文件**没有 front matter、首行是一级标题**，站内链接直接写 `/docs/<slug>`。生成器把中文正文留在 `web/src/generated/dev-docs.ts` 的 `markdown`，其它语言**按语言拆到 `web/src/generated/dev-docs-bodies.<lang>.ts`**（`slug → 正文`），元数据用 `hasBody` 标记哪些语言有译文；页面运行时用显式 `import()` 按语言懒加载（`web/src/lib/dev-docs-i18n.ts` 的 `loadDocBodies` / `docBodyForAsync`，Vite 拆成按需 chunk，主 bundle 不再带四语正文），按「请求语言 → en → zh」取正文，回退到中文正文时显示「正文为中文」徽标。搜索在进入 `/docs` 或打开 `⌘K` 时用 `primeBodies(lang)` 预热当前语言正文（未预热时按中文正文兜底）。**缺某语言译文不会让构建失败**（渐进补译），但生成日志会打印各语言的覆盖率；`scripts/docs/build.test.mjs` 会在正文接入完成后断言已接入译文的文档四语全部就绪。
 
 新增或修改一篇站内文档的流程：
 
-1. 在 `docs/dev/` 新建 Markdown 或在已有文件里改正文，按上面的字段补 front matter（每篇仍必须有 `title` / `status` / `since` / `lang`，见维护规则）。
-2. 在 [`scripts/docs/manifest.json`](../../scripts/docs/manifest.json) 的 `docs` 数组里登记相对 `docs/` 的路径。
-3. 重新生成生成物并提交：`cd web && pnpm docs:build`（`pnpm build` 会经 prebuild 自动跑；一次生成 `web/src/generated/dev-docs.ts` 与 `web/public/llms.txt` 两个文件）。
-4. 本地自查：`cd web && pnpm docs:check && pnpm docs:test`（CI 的 web job 也会跑这两条）。
+1. 在 `docs/dev/` 新建 Markdown 或在已有文件里改正文，按上面的字段补 front matter（每篇仍必须有 `title` / `status` / `since` / `lang`，见维护规则）；发布到站内的文档同时补 `title_en` / `title_es` / `title_pt` / `title_hi` 与对应 `summary_*`（缺译能构建，但会少一种语言的标题/摘要）。
+2. 有译文时，把该语言的正文放到镜像目录 `docs/<lang>/<同一文件>`（无 front matter，首行标题，站内链接写 `/docs/<slug>`）；缺译不阻塞构建，由后续补译 PR 补齐。
+3. 在 [`scripts/docs/manifest.json`](../../scripts/docs/manifest.json) 的 `docs` 数组里登记相对 `docs/` 的路径。
+4. 重新生成生成物并提交：`cd web && pnpm docs:build`（`pnpm build` 会经 prebuild 自动跑；一次生成 `web/src/generated/dev-docs.ts`、4 个 `web/src/generated/dev-docs-bodies.<lang>.ts` 与 `web/public/llms.txt`）。
+5. 本地自查：`cd web && pnpm docs:check && pnpm docs:test`（CI 的 web job 也会跑这两条）。
 
 ## 文档清单
 
@@ -103,7 +108,7 @@ lang: zh-CN
 
 - 每篇必须有 front matter：`title`、`status`、`since`、`lang`；新增文档要同时在上面的「站内 `/docs` 页面」表与「文档清单」里登记。
 - 相对链接必须能解析、锚点必须存在；pin 表行必须完整。本地运行 `node scripts/check-docs.mjs` 检查，CI 的 `docs` job 也会跑。
-- 站内发布（白名单）文档改动后要重新生成并提交：`cd web && pnpm docs:build`；CI 用 `node scripts/docs/build.mjs --check` 校验 `dev-docs.ts` 与 `llms.txt` 两个生成物，改了文档没重新生成会失败。发布集内的相对 `.md` 链接在生成时改写成站内路由 `/docs/<slug>`，源文件保持 GitHub 可读。
+- 站内发布（白名单）文档改动后要重新生成并提交：`cd web && pnpm docs:build`；CI 用 `node scripts/docs/build.mjs --check` 校验 `dev-docs.ts`、4 个按语言拆分的 `dev-docs-bodies.<lang>.ts` 与 `llms.txt`，改了文档没重新生成会失败。发布集内的相对 `.md` 链接在生成时改写成站内路由 `/docs/<slug>`，源文件保持 GitHub 可读。
 - 新增/调整 llms.txt 的契约入口时改 `manifest.json` 的 `llms.contracts`，并确认引用的 `docs/` 文件存在（生成器会报错）。详情页的「查看源文件」链接由生成物的 `source` 字段给出，不需要手写。
 - 没有生成物时站内页面回退到旧静态副本（`web/src/data/dev-docs-fallback.ts`），仅作兜底、不再新增内容。
 - 本目录只写 dsh-ee 视角的摘要与外链，不复制上游正文；仓库内按许可改编的上游参考统一放 `docs/plugin-dev/`，来源与署名登记在 SOURCES。

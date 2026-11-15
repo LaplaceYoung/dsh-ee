@@ -10,13 +10,14 @@ import { ArrowRight, BookMarked, FlaskConical } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { DEV_DOCS } from "../data/dev-docs";
 import { DEV_EXAMPLES } from "../data/dev-examples";
+import { pickLocalized } from "../lib/dev-docs-i18n";
 import { isZh } from "../i18n";
 import { Card, CardHeader } from "./ui";
 
 const rowCls = "group flex items-center gap-3 border-t border-neutral-100 py-2.5 first:border-t-0 first:pt-1 dark:border-white/[0.07]";
 
 export function DevCards({ className }: { className?: string }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { can } = useAuth();
   if (!can("portal.view")) return null;
   const zh = isZh();
@@ -48,9 +49,9 @@ export function DevCards({ className }: { className?: string }) {
                 <Link to={`/docs/${doc.slug}`} data-dev-doc={doc.slug} className={rowCls}>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium text-neutral-900 group-hover:text-brand-700 dark:group-hover:text-brand-300">
-                      {zh ? doc.title.zh : doc.title.en}
+                      {pickLocalized(doc.title, i18n.resolvedLanguage)}
                     </span>
-                    <span className="mt-0.5 block truncate text-xs text-neutral-500">{zh ? doc.summary.zh : doc.summary.en}</span>
+                    <span className="mt-0.5 block truncate text-xs text-neutral-500">{pickLocalized(doc.summary, i18n.resolvedLanguage)}</span>
                   </span>
                   <ArrowRight size={14} className="shrink-0 text-neutral-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500" />
                 </Link>

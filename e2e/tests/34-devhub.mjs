@@ -212,8 +212,18 @@ export default async function (t) {
   await en.getByRole("heading", { level: 1, name: "Developer docs" }).waitFor();
   await en.locator("aside").getByRole("link", { name: "Developer docs" }).waitFor();
   await en.locator("aside").getByRole("link", { name: "Examples" }).waitFor();
+  // 文档已五语化：已接入译文的 8 篇在英文界面显示英文标题/摘要，不再出现「Body in Chinese」回退徽标
+  await en.getByText("Where to start: three development paths").first().waitFor();
+  const overviewCard = en.locator('a[data-dev-doc="overview"]');
+  assertEq(await overviewCard.getByText("Body in Chinese").count(), 0, "overview 已有英文译文，不应显示「正文为中文」徽标");
+  // main 上新增、还没补译的站内文档仍按中文正文回退：徽标只对「回退到中文正文」显示
+  await en.goto(`${BASE}/docs/deepseek-tools`);
   await en.getByText("Body in Chinese").first().waitFor();
+  // 详情页渲染的是英文正文（而非中文正文 + 徽标）
+  await en.goto(`${BASE}/docs/overview`);
+  await en.getByText("splits into three paths by deliverable").waitFor();
+  assertEq(await en.getByText("Body in Chinese").count(), 0, "英文正文详情页不应再显示「正文为中文」徽标");
   await en.goto(`${BASE}/examples`);
   await en.getByRole("heading", { level: 1, name: "Examples" }).waitFor();
-  step("英文界面：页名、侧栏「Develop」组与文档语言提示都正确");
+  step("英文界面：页名、侧栏「Develop」组、英文文档标题与英文正文都正确");
 }

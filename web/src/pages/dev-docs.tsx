@@ -3,30 +3,49 @@
  *
  * 内容优先来自构建期生成物 web/src/generated/dev-docs.ts（源是仓库 docs/，
  * 见 scripts/docs/build.mjs）；没有生成物时回退到旧静态数据，点开进入 /docs/:slug 阅读。
- * 目录支持按分类筛选 + 客户端搜索（标题/摘要/标签/正文，中文两字词直接子串匹配），
- * 搜索逻辑在 data/dev-docs-search.ts，⌘K 的「文档」分组共用同一套；不依赖任何后端搜索。
+ * 标题与摘要按界面语言同步取（五语，缺失回退英文再回退中文，见 lib/dev-docs-i18n.ts）；
+ * 正文按语言拆在独立 chunk 里，列表页不为每张卡片加载正文——徽标只读同步的 hasBody 元数据，
+ * 阅读时长用中文源正文估算（取舍见下）。目录支持按分类筛选 + 客户端搜索（标题/摘要/标签/正文，
+ * 中文两字词直接子串匹配）：进页面时 primeBodies(lang) 预热当前语言正文，预热完成后英文 / es /
+ * pt / hi 正文也可搜到，未预热时按中文正文兜底（中文搜索行为不变）。搜索逻辑在
+ * data/dev-docs-search.ts，⌘K 的「文档」分组共用同一套；不依赖任何后端搜索。
  * 侧栏与工作台卡片的入口也指向这里，但即使管理员改了菜单，URL 仍保持不变。
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Search, X } from "lucide-react";
 import { DOC_CATEGORIES, DEV_DOCS, readMinutes, type DocCategory } from "../data/dev-docs";
-import { matchesDevDoc } from "../data/dev-docs-search";
-import { isZh } from "../i18n";
+import { matchesDevDoc, primeBodies } from "../data/dev-docs-search";
+import { docLang, pickLocalized } from "../lib/dev-docs-i18n";
+import { DevDocBodyBadge } from "../components/dev-doc-body-badge";
 import { Badge, Card, cardHover, cx, Empty, Notice, PageHeader, Segmented } from "../components/ui";
 import { LangSwitch } from "../components/lang-switch";
 
 type Filter = "all" | DocCategory;
 
 export default function DevDocs() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const zh = isZh();
+  const lang = docLang(i18n.resolvedLanguage);
+  // 预热当前语言的正文 chunk，完成后用版本号触发一次重算：搜索从「中文正文兜底」升级为
+  // 「按界面语言正文匹配」。zh 的正文在元数据里，primeBodies 直接 resolve，不下载 chunk。
+  const [bodiesVersion, setBodiesVersion] = useState(0);
+  useEffect(() => {
+    if (lang === "zh") return;
+    let alive = true;
+    primeBodies(lang).then((ok) => {
+      if (alive && ok) setBodiesVersion((version) => version + 1);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [lang]);
   const docs = useMemo(
-    () => DEV_DOCS.filter((doc) => (filter === "all" || doc.category === filter) && matchesDevDoc(doc, query)),
-    [filter, query],
+    () => DEV_DOCS.filter((doc) => (filter === "all" || doc.category === filter) && matchesDevDoc(doc, query, lang)),
+    // bodiesVersion 只用于「正文预热完成后重算」，本身不参与过滤
+    [filter, query, lang, bodiesVersion],
   );
 
   return (
@@ -85,12 +104,13 @@ export default function DevDocs() {
                   )}
                 </div>
                 <h2 className="mt-2.5 text-[15px] leading-6 font-semibold text-neutral-900 group-hover:text-brand-700 dark:group-hover:text-brand-300">
-                  {zh ? doc.title.zh : doc.title.en}
+                  {pickLocalized(doc.title, lang)}
                 </h2>
-                <p className="mt-1 line-clamp-3 text-sm leading-6 text-neutral-600">{zh ? doc.summary.zh : doc.summary.en}</p>
+                <p className="mt-1 line-clamp-3 text-sm leading-6 text-neutral-600">{pickLocalized(doc.summary, lang)}</p>
                 <div className="mt-auto flex items-center gap-1.5 pt-3 text-xs text-neutral-500">
-                  <span>{t("devdocs.readMinutes", { count: readMinutes(doc.body) })}</span>
-                  {!zh && <Badge tone="amber">{t("devdocs.zhOnly")}</Badge>}
+                  {/* 列表页不加载译文正文，阅读时长按中文源正文估算（避免为列表下载 4 语 chunk） */}
+                  <span>{t("devdocs.readMinutes", { count: readMinutes(doc.body, "zh") })}</span>
+                  <DevDocBodyBadge doc={doc} lang={lang} />
                   <ArrowRight size={14} className="ml-auto text-neutral-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500" />
                 </div>
               </Card>

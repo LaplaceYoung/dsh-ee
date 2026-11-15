@@ -8,6 +8,9 @@
     ],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // 允许个别 import 写显式 .ts（data/dev-docs-search.ts 要能被 Node 的 --experimental-strip-types 直接跑测试，
+    // 而 Node 不解析无扩展名的相对导入；noEmit 下不产生任何运行期影响）。
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "strict": true,
     "noEmit": true,
