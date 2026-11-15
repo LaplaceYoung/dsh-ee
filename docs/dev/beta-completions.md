@@ -124,6 +124,6 @@ curl -fsS "$BASE/beta/chat/completions" \
 
 ## 相关文档
 
-- 第三方 Harness / 自研客户端接入模型网关：[非 DSH 客户端接入 L1](../l1-client.md)
-- 错误与常见问题（网关部分）：[错误与常见问题](../errors.md)
+- 第三方 Harness / 自研客户端接入模型网关：[非 DSH 客户端接入 L1](https://github.com/hikariming/dsh-ee/blob/main/docs/l1-client.md)
+- 错误与常见问题（网关部分）：[错误与常见问题](https://github.com/hikariming/dsh-ee/blob/main/docs/errors.md)
 - 五分钟接入一个令牌：[接第三方 Harness / 自研客户端](./harness-quickstart.md)
