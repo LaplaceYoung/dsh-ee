@@ -153,7 +153,9 @@ func TestWebApp(t *testing.T) {
 	// 不在范围内的人打不开
 	code, body = admin.do("POST", "/api/admin/users", map[string]any{"username": "eve", "password": "eve-password-1", "department": "财务部"}, nil)
 	expect(t, "建 eve", code, 201, body)
-	code, body = admin.do("PATCH", "/api/hub/"+itoa(assetIDBySlug(t, admin, "web-app")), map[string]any{"scope": map[string]any{"departments": []string{"研发部"}}}, nil)
+	webAppID := assetIDBySlug(t, admin, "web-app")
+	code, body = admin.do("PATCH", "/api/hub/"+itoa(webAppID), map[string]any{"scope": map[string]any{"departments": []string{"研发部"}},
+		"updated_at": scopeToken(t, admin, "/api/hub/"+itoa(webAppID))}, nil)
 	expect(t, "缩小范围", code, 200, body)
 	eve := newClient(t, ts.URL)
 	code, body = eve.do("POST", "/api/auth/login", map[string]string{"username": "eve", "password": "eve-password-1"}, nil)

@@ -16,7 +16,7 @@ import {
   type EmbedTheme,
 } from "./embed";
 
-/** 解析嵌入参数（?embed=1&host=…&fit=auto&theme=…）；非嵌入模式全部为默认值。 */
+/** 解析嵌入参数（?embed=1&host=…&fit=auto&theme=…&lang=…）；非嵌入模式全部为默认值。 */
 export function useEmbedOptions(): EmbedOptions {
   const { search } = useLocation();
   return useMemo(() => parseEmbedOptions(search), [search]);

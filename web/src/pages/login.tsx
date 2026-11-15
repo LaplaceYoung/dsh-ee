@@ -20,13 +20,14 @@ function safeNext(raw: string | null) {
 
 export default function Login() {
   const { t } = useTranslation();
-  const { user, loading, error: bootError, login, refresh } = useAuth();
+  const { user, loading, error: bootError, login, logout, refresh } = useAuth();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const next = safeNext(params.get("next"));
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // 演示站：点了哪张场景卡片、登录后去哪
   const [picking, setPicking] = useState<string | null>(null);
@@ -41,11 +42,23 @@ export default function Login() {
   // 从 DSH 自动登录的会话只带员工权限：带 reauth=1 进来时照常显示登录表单
   const reauth = params.get("reauth") === "1" && !!user?.limited;
   const handoffExpired = params.get("handoff") === "expired";
+  // 浏览器里已经登录着别的账号：handoff 不会替换会话，只把人送回登录页（见 /api/auth/handoff）。
+  // 这时不能自动跳走，否则提示没机会显示；也不自动登出，由用户点「退出当前账号」。
+  const handoffOtherSession = params.get("handoff") === "other-session";
   useEffect(() => {
     if (reauth && user) setUsername((current) => current || user.username);
   }, [reauth, user]);
 
-  if (!loading && user && !reauth) return <Navigate to={dest ?? next} replace />;
+  if (!loading && user && !reauth && !handoffOtherSession) return <Navigate to={dest ?? next} replace />;
+
+  const signOut = async () => {
+    setSigningOut(true);
+    try {
+      await logout();
+    } finally {
+      setSigningOut(false);
+    }
+  };
 
   const pick = async (p: DemoPersona) => {
     setPicking(p.username);
@@ -103,9 +116,16 @@ export default function Login() {
       <form onSubmit={submit} className="relative w-full max-w-[400px] rounded-xl bg-card p-7 shadow-modal sm:p-8">
         <h1 className="text-[22px] leading-7 font-bold tracking-[-0.02em] text-neutral-900">{t("login.title")}</h1>
         <p className="mt-1.5 text-sm leading-6 text-neutral-600">{ldap ? t("login.ldapHint") : t("login.subtitle")}</p>
-        {(reauth || handoffExpired) && (
+        {(reauth || handoffExpired || handoffOtherSession) && (
           <Notice role="status" className="mt-4">
-            {t(reauth ? "login.reauth" : "login.handoffExpired")}
+            {t(reauth ? "login.reauth" : handoffOtherSession ? "login.handoffOtherSession" : "login.handoffExpired")}
+            {handoffOtherSession && user && (
+              <div className="mt-2">
+                <Button type="button" size="sm" variant="secondary" disabled={signingOut} onClick={() => void signOut()}>
+                  {t("shell.logout")}
+                </Button>
+              </div>
+            )}
           </Notice>
         )}
         {demo && (

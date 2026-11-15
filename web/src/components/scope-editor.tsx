@@ -31,6 +31,7 @@ export function ScopeEditor({
   users,
   departments = [],
   selfId,
+  noneHint,
 }: {
   value: Scope;
   onChange: (s: Scope) => void;
@@ -38,6 +39,8 @@ export function ScopeEditor({
   users?: User[] | null;
   departments?: string[];
   selfId?: number;
+  /** 一个人都没选时的提示；默认是能力可用范围的说法，别的场景（如禁用策略）传自己的 */
+  noneHint?: string;
 }) {
   const { t } = useTranslation();
   const L = useLabels();
@@ -143,7 +146,7 @@ export function ScopeEditor({
               </div>
             </div>
           )}
-          {nobody && <p className="text-xs text-amber-700">{t("scopeEditor.none")}</p>}
+          {nobody && <p className="text-xs text-amber-700">{noneHint ?? t("scopeEditor.none")}</p>}
         </div>
       )}
     </div>

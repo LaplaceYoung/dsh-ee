@@ -165,6 +165,12 @@ export interface Model {
   upstream_model: string;
   display_name: string;
   enabled: boolean;
+  /** 支持思考模式（thinking / reasoning_effort）；只用于 /v1/models 的能力声明，网关不据此校验。 */
+  supports_reasoning: boolean;
+  /** 可用的思考强度（对外原样值，如 low/high/max）；空表示按上游默认。 */
+  reasoning_efforts: string[];
+  /** 接受的请求输入模态（text/image/file，text 始终存在）；只用于能力公布与 dsh-connect 配置。 */
+  input_modalities: string[];
 }
 
 export interface GetStarted {
@@ -826,6 +832,14 @@ export interface AssetSpec {
   highlights?: string[];
   /** 微应用：样板，出现在「造 → 从样板复制」里（管理员设）。 */
   template?: boolean;
+  /** 微应用的形态：空是普通微应用，expert 是专家（docs/expert-center.md） */
+  form?: "" | "app" | "expert";
+  /** 专家：擅长领域标签，最多 6 个 */
+  expertise?: string[];
+  /** 专家：工作方法（Markdown） */
+  method?: string;
+  /** 专家团队：成员专家的标识，最多 5 个 */
+  members?: string[];
   knowledge?: string[];
   skills?: string[];
   connections?: string[];
@@ -875,6 +889,50 @@ export interface HubAsset {
   scope_requested_at: string | null;
   /** 上一次范围申请被驳回的原因。 */
   scope_note: string;
+  /** 受管分类；null 表示没归类 */
+  category_id: number | null;
+  /** 精选：DSH 面板里排在最前 */
+  featured: boolean;
+}
+
+export type CategoryGroup = "app" | "skill" | "connection";
+
+export interface Category {
+  id: number;
+  group: CategoryGroup;
+  name: string;
+  sort: number;
+  scope: Scope;
+  created_at: string;
+  updated_at: string;
+  /** 归在这个分类下的能力数 */
+  assets: number;
+}
+
+export interface AssetBlock {
+  id: number;
+  scope: Scope;
+  asset_ids: number[];
+  note: string;
+  updated_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EffectiveItem {
+  id: number;
+  kind: AssetKind;
+  form?: string;
+  slug: string;
+  title: string;
+  result: "enabled" | "available" | "hidden";
+  reason?: "unpublished" | "not_live" | "out_of_scope" | "category" | "blocked";
+  block_ids?: number[];
+}
+
+/** 由 kind 与 form 得出的展示类型：专家是 form=expert 的微应用。 */
+export function isExpert(a: { kind: AssetKind; spec?: AssetSpec }): boolean {
+  return a.kind === "app" && a.spec?.form === "expert";
 }
 
 export interface AssetVersion {
@@ -1362,6 +1420,8 @@ export interface PluginPolicy {
   name: string;
   scope: Scope;
   delivery: Delivery;
+  /** 乐观并发令牌：更新已有策略时原样带回；没有记录（第一次设置）时为空。 */
+  updated_at?: string;
 }
 
 export interface AssetReviewItem {
@@ -1391,6 +1451,7 @@ export interface AssetCreate {
   kind: AssetKind;
   slug: string;
   category?: string;
+  category_id?: number;
   spec: AssetSpec;
   scope?: Scope;
   delivery?: Delivery;
@@ -1839,10 +1900,29 @@ export const api = {
   checkProvider: (id: number) => request<CheckResult>("POST", `/api/admin/providers/${id}/check`),
 
   models: () => request<{ models: Model[] }>("GET", "/api/admin/models").then((r) => r.models),
-  createModels: (provider_id: number, items: { upstream_model: string; name?: string; display_name?: string }[]) =>
-    request<{ created: Model[]; skipped: string[] }>("POST", "/api/admin/models", { provider_id, items }),
-  updateModel: (id: number, patch: Partial<{ name: string; upstream_model: string; display_name: string; enabled: boolean }>) =>
-    request<Model>("PATCH", `/api/admin/models/${id}`, patch),
+  createModels: (
+    provider_id: number,
+    items: {
+      upstream_model: string;
+      name?: string;
+      display_name?: string;
+      supports_reasoning?: boolean;
+      reasoning_efforts?: string[];
+      input_modalities?: string[];
+    }[],
+  ) => request<{ created: Model[]; skipped: string[] }>("POST", "/api/admin/models", { provider_id, items }),
+  updateModel: (
+    id: number,
+    patch: Partial<{
+      name: string;
+      upstream_model: string;
+      display_name: string;
+      enabled: boolean;
+      supports_reasoning: boolean;
+      reasoning_efforts: string[];
+      input_modalities: string[];
+    }>,
+  ) => request<Model>("PATCH", `/api/admin/models/${id}`, patch),
   deleteModel: (id: number) => request<void>("DELETE", `/api/admin/models/${id}`),
 
   keys: () => request<{ keys: ApiKey[] }>("GET", "/api/admin/keys").then((r) => r.keys),
@@ -1882,7 +1962,7 @@ export const api = {
   knowledge: () => request<{ items: KBase[]; can_manage: boolean; formats: string[]; qa: KBQASettings }>("GET", "/api/kb"),
   createKB: (b: { slug: string; title: string; description: string; scope?: Scope; maintainers?: KBMaintainers }) => request<KBase>("POST", "/api/kb", b),
   kb: (id: number) => request<{ kb: KBase; docs: KDoc[]; used_by?: UsedByApp[] }>("GET", `/api/kb/${id}`),
-  patchKB: (id: number, p: Partial<{ title: string; description: string; scope: Scope; maintainers: KBMaintainers }>) => request<KBase>("PATCH", `/api/kb/${id}`, p),
+  patchKB: (id: number, p: Partial<{ title: string; description: string; scope: Scope; maintainers: KBMaintainers; updated_at: string }>) => request<KBase>("PATCH", `/api/kb/${id}`, p),
   deleteKB: (id: number) => request<void>("DELETE", `/api/kb/${id}`),
   saveKBSettings: (s: KBQASettings) => request<KBQASettings>("PUT", "/api/kb/settings", s),
   /** asNew：同名时另存为新文档的文件名；其它同名文件更新成新版本 */
@@ -1955,7 +2035,7 @@ export const api = {
   dataTableDelete: (name: string) => request<void>("DELETE", `/api/admin/data/tables/${encodeURIComponent(name)}`),
   dataRun: (sql: string, values: Record<string, unknown>, params: DataParam[]) =>
     request<{ result: DataResult; params: DataParam[] }>("POST", "/api/admin/data/run", { sql, values, params }),
-  dataSetSave: (d: { slug: string; title: string; description: string; sql: string; params: DataParam[]; scope: Scope }, update: boolean) =>
+  dataSetSave: (d: { slug: string; title: string; description: string; sql: string; params: DataParam[]; scope: Scope; updated_at?: string }, update: boolean) =>
     update
       ? request<DataSet>("PUT", `/api/admin/data/datasets/${encodeURIComponent(d.slug)}`, d)
       : request<DataSet>("POST", "/api/admin/data/datasets", d),
@@ -1972,8 +2052,21 @@ export const api = {
       spec,
       ...(secret !== undefined ? { secret } : {}),
     }),
-  patchAsset: (id: number, p: Partial<{ category: string; scope: Scope; delivery: Delivery; status: "active" | "unpublished"; note: string }>) =>
+  patchAsset: (id: number, p: Partial<{ category: string; category_id: number; featured: boolean; scope: Scope; delivery: Delivery; status: "active" | "unpublished"; note: string; updated_at: string }>) =>
     request<HubAsset>("PATCH", `/api/hub/${id}`, p),
+  /** 解析技能包（.zip，含 SKILL.md），返回编辑器用的草稿；不写库 */
+  parseSkillPackage: (filename: string, data: string) =>
+    request<{ slug: string; spec: AssetSpec; included: string[]; skipped: { path: string; reason: "binary" | "too_large" | "over_limit" | "unsafe_path" }[] }>("POST", "/api/hub/skill-package", { filename, data }),
+  categories: () => request<{ categories: Category[] }>("GET", "/api/admin/hub/categories").then((r) => r.categories),
+  createCategory: (c: { group: CategoryGroup; name: string; sort?: number; scope?: Scope }) => request<Category>("POST", "/api/admin/hub/categories", c),
+  patchCategory: (id: number, c: Partial<{ name: string; sort: number; scope: Scope }>) => request<Category>("PATCH", `/api/admin/hub/categories/${id}`, c),
+  deleteCategory: (id: number) => request<void>("DELETE", `/api/admin/hub/categories/${id}`),
+  blocks: () => request<{ blocks: AssetBlock[] }>("GET", "/api/admin/hub/blocks").then((r) => r.blocks),
+  createBlock: (b: { scope: Scope; asset_ids: number[]; note: string }) => request<AssetBlock>("POST", "/api/admin/hub/blocks", b),
+  putBlock: (id: number, b: { scope: Scope; asset_ids: number[]; note: string }) => request<AssetBlock>("PUT", `/api/admin/hub/blocks/${id}`, b),
+  deleteBlock: (id: number) => request<void>("DELETE", `/api/admin/hub/blocks/${id}`),
+  effective: (user: number) =>
+    request<{ user: { id: number; username: string; display_name: string; department: string }; items: EffectiveItem[] }>("GET", `/api/admin/hub/effective?user=${user}`),
   deleteAsset: (id: number) => request<void>("DELETE", `/api/hub/${id}`),
   workbenchPreview: (app: string, source: unknown) =>
     request<{ value?: unknown; forbidden?: boolean; error?: string; note?: string }>("POST", "/api/me/workbench-preview", { app, source }),
@@ -1995,7 +2088,7 @@ export const api = {
   reviewScope: (r: { asset_id: number; action: "approve" | "reject"; note?: string }) => request<void>("POST", "/api/admin/hub/scope-review", { note: "", ...r }),
   reviewAsset: (r: { asset_id: number; version: number; action: "approve" | "reject"; note?: string }) =>
     request<void>("POST", "/api/admin/hub/review", { note: "", ...r }),
-  setPluginPolicy: (name: string, p: { scope: Scope; delivery: Delivery }) =>
+  setPluginPolicy: (name: string, p: { scope: Scope; delivery: Delivery; updated_at?: string }) =>
     request<PluginPolicy>("PUT", `/api/admin/plugin-policies/${encName(name)}`, p),
   sharedCredentials: (id: number) => request<SharedCredentialsResp>("GET", `/api/admin/connections/${id}/shared-credentials`),
   saveSharedCredential: (id: number, name: string, secret: string) =>

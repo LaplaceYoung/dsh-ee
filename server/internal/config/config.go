@@ -34,11 +34,15 @@ type Config struct {
 	LoginIPWindow time.Duration
 	// 是否开放 GET /metrics（Prometheus 文本格式，只允许本机 / 内网抓取）。默认关闭。
 	Metrics bool
-	// 公开协议面（/v1/* 与 /mcp）的每令牌限流，单位「次/分钟」；默认 60，0 或 off 关闭。
+	// 公开协议面（/v1/*、/beta/* 与 /mcp）的每令牌限流，单位「次/分钟」；默认 60，0 或 off 关闭。
 	RateLimitPerMinute int
 	// API 客户端（client_credentials）的每 IP 每分钟签发次数（DSH_EE_CLIENT_TOKEN_PER_MINUTE）；
 	// 默认 120，0 或 off 关闭。只防用错误 secret 撞库 / 刷库，正常集成远低于这个量。
 	ClientTokenPerMinute int
+	// DeepSeek FIM / Chat Prefix beta 透传（/beta/*）选用的上游：vendor=deepseek 的 provider
+	// name 或 id（DSH_EE_DEEPSEEK_PROVIDER）。为空时取优先级最高的启用 DeepSeek 上游；
+	// 找不到可用上游时 /beta/* 返回 503，不会跨厂商转发。见 server/internal/api/beta_completions.go。
+	DeepSeekBetaProvider string
 	// 旧版 npm 令牌（ee_npm_）与 API key（sk-ee-）的 scope 收敛（docs/token-lifecycle.md）。
 	// true 时它们只保留原始用途的 scope：npm 令牌只剩 registry，key 只剩模型网关；
 	// 默认 false 不改变旧行为，避免现有客户端突然失效。
@@ -55,6 +59,15 @@ type Config struct {
 	// 轮换宽限（DSH_EE_REFRESH_GRACE）：>0 时旧 refresh 在轮换后这段时间内重试会原样
 	// 返回上次响应（客户端没收到响应时的幂等重试）；0 表示严格，再次出现即按复用吊销整族。
 	RefreshGrace time.Duration
+	// DeepSeek 工具代理（docs/dev/deepseek-tools.md）：Files / ASR / TTS 转发到哪个模型上游。
+	// 取值是「模型接入」里 provider 的 name 或数字 id；为空时用第一个启用且 vendor=deepseek
+	// 的上游。只影响这些工具端点，不参与模型网关的故障切换。
+	DeepSeekProvider string
+	// DeepSeek 工具代理的访问边界（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）：默认 false 时
+	// /v1/files、/anthropic/v1/files 与 /v1/tools/* 只允许管理员与机器人/服务账号调用，
+	// 普通员工 403（并拦截聊天 / Responses 里引用 file_id，防止已知 id 被读取）。文件属于上游共享账号、
+	// 员工之间不隔离，开启前要评估租户风险。
+	DeepSeekToolsAllowEmployee bool
 	// 首次启动、用户表为空时创建的管理员。
 	BootstrapAdmin         string
 	BootstrapAdminPassword string
@@ -88,6 +101,14 @@ type Config struct {
 	DataDSN string
 	// 数据中台的只读账号（DSH_EE_DATA_READ_DSN）；不填时用 DataDSN 的账号自动建一个只有 SELECT 权限的账号。
 	DataReadDSN string
+	// DeepSeek Chatbot 的网关注入选项（docs/dev/chatbot.md）：
+	// SafetyCheck 是 DSH_EE_SAFETY_CHECK，默认空（off）不注入；high 时向 vendor=deepseek 的
+	// 上游请求注入 safety_check:{level:"high"}。客户端已经带了 safety_check 时保留客户端的值。
+	SafetyCheck string
+	// ChatTitle 是 DSH_EE_CHAT_TITLE，默认 off 不注入；on 时向 vendor=deepseek 的上游请求
+	// 注入 title:{enabled:true}。客户端已经带了 title 时保留客户端的值。
+	// 这两个选项只影响发往 DeepSeek 上游的那次请求，不改模型/额度/记账，也不改写响应。
+	ChatTitle bool
 	// 公开演示站（DSH_EE_DEMO_MODE）：登录页显示初始管理员账号，关掉改密码等会把别人锁在外面的操作，
 	// 对外请求只许连本机。DemoReset 是给访客看的重置周期说明，如「每 6 小时」。
 	// DemoResetEvery 是实际的重置间隔（和 crontab 一致），用来在登录页算下次重置的时间点；0 表示不显示。
@@ -249,6 +270,20 @@ func Load() (*Config, error) {
 		}
 		c.RefreshGrace = d
 	}
+	// DeepSeek 工具代理选用的上游：provider 的 name 或数字 id。写错不阻止启动（请求时按
+	// 503 deepseek_provider_unavailable 处理），只挡明显不可能是合法值的超长输入。
+	c.DeepSeekProvider = strings.TrimSpace(os.Getenv("DSH_EE_DEEPSEEK_PROVIDER"))
+	if len([]rune(c.DeepSeekProvider)) > 128 {
+		return nil, errors.New("DSH_EE_DEEPSEEK_PROVIDER 太长：只能是 provider 的 name 或数字 id")
+	}
+	// 工具代理的访问边界：默认只允许管理员与机器人/服务账号；写错让启动失败（fail closed）。
+	if v := os.Getenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE"); v != "" {
+		b, err := strconv.ParseBool(strings.TrimSpace(v))
+		if err != nil {
+			return nil, fmt.Errorf("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE: %w", err)
+		}
+		c.DeepSeekToolsAllowEmployee = b
+	}
 	if v := os.Getenv("DSH_EE_DEMO_MODE"); v != "" {
 		b, err := strconv.ParseBool(v)
 		if err != nil {
@@ -296,6 +331,7 @@ func Load() (*Config, error) {
 			c.ClientTokenPerMinute = n
 		}
 	}
+	c.DeepSeekBetaProvider = strings.TrimSpace(os.Getenv("DSH_EE_DEEPSEEK_PROVIDER"))
 	if v := os.Getenv("DSH_EE_SESSION_TTL"); v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil {
@@ -359,6 +395,21 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("DSH_EE_METRICS: %w", err)
 		}
 		c.Metrics = b
+	}
+	// DeepSeek Chatbot 选项：只接受文档里的取值，写错让启动失败，避免以为开了其实没开。
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("DSH_EE_SAFETY_CHECK"))); v {
+	case "", "off":
+	case "high":
+		c.SafetyCheck = "high"
+	default:
+		return nil, errors.New("DSH_EE_SAFETY_CHECK 只能是 off 或 high")
+	}
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("DSH_EE_CHAT_TITLE"))); v {
+	case "", "off":
+	case "on":
+		c.ChatTitle = true
+	default:
+		return nil, errors.New("DSH_EE_CHAT_TITLE 只能是 off 或 on")
 	}
 	if !cookieSecureSet && strings.HasPrefix(c.PublicURL, "https://") {
 		// 生产部署最常见的配置是只填 PUBLIC_URL。对外是 HTTPS 时会话 cookie 默认加 Secure，

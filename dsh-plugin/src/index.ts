@@ -12,7 +12,7 @@ import { ServerSettingsService } from "./server-settings.js";
 import { updateConnect } from "./connect-update.js";
 import { uploadPackage } from "./upload.js";
 import { AppBindings } from "./app-bindings.js";
-import { setAppSubscription } from "./app-subscription.js";
+import { setAppSubscription, setSubscription, type SubscriptionKind } from "./app-subscription.js";
 import { exchangeWebLink } from "./web-link.js";
 import { BoardStore, ChecklistStore, insertFormRow, writeTableRow, readKBDoc, readWidgetData, registerWorkbenchTool } from "./workbench-host.js";
 import { registerVotes } from "./votes.js";
@@ -79,6 +79,20 @@ export function apply(ctx: DshContext, input: Partial<PluginConfig>): void {
       setAppSubscription: async (name, enabled) => {
         const result = await setAppSubscription(http, name, enabled);
         if (result.ok) await skills?.refreshNow();
+        return result;
+      },
+      readCenter: async () => (await skillsReady).readCenter(),
+      setSubscription: async (request) => {
+        const kind = String(request?.kind ?? "") as SubscriptionKind;
+        const result = await setSubscription(http, kind, String(request?.name ?? ""), !!request?.enabled);
+        if (result.ok) {
+          await skills?.refreshNow();
+          // 连接启用、停用后工具清单变了：服务端也会推 tools/list_changed，这里再主动同步一次
+          if (kind === "connections") {
+            bridge.wake();
+            await bridge.sync().catch(() => undefined);
+          }
+        }
         return result;
       },
       readAppBindings: async () => appBindings.list(),

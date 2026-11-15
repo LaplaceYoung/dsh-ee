@@ -112,7 +112,8 @@ func (s *Server) handleMonthlyReport(w http.ResponseWriter, r *http.Request) {
 		"month":    month,
 		"org_name": set.OrgName,
 		"report":   rep,
-		"previous": map[string]any{"users": prev.Users, "active_users": prev.ActiveUsers, "app_runs": prev.AppRuns, "tool_calls": prev.ToolCalls, "kb_searches": prev.KBSearches, "tokens": prev.Tokens},
+		"previous": map[string]any{"users": prev.Users, "active_users": prev.ActiveUsers, "app_runs": prev.AppRuns, "tool_calls": prev.ToolCalls, "kb_searches": prev.KBSearches, "tokens": prev.Tokens,
+			"reasoning_tokens": prev.ReasoningTokens, "cached_tokens": prev.CachedTokens},
 		"params":   p,
 		"estimate": estimate(rep, p),
 		// 好评率：还没有收集评价（👍👎 在后续版本上线），为 null 时页面写明

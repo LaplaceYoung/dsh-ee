@@ -288,7 +288,8 @@ func TestHub(t *testing.T) {
 		t.Fatalf("技能正文：%d %s", code, body)
 	}
 	// 范围收窄到研发效能部：bob 立即失去，alice 保留
-	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", expenseID), map[string]any{"scope": map[string]any{"departments": []string{"研发效能部"}}}, nil)
+	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", expenseID), map[string]any{"scope": map[string]any{"departments": []string{"研发效能部"}},
+		"updated_at": scopeToken(t, alice, fmt.Sprintf("/api/hub/%d", expenseID))}, nil)
 	expect(t, "作者改范围", code, 200, body)
 	if len(dsh["bob"].catalog().Skills) != 0 {
 		t.Fatal("范围外的人不应再有")
@@ -563,7 +564,8 @@ func TestHub(t *testing.T) {
 	if c := dsh["bob"].catalog(); len(c.Required) != 1 || c.Required[0].Reason != "policy" {
 		t.Fatalf("插件策略：%+v", c)
 	}
-	code, body = admin.do("PATCH", fmt.Sprintf("/api/hub/%d", appID), map[string]any{"scope": map[string]any{"departments": []string{"研发效能部"}}}, nil)
+	code, body = admin.do("PATCH", fmt.Sprintf("/api/hub/%d", appID), map[string]any{"scope": map[string]any{"departments": []string{"研发效能部"}},
+		"updated_at": scopeToken(t, admin, fmt.Sprintf("/api/hub/%d", appID))}, nil)
 	expect(t, "收窄微应用范围", code, 200, body)
 	outside := dsh["bob"].catalog()
 	if slices.Contains(outside.skillNames(), "expense-assistant") || len(outside.Apps) != 1 || outside.Apps[0].Name != "alpha-app" {

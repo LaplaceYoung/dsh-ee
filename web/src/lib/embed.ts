@@ -2,7 +2,7 @@
  * 同站嵌入（v0）的前端参数与 postMessage 协议。
  *
  * 宿主用 iframe 打开微应用网页版：
- *   /a/<标识>?embed=1&host=<宿主 origin>[&fit=auto][&theme=light|dark|system]
+ *   /a/<标识>?embed=1&host=<宿主 origin>[&fit=auto][&theme=light|dark|system][&lang=zh-CN|en|es|pt|hi]
  *
  * 约定：
  * - 消息只发给 URL 里的 host origin，绝不使用 "*"；
@@ -34,6 +34,14 @@ export type EmbedTheme = "light" | "dark";
 /** URL 上的主题偏好：`light`/`dark` 固定，`system` 跟随 prefers-color-scheme。 */
 export type EmbedThemePreference = EmbedTheme | "system";
 export type EmbedFit = "fill" | "auto";
+
+/**
+ * URL 上的界面语言：五语目标语言码。当前只注册了 zh-CN / en，其余语言在语言包上线前
+ * 由前端按 fallback 规则回退英文；宿主可以提前传，等语言包上线即自动生效。
+ */
+export const EMBED_LANGS = ["zh-CN", "en", "es", "pt", "hi"] as const;
+export type EmbedLang = (typeof EMBED_LANGS)[number];
+
 export type EmbedErrorCode = "auth_required" | "forbidden" | "load_failed";
 
 /**
@@ -51,6 +59,8 @@ export interface EmbedOptions {
   fit: EmbedFit;
   /** URL 上的主题偏好；`system` 跟随系统且不写 localStorage。 */
   theme: EmbedThemePreference | null;
+  /** URL 上的界面语言；只作用于本次渲染，不写 localStorage（与 theme 语义一致）。 */
+  lang: EmbedLang | null;
 }
 
 export interface EmbedViewport {
@@ -81,11 +91,24 @@ export function parseEmbedOptions(search: string): EmbedOptions {
     host: embed ? parseHostOrigin(params.get("host")) : null,
     fit: params.get("fit") === "auto" ? "auto" : "fill",
     theme: embed ? parseTheme(params.get("theme")) : null,
+    lang: embed ? parseLang(params.get("lang")) : null,
   };
 }
 
 function parseTheme(raw: string | null): EmbedThemePreference | null {
   return raw === "light" || raw === "dark" || raw === "system" ? raw : null;
+}
+
+/** `lang` 归一化：大小写与区域变体都接受（en-US → en、zh-CN/zh-TW → zh-CN），非法值忽略。 */
+function parseLang(raw: string | null): EmbedLang | null {
+  if (!raw) return null;
+  const tag = raw.trim().toLowerCase().replace(/_/g, "-");
+  const primary = tag.split("-")[0];
+  if (primary === "zh") return "zh-CN";
+  for (const code of EMBED_LANGS) {
+    if (code.toLowerCase() === primary) return code;
+  }
+  return null;
 }
 
 /** host 必须是完整 origin：https，或回环地址上的 http（本地联调）。 */
@@ -276,7 +299,7 @@ export function applyEmbedTheme(theme: EmbedTheme): void {
 /** 失败态的「在浏览器打开」：去掉嵌入参数，用顶层窗口打开，避免在 iframe 里跳登录。 */
 export function nonEmbedURL(): string {
   const u = new URL(window.location.href);
-  for (const k of ["embed", "host", "fit", "theme"]) u.searchParams.delete(k);
+  for (const k of ["embed", "host", "fit", "theme", "lang"]) u.searchParams.delete(k);
   return `${u.pathname}${u.search}${u.hash}`;
 }
 
