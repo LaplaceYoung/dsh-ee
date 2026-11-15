@@ -19,14 +19,15 @@ export function isLanguageCode(value: unknown): value is LanguageCode {
 
 /**
  * 服务端规范短码 → 本地 i18n 语言码。
- * 界面语言包目前只有简体中文与英文；es/pt/hi 先回退英文，等语言包 PR 合并后改成各自的码。
+ * es/pt/hi 语言包由 #181/#182/#183 提供，合并后在 `i18n/langs.ts` 的 LANGUAGES 里注册，这里直接返回语言码本身。
+ * 若某语言尚未注册（例如语言包 PR 还没合并），i18next 会按 fallbackLng 回退英文，行为安全。
  * 服务端偏好仍按 es/pt/hi 保存，飞书等消息已经按这些语言渲染。
  */
 export function i18nCodeOf(code: LanguageCode): string {
-  return code === "zh" ? "zh-CN" : "en";
+  return code === "zh" ? "zh-CN" : code;
 }
 
-/** 立即切换界面语言（es/pt/hi 暂时回退英文）。 */
+/** 立即切换界面语言；未注册的语言（语言包还没合并）由 i18next 的 fallbackLng 回退英文。 */
 export function setUiLanguage(code: LanguageCode): void {
   void i18n.changeLanguage(i18nCodeOf(code));
 }
