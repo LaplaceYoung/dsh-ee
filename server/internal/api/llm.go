@@ -24,6 +24,10 @@ var (
 	modelNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$`)
 )
 
+// validBaseURL 只做结构校验，不限制私网/回环地址：很多企业把模型网关自托管在内网，
+// 一刀切阻断会直接破坏既有部署能力。base_url 是管理员（upstream.manage）显式配置的，
+// 不是普通用户能填的；出站请求的边界放在重定向策略上（见 New 里的 s.upstream），
+// 跨主机跳转一律拒绝，避免上游把请求（含企业 key 与 POST 请求体）带去别处。
 func validBaseURL(raw string) (string, bool) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {

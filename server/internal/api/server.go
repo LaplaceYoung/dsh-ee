@@ -258,12 +258,19 @@ func New(st *store.Store, box *secret.Box, opts Options, log *slog.Logger) *Serv
 	}
 	up := opts.Upstream
 	if up == nil {
-		up = &http.Client{Transport: opts.DemoSite.guard(&http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			ResponseHeaderTimeout: 2 * time.Minute,
-			IdleConnTimeout:       90 * time.Second,
-			MaxIdleConnsPerHost:   32,
-		})}
+		up = &http.Client{
+			Transport: opts.DemoSite.guard(&http.Transport{
+				Proxy:                 http.ProxyFromEnvironment,
+				ResponseHeaderTimeout: 2 * time.Minute,
+				IdleConnTimeout:       90 * time.Second,
+				MaxIdleConnsPerHost:   32,
+			}),
+			// provider 的 base_url 由管理员配置，上游（或中间人）可能用 302/307/308 把请求
+			// 引到内网地址：GET /models 的响应会回给调用方、写进 check 结果，307 还会把
+			// POST 请求体（对话内容、工具入参）原样回放过去。和其他出网客户端保持一致，
+			// 只允许跳到同 scheme/host/port 的地址。
+			CheckRedirect: sameHostRedirect,
+		}
 	}
 	s := &Server{store: st, box: box, opts: opts, log: log, leases: opts.BackgroundLeases, limiter: newLoginLimiter(), deviceCodeRate: newIPRate(deviceCodePerMinute), deviceTokenRate: newIPRate(deviceTokenPerMinute), trustedProxies: opts.TrustedProxies, upstream: up, connectKick: make(chan struct{}, 1), elevationKick: make(chan struct{}, 1), streamsDone: make(chan struct{})}
 	if opts.RateLimitPerMinute > 0 {
