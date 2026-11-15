@@ -5,7 +5,8 @@
   "scripts": {
     "studio": "remotion studio",
     "render:zh": "remotion render src/index.ts intro-zh out/intro-zh.mp4",
-    "render:en": "remotion render src/index.ts intro-en out/intro-en.mp4"
+    "render:en": "remotion render src/index.ts intro-en out/intro-en.mp4",
+    "render": "pnpm render:zh && pnpm render:en"
   },
   "dependencies": {
     "@remotion/cli": "^4.0.542",
@@ -15,6 +16,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.3.0",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "@types/node": "^26.0.0"
   }
 }
