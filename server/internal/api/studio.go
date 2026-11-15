@@ -665,6 +665,8 @@ func (s *Server) handleAppImport(w http.ResponseWriter, r *http.Request) {
 	self := store.Scope{Users: []int64{v.user.ID}}
 	report := []importItem{}
 	add := func(it importItem) { report = append(report, it) }
+	var subFails int
+	var subLastErr error
 
 	// 技能
 	for _, sk := range f.Skills {
@@ -698,9 +700,16 @@ func (s *Server) handleAppImport(w http.ResponseWriter, r *http.Request) {
 			s.internalErr(w, r, err)
 			return
 		}
-		_ = s.store.Subscribe(ctx, v.user.ID, a.ID)
+		// 批量导入时订阅失败不阻塞导入，循环结束后合并成一条日志。
+		if err := s.store.Subscribe(ctx, v.user.ID, a.ID); err != nil {
+			subFails++
+			subLastErr = err
+		}
 		it.Result, it.Note = "created", "建成了只有你自己能用的技能"
 		add(it)
+	}
+	if subFails > 0 {
+		s.log.Warn("自动订阅导入的技能失败", "user", v.user.ID, "count", subFails, "err", subLastErr)
 	}
 
 	// 连接
@@ -831,7 +840,10 @@ func (s *Server) handleAppImport(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
-	_ = s.store.Subscribe(ctx, v.user.ID, a.ID)
+	// 导入的应用默认给自己启用；订阅失败不影响导入结果，记录待查。
+	if err := s.store.Subscribe(ctx, v.user.ID, a.ID); err != nil {
+		s.log.Warn("自动订阅能力失败", "user", v.user.ID, "asset", a.ID, "err", err)
+	}
 	s.audit(r, auditAppImport, "app:"+slug, map[string]any{"id": a.ID, "from": f.App.Slug, "removed_widgets": removed})
 	s.hub.notify()
 	writeJSON(w, http.StatusCreated, map[string]any{"asset": map[string]any{"id": a.ID, "slug": slug}, "report": report, "removed_widgets": removed})

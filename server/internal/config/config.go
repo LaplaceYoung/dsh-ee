@@ -43,6 +43,11 @@ type Config struct {
 	// true 时它们只保留原始用途的 scope：npm 令牌只剩 registry，key 只剩模型网关；
 	// 默认 false 不改变旧行为，避免现有客户端突然失效。
 	RestrictLegacyTokenScopes bool
+	// DeepSeek 工具代理的访问边界（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）：默认 false 时
+	// 普通员工不能在对话里引用已上传文件的 file_id（Responses 原生透传同样拦截），
+	// 只有管理员与机器人/服务账号放行；开启后放开普通员工。与 #160（DeepSeek 工具代理）
+	// 使用同一环境变量与语义，待其合入后统一实现。
+	DeepSeekToolsAllowEmployee bool
 	// 刷新令牌（OAuth 风格，docs/token-lifecycle.md §3）。默认关闭：关闭时
 	// POST /api/auth/refresh 返回 404，设备/手工签发的响应也不带 refresh_token。
 	RefreshTokens bool
@@ -88,6 +93,14 @@ type Config struct {
 	DataDSN string
 	// 数据中台的只读账号（DSH_EE_DATA_READ_DSN）；不填时用 DataDSN 的账号自动建一个只有 SELECT 权限的账号。
 	DataReadDSN string
+	// DeepSeek Chatbot 的网关注入选项（docs/dev/chatbot.md）：
+	// SafetyCheck 是 DSH_EE_SAFETY_CHECK，默认空（off）不注入；high 时向 vendor=deepseek 的
+	// 上游请求注入 safety_check:{level:"high"}。客户端已经带了 safety_check 时保留客户端的值。
+	SafetyCheck string
+	// ChatTitle 是 DSH_EE_CHAT_TITLE，默认 off 不注入；on 时向 vendor=deepseek 的上游请求
+	// 注入 title:{enabled:true}。客户端已经带了 title 时保留客户端的值。
+	// 这两个选项只影响发往 DeepSeek 上游的那次请求，不改模型/额度/记账，也不改写响应。
+	ChatTitle bool
 	// 公开演示站（DSH_EE_DEMO_MODE）：登录页显示初始管理员账号，关掉改密码等会把别人锁在外面的操作，
 	// 对外请求只许连本机。DemoReset 是给访客看的重置周期说明，如「每 6 小时」。
 	// DemoResetEvery 是实际的重置间隔（和 crontab 一致），用来在登录页算下次重置的时间点；0 表示不显示。
@@ -209,6 +222,15 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES: %w", err)
 		}
 		c.RestrictLegacyTokenScopes = b
+	}
+	// DeepSeek 文件/工具访问边界（与 #160 同一环境变量）：默认 false，只允许管理员与
+	// 机器人/服务账号引用已上传文件；非法值让启动失败（fail closed）。
+	if v := os.Getenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE"); v != "" {
+		b, err := strconv.ParseBool(strings.TrimSpace(v))
+		if err != nil {
+			return nil, fmt.Errorf("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE: %w", err)
+		}
+		c.DeepSeekToolsAllowEmployee = b
 	}
 	// 刷新令牌（docs/token-lifecycle.md §3）；开关默认关，参数只在开启后生效。
 	if v := os.Getenv("DSH_EE_REFRESH_TOKENS"); v != "" {
@@ -359,6 +381,21 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("DSH_EE_METRICS: %w", err)
 		}
 		c.Metrics = b
+	}
+	// DeepSeek Chatbot 选项：只接受文档里的取值，写错让启动失败，避免以为开了其实没开。
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("DSH_EE_SAFETY_CHECK"))); v {
+	case "", "off":
+	case "high":
+		c.SafetyCheck = "high"
+	default:
+		return nil, errors.New("DSH_EE_SAFETY_CHECK 只能是 off 或 high")
+	}
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("DSH_EE_CHAT_TITLE"))); v {
+	case "", "off":
+	case "on":
+		c.ChatTitle = true
+	default:
+		return nil, errors.New("DSH_EE_CHAT_TITLE 只能是 off 或 on")
 	}
 	if !cookieSecureSet && strings.HasPrefix(c.PublicURL, "https://") {
 		// 生产部署最常见的配置是只填 PUBLIC_URL。对外是 HTTPS 时会话 cookie 默认加 Secure，

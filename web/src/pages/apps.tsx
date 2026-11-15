@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Copy, Plus, LayoutGrid } from "lucide-react";
+import { Copy, Plus, LayoutGrid, GraduationCap, Star } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { copyText } from "../lib/clipboard";
-import { api, type HubAsset } from "../lib/api";
+import { api, isExpert, type HubAsset } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useStore } from "../lib/store";
 import { useAction, useApi } from "../lib/use-api";
@@ -14,6 +14,7 @@ import { useMenus } from "../lib/menus";
 import { Badge, Button, Card, cx, PageHeader, Segmented, cardHover, Empty } from "../components/ui";
 
 type Filter = "all" | "enabled";
+type Form = "all" | "expert" | "app";
 
 /** 微应用图标：有 emoji 居中显示，没有就用标题首字；底板和插件卡片同一套圆角浅色。 */
 function AppIcon({ icon, title }: { icon?: string; title: string }) {
@@ -47,13 +48,34 @@ function AppCard({ a, bySlug, busy, onToggle }: { a: HubAsset; bySlug: Map<strin
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {isExpert(a) && (
+          <Badge tone="brand">
+            <GraduationCap size={12} /> {t("expertCenter.formExpert")}
+          </Badge>
+        )}
+        {a.featured && (
+          <Badge tone="amber">
+            <Star size={12} /> {t("expertCenter.featured")}
+          </Badge>
+        )}
         {a.enabled && <Badge tone="green">{t("hub.enabledBadge")}</Badge>}
         {a.delivery === "auto" && <Badge tone="brand">{t("hub.autoBadge")}</Badge>}
+        {a.category && <Badge tone="slate">{a.category}</Badge>}
+        {(a.spec.members?.length ?? 0) > 0 && <Badge tone="brand">{t("expertCenter.team", { count: a.spec.members!.length + 1 })}</Badge>}
       </div>
+      {isExpert(a) && (a.spec.expertise?.length ?? 0) > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {a.spec.expertise!.map((x) => (
+            <span key={x} className="rounded-[5px] bg-brand-50 px-1.5 py-0.5 text-xs text-brand-700 dark:bg-brand-400/15 dark:text-brand-200">
+              {x}
+            </span>
+          ))}
+        </div>
+      )}
       <p className="mt-2 line-clamp-2 text-sm text-neutral-700">{a.spec.description}</p>
       {(a.spec.starters?.length ?? 0) > 0 && (
         <div className="mt-2 line-clamp-1 text-xs text-neutral-600">
-          {t("apps.starters")}：{a.spec.starters!.map((q) => `「${q}」`).join(" ")}
+          {isExpert(a) ? t("expertCenter.examples") : t("apps.starters")}：{a.spec.starters!.map((q) => `「${q}」`).join(" ")}
         </div>
       )}
       {deps.length > 0 && (
@@ -115,11 +137,16 @@ export default function Apps() {
   const hub = useApi(api.hub);
   const { busy, run } = useAction();
   const [filter, setFilter] = useState<Filter>("all");
+  const [form, setForm] = useState<Form>("all");
   const all = hub.data?.assets ?? [];
   const bySlug = new Map(all.map((a) => [a.slug, a]));
   // 「企业应用」只列我能用的和我自己做的；管理员看全部在「能力管理」
   const apps = all.filter((a) => a.kind === "app" && (a.available || a.owner_id === user?.id));
-  const list = apps.filter((a) => filter === "all" || a.enabled);
+  const experts = apps.filter(isExpert).length;
+  // 精选排在最前，其余保持后端顺序
+  const list = apps
+    .filter((a) => (filter === "all" || a.enabled) && (form === "all" || (form === "expert") === isExpert(a)))
+    .sort((a, b) => Number(b.featured) - Number(a.featured));
 
   const toggle = async (a: HubAsset) => {
     const r = await run(() => (a.subscribed ? api.unsubscribe(a.id) : api.subscribe(a.id)));
@@ -133,6 +160,17 @@ export default function Apps() {
         title={t("apps.title")}
         actions={
           <>
+            {experts > 0 && (
+              <Segmented
+                value={form}
+                onChange={setForm}
+                options={[
+                  { value: "all", label: t("expertCenter.formAll") },
+                  { value: "expert", label: t("expertCenter.formExperts", { count: experts }) },
+                  { value: "app", label: t("expertCenter.formApps", { count: apps.length - experts }) },
+                ]}
+              />
+            )}
             <Segmented
               value={filter}
               onChange={setFilter}
@@ -142,9 +180,14 @@ export default function Apps() {
               ]}
             />
             {can("registry.publish") && (
-              <Button onClick={() => navigate(pathOf("app-new"))}>
-                <Plus size={15} /> {t("apps.create")}
-              </Button>
+              <>
+                <Button variant="secondary" onClick={() => navigate(`${pathOf("app-new")}?form=expert`)}>
+                  <GraduationCap size={15} /> {t("expertCenter.createExpert")}
+                </Button>
+                <Button onClick={() => navigate(pathOf("app-new"))}>
+                  <Plus size={15} /> {t("apps.create")}
+                </Button>
+              </>
             )}
           </>
         }

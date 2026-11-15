@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -63,7 +64,14 @@ func newEmbedFixture(t *testing.T, mutate func(*api.Options)) *embedFixture {
 	expect(t, "管理员登录", code, 200, body)
 
 	f := &embedFixture{st: st, box: box, opts: opts, srv: srv, ts: ts, admin: admin, slug: "embed-app"}
-	spec := map[string]any{
+	code, body = admin.do("POST", "/api/hub", map[string]any{"kind": "app", "slug": f.slug, "delivery": "auto", "spec": embedWebSpec()}, nil)
+	expect(t, "建应用", code, 201, body)
+	return f
+}
+
+// embedWebSpec 是最小可用的开放网页版应用：一张「各自填写」的 notes 表 + 一个主页窗格。
+func embedWebSpec() map[string]any {
+	return map[string]any{
 		"title": "嵌入应用", "description": "e2e", "persona": "你是嵌入助手。", "web": true,
 		"tables": []any{map[string]any{
 			"name": "notes", "title": "备注", "visibility": "own",
@@ -74,9 +82,13 @@ func newEmbedFixture(t *testing.T, mutate func(*api.Options)) *embedFixture {
 			"widgets": []any{map[string]any{"type": "heading", "title": "内容"}},
 		}}},
 	}
-	code, body = admin.do("POST", "/api/hub", map[string]any{"kind": "app", "slug": f.slug, "delivery": "auto", "spec": spec}, nil)
-	expect(t, "建应用", code, 201, body)
-	return f
+}
+
+// addApp 让管理员再建一个同结构的开放网页版应用，用来验证嵌入会话的应用边界。
+func (f *embedFixture) addApp(t *testing.T, slug string) {
+	t.Helper()
+	code, body := f.admin.do("POST", "/api/hub", map[string]any{"kind": "app", "slug": slug, "delivery": "auto", "spec": embedWebSpec()}, nil)
+	expect(t, "建应用 "+slug, code, 201, body)
 }
 
 // user 建一个员工并返回；密码是 employee-password-1。
@@ -321,6 +333,98 @@ func TestEmbedMintAndExchange(t *testing.T) {
 	}
 	if logs, err := f.st.ListAudit(context.Background(), store.AuditFilter{Action: "embed.revoke"}); err != nil || len(logs) == 0 {
 		t.Fatalf("logout 应该记 embed.revoke 审计：%v %d", err, len(logs))
+	}
+}
+
+// TestEmbedSessionAppScope：为应用 A mint 的 ee_emb_ 会话只能访问 A；同一员工本人对 B 有权限
+// （B 的会话能正常用），但 A 的会话读写 B 必须 403。无 slug 的公共接口仍放行。
+func TestEmbedSessionAppScope(t *testing.T) {
+	f := newEmbedFixture(t, nil)
+	other := "embed-other"
+	f.addApp(t, other)
+	emp := f.user(t, "embed-scope-emp")
+	f.token(t, emp.ID, "ee_at_embed_scope", []string{rbac.ScopeHub, rbac.ScopeAgent})
+	tokenA := f.mintAndExchange(t, "ee_at_embed_scope")
+
+	// 同一员工为 B 也能换到会话：说明员工本人对 B 有权限，下面 403 不是 RBAC 拦出来的。
+	code, body := f.mint(t, "ee_at_embed_scope", map[string]any{"app": other, "host_origin": embedHost})
+	expect(t, "为另一个应用 mint", code, 200, body)
+	resp, raw := f.exchange(t, decode[struct{ Code string }](t, body).Code)
+	if resp.StatusCode != 200 {
+		t.Fatalf("exchange B 失败：%d %s", resp.StatusCode, raw)
+	}
+	tokenB := decode[struct{ Token string }](t, raw).Token
+
+	c := newClient(t, f.ts.URL)
+
+	// 原行为不变：A 会话能读、写、改、删 A 自己的表。
+	code, body = c.do("GET", "/api/apps/"+f.slug+"/data/notes", nil, bearer(tokenA))
+	expect(t, "A 会话读 A 的数据表", code, 200, body)
+	code, body = c.do("POST", "/api/apps/"+f.slug+"/data/notes", map[string]any{"row": map[string]any{"text": "自己的行"}}, bearer(tokenA))
+	expect(t, "A 会话写 A 的数据表", code, 201, body)
+	type rowItem struct {
+		ID int64 `json:"id"`
+	}
+	rowID := decode[struct {
+		Items []rowItem `json:"items"`
+	}](t, body).Items[0].ID
+	itemPath := "/api/apps/" + f.slug + "/data/notes/" + strconv.FormatInt(rowID, 10)
+	code, body = c.do("PATCH", itemPath, map[string]any{"row": map[string]any{"text": "改一下"}}, bearer(tokenA))
+	expect(t, "A 会话改 A 的行", code, 200, body)
+	code, body = c.do("DELETE", itemPath, nil, bearer(tokenA))
+	expect(t, "A 会话删 A 的行", code, 204, body)
+	code, body = c.do("GET", "/api/me/apps/"+f.slug+"/web", nil, bearer(tokenA))
+	expect(t, "A 会话读 A 的网页版", code, 200, body)
+
+	// 跨应用：A 会话访问 B 的每个应用级接口都 403 embed_scope，处理函数不执行。
+	cross := []struct {
+		method, path string
+		body         any
+	}{
+		{"GET", "/api/apps/" + other + "/data", nil},
+		{"GET", "/api/apps/" + other + "/data/notes", nil},
+		{"POST", "/api/apps/" + other + "/data/notes", map[string]any{"row": map[string]any{"text": "越权"}}},
+		{"PATCH", "/api/apps/" + other + "/data/notes/1", map[string]any{"row": map[string]any{"text": "越权"}}},
+		{"DELETE", "/api/apps/" + other + "/data/notes/1", nil},
+		{"GET", "/api/apps/" + other + "/data/notes/export", nil},
+		{"GET", "/api/me/apps/" + other + "/web", nil},
+		{"POST", "/api/me/apps/" + other + "/source", map[string]any{"pane": "main", "widget": 0}},
+	}
+	for _, req := range cross {
+		code, body := c.do(req.method, req.path, req.body, bearer(tokenA))
+		expect(t, "越界 "+req.method+" "+req.path, code, 403, body)
+		got := decode[struct {
+			Code  string `json:"code"`
+			Stage string `json:"stage"`
+			Error string `json:"error"`
+		}](t, body)
+		if got.Code != "embed_scope" || got.Stage != "session" || !strings.Contains(got.Error, "只能访问被嵌入的应用") {
+			t.Fatalf("越界 %s %s 的错误体不对：%s", req.method, req.path, body)
+		}
+	}
+
+	// 反向同样成立：B 会话能正常用 B，访问 A 同样 403。
+	if code, body := c.do("GET", "/api/apps/"+other+"/data/notes", nil, bearer(tokenB)); code != 200 {
+		t.Fatalf("B 会话读 B 应 200：%d %s", code, body)
+	}
+	if code, body := c.do("GET", "/api/me/apps/"+other+"/web", nil, bearer(tokenB)); code != 200 {
+		t.Fatalf("B 会话读 B 网页版应 200：%d %s", code, body)
+	}
+	if code, body := c.do("GET", "/api/apps/"+f.slug+"/data/notes", nil, bearer(tokenB)); code != 403 {
+		t.Fatalf("B 会话读 A 应 403：%d %s", code, body)
+	}
+
+	// 无应用 slug 的公共接口不受影响；me 里的 embed.app 仍是会话绑定的应用。
+	for _, path := range []string{"/api/auth/me", "/api/auth/methods", "/api/settings", "/api/me/menus"} {
+		code, body := c.do("GET", path, nil, bearer(tokenA))
+		expect(t, "无 slug 接口 "+path, code, 200, body)
+	}
+	code, body = f.me(t, tokenA)
+	expect(t, "嵌入会话读 me", code, 200, body)
+	if info := decode[struct {
+		Embed *struct{ App string } `json:"embed"`
+	}](t, body).Embed; info == nil || info.App != f.slug {
+		t.Fatalf("me.embed.app 应为 %s：%s", f.slug, body)
 	}
 }
 

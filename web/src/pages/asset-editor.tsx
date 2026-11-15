@@ -19,6 +19,17 @@ import { LivePreview } from "../components/live-preview";
 import { AppAgentGuide } from "../components/app-agent-guide";
 import { UserAuthFields } from "../components/connection-identity";
 import { NamedSharedCredentials } from "../components/named-shared-credentials";
+import { CONNECTION_TEMPLATES } from "../lib/connection-templates";
+
+/** 读本机文件成 base64（技能包上传用）。 */
+function fileBase64(f: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).replace(/^data:[^,]*,/, ""));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(f);
+  });
+}
 
 const KINDS: AssetKind[] = ["skill", "prompt", "app", "connection"];
 const textareaCls = "w-full rounded-md border border-neutral-300 bg-card px-3 py-2 text-sm outline-none placeholder:text-neutral-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
@@ -183,7 +194,7 @@ function ConnectionFields({ spec, set, secret, setSecret, secretHint, slug, asse
 export default function AssetEditorRoute({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactNode }) {
   const { id } = useParams();
   const [params] = useSearchParams();
-  return <AssetEditor key={`${id ?? "new"}:${forceKind ?? params.get("kind") ?? ""}:${params.get("from") ?? ""}:${params.get("knowledge") ?? ""}:${params.get("connection") ?? ""}`} forceKind={forceKind} tabs={tabs} />;
+  return <AssetEditor key={`${id ?? "new"}:${forceKind ?? params.get("kind") ?? ""}:${params.get("form") ?? ""}:${params.get("from") ?? ""}:${params.get("knowledge") ?? ""}:${params.get("connection") ?? ""}`} forceKind={forceKind} tabs={tabs} />;
 }
 
 type NewMode = "agent" | "manual";
@@ -196,6 +207,7 @@ export function AppNew() {
   const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const seeded = params.has("from") || params.has("knowledge") || params.has("connection");
+  const expertForm = params.get("form") === "expert";
   const mode: NewMode = params.get("mode") === "manual" || params.get("mode") === "agent" ? (params.get("mode") as NewMode) : seeded ? "manual" : "agent";
   const setMode = (m: NewMode) =>
     setParams(
@@ -221,9 +233,13 @@ export function AppNew() {
       <PageLink page="build" className={backLinkCls}>
         <ArrowLeft size={14} /> {t("asset.back")}
       </PageLink>
-      <PageHeader title={t("editor.newApp")} desc={t("hub.tabHints.app")} actions={<AppWindow size={28} strokeWidth={1.4} className="text-neutral-400" />} />
+      <PageHeader
+        title={expertForm ? t("expertCenter.editor.newExpert") : t("editor.newApp")}
+        desc={expertForm ? t("expertCenter.editor.formExpertHint") : t("hub.tabHints.app")}
+        actions={<AppWindow size={28} strokeWidth={1.4} className="text-neutral-400" />}
+      />
       {tabs}
-      <AppAgentGuide onManual={() => setMode("manual")} />
+      <AppAgentGuide onManual={() => setMode("manual")} expert={expertForm} />
     </div>
     </>
   );
@@ -266,6 +282,8 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
   const [preview, setPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [test, setTest] = useState<ConnTestResult | null>(null);
+  const [pkgNote, setPkgNote] = useState<string | null>(null);
+  const pkgFile = useRef<HTMLInputElement>(null);
   const { busy, run } = useAction();
 
   // 新建时按类型给空白内容；编辑时用线上（或最新提交的）版本填好；从样板复制时用样板的内容
@@ -288,17 +306,22 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
       setTablesText("");
       setSlug(draft.data.slug);
     } else if (!editing && !fromId) {
-      setSpec({ ...emptySpec(kind), ...(kind === "app" && kbSlug ? { knowledge: [kbSlug] } : {}) });
+      setSpec({ ...emptySpec(kind), ...(kind === "app" && kbSlug ? { knowledge: [kbSlug] } : {}), ...(kind === "app" && params.get("form") === "expert" ? { form: "expert" as const } : {}) });
       setWbText("");
       setTablesText("");
     }
-  }, [existing.data, source.data, draft.data, editing, fromId, kind, kbSlug, t]);
+  }, [existing.data, source.data, draft.data, editing, fromId, kind, kbSlug, t, params]);
 
   const set = (p: Partial<AssetSpec>) => setSpec((s) => ({ ...s, ...p }));
+  const expert = kind === "app" && spec.form === "expert";
   const assets = hub.data?.assets ?? [];
   const skillOptions = useMemo(() => assets.filter((a) => a.kind === "skill").map((a) => ({ value: a.slug, label: a.spec.title, hint: a.slug })), [assets]);
   const connOptions = useMemo(() => assets.filter((a) => a.kind === "connection").map((a) => ({ value: a.slug, label: a.spec.title, hint: a.slug })), [assets]);
   const pluginOptions = useMemo(() => plugins.map((p) => ({ value: p.name, label: p.title, hint: p.name })), [plugins]);
+  const expertOptions = useMemo(
+    () => assets.filter((a) => a.kind === "app" && a.spec.form === "expert" && a.slug !== slug).map((a) => ({ value: a.slug, label: a.spec.title, hint: a.slug })),
+    [assets, slug],
+  );
   const kbOptions = useMemo(() => (kb.data?.items ?? []).filter((b) => b.readable).map((b) => ({ value: b.slug, label: b.title, hint: b.slug })), [kb.data]);
 
   if (editing && !existing.data) {
@@ -315,7 +338,9 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
     ? kind === "connection"
       ? t("editor.editConnection", { title: existing.data!.asset.spec.title })
       : t("editor.newVersion", { title: existing.data!.asset.spec.title })
-    : t(({ skill: "editor.newSkill", prompt: "editor.newPrompt", app: "editor.newApp", connection: "editor.newConnection" } as const)[kind]);
+    : expert
+      ? t("expertCenter.editor.newExpert")
+      : t(({ skill: "editor.newSkill", prompt: "editor.newPrompt", app: "editor.newApp", connection: "editor.newConnection" } as const)[kind]);
 
   // 只提交这一类用得到的字段，后端会拒绝其它字段混进来
   const cleanSpec = (): AssetSpec => {
@@ -326,6 +351,23 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
       case "prompt":
         return { ...base, body: spec.body };
       case "app":
+        if (expert)
+          return {
+            ...base,
+            form: "expert",
+            persona: spec.persona,
+            method: spec.method,
+            members: spec.members,
+            expertise: (spec.expertise ?? []).map((x) => x.trim()).filter(Boolean),
+            starters: (spec.starters ?? []).filter(Boolean),
+            highlights: (spec.highlights ?? []).map((x) => x.trim()).filter(Boolean),
+            icon: spec.icon,
+            launch: spec.launch,
+            skills: spec.skills,
+            connections: spec.connections,
+            plugins: spec.plugins,
+            knowledge: spec.knowledge,
+          };
         return {
           ...base,
           persona: spec.persona,
@@ -349,7 +391,7 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
 
   const submit = async () => {
     setError(null);
-    if (kind === "app" && parseWorkbench(wbText).error) return setError(t("appWorkbench.badJson", { error: parseWorkbench(wbText).error }));
+    if (kind === "app" && !expert && parseWorkbench(wbText).error) return setError(t("appWorkbench.badJson", { error: parseWorkbench(wbText).error }));
     const s = cleanSpec();
     const r = await run(async () => {
       if (editing) {
@@ -375,6 +417,20 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
     else setError(r.error);
   };
 
+  const importPackage = async (f: File) => {
+    setError(null);
+    setPkgNote(null);
+    if (f.size > 2 << 20) return setError(t("expertCenter.pkg.tooLarge"));
+    const r = await run(async () => api.parseSkillPackage(f.name, await fileBase64(f)));
+    if (!r.ok) return setError(r.error);
+    const d = r.value;
+    setSpec((cur) => ({ ...cur, ...d.spec }));
+    if (d.slug && !slug.trim()) setSlug(d.slug);
+    const parts = [t("expertCenter.pkg.imported", { count: d.included.length })];
+    if (d.skipped.length) parts.push(t("expertCenter.pkg.skipped", { list: d.skipped.map((x) => `${x.path}（${t(`expertCenter.pkg.reasons.${x.reason}`)}）`).join("、") }));
+    setPkgNote(parts.join(" "));
+  };
+
   const bodyField = (hint: string) => (
     <Field label={t("editor.body")} hint={hint}>
       <div className="mb-2">
@@ -396,7 +452,7 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
   );
 
   return (
-    <div className={kind === "app" ? "max-w-[1400px]" : "max-w-3xl"}>
+    <div className={kind === "app" && !expert ? "max-w-[1400px]" : "max-w-3xl"}>
       <PageLink page={kind === "app" ? "build" : "materials"} className={backLinkCls}>
         <ArrowLeft size={14} /> {t("asset.back")}
       </PageLink>
@@ -409,7 +465,7 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
         </Notice>
       )}
 
-      <div className={kind === "app" ? "grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]" : ""}>
+      <div className={kind === "app" && !expert ? "grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,440px)]" : ""}>
       <div className="space-y-4">
         <Section>
           <Field label={t("editor.slug")} hint={kind === "connection" ? t("editor.connSlugHint") : t("editor.slugHint")}>
@@ -429,6 +485,47 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
           </Field>
         </Section>
 
+        {kind === "skill" && !editing && (
+          <Section>
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                ref={pkgFile}
+                type="file"
+                accept=".zip,application/zip"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void importPackage(f);
+                  e.target.value = "";
+                }}
+              />
+              <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => pkgFile.current?.click()}>
+                <Upload size={14} /> {t("expertCenter.pkg.button")}
+              </Button>
+              <span className="text-sm text-neutral-600">{t("expertCenter.pkg.hint")}</span>
+            </div>
+            {pkgNote && <Notice>{pkgNote}</Notice>}
+          </Section>
+        )}
+        {kind === "connection" && !editing && (
+          <Section>
+            <Field label={t("expertCenter.templates.label")} hint={t("expertCenter.templates.hint")}>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {CONNECTION_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.id}
+                    type="button"
+                    onClick={() => set({ ...emptySpec("connection"), ...tpl.spec, title: spec.title, description: spec.description, instructions: t(`expertCenter.templates.items.${tpl.id}.instructions`) })}
+                    className="rounded-md border border-neutral-200 px-3 py-2 text-left text-sm transition-colors hover:border-brand-400 hover:bg-brand-50/50 dark:border-white/10 dark:hover:bg-brand-400/10"
+                  >
+                    <div className="font-medium text-neutral-900">{t(`expertCenter.templates.items.${tpl.id}.title`)}</div>
+                    <div className="mt-0.5 text-xs text-neutral-600">{t(`expertCenter.templates.items.${tpl.id}.desc`)}</div>
+                  </button>
+                ))}
+              </div>
+            </Field>
+          </Section>
+        )}
         {kind === "skill" && (
           <Section>
             <Field label={t("editor.whenToUse")} hint={t("editor.whenToUseHint")}>
@@ -441,6 +538,16 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
         {kind === "prompt" && <Section>{bodyField(t("editor.promptBodyHint"))}</Section>}
         {kind === "app" && (
           <Section>
+            <Field label={t("expertCenter.editor.form")} hint={t(expert ? "expertCenter.editor.formExpertHint" : "expertCenter.editor.formAppHint")}>
+              <Segmented
+                value={expert ? "expert" : "app"}
+                onChange={(v) => set({ form: v === "expert" ? "expert" : "" })}
+                options={[
+                  { value: "app", label: t("expertCenter.formApp") },
+                  { value: "expert", label: t("expertCenter.formExpert") },
+                ]}
+              />
+            </Field>
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label={t("editor.icon")} hint={t("editor.iconHint")}>
                 <input className={inputCls} value={spec.icon ?? ""} onChange={(e) => set({ icon: e.target.value })} placeholder="🧾" />
@@ -456,15 +563,36 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
                 />
               </Field>
             </div>
-            <Field label={t("editor.persona")} hint={t("editor.personaHint")}>
+            <Field label={expert ? t("expertCenter.editor.role") : t("editor.persona")} hint={expert ? t("expertCenter.editor.roleHint") : t("editor.personaHint")}>
               <textarea className={cx(textareaCls, "h-48")} value={spec.persona ?? ""} onChange={(e) => set({ persona: e.target.value })} />
             </Field>
-            <Field label={t("editor.starters")}>
+            {expert && (
+              <>
+                <Field label={t("expertCenter.editor.method")} hint={t("expertCenter.editor.methodHint")}>
+                  <textarea className={cx(textareaCls, "h-32")} value={spec.method ?? ""} onChange={(e) => set({ method: e.target.value })} />
+                </Field>
+                <Field label={t("expertCenter.editor.expertise")} hint={t("expertCenter.editor.expertiseHint")}>
+                  <input
+                    className={inputCls}
+                    value={(spec.expertise ?? []).join("、")}
+                    onChange={(e) => set({ expertise: e.target.value.split(/[、,，\n]/).slice(0, 6) })}
+                    placeholder={t("expertCenter.editor.expertisePlaceholder")}
+                  />
+                </Field>
+              </>
+            )}
+            <Field label={expert ? t("expertCenter.editor.examples") : t("editor.starters")} hint={expert ? t("expertCenter.editor.examplesHint") : undefined}>
               <textarea className={cx(textareaCls, "h-24")} value={(spec.starters ?? []).join("\n")} onChange={(e) => set({ starters: e.target.value.split("\n") })} />
             </Field>
             <Field label={t("editor.highlights")} hint={t("editor.highlightsHint")}>
               <textarea className={cx(textareaCls, "h-20")} value={(spec.highlights ?? []).join("\n")} onChange={(e) => set({ highlights: e.target.value.split("\n").slice(0, 3) })} />
             </Field>
+            {expert && (
+              <div>
+                <MultiPick label={t("expertCenter.editor.members")} values={spec.members ?? []} options={expertOptions} onChange={(v) => set({ members: v.slice(0, 5) })} />
+                <p className="mt-1.5 text-xs text-neutral-500">{t("expertCenter.editor.membersHint")}</p>
+              </div>
+            )}
             <MultiPick label={t("editor.skills")} values={spec.skills ?? []} options={skillOptions} onChange={(v) => set({ skills: v })} />
             <MultiPick label={t("editor.knowledge")} values={spec.knowledge ?? []} options={kbOptions} onChange={(v) => set({ knowledge: v })} />
             <MultiPick label={t("editor.connections")} values={spec.connections ?? []} options={connOptions} onChange={(v) => set({ connections: v })} />
@@ -472,17 +600,22 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
             {(can("plugins.manage") || (spec.plugins?.length ?? 0) > 0) && (
               <MultiPick label={t("editor.plugins")} values={spec.plugins ?? []} options={pluginOptions} onChange={(v) => set({ plugins: v })} />
             )}
-            {can("plugins.manage") && (
-              <ToggleRow label={t("selfScope.template")} desc={t("selfScope.templateDesc")} checked={!!spec.template} onChange={(v) => set({ template: v })} />
+            {/* 专家不带样板、数据表、网页版和工作台（docs/expert-center.md §4.1） */}
+            {!expert && (
+              <>
+                {can("plugins.manage") && (
+                  <ToggleRow label={t("selfScope.template")} desc={t("selfScope.templateDesc")} checked={!!spec.template} onChange={(v) => set({ template: v })} />
+                )}
+                <TablesField text={tablesText} onText={setTablesText} />
+                <ToggleRow label={t("appWeb.toggle")} desc={t("appWeb.toggleDesc")} checked={!!spec.web} onChange={(v) => set({ web: v })} />
+                <WorkbenchField
+                  text={wbText}
+                  onText={setWbText}
+                  connections={spec.connections ?? []}
+                  connectionIds={(spec.connections ?? []).flatMap((slug) => assets.filter((a) => a.kind === "connection" && a.slug === slug).map((a) => ({ slug, id: a.id })))}
+                />
+              </>
             )}
-            <TablesField text={tablesText} onText={setTablesText} />
-            <ToggleRow label={t("appWeb.toggle")} desc={t("appWeb.toggleDesc")} checked={!!spec.web} onChange={(v) => set({ web: v })} />
-            <WorkbenchField
-              text={wbText}
-              onText={setWbText}
-              connections={spec.connections ?? []}
-              connectionIds={(spec.connections ?? []).flatMap((slug) => assets.filter((a) => a.kind === "connection" && a.slug === slug).map((a) => ({ slug, id: a.id })))}
-            />
           </Section>
         )}
         {kind === "connection" && (
@@ -552,7 +685,7 @@ function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactN
           </Button>
         </div>
       </div>
-      {kind === "app" && (
+      {kind === "app" && !expert && (
         <aside className="lg:sticky lg:top-4">
           <LivePreview text={wbText} app={editing ? slug : ""} title={spec.title} icon={spec.icon} />
         </aside>

@@ -1,4 +1,4 @@
-# 设计文档索引（docs/ 41 篇）
+# 设计文档索引（docs/ 42 篇）
 
 > `docs/` 下的 Markdown 混着四类东西：**设计稿**、**实施方案**、**完成报告/交接单**、**验证清单**。这一页给每篇标注分类、当前状态、适用版本、是否已实现、从哪进，免得把设计稿当现状、把报告当承诺。
 >
@@ -58,11 +58,12 @@
 | [agent-connect-phase-c-report.md](./agent-connect-phase-c-report.md) | 📜 | v0.1 | 阶段 C 完成报告（管理模式、管理侧 Agent） | 技术规划 |
 | [agent-connect-phase-d-report.md](./agent-connect-phase-d-report.md) | 📜 | v0.1 | 阶段 D 完成报告（管理员向导、巡检）；阶段 A～D 到此完成 | 技术规划 |
 
-## 四、能力中心、工作台与知识库（8）
+## 四、能力中心、工作台与知识库（9）
 
 | 文档 | 状态 | 适用版本 | 实现情况 | 入口/说明 |
 |---|---|---|---|---|
 | [capability-hub.md](./capability-hub.md) | ✅ | v0.1 | 能力中心三阶段已实现，并与真实 DSH 端到端验证过；与设计的偏差见文档头 | 根 `README.zh-CN.md` docs 行、`server/README.md` |
+| [expert-center.md](./expert-center.md) | 🟡 | 未定 | 专家 · 技能 · 连接器（参考 WorkBuddy）：第 1–4 批已实现（服务端、管理端页面、接入插件右侧栏面板、技能包导入与连接器模板），专家与管理策略都能让 DSH 里的 AI 建和改，专家团队是单会话兜底版；个人自定义 MCP 未做；插件面板未在真实 DSH 里验证 | [capability-hub.md](./capability-hub.md)、[dsh-plugin-ui.md](./dsh-plugin-ui.md) |
 | [knowledge.md](./knowledge.md) | ✅ | v0.1 | 知识库与「知识问答」工作台第一期已实现（2026-11-06），实现与设计的差别见 §11 | 根 `README.zh-CN.md` docs 行、roadmap 阶段 B |
 | [knowledge-next.md](./knowledge-next.md) | 🟡 | v0.1（二期） | 第二期方案头写「待实现」，但检索/格式/体验主体已有代码与 e2e（见 knowledge-verify）；OCR 不做、向量看评测（v0.4） | [knowledge.md](./knowledge.md)、[knowledge-verify.md](./knowledge-verify.md) |
 | [knowledge-verify.md](./knowledge-verify.md) | 📋 | v0.1 | 第二期自测清单：网页部分已过 e2e；DSH 原文窗格/看板引用尚未在真实 DSH 里验证 | [knowledge-next.md](./knowledge-next.md) |
@@ -120,7 +121,7 @@
 | 管理员（发布/审核/权限） | [enterprise-publishing.md](./enterprise-publishing.md) | [feishu.md](./feishu.md)、[troubleshooting.md](./troubleshooting.md) |
 | 评审设计稿 | 本页「状态」列 + [design.md](./design.md) 历史提示 | 对应验证清单（workbench/knowledge/nav/plugin-install） |
 
-## 本批新增文档（不属于上述 41 篇设计稿）
+## 本批新增文档（不属于上述 42 篇设计稿）
 
 | 文档 | 类型 | 状态 | 说明 |
 |---|---|---|---|
@@ -130,7 +131,7 @@
 | [cross-site-embedding.md](./cross-site-embedding.md) | 设计说明 / 实现参考 | ✅ 已实现（#118，默认关闭） | 跨站嵌入 v1：一次性 code + 内存 Bearer + postMessage 握手已落地；管理端设置页、扩展消息、fit=auto sticky、移动端自动策略、多实例共享 code 未做 |
 | [plugin-signing.md](./plugin-signing.md) | 设计 | **设计，未实现** | 插件/扩展签名、企业目录、自助分发、回滚的选项与风险 |
 
-配套的使用/开发文档不在本页的 41 篇内，随各自 PR 合入：`docs/dev/`（#120）、`docs/plugin-dev/`（#119/#121）、`docs/extension-protocol/` 与 `docs/enterprise-publishing.md`（#125）、`docs/embedding.md`（#118）、`docs/architecture.md`、`docs/operations.md`、`docs/cli.md`、`docs/troubleshooting.md`、`docs/examples-walkthrough.md`（#126）。合入后这些页面由 `docs/dev/README.md` 与根 README 负责索引，本页不重复维护。
+配套的使用/开发文档不在本页的 42 篇内，随各自 PR 合入：`docs/dev/`（#120）、`docs/plugin-dev/`（#119/#121）、`docs/extension-protocol/` 与 `docs/enterprise-publishing.md`（#125）、`docs/embedding.md`（#118）、`docs/architecture.md`、`docs/operations.md`、`docs/cli.md`、`docs/troubleshooting.md`、`docs/examples-walkthrough.md`（#126）。合入后这些页面由 `docs/dev/README.md` 与根 README 负责索引，本页不重复维护。
 
 ## 维护约定
 

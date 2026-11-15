@@ -250,6 +250,7 @@ func (s *Server) routes() []route {
 		prm("POST /api/hub/{id}/versions", s.handleHubNewVersion, rbac.RegistryPublish, rbac.PluginsManage, rbac.ConnectionsManage),
 		prm("GET /api/hub/{id}/export", s.handleAppFileExport, rbac.PortalView),
 		prm("POST /api/hub/import", s.handleAppImport, rbac.RegistryPublish),
+		prm("POST /api/hub/skill-package", s.handleSkillPackage, rbac.RegistryPublish),
 		prm("POST /api/me/workbench-preview", s.handleWorkbenchPreview, rbac.PortalView),
 		prm("POST /api/me/app-drafts", s.handleAppDraft, rbac.RegistryPublish),
 		prm("POST /api/hub/{id}/subscription", s.handleHubSubscribe, rbac.PortalView),
@@ -257,6 +258,15 @@ func (s *Server) routes() []route {
 		prm("GET /api/admin/hub/review", s.handleHubReviewQueue, rbac.PluginsManage),
 		prm("POST /api/admin/hub/review", s.handleHubReview, rbac.PluginsManage),
 		prm("POST /api/admin/hub/scope-review", s.handleHubScopeReview, rbac.PluginsManage),
+		prm("GET /api/admin/hub/categories", s.handleListCategories, expertCenterPerms...),
+		prm("POST /api/admin/hub/categories", s.handleCreateCategory, expertCenterPerms...),
+		prm("PATCH /api/admin/hub/categories/{id}", s.handlePatchCategory, expertCenterPerms...),
+		prm("DELETE /api/admin/hub/categories/{id}", s.handleDeleteCategory, expertCenterPerms...),
+		prm("GET /api/admin/hub/blocks", s.handleListBlocks, expertCenterPerms...),
+		prm("POST /api/admin/hub/blocks", s.handleCreateBlock, expertCenterPerms...),
+		prm("PUT /api/admin/hub/blocks/{id}", s.handlePutBlock, expertCenterPerms...),
+		prm("DELETE /api/admin/hub/blocks/{id}", s.handleDeleteBlock, expertCenterPerms...),
+		prm("GET /api/admin/hub/effective", s.handleEffective, expertCenterPerms...),
 		prm("PUT /api/admin/plugin-policies/{name...}", s.handlePutPluginPolicy, rbac.PluginsManage),
 		prm("GET /api/admin/connections/{id}/shared-credentials", s.handleListSharedCredentials, rbac.ConnectionsManage),
 		prm("PUT /api/admin/connections/{id}/shared-credentials/{name}", s.handlePutSharedCredential, rbac.ConnectionsManage),
@@ -281,6 +291,8 @@ func (s *Server) routes() []route {
 		// 所以这里只要求登录，不能用一个静态权限点放宽另一类。
 		usr("POST /api/admin/directory/entries/{id}/install", s.handleDirectoryEntryInstall),
 		usr("POST /api/admin/directory/entries/{id}/upgrade", s.handleDirectoryEntryUpgrade),
+		// 目录更新检查（directory_updates.go）：只读对比已装版本，不安装 / 不升级
+		prm("GET /api/admin/directory/updates", s.handleDirectoryUpdates, rbac.ConnectionsManage, rbac.SettingsManage),
 		prm("GET /api/admin/fields", s.handleListFields, rbac.FieldsManage, rbac.UsersView),
 		prm("POST /api/admin/fields", s.handleCreateField, rbac.FieldsManage),
 		prm("PATCH /api/admin/fields/{id}", s.handlePatchField, rbac.FieldsManage),
@@ -379,6 +391,10 @@ func (s *Server) routes() []route {
 		pub("GET /api/dsh/skills/{name}", s.handleDshSkill),
 		pub("POST /api/dsh/apps/{name}/subscription", s.handleDshAppSubscription),
 		pub("DELETE /api/dsh/apps/{name}/subscription", s.handleDshAppSubscription),
+		pub("POST /api/dsh/skills/{name}/subscription", s.handleDshSkillSubscription),
+		pub("DELETE /api/dsh/skills/{name}/subscription", s.handleDshSkillSubscription),
+		pub("POST /api/dsh/connections/{name}/subscription", s.handleDshConnectionSubscription),
+		pub("DELETE /api/dsh/connections/{name}/subscription", s.handleDshConnectionSubscription),
 		prm("GET /api/dsh/releases", s.handleDshReleases, rbac.PortalView),
 		prm("GET /dl/{target}/{file}", s.handleDownloadDshRelease, rbac.PortalView),
 		pub("GET /dl/connect/{file}", s.handleConnectTarball),
@@ -444,6 +460,12 @@ func (s *Server) routes() []route {
 		// OpenAI 兼容网关，用个人 key 鉴权
 		pub("GET /v1/models", s.handleModels),
 		pub("POST /v1/chat/completions", s.handleChatCompletions),
+		// OpenAI Responses API 兼容入口（responses.go）：请求转成 chat completions 调上游，
+		// 鉴权/模型权限/额度/用量记账/上游故障转移与 chat 网关完全一致。
+		pub("POST /v1/responses", s.handleResponses),
+		// DeepSeek Responses API 习惯的别名：base_url 填 dsh-ee 根地址时客户端会请求 /responses，
+		// 与 /v1/responses 同一个 handler。
+		pub("POST /responses", s.handleResponses),
 		// Anthropic Messages 兼容网关：Claude Code / Anthropic SDK 用 x-api-key 或 Bearer，
 		// 请求转成 OpenAI chat 后复用上面的模型权限、额度与用量记账（见 anthropic.go）
 		pub("POST /v1/messages", s.handleAnthropicMessages),
