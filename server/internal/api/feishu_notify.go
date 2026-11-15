@@ -401,17 +401,26 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 		if !allowed {
 			return "", owner, fmt.Errorf("%w：你不是这条申请的审批人", errFeishuForbidden)
 		}
-		if decision == "approve" {
-			if err := s.grantAccess(ctx, q); err != nil {
-				return "", owner, err
-			}
-		}
+		// 和网页审批同一条规则：先用 CAS 把 pending 改成终态抢占，抢到了才去授权。
+		// 每个审批人各有一张卡片，所以「飞书 reject + 网页 approve」同时到是真实场景，不能先授权后改状态。
 		status := "rejected"
 		if decision == "approve" {
 			status = "approved"
 		}
 		if err := s.store.ResolveAccessRequest(ctx, q.ID, status, v.user.ID, "from_feishu"); err != nil {
+			if notFound(err) {
+				return "", owner, errors.New("这条申请已被其他人处理")
+			}
 			return "", owner, err
+		}
+		// 抢占成功后授权；授权失败退回待处理，卡片留失败终态并说明可以重试。
+		if decision == "approve" {
+			if err := s.grantAccess(ctx, q); err != nil {
+				if rerr := s.store.ReopenAccessRequest(ctx, q.ID); rerr != nil {
+					s.log.Error("飞书审批授权失败后退回申请失败", "id", q.ID, "err", rerr)
+				}
+				return "", owner, fmt.Errorf("授权失败，申请已退回待处理，可以重试：%w", err)
+			}
 		}
 		return q.Title, ownerPtr(q.UserID), nil
 	default:
