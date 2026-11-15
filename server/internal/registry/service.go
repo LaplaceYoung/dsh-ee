@@ -382,6 +382,20 @@ type PublishResult struct {
 	Created bool   `json:"created"`
 }
 
+// decodePublishAttachment 解码 npm publish 里的 base64 tarball。
+// 先按 base64 编码长度做上限检查：解码前就拒掉超限附件，避免为必然被拒的请求再分配
+// 一份解压后的字节（JSON 解码已经把编码后的字符串留在内存里了）。
+func decodePublishAttachment(att string, maxTarball int64) ([]byte, error) {
+	if int64(len(att)) > int64(base64.StdEncoding.EncodedLen(int(maxTarball))) {
+		return nil, errf(413, "Tarball exceeds %d MB", maxTarball>>20)
+	}
+	raw, err := base64.StdEncoding.DecodeString(att)
+	if err != nil {
+		return nil, errf(400, "Tarball is not valid base64")
+	}
+	return raw, nil
+}
+
 // Publish 发布 npm 客户端发来的文档；tarball 在 _attachments 里、base64 编码。
 func (s *Service) Publish(ctx context.Context, p Publisher, doc *PublishDoc) (*PublishResult, error) {
 	if len(doc.Versions) != 1 || len(doc.Attachments) != 1 {
@@ -393,11 +407,7 @@ func (s *Service) Publish(ctx context.Context, p Publisher, doc *PublishDoc) (*P
 		for _, a := range doc.Attachments {
 			att = a.Data
 		}
-		raw, err := base64.StdEncoding.DecodeString(att)
-		if err != nil {
-			return nil, errf(400, "Tarball is not valid base64")
-		}
-		return raw, nil
+		return decodePublishAttachment(att, s.MaxTarball)
 	})
 }
 
