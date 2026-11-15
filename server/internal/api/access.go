@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/hikariming/dsh-ee/server/internal/store"
@@ -380,13 +379,11 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 		writeErr(w, http.StatusForbidden, "你不是这条申请的审批人")
 		return
 	}
+	// 先 CAS 抢占状态、再授权：两个审批人并发处理同一条申请（网页 approve 与飞书 reject 完全可能同时发生）时，
+	// 只有把 pending 改成终态的那一方可以去授权。反过来做会留下「申请已驳回、权限却授出去了」的脏数据。
 	status := "rejected"
 	if req.Decision == "approve" {
 		status = "approved"
-		if err := s.grantAccess(ctx, q); err != nil {
-			s.writeAppErr(w, r, err)
-			return
-		}
 	}
 	if err := s.store.ResolveAccessRequest(ctx, id, status, v.user.ID, req.Note); err != nil {
 		if notFound(err) {
@@ -395,6 +392,22 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 		}
 		s.internalErr(w, r, err)
 		return
+	}
+	// 抢占成功后授权；授权失败要把申请退回待处理，不能让「记录已通过、权限没授出去」静默发生。
+	if req.Decision == "approve" {
+		if err := s.grantAccess(ctx, q); err != nil {
+			if rerr := s.store.ReopenAccessRequest(ctx, id); rerr != nil {
+				s.log.Error("授权失败后退回申请失败", "id", id, "err", rerr)
+			}
+			s.log.Error("授权失败", "id", id, "err", err)
+			var ae *appDataError
+			if errors.As(err, &ae) {
+				writeErr(w, http.StatusInternalServerError, "授权失败（"+ae.msg+"），申请已退回待处理，可以重试")
+			} else {
+				writeErr(w, http.StatusInternalServerError, "授权失败，申请已退回待处理，可以重试")
+			}
+			return
+		}
 	}
 	action, target := "access.request_"+req.Decision, q.Kind+":"+q.Slug
 	if q.Kind == store.RequestConnection {
@@ -409,20 +422,15 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 // grantAccess 把申请人加进对象的可用范围；「自选」的能力顺手替他启用，这样应用马上能用上。
 func (s *Server) grantAccess(ctx context.Context, q *store.AccessRequest) error {
 	if q.Kind == store.RequestKnowledge {
-		b, err := s.store.GetKBase(ctx, q.AssetID)
-		if errors.Is(err, store.ErrNotFound) {
-			return appErr(http.StatusNotFound, "这个知识库已经删除了")
-		}
-		if err != nil {
+		// 原子追加：并发审批同一条知识库时不读旧范围整段覆盖。
+		// added 不影响审批结果（已包含或全员可见时为 false），故忽略。
+		if _, err := s.store.GrantKBaseScopeUser(ctx, q.AssetID, q.UserID); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return appErr(http.StatusNotFound, "这个知识库已经删除了")
+			}
 			return err
 		}
-		if b.Scope.All || slices.Contains(b.Scope.Users, q.UserID) {
-			return nil
-		}
-		sc := b.Scope
-		sc.Users = append(append([]int64{}, sc.Users...), q.UserID)
-		sc = sc.Normalize()
-		return s.store.UpdateKBase(ctx, b.ID, store.KBasePatch{Scope: &sc})
+		return nil
 	}
 	a, err := s.store.GetAsset(ctx, q.AssetID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -431,13 +439,13 @@ func (s *Server) grantAccess(ctx context.Context, q *store.AccessRequest) error 
 	if err != nil {
 		return err
 	}
-	if !a.Scope.All && !slices.Contains(a.Scope.Users, q.UserID) {
-		sc := a.Scope
-		sc.Users = append(append([]int64{}, sc.Users...), q.UserID)
-		sc = sc.Normalize()
-		if err := s.store.UpdateAsset(ctx, a.ID, store.AssetPatch{Scope: &sc}); err != nil {
-			return err
+	// 原子追加：并发批准同一能力时，不会互相覆盖范围里的其他人。
+	// added=false 表示范围本来就是全员或已包含该用户，不影响审批成功。
+	if _, err := s.store.GrantAssetScopeUser(ctx, a.ID, q.UserID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return appErr(http.StatusNotFound, "这项能力已经删除了")
 		}
+		return err
 	}
 	if a.Delivery == store.DeliveryOptional {
 		return s.store.Subscribe(ctx, q.UserID, a.ID)

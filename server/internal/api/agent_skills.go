@@ -49,6 +49,13 @@ func systemSkills(set *store.AppSettings, server string, v viewer) []systemSkill
 			WhenToUse:   "用户要做、改一个企业应用或它的工作台，或你要用 ee_hub 的 create / new_version 提交 kind 为 app 的内容之前",
 		},
 		body: appDesignBody(t),
+	}, {
+		skill: dshSkill{
+			Name: "dsh-ee-expert-design", Title: "企业专家设计规范", Kind: store.KindSkill, ModelInvocable: true, UserInvocable: true,
+			Description: "做或改一个企业专家（领域角色）时的写法：角色说明、工作方法、擅长领域、任务示例、配哪些技能和系统、怎么组专家团队",
+			WhenToUse:   "用户要做、改一个专家或专家团队，或你要用 ee_hub 的 create / new_version 提交 form 为 expert 的内容之前",
+		},
+		body: expertDesignBody(t),
 	}}
 	if v.access.Has(rbac.RegistryPublish) {
 		out = append(out, systemSkill{
@@ -333,5 +340,36 @@ func appDesignBody(t func(string) string) string {
 	b.WriteString(`   "row_actions":[{"label":"完成","table":"tickets","set":{"status":"已完成"}},{"label":"问 AI","prompt":"帮我处理「{{row.title}}」"},{"label":"删除","table":"tickets","delete":true}],` + "\n")
 	b.WriteString(`   "empty":{"text":"还没有记录，在左边新建一条"}}` + "\n]}\n```\n\n")
 	fmt.Fprintf(&b, "做好后用 %s 的 `create`（自己用时带 `for_me: true`）提交；提交前把窗格和组件的排布用一两句话讲给用户确认。\n", t("ee_hub"))
+	return b.String()
+}
+
+// expertDesignBody 是「企业专家设计规范」：教 Agent 替员工或管理员把一个专家写好、提交、再改（docs/expert-center.md）。
+func expertDesignBody(t func(string) string) string {
+	var b strings.Builder
+	b.WriteString("# 企业专家设计规范\n\n")
+	b.WriteString("专家是一个领域角色：员工在 DSH 的「专家 · 技能 · 连接器」面板里点「召唤」，就在新会话里用这个角色干活。")
+	b.WriteString("它和微应用是同一种能力（kind 是 `app`），只是 `spec.form` 写 `expert`，没有工作台、数据表和网页版。\n\n")
+	b.WriteString("## 先问清楚\n\n")
+	b.WriteString("动手前用一两句话和用户确认：这个专家帮谁、解决哪类问题、要用到哪些企业系统或知识库、交付什么（一段结论？一份表格？一封邮件草稿？）。")
+	b.WriteString("用户说不清的，按最常见的情况先写一版，提交前把要点列给他看。\n\n")
+	b.WriteString("## 怎么写\n\n")
+	b.WriteString("- **title**：角色名，4～8 个字，如「报销专家」「合同审查专家」。\n")
+	b.WriteString("- **description**：一句话说它能帮你做什么，卡片上和 DSH 的 / 菜单里都显示。\n")
+	b.WriteString("- **persona**（角色说明）：它是谁、擅长什么、语气怎样、哪些事不做（例如不替人做最终审批、不承诺法律意见）。3～8 行。\n")
+	b.WriteString("- **method**（工作方法）：编号步骤，写清先做什么后做什么、依据哪些制度或标准、什么情况要停下来问人、最后交付的格式。这是专家和普通提示词最大的区别，一定要写。\n")
+	b.WriteString("- **expertise**：2～6 个擅长领域标签，每个 2～6 个字。\n")
+	b.WriteString("- **starters**（任务示例）：3～5 条员工真实会说的话，第一条最常见。员工点一条就带着它开始。\n")
+	b.WriteString("- **icon**：一个 emoji。\n")
+	b.WriteString("- **skills / connections / knowledge**：只放这个专家真要用的。先用 " + t("ee_hub") + " 的 search 查有哪些技能和企业连接、标识是什么，不要编标识。\n\n")
+	b.WriteString("## 专家团队\n\n")
+	b.WriteString("一个问题要多个角色配合时（例如「财务团队」= 报销专家 + 税务专家），先分别把成员专家做好，再做一个组长专家，`members` 写成员的标识（最多 5 个）。")
+	b.WriteString("召唤组长时，它会拿到每位成员的角色说明和工作方法，先拆任务、再按成员分工完成、最后汇总。组长自己的 persona 写清怎么拆、怎么汇总。\n\n")
+	b.WriteString("## 提交与修改\n\n")
+	b.WriteString("- 新建：" + t("ee_hub") + " 的 create，`kind` 写 `app`，`spec.form` 写 `expert`。只给自己先试用就加 `for_me: true`，不用审核、马上能用；想给同事用再到网页上改可用范围。\n")
+	b.WriteString("- 修改：先用 " + t("ee_hub") + " 的 detail 读出当前内容，在它的基础上改，再用 new_version 提交**完整的** spec（没写的字段会被清掉）。只有负责人和管理员能提交新版本。\n")
+	b.WriteString("- 不要写 `tables`、`workbench`、`web`：专家不支持，服务端会拒绝。需要工作台就做成微应用（读 dsh-ee-app-design）。\n")
+	b.WriteString("- 提交后告诉用户：在 DSH 右侧栏「专家 · 技能 · 连接器」里能找到它；要等审核的，说明会在审核通过后出现。\n\n")
+	b.WriteString("## 管理员还能做的\n\n")
+	b.WriteString("开着管理模式时，" + t("ee_expert_admin") + " 可以建分类、改分类范围、加禁用策略、查某个员工最终能用什么；" + t("ee_hub_admin") + " 的 patch 可以给专家设分类（`category_id`）和精选（`featured`）。这些改动对范围内的人立即生效，提交前把影响说清楚。\n")
 	return b.String()
 }

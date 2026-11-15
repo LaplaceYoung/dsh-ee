@@ -401,17 +401,26 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 		if !allowed {
 			return "", owner, fmt.Errorf("%w：你不是这条申请的审批人", errFeishuForbidden)
 		}
-		if decision == "approve" {
-			if err := s.grantAccess(ctx, q); err != nil {
-				return "", owner, err
-			}
-		}
+		// 和网页审批同一条规则：先用 CAS 把 pending 改成终态抢占，抢到了才去授权。
+		// 每个审批人各有一张卡片，所以「飞书 reject + 网页 approve」同时到是真实场景，不能先授权后改状态。
 		status := "rejected"
 		if decision == "approve" {
 			status = "approved"
 		}
 		if err := s.store.ResolveAccessRequest(ctx, q.ID, status, v.user.ID, "from_feishu"); err != nil {
+			if notFound(err) {
+				return "", owner, errors.New("这条申请已被其他人处理")
+			}
 			return "", owner, err
+		}
+		// 抢占成功后授权；授权失败退回待处理，卡片留失败终态并说明可以重试。
+		if decision == "approve" {
+			if err := s.grantAccess(ctx, q); err != nil {
+				if rerr := s.store.ReopenAccessRequest(ctx, q.ID); rerr != nil {
+					s.log.Error("飞书审批授权失败后退回申请失败", "id", q.ID, "err", rerr)
+				}
+				return "", owner, fmt.Errorf("授权失败，申请已退回待处理，可以重试：%w", err)
+			}
 		}
 		return q.Title, ownerPtr(q.UserID), nil
 	default:
@@ -566,12 +575,19 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 	}
 	title, ownerID, err := s.applyFeishuDecision(r.Context(), operator, action, decision)
 	if errors.Is(err, errFeishuForbidden) {
-		_ = s.store.ReleaseFeishuCardAction(r.Context(), hash)
+		// 回调按飞书要求一律回 200（见 feishuToast），失败只记日志让动作留在 processing 可查；
+		// 不改返回码去换飞书重试，避免破坏既有幂等语义和给点按钮的人看的原因。
+		if rerr := s.store.ReleaseFeishuCardAction(r.Context(), hash); rerr != nil {
+			s.log.Warn("记录飞书卡片动作状态失败", "kind", action.Kind, "object", action.ObjectKey, "status", store.FeishuActionPending, "err", rerr)
+		}
 		feishuToast(w, "error", err.Error())
 		return
 	}
 	if err != nil {
-		_ = s.store.FinishFeishuCardAction(r.Context(), hash, store.FeishuActionFailed, err.Error())
+		// 终态写不进去只影响这张卡片后续不能再点（停在 processing），审批本身已经失败，记录后继续告诉用户原因。
+		if ferr := s.store.FinishFeishuCardAction(r.Context(), hash, store.FeishuActionFailed, err.Error()); ferr != nil {
+			s.log.Warn("记录飞书卡片动作状态失败", "kind", action.Kind, "object", action.ObjectKey, "status", store.FeishuActionFailed, "err", ferr)
+		}
 		s.log.Warn("飞书审批失败", "kind", action.Kind, "err", err)
 		feishuToast(w, "error", err.Error())
 		return

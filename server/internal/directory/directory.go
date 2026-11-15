@@ -139,6 +139,10 @@ type Entry struct {
 	MinVersion string `json:"min_version,omitempty"`
 	// 可选：tarball 声明大小（字节）；目录 v1 不下载，只核对不超过上限
 	Size int64 `json:"size,omitempty"`
+	// 可选（format 2 additive）：允许在部署开启 directory.auto_upgrade 后自动升级这一条。
+	// 本期只登记 / 校验，**不执行**任何自动升级；真正升级仍由管理员显式触发。
+	// 缺省 false；写成 false 时不出现在 canonical payload 里，旧目录的签名不受影响。
+	AutoUpgrade bool `json:"auto_upgrade,omitempty"`
 }
 
 // Source 是条目的来源。v1 只允许 npm 包名或固定 https tarball 地址，不做 Git 安装。

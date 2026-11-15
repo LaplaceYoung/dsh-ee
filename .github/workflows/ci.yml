@@ -11,9 +11,14 @@ concurrency:
 env:
   TIDB_IMAGE: pingcap/tidb:v8.5.8
 
+# 只读构建/测试，不需要写仓库；显式声明以收窄默认 token 权限。
+permissions:
+  contents: read
+
 jobs:
   web:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -60,6 +65,7 @@ jobs:
 
   docs:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -70,6 +76,7 @@ jobs:
 
   server:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     services:
       tidb:
         image: pingcap/tidb:v8.5.8
@@ -80,14 +87,23 @@ jobs:
         with:
           go-version-file: server/go.mod
           cache-dependency-path: server/go.sum
+      # gofmt 是 Go 官方格式的唯一事实源；main 当前全干净，此步只防回归。
+      - name: gofmt
+        working-directory: server
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "以下文件未 gofmt："
+            echo "$unformatted"
+            exit 1
+          fi
       - name: 等待 TiDB
         run: |
           for i in $(seq 1 60); do mysql -h127.0.0.1 -P4000 -uroot -e 'select 1' >/dev/null 2>&1 && exit 0; sleep 2; done
           echo "TiDB 没起来" && exit 1
       - run: go vet ./...
         working-directory: server
-      # internal/api 测试量在当前 main 下会顶满 Go 默认 10m 单包超时；显式放宽到 20m（与 #164 的修复同因，待其合入后移除）。
-      - run: go test -count=1 -timeout=20m ./...
+      - run: go test -count=1 -timeout 20m ./...
         working-directory: server
         env:
           DSH_EE_TEST_DSN: root:@tcp(127.0.0.1:4000)/
@@ -101,7 +117,7 @@ jobs:
       # 服务扩展的 Go SDK 和示例也是独立 module
       - name: test Go extension SDK
         working-directory: extensions/sdk-go
-        run: go vet ./... && go test -count=1 ./...
+        run: go vet ./... && go test -count=1 -timeout 20m ./...
       - name: build demo service extension
         working-directory: extensions/examples/demo-extension
         run: go vet ./... && go build -o /tmp/demo-extension .
@@ -109,6 +125,7 @@ jobs:
   e2e:
     needs: web
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     services:
       tidb:
         image: pingcap/tidb:v8.5.8
@@ -156,6 +173,7 @@ jobs:
 
   docker:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - name: 校验 compose 文件
@@ -178,6 +196,7 @@ jobs:
     # TS：构建 / 类型检查 / mock fetch 单测 / npm pack 内容；Python：unittest / 编译检查 / wheel 构建。
     # 发布工作流与包元数据检查只读，不发布（release-sdk.yml 仅手动/tag 触发）。
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5

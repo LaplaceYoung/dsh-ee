@@ -5,6 +5,30 @@
 
 ## [Unreleased]
 
+### Added
+
+- 思考模式类型（`dsh_ee_harness/types.py`）：`ChatMessage.reasoning_content`、
+  `ChatCompletionRequest.thinking` / `reasoning_effort`（`ThinkingConfig` / `ReasoningEffort`）、
+  `ChatDelta.reasoning_content`、`ChatCompletion` / `ChatCompletionChunk` 等 TypedDict。
+- `chat_completion()` 增加显式关键字参数 `thinking` / `reasoning_effort`（此前只能走 `**params`），
+  文档说明请求带 `tools` 时历史 `reasoning_content` 必须回传。
+- 新增思考模式请求体与 `reasoning_content` 透传用例。
+- DeepSeek Chatbot 类型：服务端工具声明（`deepseek_web_search` / `deepseek_read_url`）、
+  `DeepSeekSafetyCheck` / `DeepSeekTitleConfig`；响应 `server_tool_calls` 步骤与调用
+  （`DeepSeekServerToolStep` / `DeepSeekServerToolCall`，含 `kind` / `signature` / `sources` /
+  `page`）、`annotations` / `url_citation`、`message.title` / `message.refusal`；
+  `usage.server_tool_use` / `completion_tokens_details.safety_tokens`。Messages API 的
+  `server_tool_use` / `web_search_tool_result` / `web_fetch_tool_result` / citations /
+  `refusal` / `stop_details` 也提供对应 TypedDict。
+- `chat_completion()` 增加显式关键字参数 `tools` / `safety_check` / `title`（此前只能走 `**params`）。
+- 新增 Chatbot 请求体、响应解析与拒答用例；新增 `sdk/examples/chatbot-server-tools.md`。
+- `latest_reminder` 类型与 helper：`DeepSeekLatestReminder` / `DeepSeekLatestReminderMessage` /
+  `format_latest_reminder()`；说明消息必须紧贴 user 消息、location 可含逗号。
+- 文件/文档内容块类型：`DeepSeekFileContentPart`（`file_id` / `file_data`）、
+  `DeepSeekDocumentBlock` / `DeepSeekDocumentSource`（`source.type = file / text`；
+  Messages API 形状）。说明文件需先用 DeepSeek Files API 上传，dsh-ee/SDK 只透传、不代理 `/files`。
+- 新增 latest_reminder 格式化与 file/document 内容块透传用例。
+
 ## [0.1.0] - 2026-11-13
 
 首次加入本仓库（**未发布到 PyPI**）。

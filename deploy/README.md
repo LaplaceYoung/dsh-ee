@@ -50,7 +50,7 @@ dsh-ee 本身只提供 HTTP，放在企业的反向代理 / 负载均衡后面�
 ### 登录限流与监控
 
 - 登录失败先按用户名锁（15 分钟 5 次），再按客户端 IP 固定窗口限流：默认 15 分钟 50 次，只统计用户名或密码错误，触发后返回 429 并带 `Retry-After`。公司很多人共用一个出口 IP 时可调大 `DSH_EE_LOGIN_IP_LIMIT`，或设成 `0` / `off` 关闭；窗口长度用 `DSH_EE_LOGIN_IP_WINDOW` 调整。
-- 需要接 Prometheus 时设 `DSH_EE_METRICS=true`，从本机或内网抓 `GET /metrics`；指标只有进程运行信息、登录失败 / 限流计数与跨站嵌入的活跃会话 / 拒绝计数，不含账号、IP 或具体请求内容。多实例部署时 `dsh_ee_embed_sessions_active` 是数据库里的全库值，聚合用 `max()` 而不是 `sum()`。
+- 需要接 Prometheus 时设 `DSH_EE_METRICS=true`，从本机或内网抓 `GET /metrics`；指标只有进程运行信息、登录失败 / 限流计数、跨站嵌入的活跃会话 / 拒绝计数，以及网关记账成功的推理 / 缓存命中 token 累计数，不含账号、IP、模型或具体请求内容。多实例部署时 `dsh_ee_embed_sessions_active` 是数据库里的全库值，聚合用 `max()` 而不是 `sum()`；其余计数在进程内累计，重启清零、多实例各自独立。
 
 ### 健康检查与探针
 

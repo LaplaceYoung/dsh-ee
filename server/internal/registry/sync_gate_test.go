@@ -233,7 +233,7 @@ func TestStartSyncAdmission(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc := NewService(st, blobs, up, st.GetSettings, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	svc := NewService(st, blobs, up, st.GetSettings, slog.New(slog.NewTextHandler(io.Discard, nil)), "test-instance")
 	svc.MaxSyncJobs = 2
 	svc.MaxSyncJobsPerUser = 1
 	ctx := context.Background()

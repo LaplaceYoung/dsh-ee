@@ -147,6 +147,12 @@ func (s *Server) handleAnthropicMessages(w http.ResponseWriter, r *http.Request)
 		writeAnthropicErr(w, http.StatusForbidden, "permission_error", "你的账号不能使用模型 "+model+"，可在 /v1/models 查看可用模型")
 		return
 	}
+	// DeepSeek Files 是上游账号级共享资源：普通员工默认不能引用 file_id。原生透传与降级
+	// 转换两条路径都在这里先拦，命中时不选线路、不请求上游。
+	if !s.fileAccessAllowed(k) && anthropicRequestReferencesFiles(body) {
+		writeAnthropicFileAccessDenied(w)
+		return
+	}
 
 	// 先取候选线路：第一条（最高优先级）线路的 vendor 决定本次请求走 DeepSeek 原生透传，
 	// 还是降级到 OpenAI chat 的转换层。故障转移只在同协议内进行（不跨协议），见 anthropic_native.go。
@@ -184,7 +190,9 @@ func (s *Server) handleAnthropicMessages(w http.ResponseWriter, r *http.Request)
 		// 与 OpenAI 网关一致：流式要求上游在最后一块里带 usage，否则统计不到 token。
 		chatBody["stream_options"] = map[string]any{"include_usage": true}
 	}
-	resp, p, ok := s.openChatUpstreamCandidates(w, r, k, model, chatBody, stream, start, convertedCands, s.anthropicErrorWriter(w))
+	// Anthropic 转换层不注入 Chatbot 选项：DSH_EE_SAFETY_CHECK / DSH_EE_CHAT_TITLE 只作用于
+	// Chat Completions 端点，这里传 nil 保持请求体原样。
+	resp, p, ok := s.openChatUpstreamCandidates(w, r, k, model, chatBody, stream, start, convertedCands, s.anthropicErrorWriter(w), nil)
 	if !ok {
 		return
 	}
