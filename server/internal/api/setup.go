@@ -44,6 +44,25 @@ func (s *Server) setupVars(r *http.Request) (base, registry, authKey string, sco
 	return
 }
 
+// ps1Lang 是 setup.ps1 的文案语言。默认中文：现有 Windows 用户看到的是中文，
+// e2e/29-release-smoke.mjs 也断言默认脚本里有「dsh-ee 接入脚本」。
+// 只有显式 ?lang=en 才输出英文；和 setup.sh 的取舍一致，不看 Accept-Language，
+// 避免浏览器默认语言改变默认输出。
+type ps1Lang string
+
+const (
+	ps1LangZh ps1Lang = "zh"
+	ps1LangEn ps1Lang = "en"
+)
+
+// ps1LangFromRequest 只认显式 lang=en（大小写不敏感）；缺省或非法值一律回退中文。
+func ps1LangFromRequest(r *http.Request) ps1Lang {
+	if strings.EqualFold(r.URL.Query().Get("lang"), "en") {
+		return ps1LangEn
+	}
+	return ps1LangZh
+}
+
 // profileNpmrcShell 定义 write_profile_npmrc <profile 目录>：替换 dsh-ee 管的几行（registry、作用域、令牌），
 // 其它行原样保留；以及 check_token：用 /api/dsh/whoami 校验令牌，令牌经 stdin 传给 curl，不出现在进程参数里。
 const profileNpmrcShell = `
@@ -78,6 +97,115 @@ hint_global_npmrc() {
 func shellQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", `'\''`) + "'" }
 
 func psQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
+
+// ps1Text 是 setup.ps1 里所有面向用户的文案：提示、注释、错误信息。
+// 脚本的命令、变量、逻辑与退出码中英共用，切语言只替换这里的文案；
+// 默认中文必须与加 lang 参数之前逐字一致（e2e 与 Windows 用户现状都依赖它）。
+type ps1Text struct {
+	header          string
+	noDeviceLogin   string
+	noNpm           string
+	deviceStartFail string
+	browserHint     string
+	deviceCode      string
+	waitConfirm     string
+	devicePollFail  string
+	deviceTimeout   string
+	loginOK         string
+	tokenFormat     string
+	tokenInvalid    string
+	tokenValid      string
+	profilesEmpty   string
+	npmrcComment    string
+	bomComment      string
+	npmrcWritten    string
+	globalNpmrcDone string
+	envBomComment1  string
+	envBomComment2  string
+	envAclComment   string
+	envTokenWritten string
+	envPendingSaved string
+	envOldTokenHint string
+	noConnectPkg    string
+	indexHint       string
+	pnpmMissing     string
+	pluginInstalled string
+	done            string
+	autoSync        string
+}
+
+func ps1TextFor(lang ps1Lang) ps1Text {
+	if lang == ps1LangEn {
+		return ps1TextEn
+	}
+	return ps1TextZh
+}
+
+var ps1TextZh = ps1Text{
+	header:          `# dsh-ee 接入脚本：默认通过浏览器设备登录；-Token 保留 CI 与旧流程。`,
+	noDeviceLogin:   `当前环境不能进行浏览器设备登录，请使用 -Token <令牌> 或设置 DSH_EE_TOKEN。`,
+	noNpm:           `没有找到 npm：请先安装 Node.js。`,
+	deviceStartFail: `设备登录发起失败：`,
+	browserHint:     `请在浏览器中确认登录（已尝试自动打开）：`,
+	deviceCode:      `确认码：$($flow.user_code)`,
+	waitConfirm:     `等待确认…（Ctrl-C 取消）`,
+	devicePollFail:  `设备登录失败：$($pollError.error)`,
+	deviceTimeout:   `设备登录超时，请重新运行 setup`,
+	loginOK:         `✔ 已登录 $($login.user.username)（$($login.user.department)）`,
+	tokenFormat:     `令牌格式不对`,
+	tokenInvalid:    `令牌无效或连不上 dsh-ee`,
+	tokenValid:      `令牌有效，当前账号：$($me.username)`,
+	profilesEmpty:   `DSH_PROFILES 不能为空`,
+	npmrcComment:    `只写 DSH profile 目录的 .npmrc（DSH 跑 pnpm 时的工作目录），不动 ~/.npmrc`,
+	bomComment:      `.NET 默认写无 BOM 的 UTF-8；Set-Content -Encoding utf8 在 PowerShell 5 会加 BOM`,
+	npmrcWritten:    `已写入 $NpmrcFile（只对 DSH 生效，不改 ~/.npmrc）`,
+	globalNpmrcDone: `已按 DSH_EE_GLOBAL_NPMRC=1 同时写入 ~/.npmrc`,
+	envBomComment1:  `.NET 默认写无 BOM 的 UTF-8；Set-Content -Encoding utf8 在 PowerShell 5 会加 BOM，`,
+	envBomComment2:  `Node 的 process.loadEnvFile 会把 BOM 当成变量名的一部分，DSHEE_TOKEN 就读不到。`,
+	envAclComment:   `.env 里也是接入令牌，权限和 .npmrc / token.pending 保持一致`,
+	envTokenWritten: "已把接入令牌写进 $EnvFile（" + connectTokenEnv + "）",
+	envPendingSaved: `令牌已保存到 $Pending，DSH 启动后会导入凭据库并删除此文件`,
+	envOldTokenHint: `提示：已保留 .env 中的旧令牌；凭据库优先，如不再使用请手动删除该行。`,
+	noConnectPkg:    `管理员还没有发布 DSH 接入插件；发布后重新运行本脚本即可接入企业技能与系统。`,
+	indexHint:       `现在可以先在 DSH 插件页 → 发现 → 添加索引源，填入`,
+	pnpmMissing:     `安装 DSH 插件需要 pnpm：先运行 npm install -g pnpm，再重新运行本脚本`,
+	pluginInstalled: `已在 DSH 的 $ProfileName profile 里装好 $ConnectPkg`,
+	done:            `完成。重启 DSH（dsh web）后，企业技能、提示词、微应用与企业系统就会出现。`,
+	autoSync:        `以后在 $Base/hub 启用新的能力，DSH 会自动同步。`,
+}
+
+var ps1TextEn = ps1Text{
+	header:          `# dsh-ee setup script: browser device login by default; -Token for CI and legacy flows.`,
+	noDeviceLogin:   `This environment cannot do browser device login. Use -Token <token> or set DSH_EE_TOKEN.`,
+	noNpm:           `npm not found: install Node.js first.`,
+	deviceStartFail: `Failed to start device login: `,
+	browserHint:     `Confirm the login in the browser (we tried to open it automatically):`,
+	deviceCode:      `Verification code: $($flow.user_code)`,
+	waitConfirm:     `Waiting for confirmation... (Ctrl-C to cancel)`,
+	devicePollFail:  `Device login failed: $($pollError.error)`,
+	deviceTimeout:   `Device login timed out; run setup again`,
+	loginOK:         `✔ Signed in as $($login.user.username) ($($login.user.department))`,
+	tokenFormat:     `Invalid token format`,
+	tokenInvalid:    `Invalid token, or dsh-ee is unreachable`,
+	tokenValid:      `Token is valid. Current account: $($me.username)`,
+	profilesEmpty:   `DSH_PROFILES must not be empty`,
+	npmrcComment:    `Only write the .npmrc in the DSH profile directory (the working dir where DSH runs pnpm); leave ~/.npmrc alone`,
+	bomComment:      `.NET writes UTF-8 without BOM by default; Set-Content -Encoding utf8 adds a BOM on PowerShell 5`,
+	npmrcWritten:    `Wrote $NpmrcFile (takes effect only for DSH; ~/.npmrc untouched)`,
+	globalNpmrcDone: `Also wrote ~/.npmrc because DSH_EE_GLOBAL_NPMRC=1`,
+	envBomComment1:  `.NET writes UTF-8 without BOM by default; Set-Content -Encoding utf8 adds a BOM on PowerShell 5,`,
+	envBomComment2:  `Node process.loadEnvFile treats the BOM as part of the variable name, so DSHEE_TOKEN would not load.`,
+	envAclComment:   `.env also holds the access token; keep the same ACL as .npmrc / token.pending`,
+	envTokenWritten: "Wrote the access token to $EnvFile (" + connectTokenEnv + ")",
+	envPendingSaved: `Token saved to $Pending; DSH will import it into the credential store on startup and delete this file`,
+	envOldTokenHint: `Note: kept the old token in .env; the credential store takes precedence, so delete that line manually if it is no longer needed.`,
+	noConnectPkg:    `The admin has not published the DSH connect plugin yet; rerun this script after it is published to connect company skills and systems.`,
+	indexHint:       `For now, open DSH Plugins -> Discover -> Add index source and fill in`,
+	pnpmMissing:     `Installing the DSH plugin requires pnpm: run npm install -g pnpm first, then rerun this script`,
+	pluginInstalled: `Installed $ConnectPkg in the DSH $ProfileName profile`,
+	done:            `Done. After restarting DSH (dsh web), company skills, prompts, micro apps and enterprise systems will show up.`,
+	autoSync:        `New capabilities enabled at $Base/hub will sync to DSH automatically.`,
+}
 
 func (s *Server) handleSetupSh(w http.ResponseWriter, r *http.Request) {
 	base, registry, authKey, scopes, err := s.setupVars(r)
@@ -165,17 +293,20 @@ fi
 	_, _ = w.Write([]byte(script))
 }
 
+// handleSetupPs1 生成 Windows 一键接入脚本。默认中文；显式 ?lang=en 生成全英文脚本。
+// 不用 Accept-Language：默认输出不能被浏览器语言改变（e2e 断言中文 marker）。
 func (s *Server) handleSetupPs1(w http.ResponseWriter, r *http.Request) {
 	base, registry, authKey, scopes, err := s.setupVars(r)
 	if err != nil {
 		s.internalErr(w, r, err)
 		return
 	}
+	txt := ps1TextFor(ps1LangFromRequest(r))
 	var sc []string
 	for _, x := range scopes {
 		sc = append(sc, psQuote(x))
 	}
-	script := `# dsh-ee 接入脚本：默认通过浏览器设备登录；-Token 保留 CI 与旧流程。
+	script := txt.header + `
 function Setup-DshEE {
   param([string]$Token)
   $ErrorActionPreference = 'Stop'
@@ -186,11 +317,11 @@ function Setup-DshEE {
   if (-not $Token -and $env:DSH_EE_TOKEN) { $Token = $env:DSH_EE_TOKEN }
   $DeviceLogin = -not $Token
   if ($DeviceLogin -and ($env:CI -eq '1' -or ($env:DSH_EE_SETUP_INTERACTIVE -ne '1' -and -not [Environment]::UserInteractive))) {
-    Write-Error '当前环境不能进行浏览器设备登录，请使用 -Token <令牌> 或设置 DSH_EE_TOKEN。'
+    Write-Error '` + txt.noDeviceLogin + `'
     return
   }
   if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
-    Write-Error '没有找到 npm：请先安装 Node.js。'
+    Write-Error '` + txt.noNpm + `'
     return
   }
   $DshDir = if ($env:DSH_HOME) { $env:DSH_HOME } else { Join-Path $HOME '.dsh' }
@@ -201,11 +332,11 @@ function Setup-DshEE {
     if (Get-Command dsh -ErrorAction SilentlyContinue) { $dshVersion = (dsh --version | Select-Object -First 1) }
     $body = @{ client_name = $env:COMPUTERNAME; client_os = [System.Environment]::OSVersion.VersionString; client_version = $dshVersion } | ConvertTo-Json -Compress
     try { $flow = Invoke-RestMethod -Method Post -Uri "$Base/api/device/code" -ContentType 'application/json' -Body $body }
-    catch { Write-Error "设备登录发起失败：$_"; return }
-    Write-Host '请在浏览器中确认登录（已尝试自动打开）：'
+    catch { Write-Error "` + txt.deviceStartFail + `$_"; return }
+    Write-Host '` + txt.browserHint + `'
     Write-Host "  $($flow.verification_uri_complete)"
-    Write-Host "确认码：$($flow.user_code)"
-    Write-Host '等待确认…（Ctrl-C 取消）'
+    Write-Host "` + txt.deviceCode + `"
+    Write-Host '` + txt.waitConfirm + `'
     try { Start-Process $flow.verification_uri_complete } catch {}
     $interval = [Math]::Max(1, [int]$flow.interval)
     $deadline = [DateTime]::UtcNow.AddSeconds([Math]::Max(1, [int]$flow.expires_in))
@@ -219,29 +350,29 @@ function Setup-DshEE {
         if ($_.ErrorDetails.Message) { try { $pollError = $_.ErrorDetails.Message | ConvertFrom-Json } catch {} }
         if ($pollError.error -eq 'slow_down' -or $pollError.error -eq 'rate_limited') { $interval += 5; continue }
         if ($pollError.error -eq 'authorization_pending') { continue }
-        Write-Error "设备登录失败：$($pollError.error)"
+        Write-Error "` + txt.devicePollFail + `"
         return
       }
       if ($login.access_token) { break }
     }
-    if (-not $login.access_token) { Write-Error '设备登录超时，请重新运行 setup'; return }
+    if (-not $login.access_token) { Write-Error '` + txt.deviceTimeout + `'; return }
     New-Item -ItemType Directory -Force -Path $PendingDir | Out-Null
     [System.IO.File]::WriteAllText($Pending, $login.access_token + [Environment]::NewLine)
     icacls $PendingDir /inheritance:r /grant:r "${env:USERNAME}:(OI)(CI)(F)" | Out-Null
     icacls $Pending /inheritance:r /grant:r "${env:USERNAME}:(F)" | Out-Null
     $Token = $login.access_token
-    Write-Host "✔ 已登录 $($login.user.username)（$($login.user.department)）"
+    Write-Host "` + txt.loginOK + `"
   }
-  if ($Token -notmatch '^[A-Za-z0-9._~-]+$') { Write-Error '令牌格式不对'; return }
+  if ($Token -notmatch '^[A-Za-z0-9._~-]+$') { Write-Error '` + txt.tokenFormat + `'; return }
   try { $me = Invoke-RestMethod -Uri "$Base/api/dsh/whoami" -Headers @{ Authorization = "Bearer $Token" } }
-  catch { Write-Error '令牌无效或连不上 dsh-ee'; return }
-  Write-Host "令牌有效，当前账号：$($me.username)"
+  catch { Write-Error '` + txt.tokenInvalid + `'; return }
+  Write-Host "` + txt.tokenValid + `"
   $Scopes = @(` + strings.Join(sc, ", ") + `)
   $rawProfiles = if ($env:DSH_PROFILES) { $env:DSH_PROFILES } else { '` + connectProfile + `' }
   $Profiles = @($rawProfiles -split '\s+' | Where-Object { $_ })
-  if ($Profiles.Count -eq 0) { Write-Error 'DSH_PROFILES 不能为空'; return }
+  if ($Profiles.Count -eq 0) { Write-Error '` + txt.profilesEmpty + `'; return }
   foreach ($ProfileName in $Profiles) {
-    # 只写 DSH profile 目录的 .npmrc（DSH 跑 pnpm 时的工作目录），不动 ~/.npmrc
+    # ` + txt.npmrcComment + `
     $ProfileDir = Join-Path (Join-Path $DshDir 'profiles') $ProfileName
     $NpmrcFile = Join-Path $ProfileDir '.npmrc'
     New-Item -ItemType Directory -Force -Path $ProfileDir | Out-Null
@@ -251,18 +382,18 @@ function Setup-DshEE {
     $lines += "registry=$Registry"
     foreach ($scope in $Scopes) { $lines += "${scope}:registry=$Registry" }
     $lines += "$AuthKey=$Token"
-    # .NET 默认写无 BOM 的 UTF-8；Set-Content -Encoding utf8 在 PowerShell 5 会加 BOM
+    # ` + txt.bomComment + `
     [System.IO.File]::WriteAllLines($NpmrcFile, [string[]]$lines)
     icacls $NpmrcFile /inheritance:r /grant:r "${env:USERNAME}:(F)" | Out-Null
-    Write-Host "已写入 $NpmrcFile（只对 DSH 生效，不改 ~/.npmrc）"
+    Write-Host "` + txt.npmrcWritten + `"
   }
   if ($env:DSH_EE_GLOBAL_NPMRC -eq '1') {
     npm config set registry $Registry
     npm config set $AuthKey $Token
     foreach ($scope in $Scopes) { npm config set "${scope}:registry" $Registry }
-    Write-Host '已按 DSH_EE_GLOBAL_NPMRC=1 同时写入 ~/.npmrc'
+    Write-Host '` + txt.globalNpmrcDone + `'
   }
-` + s.connectPowerShell(r) + `}
+` + s.connectPowerShell(r, txt) + `}
 ` + setupTokenArgPowerShell() + `Setup-DshEE -Token $tokenArg
 `
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -363,7 +494,7 @@ msg_hub_hint "$BASE"
 }
 
 // setupEnvPowerShell 是 setup.ps1 里写 .env 的那段；独立出来，Windows 测试可以直接执行它。
-func setupEnvPowerShell() string {
+func setupEnvPowerShell(txt ps1Text) string {
 	return `
   $EnvFile = Join-Path $DshDir '.env'
   if (-not $DeviceLogin) {
@@ -371,45 +502,45 @@ func setupEnvPowerShell() string {
     $lines = @()
     if (Test-Path $EnvFile) { $lines = @(Get-Content $EnvFile -Encoding UTF8 | Where-Object { $_ -notmatch '^` + connectTokenEnv + `=' }) }
     $lines += "` + connectTokenEnv + `=$Token"
-    # .NET 默认写无 BOM 的 UTF-8；Set-Content -Encoding utf8 在 PowerShell 5 会加 BOM，
-    # Node 的 process.loadEnvFile 会把 BOM 当成变量名的一部分，DSHEE_TOKEN 就读不到。
+    # ` + txt.envBomComment1 + `
+    # ` + txt.envBomComment2 + `
     [System.IO.File]::WriteAllLines($EnvFile, [string[]]$lines)
-    # .env 里也是接入令牌，权限和 .npmrc / token.pending 保持一致
+    # ` + txt.envAclComment + `
     icacls $EnvFile /inheritance:r /grant:r "${env:USERNAME}:(F)" | Out-Null
-    Write-Host "已把接入令牌写进 $EnvFile（` + connectTokenEnv + `）"
+    Write-Host "` + txt.envTokenWritten + `"
   } else {
-    Write-Host "令牌已保存到 $Pending，DSH 启动后会导入凭据库并删除此文件"
+    Write-Host "` + txt.envPendingSaved + `"
     if ((Test-Path $EnvFile) -and (Select-String -Path $EnvFile -Pattern '^` + connectTokenEnv + `=' -Quiet)) {
-      Write-Host '提示：已保留 .env 中的旧令牌；凭据库优先，如不再使用请手动删除该行。'
+      Write-Host '` + txt.envOldTokenHint + `'
     }
   }
 `
 }
 
 // connectPowerShell 是 setup.ps1 的后半段。
-func (s *Server) connectPowerShell(r *http.Request) string {
+func (s *Server) connectPowerShell(r *http.Request, txt ps1Text) string {
 	pkg, market := s.connectSetup(r)
-	tail := setupEnvPowerShell()
+	tail := setupEnvPowerShell(txt)
 
 	if pkg == "" {
 		tail += `  Write-Host ''
-  Write-Host '管理员还没有发布 DSH 接入插件；发布后重新运行本脚本即可接入企业技能与系统。'
+  Write-Host '` + txt.noConnectPkg + `'
 `
 		if market {
-			tail += `  Write-Host '现在可以先在 DSH 插件页 → 发现 → 添加索引源，填入'
+			tail += `  Write-Host '` + txt.indexHint + `'
   Write-Host "  $Index"
 `
 		}
 		return tail
 	}
 	return tail + `  $ConnectPkg = ` + psQuote(pkg) + `
-  if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) { Write-Error '安装 DSH 插件需要 pnpm：先运行 npm install -g pnpm，再重新运行本脚本'; return }
+  if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) { Write-Error '` + txt.pnpmMissing + `'; return }
   foreach ($ProfileName in $Profiles) {
     if (Get-Command dsh -ErrorAction SilentlyContinue) { dsh plugin --profile $ProfileName add "$ConnectPkg@latest" }
     else { npx --yes '@deepseek-ai/dsh' plugin --profile $ProfileName add "$ConnectPkg@latest" }
-    Write-Host "已在 DSH 的 $ProfileName profile 里装好 $ConnectPkg"
+    Write-Host "` + txt.pluginInstalled + `"
   }
-  Write-Host '完成。重启 DSH（dsh web）后，企业技能、提示词、微应用与企业系统就会出现。'
-  Write-Host "以后在 $Base/hub 启用新的能力，DSH 会自动同步。"
+  Write-Host '` + txt.done + `'
+  Write-Host "` + txt.autoSync + `"
 `
 }

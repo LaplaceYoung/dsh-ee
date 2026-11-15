@@ -313,3 +313,89 @@ func TestConnectTarball(t *testing.T) {
 		}
 	}
 }
+
+// setup.ps1 的语言开关：默认中文逐字不变；显式 ?lang=en 生成全英文脚本；
+// 非法 / 缺省 lang 回退中文。命令、变量、逻辑与退出码中英共用。
+func TestSetupPs1Languages(t *testing.T) {
+	ts, admin := setupScriptServer(t)
+	han := regexp.MustCompile(`\p{Han}`)
+	zh := getScript(t, ts.URL, "/setup.ps1")
+	// e2e/29-release-smoke.mjs 断言这个中文 marker；默认输出不能变。
+	for _, want := range []string{
+		"# dsh-ee 接入脚本：默认通过浏览器设备登录；-Token 保留 CI 与旧流程。",
+		"Write-Error '当前环境不能进行浏览器设备登录，请使用 -Token <令牌> 或设置 DSH_EE_TOKEN。'",
+		"Write-Host '管理员还没有发布 DSH 接入插件；发布后重新运行本脚本即可接入企业技能与系统。'",
+	} {
+		if !strings.Contains(zh, want) {
+			t.Errorf("默认 setup.ps1 缺少中文文案 %q", want)
+		}
+	}
+
+	// 未发布接入插件：覆盖「管理员还没有发布」分支的英文文案。
+	en := getScript(t, ts.URL, "/setup.ps1?lang=en")
+	if bad := han.FindString(en); bad != "" {
+		t.Errorf("setup.ps1?lang=en 仍含中文 %q", bad)
+	}
+	if !strings.Contains(en, "The admin has not published the DSH connect plugin yet") {
+		t.Error("setup.ps1?lang=en 缺少未发布接入插件分支的英文文案")
+	}
+
+	// 打开插件市场：覆盖「添加索引源」提示的英文文案。
+	code, body := admin.do("PUT", "/api/admin/settings", map[string]any{"connect": map[string]any{"market": true}}, nil)
+	expect(t, "打开插件市场", code, http.StatusOK, body)
+	if got := getScript(t, ts.URL, "/setup.ps1"); !strings.Contains(got, "Write-Host '现在可以先在 DSH 插件页 → 发现 → 添加索引源，填入'") {
+		t.Error("插件市场分支的默认 setup.ps1 缺少中文提示")
+	}
+	en = getScript(t, ts.URL, "/setup.ps1?lang=en")
+	if bad := han.FindString(en); bad != "" {
+		t.Errorf("插件市场分支的 setup.ps1?lang=en 仍含中文 %q", bad)
+	}
+	if !strings.Contains(en, "For now, open DSH Plugins -> Discover -> Add index source and fill in") {
+		t.Error("setup.ps1?lang=en 缺少插件市场分支的英文文案")
+	}
+
+	// 发布接入插件：覆盖安装插件分支的英文文案。
+	code, body = admin.do("POST", "/api/admin/connect/publish", map[string]bool{"force": true}, nil)
+	expect(t, "发布接入插件", code, http.StatusOK, body)
+	en = getScript(t, ts.URL, "/setup.ps1?lang=en")
+	zh = getScript(t, ts.URL, "/setup.ps1")
+	if bad := han.FindString(en); bad != "" {
+		t.Errorf("setup.ps1?lang=en 仍含中文 %q", bad)
+	}
+	if !strings.Contains(zh, "Write-Host '完成。重启 DSH（dsh web）后，企业技能、提示词、微应用与企业系统就会出现。'") {
+		t.Error("发布接入插件后的默认 setup.ps1 缺少中文完成提示")
+	}
+	for _, want := range []string{
+		"# dsh-ee setup script: browser device login by default; -Token for CI and legacy flows.",
+		"Write-Error 'Invalid token format'",
+		"Installed $ConnectPkg in the DSH $ProfileName profile",
+		"Write-Host 'Done. After restarting DSH (dsh web), company skills, prompts, micro apps and enterprise systems will show up.'",
+	} {
+		if !strings.Contains(en, want) {
+			t.Errorf("setup.ps1?lang=en 缺少英文文案 %q", want)
+		}
+	}
+	// 命令、变量、逻辑、退出码两种语言相同。
+	for _, want := range []string{
+		"param([string]$Token)",
+		"Setup-DshEE -Token $tokenArg",
+		"$Token -notmatch '^[A-Za-z0-9._~-]+$'",
+		"[System.IO.File]::WriteAllLines($EnvFile",
+		"$arg -like '-Token=*'",
+	} {
+		if !strings.Contains(en, want) {
+			t.Errorf("setup.ps1?lang=en 缺少功能片段 %q", want)
+		}
+	}
+	// 逐行替换文案，行数应完全一致（防止英文版漏掉逻辑或文案换行）。
+	if a, b := strings.Count(zh, "\n"), strings.Count(en, "\n"); a != b {
+		t.Errorf("中英文脚本行数应一致：zh=%d en=%d", a, b)
+	}
+
+	// 非法或缺省 lang 一律回退中文，并与默认输出逐字节一致。
+	for _, path := range []string{"/setup.ps1?lang=", "/setup.ps1?lang=fr", "/setup.ps1?lang=zh"} {
+		if got := getScript(t, ts.URL, path); got != zh {
+			t.Fatalf("%s 应回退中文默认输出", path)
+		}
+	}
+}
