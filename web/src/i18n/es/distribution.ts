@@ -1,0 +1,93 @@
+/** Descarga de DSH, guía de conexión y publicación de capacidades. */
+import type zhNs from "../zh/distribution";
+import type { Messages } from "../types";
+
+export default {
+  "download": {
+    "download": "Descargar",
+    "disabled": "La distribución de DSH Desktop está desactivada. Pide un instalador a TI.",
+    "title": "Descargar DSH Desktop",
+    "desc": "Descarga la aplicación de escritorio oficial desde la red de la empresa. dsh-ee ha verificado los instaladores con el manifiesto sha512 oficial.",
+    "recommended": "Recomendada",
+    "stepDownload": "① Descarga DSH Desktop",
+    "unzip": "Descomprime la descarga y arrastra DeepSeek Harness a Aplicaciones.",
+    "chooseChip": "Si Safari no detecta tu chip, abre  → Acerca de este Mac → Chip y elige el instalador correspondiente.",
+    "target": {
+      "mac-arm64": "Apple silicon",
+      "mac-x64": "Intel",
+      "win-x64": "Windows (x64)"
+    },
+    "empty": "Aún no se ha sincronizado ninguna versión descargable.",
+    "hashNote": "El sha512 del instalador coincide con el manifiesto oficial. El hash se muestra para que puedas verificarlo después de descargarlo.",
+    "officialVerified": "Verificado con el sha512 oficial",
+    "unverifiedDmg": "No hay hash oficial disponible; dsh-ee calculó este sha512 durante la descarga",
+    "winInstall": "Ejecuta el exe para instalar. Si Windows muestra «Windows protegió tu PC» en el primer inicio, elige Más información → Ejecutar de todos modos.",
+    "winQuitDesc": "Después de instalar, abre DSH una vez y ciérralo por completo: haz clic derecho en el icono de la bandeja → Salir.",
+    "otherPlatform": "Solo se ofrecen instaladores para macOS y Windows. Abre esta página en un sistema compatible.",
+    "stepOpen": "② Abre una vez y cierra por completo",
+    "openDesc": "En el primer inicio verás una página de bienvenida. No inicies sesión ni introduzcas una clave de API; pulsa ⌘Q para salir.",
+    "stepCommand": "③ Ejecuta esto en Terminal",
+    "commandDesc": "Se abre una página de confirmación en tu navegador. Una vez confirmada, el plugin se instala automáticamente.",
+    "stepReconnect": "④ Vuelve a abrir DSH",
+    "connected": "✔ Conectado: {{device}} · plugin {{version}}",
+    "defaultDevice": "DSH Desktop",
+    "notDetected": "¿No se detecta? Ejecuta /ee-doctor en DSH o abre la",
+    "connectGuide": "guía de conexión",
+    "waiting": "Esperando la conexión… Se comprueba cada 3 segundos durante un máximo de 5 minutos."
+  },
+  "setup": {
+    "title": "Conéctate al origen de plugins de la empresa",
+    "desc": "Una vez conectado, la página de plugins de DSH muestra el mercado de la empresa e instala desde la intranet, sin necesidad de acceso a internet.",
+    "tokenTitle": "Tu token de instalación personal",
+    "tokenDesc": "Los comandos de abajo ya lo incluyen; se usa para auditar instalaciones y para plugins solo de departamento. No lo compartas.",
+    "deviceLoginTitle": "Confirma en tu navegador para terminar",
+    "deviceLoginDesc": "El script muestra un código e intenta abrir tu navegador. Si tu token caduca más tarde, ejecuta /ee-login en DSH; /ee-status muestra el estado actual. Usa la configuración manual para servidores y CI.",
+    "manual": "Configuración manual",
+    "runInTerminal": "Ejecutar en una terminal",
+    "runInPowerShell": "Ejecutar en PowerShell",
+    "step1": "Añade el índice de plugins en DSH",
+    "step1Desc": "DSH Plugins → Descubrir → Añadir índice, y luego introduce:",
+    "step2": "Haz que pnpm instale desde el registro interno",
+    "step2Desc": "Solo para DSH: escribe esto en el .npmrc del directorio de perfiles de DSH (p. ej. ~/.dsh/profiles/web/.npmrc, profiles/desktop para Desktop) para no afectar al desarrollo local; ponlo en ~/.npmrc solo si tus propios proyectos npm también lo necesitan:",
+    "step3": "Confía en el certificado CA de la empresa (si la intranet usa un certificado autofirmado)",
+    "shellComment": "# añade esto al perfil de tu shell",
+    "step4": "Verifica",
+    "coexist": "No pasa nada si ya has añadido orígenes públicos como dshfind.com; pueden coexistir. Si la empresa exige solo orígenes internos, los administradores bloquean el registro público a nivel de red y los plugins de orígenes públicos no se podrán instalar.",
+    "scriptTitle": "Qué hace el script (abre el enlace para revisarlo antes de ejecutarlo):",
+    "scriptCheck": "Ejecuta una comprobación de conectividad e imprime el resultado"
+  },
+  "publish": {
+    "submitted": "Enviado. Se une a la cola de revisión cuando terminan las comprobaciones automáticas",
+    "title": "Compartir un plugin",
+    "desc": "Comparte con tus compañeros un plugin de DSH que hayas escrito. Los plugins internos deben usar el ámbito {{scope}}/ y aparecen en el mercado una vez aprobados.",
+    "web": "Subir en el navegador",
+    "cli": "Publicar desde la CLI",
+    "request": "Solicitar un plugin de la comunidad",
+    "cliNote": "Los paquetes publicados no se pueden instalar de inmediato: pasan por comprobaciones automáticas (declaración dsh.bundle, scripts de instalación, vulnerabilidades de dependencias, licencia, secretos filtrados) y luego por la revisión de un administrador. Los paquetes fuera de {{scope}}/ se rechazan directamente para evitar la confusión de dependencias con paquetes npm públicos.",
+    "chooseFile": "Elige el .tgz que produce pnpm pack",
+    "check": "Verificación previa",
+    "checking": "Comprobando…",
+    "checkHint": "La verificación previa solo lee el .tgz; no publica ni reserva una versión.",
+    "checkPassed": "No se han encontrado bloqueos. Listo para publicar.",
+    "checkReview": "Sin conflictos de publicación; pasará a revisión después del envío.",
+    "checkScanFail": "Algunas comprobaciones automáticas han fallado. Aún puedes enviarlo a revisión, pero se tomará el número de versión; corrige los problemas primero si puedes.",
+    "checkBlocked": "Corrige los elementos bloqueantes antes de publicar.",
+    "conflict": {
+      "name": "Nombre de paquete no válido: {{name}}",
+      "version": "No es una versión semver estricta: {{version}}",
+      "scope": "Publica bajo el ámbito de la empresa {{scope}}: usa {{scope}}/<name>",
+      "exists": "{{name}}@{{version}} ya existe (las versiones rechazadas o despublicadas no se pueden reutilizar)",
+      "upstream": "{{name}} ya está replicado desde el registro upstream; no se puede publicar un paquete local con el mismo nombre",
+      "owner": "{{name}} lo mantiene otra persona; no puedes publicar una versión nueva"
+    },
+    "submit": "Enviar a revisión",
+    "mine": "Mis envíos",
+    "noneYet": "Aún no has enviado ningún plugin.",
+    "requestIntro": "¿Has encontrado un plugin útil en dshfind.com o npm que el mercado de la empresa aún no tiene? Envía su nombre; una vez aprobado, los administradores lo sincronizan a la intranet junto con sus dependencias.",
+    "requestName": "Nombre del paquete npm o enlace de dshfind",
+    "requestReason": "Para qué sirve",
+    "requestReasonPlaceholder": "Cómo piensa usarlo tu equipo",
+    "requestSent": "Solicitud enviada: {{name}}",
+    "requestSubmit": "Enviar solicitud"
+  }
+} satisfies Messages<typeof zhNs>;
