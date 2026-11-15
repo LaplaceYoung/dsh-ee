@@ -22,6 +22,16 @@ import (
 
 const dshReleaseHost = "download.deepseek.com"
 
+// dshReleaseTimeout 是单个安装包从建连到读完全部内容的硬上限。官方安装包接近 1 GB，
+// 跨境镜像可能很慢，所以留足 45 分钟；HTTP 客户端的 Timeout 与后台下载任务的 context
+// 超时共用这个值，避免上游建连后挂起时永久占住 goroutine、让 DB 一直停在 downloading。
+const dshReleaseTimeout = 45 * time.Minute
+
+// maxDshReleaseBytes 是没有清单大小可依时的下载硬上限。官方 DMG 固定没有 size/sha512，
+// 只能按绝对上限兜底，防止上游行为异常或清单被换时把磁盘写满；2 GiB 远高于安装包实际大小。
+// 定义为变量是为了让单测能临时改小上限来覆盖超限分支。
+var maxDshReleaseBytes int64 = 2 << 30
+
 var (
 	dshReleaseFeedURLs = map[string]string{
 		"mac-arm64": "https://download.deepseek.com/dsh-desk/feeds/mac-arm64/nightly-mac.yml",
@@ -56,6 +66,8 @@ func (s *Server) initDshReleases() {
 	s.releaseJobs = map[string]bool{}
 	s.releaseHTTP = &http.Client{
 		Transport: s.opts.DemoSite.guard(&http.Transport{Proxy: http.ProxyFromEnvironment, ResponseHeaderTimeout: time.Minute, IdleConnTimeout: 90 * time.Second}),
+		// 总超时：大文件下载需要余量，但必须能结束，不能只靠 ResponseHeaderTimeout。
+		Timeout: dshReleaseTimeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if !s.releaseURLAllowed(req.URL.String()) {
 				return fmt.Errorf("拒绝重定向到非官方地址：%s", req.URL.Redacted())
@@ -302,6 +314,34 @@ func (s *Server) downloadDshRelease(ctx context.Context, id int64) error {
 	return s.cleanupDshReleases(ctx, r.Target, set.Distribution.KeepVersions)
 }
 
+// copyReleaseBody 把安装包内容从 src 拷到 dst，返回实际写入的字节数，并保证不会无限写盘。
+// wantSize > 0（zip/exe，清单给了大小）时最多读 wantSize+1 字节：多一个字节就足以判定
+// 上游返回的内容比清单大，小于 wantSize 同样报错。
+// wantSize == 0（官方 DMG 没有清单大小）时最多读 maxDshReleaseBytes 作为绝对上限。
+func copyReleaseBody(dst io.Writer, src io.Reader, wantSize int64) (int64, error) {
+	limit := maxDshReleaseBytes + 1
+	if wantSize > 0 {
+		limit = wantSize + 1
+	}
+	n, err := io.Copy(dst, io.LimitReader(src, limit))
+	if err != nil {
+		return n, err
+	}
+	if wantSize > 0 {
+		if n > wantSize {
+			return n, fmt.Errorf("上游返回的内容比清单声明的 %d 字节多", wantSize)
+		}
+		if n < wantSize {
+			return n, fmt.Errorf("安装包大小不一致：清单 %d，实际 %d", wantSize, n)
+		}
+		return n, nil
+	}
+	if n > maxDshReleaseBytes {
+		return n, fmt.Errorf("安装包超过 %d 字节上限（清单未声明大小）", maxDshReleaseBytes)
+	}
+	return n, nil
+}
+
 func (s *Server) downloadDshReleaseFile(ctx context.Context, r *store.DshRelease) (size int64, sum, localPath string, retErr error) {
 	if !s.releaseURLAllowed(r.UpstreamURL) {
 		return 0, "", "", errors.New("安装包地址不在官方白名单")
@@ -340,7 +380,7 @@ func (s *Server) downloadDshReleaseFile(ctx context.Context, r *store.DshRelease
 		}
 	}()
 	h := sha512.New()
-	size, err = io.Copy(f, io.TeeReader(resp.Body, h))
+	size, err = copyReleaseBody(f, io.TeeReader(resp.Body, h), r.Size)
 	if err != nil {
 		return 0, "", "", err
 	}
@@ -350,11 +390,11 @@ func (s *Server) downloadDshReleaseFile(ctx context.Context, r *store.DshRelease
 	if err := f.Close(); err != nil {
 		return 0, "", "", err
 	}
-	if r.Size > 0 && size != r.Size {
-		return 0, "", "", fmt.Errorf("安装包大小不一致：清单 %d，实际 %d", r.Size, size)
-	}
 	actual := h.Sum(nil)
-	if r.SHA512 != "" {
+	if r.SHA512 == "" {
+		// 官方 DMG 没有哈希：镜像行为保持不变，但必须让管理员看见「装完无法验证内容」。
+		s.log.Warn("安装包没有可校验的哈希，镜像后无法验证内容", "target", r.Target, "version", r.Version)
+	} else {
 		expected, err := base64.StdEncoding.DecodeString(r.SHA512)
 		if err != nil || len(expected) != sha512.Size {
 			return 0, "", "", errors.New("清单 sha512 无效")
