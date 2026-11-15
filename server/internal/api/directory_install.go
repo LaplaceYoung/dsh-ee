@@ -430,6 +430,12 @@ func (s *Server) dirInstallExtension(ctx context.Context, w http.ResponseWriter,
 // dirInstallPlugin 安装 / 升级一条插件条目：只认 npm 的固定包名 + 固定版本，
 // 交给现有 registry 预载（pending 待审核），或核对企业源里已经有的那一份。
 func (s *Server) dirInstallPlugin(ctx context.Context, w http.ResponseWriter, r *http.Request, entry *store.DirectoryEntry, req *dirInstallReq, upgrade bool) {
+	// 插件条目最终要交给 npm 源预载。数据目录不可写时 newRegistry 返回 nil，服务仍会启动；
+	// 这里先按 npm 源不可用回 503，避免下面 s.registry.StartSync 变成 nil 解引用。
+	// 扩展条目走 dirInstallExtension，不经过这里，仍可安装 / 升级。
+	if !s.registryReady(w) {
+		return
+	}
 	planOnly := req.PlanOnly
 	if entry.SourceType != directory.SourceNPM {
 		dirFailPlan(w, http.StatusBadRequest, entry, upgrade, "插件条目只允许 npm 包名 + 固定版本，不支持 tarball / Git 安装", nil)
