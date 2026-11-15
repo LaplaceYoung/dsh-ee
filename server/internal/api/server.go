@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -354,8 +355,35 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rec, r)
-		s.log.Info("http", "method", r.Method, "path", r.URL.Path, "status", rec.status, "ms", time.Since(start).Milliseconds(), "request_id", requestIDFrom(r))
+		s.log.Info("http", "method", r.Method, "path", redactLogPath(r.URL.Path), "status", rec.status, "ms", time.Since(start).Milliseconds(), "request_id", requestIDFrom(r))
 	})
+}
+
+// redactLogPath 把访问日志里回调地址的令牌段换成 <redacted>。
+// /x/<token>/… 的 token 是免登录口令（生成见 service_ext.go，校验见 handleExtEndpoint 的
+// subtle.ConstantTimeCompare），拿到它就能冒充第三方系统回调扩展；而访问日志会进日志平台、
+// 监控与导出，所以不能把原样 path 记下来。这里在通用日志层处理，而不是只改回调处理函数：
+// 未匹配到路由的 /x/<token>/… 请求同样会记日志，在这层才都盖得住。
+// 只脱敏「/x/ 后紧跟的第一段」，其余段、前后斜杠形态、以及 /x、/x/、/xy/… 等非回调形状原样保留；
+// 首段大小写敏感（回调路由就是小写 /x/）。
+func redactLogPath(p string) string {
+	const prefix = "/x/"
+	const redacted = "<redacted>"
+	if !strings.HasPrefix(p, prefix) {
+		return p
+	}
+	rest := p[len(prefix):]
+	if rest == "" {
+		return p // "/x/" 本身不是回调地址
+	}
+	end := strings.IndexByte(rest, '/')
+	if end == 0 {
+		return p // "/x//…"：第二段为空，不匹配
+	}
+	if end < 0 {
+		return prefix + redacted
+	}
+	return prefix + redacted + rest[end:]
 }
 
 type statusRecorder struct {
