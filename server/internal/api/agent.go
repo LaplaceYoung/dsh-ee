@@ -244,6 +244,7 @@ var agentExcluded = map[string]string{
 	"GET /api/admin/directory":                       "企业目录只给管理员在网页上看；目录条目不是模型的工具",
 	"POST /api/admin/directory/check":                "贴进来的目录文档要管理员看校验结果，不交给 Agent 代读/代贴",
 	"POST /api/admin/directory/apply":                "登记企业目录会改变全局来源清单，只能由管理员在网页上确认",
+	"GET /api/admin/directory/updates":               "目录更新检查是管理员决定要不要升级的依据，不交给 Agent 代看",
 	"POST /api/admin/directory/entries/{id}/install": "安装目录条目会下载扩展包或从上游同步插件并写库，要管理员看过计划再触发，不交给 Agent",
 	"POST /api/admin/directory/entries/{id}/upgrade": "升级目录条目会改全局连接或企业源里的插件版本，要管理员看过计划再触发，不交给 Agent",
 

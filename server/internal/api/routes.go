@@ -281,6 +281,8 @@ func (s *Server) routes() []route {
 		// 所以这里只要求登录，不能用一个静态权限点放宽另一类。
 		usr("POST /api/admin/directory/entries/{id}/install", s.handleDirectoryEntryInstall),
 		usr("POST /api/admin/directory/entries/{id}/upgrade", s.handleDirectoryEntryUpgrade),
+		// 目录更新检查（directory_updates.go）：只读对比已装版本，不安装 / 不升级
+		prm("GET /api/admin/directory/updates", s.handleDirectoryUpdates, rbac.ConnectionsManage, rbac.SettingsManage),
 		prm("GET /api/admin/fields", s.handleListFields, rbac.FieldsManage, rbac.UsersView),
 		prm("POST /api/admin/fields", s.handleCreateField, rbac.FieldsManage),
 		prm("PATCH /api/admin/fields/{id}", s.handlePatchField, rbac.FieldsManage),

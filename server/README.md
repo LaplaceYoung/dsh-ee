@@ -235,6 +235,7 @@ curl -fsS http://127.0.0.1:8080/readyz    # 依赖就绪；-f 让 503 以非 0 �
 | GET / POST | `/api/device/{user_code}` | 查看设备信息 / 登录后批准或拒绝 |
 | GET | `/api/settings` | 系统设置（登录即可读） |
 | PUT | `/api/admin/settings` | 整份替换；按改动的段落校验权限（npm 源 / 上游段落也可由对应管理员修改） |
+| GET | `/api/admin/directory/updates` | 企业目录更新检查（**只读**）：对比登记过的目录条目与已装扩展连接 / 企业 npm 源已上架插件版本，返回 `available / current / not_installed / unknown`，每条带 `current / target / channel / signature / installed_connection / auto_upgrade`；不下载、不安装、不升级。`auto_upgrade` 声明与设置 `directory.autoUpgrade`（默认 `false`）本期只展示、不执行。需 `connections.manage` 或 `settings.manage`。见 [docs/plugin-signing.md](../docs/plugin-signing.md) §8 |
 | GET | `/api/catalog`、`/api/catalog/{包名}` | 能力市场：已上架的能力 / 详情（版本、检查结果、README） |
 | GET / POST | `/api/me/packages` | 我发布的包与各版本状态 / 网页发布（请求体是 `.tgz`，`Content-Type: application/octet-stream`） |
 | POST | `/api/me/packages/check` | 发布前预检：请求体同样是 `.tgz`，只解包并返回自动检查与发布冲突，不落库、不占用版本号 |
