@@ -52,8 +52,9 @@ func (s *Server) requireFullSession(w http.ResponseWriter, r *http.Request) bool
 	return true
 }
 
-// webNext 只接受站内相对路径；不合法时返回空串。比 safeNext 更严：不允许反斜杠和控制字符
-// （浏览器会吞掉制表符和换行，「/\t/evil」会变成「//evil」）。
+// webNext 只接受站内相对路径；不合法时返回空串。OIDC 登录入口的 safeNext 也复用这套判断
+// （区别只是回退到 /go），两边不能各写一套：浏览器会吞掉制表符和换行，「/\t/evil」会变成
+// 「//evil」。
 func webNext(raw string) string {
 	if len(raw) > 2048 || strings.ContainsAny(raw, "\\") {
 		return ""
