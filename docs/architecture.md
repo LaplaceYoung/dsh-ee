@@ -154,7 +154,7 @@ tarball 按 sha512 存进 DSH_EE_DATA_DIR/blobs；download 记 npm_downloads
 | 知识库/字段/权限配置 | `kb_*`、`field_defs`、`field_values`、`access_rules`、`change_requests` |
 | 运维与审计 | `audit_logs`、`settings`、`feedback`、`data_*`、`dsh_releases`、`background_leases`、`shared_rate_limits`（`/v1`、`/mcp` 每令牌共享限流窗口） |
 
-`schema_migrations` 记录已执行的迁移。**多实例同时首次启动会争抢迁移**：先起一个，等它完成再扩容（[server/README.md](../server/README.md) 已知限制）。
+`schema_migrations` 记录已执行的迁移。**多实例同时首次启动时迁移已用数据库行锁串行化**：同一时刻只有一个实例执行 DDL，其它实例等待（最多 60s 后报错重试）；持有实例崩溃后 5 分钟陈旧锁可接管，不再要求先起一个再扩容（[server/README.md](../server/README.md) 已知限制）。
 
 ### 4.2 数据目录
 
@@ -241,7 +241,7 @@ tarball 按 sha512 存进 DSH_EE_DATA_DIR/blobs；download 记 npm_downloads
 
 | 能力 | 现状 | 参考 |
 |---|---|---|
-| 多实例完整横向扩展 | 周期后台任务已有租约选主（`background_leases`，见 §4.3 与 [operations.md](./operations.md) §9.2）；登录/设备码限流、缓存、预载任务、MCP 事件流仍在进程内存，每令牌限流已用数据库共享固定窗口（`shared_rate_limits`）；tarball 在本地磁盘，迁移要求先起一个，作业级归属已按实例（主机名+监听地址）做（`sync_jobs.owner`，启动时只中断本实例与升级前无归属的任务），管理员触发的镜像任务仍可能在滚动升级期间被新实例标中断 | [operations.md](./operations.md) §9.2、[server/README.md](../server/README.md) 已知限制 |
+| 多实例完整横向扩展 | 周期后台任务已有租约选主（`background_leases`，见 §4.3 与 [operations.md](./operations.md) §9.2）；登录/设备码限流、缓存、预载任务、MCP 事件流仍在进程内存，每令牌限流已用数据库共享固定窗口（`shared_rate_limits`）；tarball 在本地磁盘，启动迁移已用数据库行锁串行化（`migration_lock`），作业级归属已按实例（主机名+监听地址）做（`sync_jobs.owner`，启动时只中断本实例与升级前无归属的任务），管理员触发的镜像任务仍可能在滚动升级期间被新实例标中断 | [operations.md](./operations.md) §9.2、[server/README.md](../server/README.md) 已知限制 |
 | 对象存储 | tarball 只写本地 `DSH_EE_DATA_DIR` | 同上 |
 | 备份/恢复工具 | 仓库没有内置命令；`.env` 必须和数据库一起备份 | [operations.md](./operations.md)、[roadmap.md](./roadmap.md) 阶段 C |
 | 指标/追踪/慢请求日志 | 只有文本日志和 `/healthz` | roadmap 阶段「企业级运行能力」 |

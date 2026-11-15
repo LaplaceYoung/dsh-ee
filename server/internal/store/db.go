@@ -100,7 +100,15 @@ func (s *Store) DB() *sql.DB { return s.db }
 
 // Migrate 按文件名顺序执行未执行过的迁移。DDL 在这两种库里都不在事务内，
 // 所以每个文件执行完才记版本；中途失败需要人工检查后重跑。
+// 多个实例同时首次启动时用 migration_lock 行锁串行化：同一时刻只有一个实例执行 DDL，
+// 其它实例等待（见 acquireMigrateLock）。
 func (s *Store) Migrate(ctx context.Context) error {
+	release, err := s.acquireMigrateLock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version    VARCHAR(64) NOT NULL,
 		applied_at DATETIME(3) NOT NULL,
