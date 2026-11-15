@@ -154,9 +154,56 @@ func TestWebLinkHandoff(t *testing.T) {
 	expect(t, "重新登录", st, 200, body)
 	st, body = api(ab, "GET", "/api/admin/users", "")
 	expect(t, "重新登录后能进管理接口", st, 200, body)
-	// 已有完整会话时再走 handoff 不降级
+	// 已有完整会话时再走 handoff：直接用，不降级，也不重新发 cookie
 	_, raw = link("ee_at_hoadm", "/admin/users")
-	open(ab, raw)
+	st, loc, hdr = open(ab, raw)
+	if st != http.StatusSeeOther || loc != "/admin/users" || len(hdr.Values("Set-Cookie")) != 0 {
+		t.Fatalf("同一个人已有完整会话时应直接跳转、不重建会话：%d %q %v", st, loc, hdr.Values("Set-Cookie"))
+	}
 	st, body = api(ab, "GET", "/api/admin/users", "")
 	expect(t, "handoff 不把完整会话降级", st, 200, body)
+
+	// 浏览器里已经有别人的完整会话（这里是管理员，code 属于员工）：不能替换会话。
+	// handoff 是 GET、没有 CSRF 令牌，链接谁都能发给谁；替换会话等于把当前用户静默踢下线、
+	// 变成链接主人的身份（登录 CSRF / 会话替换）。应回登录页提示先退出，且不自动登出。
+	_, raw = link("ee_at_hoemp", "/knowledge")
+	st, loc, hdr = open(ab, raw)
+	if st != http.StatusSeeOther || !strings.HasPrefix(loc, "/login?handoff=other-session") {
+		t.Fatalf("已有别人的会话时应回登录页提示：%d %q", st, loc)
+	}
+	if set := hdr.Values("Set-Cookie"); len(set) != 0 {
+		t.Fatalf("不能覆盖已有会话的 cookie：%v", set)
+	}
+	st, body = api(ab, "GET", "/api/auth/me", "")
+	expect(t, "他人的 handoff 不应影响原会话", st, 200, body)
+	var kept struct {
+		Username string `json:"username"`
+		Limited  bool   `json:"limited"`
+	}
+	_ = json.Unmarshal(body, &kept)
+	if kept.Username != "admin" || kept.Limited {
+		t.Fatalf("原会话应原样保留：%s", body)
+	}
+	st, body = api(ab, "GET", "/api/admin/users", "")
+	expect(t, "原会话仍是完整会话", st, 200, body)
+
+	// 被拒时没有消费 code：退出后同一链接（60 秒内）在没有会话的浏览器里照常可用。
+	fb := newBrowser()
+	st, loc, hdr = open(fb, raw)
+	if st != http.StatusSeeOther || loc != "/knowledge" {
+		t.Fatalf("退出后同一链接应正常跳到目标页：%d %q", st, loc)
+	}
+	if len(hdr.Values("Set-Cookie")) == 0 {
+		t.Fatal("无会话时 handoff 应发会话 cookie")
+	}
+	st, body = api(fb, "GET", "/api/auth/me", "")
+	expect(t, "无会话时仍能建 limited 会话", st, 200, body)
+	var fresh struct {
+		Username string `json:"username"`
+		Limited  bool   `json:"limited"`
+	}
+	_ = json.Unmarshal(body, &fresh)
+	if fresh.Username != emp.Username || !fresh.Limited {
+		t.Fatalf("无会话时应建 limited 会话：%s", body)
+	}
 }

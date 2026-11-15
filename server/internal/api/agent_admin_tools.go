@@ -734,8 +734,8 @@ func adminSpecs() map[string]*agentSpec {
 
 		// ---- ee_hub_admin ----
 		"PATCH /api/hub/{id}": {
-			Tool: "ee_hub_admin", Action: "patch", Summary: "改能力的可用范围、下发方式（auto 自动生效 / optional 自选）、分类，或上下架（下架要写 note）", En: "Change a capability", Effect: dg,
-			Params: []agentParam{pID, {Name: "category", Type: "string"}, {Name: "scope", Schema: scopeSchema}, {Name: "delivery", Type: "string", Enum: []string{"auto", "optional"}}, {Name: "status", Type: "string", Enum: []string{"active", "unpublished"}}, {Name: "note", Type: "string"}},
+			Tool: "ee_hub_admin", Action: "patch", Summary: "改能力的可用范围、下发方式（auto 自动生效 / optional 自选）、分类、精选，或上下架（下架要写 note）", En: "Change a capability", Effect: dg,
+			Params: []agentParam{pID, {Name: "category", Type: "string"}, {Name: "category_id", Type: "integer", Desc: "受管分类 id，0 表示取消归类"}, {Name: "featured", Type: "boolean", Desc: "设为精选"}, {Name: "scope", Schema: scopeSchema}, {Name: "delivery", Type: "string", Enum: []string{"auto", "optional"}}, {Name: "status", Type: "string", Enum: []string{"active", "unpublished"}}, {Name: "note", Type: "string"}},
 			Preview: func(ctx context.Context, s *Server, _ *Principal, args map[string]any) (string, error) {
 				l, err := assetLabel(ctx, s, argID(args))
 				if err != nil {

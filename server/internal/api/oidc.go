@@ -315,9 +315,12 @@ func randString(n int) string {
 }
 
 // safeNext 只允许站内相对路径，防止被拿来做开放重定向。
+// 判断复用 webNext，两个入口用同一套规则：必须以单个 / 开头，不允许反斜杠、控制字符、
+// // 与 /api/ 路径（浏览器会吞掉制表符和换行，「/\t/evil」会被解析成「//evil」）。
+// 不合法时回退到默认目标 /go。
 func safeNext(raw string) string {
-	if strings.HasPrefix(raw, "/") && !strings.HasPrefix(raw, "//") && !strings.HasPrefix(raw, "/\\") {
-		return raw
+	if next := webNext(raw); next != "" {
+		return next
 	}
 	return "/go"
 }

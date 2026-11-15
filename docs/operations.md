@@ -1,6 +1,6 @@
 # dsh-ee 运维手册
 
-> 状态：按 `origin/main`（20aafbb，2026-11-12）核对代码与 `deploy/` 写成。**已实现**的按命令/配置写；**没有实现**的（备份工具、指标、日志轮转、自动回滚等）标「设计」，见 §12。文中标「PR #N，合并后生效」的能力来自对应独立 PR（#118 微应用嵌入 v0/v1、#122 CLI、#123 Harness 发现、#127 CORS、#128 MCP 分页/写确认结构化），**均未合入基线**；能力以对应 PR 合入为准。多实例后台任务租约（§9.2）随多实例前置 PR 提供，合入后生效。
+> 状态：按 `origin/main`（20aafbb，2026-11-12）核对代码与 `deploy/` 写成。**已实现**的按命令/配置写；**没有实现**的（备份工具、日志轮转、自动回滚等）标「设计」，见 §12。文中标「PR #N，合并后生效」的能力来自对应独立 PR（#118 微应用嵌入 v0/v1、#122 CLI、#123 Harness 发现、#127 CORS、#128 MCP 分页/写确认结构化），**均未合入基线**；能力以对应 PR 合入为准。多实例后台任务租约（§9.2）随多实例前置 PR 提供，合入后生效。
 >
 > 相关文档：[architecture.md](./architecture.md)（组件与数据）、[cli.md](./cli.md)（命令）、[troubleshooting.md](./troubleshooting.md)（错误码与修复）、[deploy/README.md](../deploy/README.md)（官方部署说明）。
 
@@ -110,6 +110,7 @@ go run ./cmd/seed                  # 可选：演示数据（角色、员工、�
 | `DSH_EE_DATA_DSN` | 主库名 + `_data` | 否 | 数据中台库（可写账号）；设 `off` 关闭数据中台 |
 | `DSH_EE_DATA_READ_DSN` | 自动创建只读账号 | 否 | 数据中台只读账号；账号没权限建用户时由 DBA 提供 |
 | `DSH_EE_ADMIN_MODE_UNIT` | `1h` | 否 | **只给自动化测试**调整「管理模式 1/8 小时」里「1 小时」的长度，生产不要设 |
+| `DSH_EE_RATE_LIMIT` | `60` | 否 | `/v1/*` 与 `/mcp` 的每令牌限流，单位「次/分钟」；计数在数据库 `shared_rate_limits` 里，多实例部署时是所有实例合计的一份额度，`0` 或 `off` 关闭 |
 | `DSH_EE_DEMO_MODE` 等 `DSH_EE_DEMO_*` | 关闭 | 否 | 仅公开演示站使用（登录页显示初始账号、限制访问本机等）；`server/internal/config/config.go` 有完整列表 |
 | `DSH_EE_CSP` | `off` | 否 | 内容安全策略：`off` / `report` / `enforce`。默认只加现有的 `frame-ancestors` 嵌入收口；`report` 用 `Content-Security-Policy-Report-Only` 只报告，`enforce` 用 `Content-Security-Policy` 阻断。非法值启动失败。见 §10.1 |
 | `DSH_EE_CSP_REPORT_URI` | 空 | 否 | CSP 违规报告地址（`http(s)://…`，可选）。`DSH_EE_CSP` 不是 `off` 时写进策略的 `report-uri`；非法地址启动失败 |
@@ -242,6 +243,25 @@ cp /path/to/当前目录/.env .
 
 **没有实现的**：日志级别开关、文件轮转、syslog/webhook 外发、慢请求日志、请求 ID（设计）。需要长期保留时用容器日志驱动或 journald 的轮转配置在外部处理。**审计日志在数据库里，不在进程日志里**，见 [architecture.md](./architecture.md) §6。
 
+### 7.1 监控指标（`GET /metrics`）
+
+`DSH_EE_METRICS=true` 时开放 Prometheus 文本格式的 `GET /metrics`，只允许本机 / 内网来源抓取（公网直连返回 404）。指标刻意保持低基数，不含账号、IP、模型或请求内容：
+
+| 指标 | 类型 | 说明 |
+|---|---|---|
+| `dsh_ee_uptime_seconds` | gauge | 进程已运行秒数 |
+| `dsh_ee_goroutines` | gauge | 当前 goroutine 数 |
+| `dsh_ee_build_info{version="…"}` | gauge | 构建版本，值固定为 1 |
+| `dsh_ee_login_failures_total` | counter | 用户名或密码错误的登录次数（含 npm login） |
+| `dsh_ee_login_ip_limited_total` | counter | 因同一 IP 失败次数过多被 429 的登录请求数 |
+| `dsh_ee_login_username_limited_total` | counter | 因用户名锁定被 429 的登录请求数 |
+| `dsh_ee_usage_reasoning_tokens_total` | counter | 记账成功的推理（思考）token 累计数 |
+| `dsh_ee_usage_cached_tokens_total` | counter | 记账成功的命中缓存 prompt token 累计数 |
+
+- 计数都在进程内累计：重启清零，多实例各自独立；看长期趋势请用 Prometheus 的 `rate` / `increase`，不要直接拿 counter 当累计总量。
+- 用量细项计数只在网关记账成功后累加，和 `usage_logs` 的口径一致；没有按用户 / 模型拆分标签，避免高基数。
+- 指标接口不带登录鉴权，只靠来源限制；抓取端应直连服务，服务端不采信 `X-Forwarded-For`。
+
 ## 8. 健康检查
 
 | 端点 | 说明 |
@@ -260,7 +280,7 @@ cp /path/to/当前目录/.env .
 
 | 位置 | 增长来源 | 观察方式 |
 |---|---|---|
-| 数据库 | `usage_logs`（每次模型调用）、`audit_logs`（每个操作）、`npm_downloads`（每次下载）、`connection_calls`、知识库正文、应用数据行 | 数据库监控；`SELECT COUNT(*)` / 表大小 |
+| 数据库 | `usage_logs`（每次模型调用，含推理 / 缓存命中细项两列）、`audit_logs`（每个操作）、`npm_downloads`（每次下载）、`connection_calls`、知识库正文、应用数据行；`shared_rate_limits`（每实例每窗口最多约 1 万个 key，后台按窗口清理） | 数据库监控；`SELECT COUNT(*)` / 表大小 |
 | `DSH_EE_DATA_DIR` | 每个已发布/镜像版本的 tarball、上游缓存、DSH 安装包镜像 | `du -sh <data dir>`、`du -sh <data dir>/blobs` |
 | 进程内存 | 上游 packument 缓存、知识库索引、流式连接、MCP 事件流 | 容器/进程 RSS |
 
@@ -280,7 +300,7 @@ cp /path/to/当前目录/.env .
 | `dsh.releases` | Desktop 安装包同步/下载与启动恢复 |
 | `connect.publish` | DSH 接入插件发布检查（启动、触发与每小时兜底） |
 | `registry.check-updates` | 上游新版本检查（启动 1 分钟后、之后每 6 小时） |
-| `sessions.sweep` | 过期会话/嵌入会话/确认码/设备码清理 |
+| `sessions.sweep` | 过期会话/嵌入会话/确认码/设备码/写确认记录清理（每小时） |
 | `embed.sweep` | 一次性 embed code 与限流窗口清理 |
 
 - **数据库不可用时该轮跳过并记日志**，不会退化成「每个实例都跑」：这些任务本来就要读写数据库，库不可用时执行也做不成事；宁可晚一轮也不重复执行。单实例部署同样走这套逻辑，行为不变（只是多一条租约记录）。
@@ -292,8 +312,9 @@ cp /path/to/当前目录/.env .
 - **触发型任务**（`connect.publish`、`dsh.releases`）：kick 只在收到请求的实例内存里，非 leader 收到后不会跨实例转发；靠 leader 的周期兜底补跑（connect 每小时、Desktop 版本 6 小时）。管理员在非 leader 实例点「立即发布/下载」由该实例直接处理（不是周期任务），多实例下同一资源的并发写仍按原有幂等/锁逻辑。
 - **一次性状态已多实例安全**：从 DSH 打开网页的 handoff code、开始使用接入码、OIDC state/PKCE 存在数据库表 `ephemeral_states`，多个实例共享：A 实例生成，B 实例打开链接、收回调或轮询接入进度都能用。一次性由 `UPDATE … SET consumed_at=now() WHERE consumed_at IS NULL AND expires_at>now()` 的 affected rows 保证；过期状态由 `sweepEmbed` 每分钟清理一次（清理只回收空间，有效性判断不依赖它）。要求所有实例连同一个数据库、使用同一个 `DSH_EE_SECRET_KEY`（OIDC state 的 nonce/PKCE verifier 加密后落库）、系统时钟同步（TTL 按应用时间判断）。数据库不可用时这些功能直接失败（fail closed），**不会**回退到进程内存。
 - **作业级归属按实例（主机名+监听地址）**：同步任务（管理员手动触发的镜像任务、离线包导入）创建时把实例标识（主机名+监听地址，即实例的 `DSH_EE_ADDR`）写进 `sync_jobs.owner`；启动时 `FailRunningJobs` 只把本实例与升级前无归属（`owner=''`）的 running 任务标成中断，不再打断其它在线实例上正在跑的任务。滚动升级期间旧版本实例创建的任务没有归属，仍可能被新实例启动时标中断——需要更强一致性时，先全部升到新版本再逐个重启，或暂停同步。Desktop 安装包的启动恢复已走租约。
+- **每令牌限流已多实例共享**：`/v1/*` 与 `/mcp` 的每令牌限流已放到数据库共享固定窗口（`shared_rate_limits`）：所有实例合计一份额度，不会因为多实例部署按实例数量放大。窗口按分钟对齐，依赖各实例时钟同步（部署开 NTP）；上一窗口的行由后台每分钟清理（多实例重复执行幂等），判定本身不依赖清理任务。共享限流在数据库不可用时退回进程内计数（每实例一份额度）并限频写告警日志：仍然限流，不会 fail open，也不会因为限流存储故障把协议面整体打成 5xx。
 
-此外仍属单实例边界：多个实例同时首次启动会争抢数据库迁移；`/mcp`、`/v1` 的每令牌限流在进程内存里按实例各自计数；没有独立的队列/worker 进程。
+此外仍属单实例边界：多个实例同时首次启动会争抢数据库迁移；登录失败限流仍在进程内存里按实例各自计数；没有独立的队列/worker 进程。
 
 ### 9.3 扩容与容量规划建议
 
@@ -378,10 +399,10 @@ frame-ancestors 'self' <仅 /a/*：DSH_EE_EMBED_ORIGINS 与设置里追加的来
 |---|---|
 | 内置备份/恢复命令、定时备份、演练脚本 | 没有；按 §6 用外部工具 |
 | 自动升级、降级迁移、版本回滚工具 | 没有；手工换二进制/安装包 |
-| 指标（Prometheus）、链路追踪、慢请求日志、请求 ID | 没有；只有文本日志与 `/healthz` |
+| 链路追踪、慢请求日志 | 没有；只有文本日志、最小 `/metrics`（§7.1）与 `/healthz` |
 | 日志级别/轮转/syslog/Webhook | 没有；在外部日志设施处理 |
 | 审计导出、保留期、外发 | 没有；只有 `/admin/audit` 页面查询 |
-| 多实例完整水平扩展 | 周期后台任务已用 `background_leases` 租约选主、一次性状态已入数据库 `ephemeral_states`、同步任务已按实例（主机名+监听地址）做作业级归属（§9.2）；登录限流、缓存、预载任务、MCP 事件流仍在进程内存，tarball 在本地磁盘，迁移要求先起一个；共享存储/对象存储没有 |
+| 多实例完整水平扩展 | 周期后台任务已用 `background_leases` 租约选主、一次性状态已入数据库 `ephemeral_states`、同步任务已按实例（主机名+监听地址）做作业级归属（§9.2）；每令牌/嵌入限流已用数据库共享（`shared_rate_limits`/`embed_rates`），登录限流、缓存、预载任务、MCP 事件流仍在进程内存，tarball 在本地磁盘，迁移要求先起一个；共享存储/对象存储没有 |
 | 零停机升级、滚动升级 | 没有；升级期间服务不可用 |
-| 容量/限流面板、每令牌限流 | 没有；见 [architecture.md](./architecture.md) §7 |
+| 容量/限流面板 | 没有；限流头、`Retry-After` 与共享计数语义见 [architecture.md](./architecture.md) §7 与 §9.2 |
 | 备份一致性编排（数据库 + blobs 同一快照） | 没有；靠运维窗口与流程约束 |

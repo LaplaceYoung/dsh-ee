@@ -6,11 +6,16 @@
     "dev/overview.md",
     "dev/harness-quickstart.md",
     "dev/anthropic-api.md",
+    "dev/deepseek-tools.md",
+    "dev/thinking-mode.md",
     "dev/plugin-quickstart.md",
     "dev/extension-quickstart.md",
     "dev/access-rules.md",
     "dev/publish-precheck.md",
-    "dev/quality-standards.md"
+    "dev/quality-standards.md",
+    "dev/responses-api.md",
+    "dev/chatbot.md",
+    "dev/beta-completions.md"
   ],
   "llms": {
     "title": "dsh-ee 开发文档",
@@ -25,6 +30,21 @@
         "title": "模型网关",
         "url": "/v1/models",
         "description": "OpenAI 兼容的模型列表与 /v1/chat/completions；Bearer 令牌。"
+      },
+      {
+        "title": "Responses API",
+        "url": "/v1/responses",
+        "description": "OpenAI Responses API 兼容入口（`/v1/responses`，DeepSeek 习惯的等价别名 `/responses`）：DeepSeek 上游原生透传（保留 web_search、citations、title、image/file 等），其它上游走 chat completions 转换层（降级）。"
+      },
+      {
+        "title": "Chatbot 能力与透传",
+        "docs": "dev/chatbot.md",
+        "description": "DeepSeek Chatbot 网关选项：联网/读网页工具、safety_check、会话标题与拒绝/引用块的原样透传。"
+      },
+      {
+        "title": "DeepSeek 工具代理（文件 / 语音 / 搜索抓取 / OCR）",
+        "docs": "dev/deepseek-tools.md",
+        "description": "用同一个企业 Bearer 令牌上传文件、转写/合成语音、搜索抓取网页、OCR，以及 Anthropic 兼容 Files：默认只允许管理员与机器人账号，可显式放开员工；代理只转发到配置的 DeepSeek 上游，不落盘、不计 token、文件操作写审计。"
       },
       {
         "title": "MCP 工具面",
@@ -55,6 +75,11 @@
         "title": "Anthropic Messages 兼容",
         "url": "/docs/anthropic-api",
         "description": "Claude Code / Anthropic SDK 用企业令牌调 POST /v1/messages（别名 /anthropic/v1/messages）：DeepSeek provider 原生透传、其他 provider 降级转换，鉴权/SSE/错误壳与 v0 边界。"
+      },
+      {
+        "title": "DeepSeek beta 能力（FIM / Chat Prefix）",
+        "url": "/beta/completions",
+        "description": "OpenAI 兼容的 beta 透传：FIM 补全与 Chat Prefix 续写；只转发给 vendor=deepseek 的启用上游。"
       }
     ]
   }

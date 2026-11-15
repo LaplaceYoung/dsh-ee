@@ -76,7 +76,17 @@ export const DISCOVERY = {
   device_authorization_endpoint: 'https://ee.example.com/api/device/code',
   token_endpoint: 'https://ee.example.com/api/device/token',
   scopes_supported: ['models', 'registry:read', 'registry:publish', 'hub', 'connections', 'agent'],
-  models: { protocol: 'openai-chat-completions', streaming: true },
+  models: {
+    protocol: 'openai-chat-completions',
+    streaming: true,
+    reasoning: {
+      supported: true,
+      parameters: ['thinking', 'reasoning_effort'],
+      content_field: 'reasoning_content',
+      per_model: true,
+    },
+    input_modalities: ['text', 'image', 'file'],
+  },
   mcp: { transport: 'streamable-http', protocol_versions: ['2025-11-25', '2025-06-18'] },
   apps: { web: true, data_tools: true },
   limits: { max_request_bytes: 16777216, max_response_bytes: 33554432 },
@@ -90,6 +100,13 @@ export const CAPABILITIES = {
   user: { username: 'alice', department: '研发' },
   scopes: ['agent', 'connections', 'hub', 'models'],
   models: ['company-chat'],
+  reasoning: {
+    supported: true,
+    parameters: ['thinking', 'reasoning_effort'],
+    content_field: 'reasoning_content',
+    per_model: true,
+  },
+  input_modalities: ['text', 'image', 'file'],
   tools: { count: 7 },
   apps: [
     {

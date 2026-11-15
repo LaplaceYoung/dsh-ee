@@ -8,7 +8,8 @@ import (
 // 浏览器内第三方 Harness 直连 /v1 与 /mcp 的跨域白名单（DSH_EE_CORS_ORIGINS）。
 //
 // 默认关闭：白名单为空时这层中间件原样透传，不加任何 CORS 头。只对第三方 Harness 的
-// 两个入口 /v1/* 与 /mcp 生效；网页接口（/api/*）依赖同源会话 cookie，不开放跨域。
+// 入口 /v1/*、/responses（Responses API 别名）与 /mcp 生效；网页接口（/api/*）依赖
+// 同源会话 cookie，不开放跨域。
 //
 // 不使用 cookie：Harness 用 Authorization: Bearer 令牌，JS 自己带在请求头上，因此不发
 // Access-Control-Allow-Credentials，Access-Control-Allow-Origin 也永远不是 *，
@@ -63,9 +64,9 @@ func (s *Server) cors(next http.Handler) http.Handler {
 }
 
 // isCORSRoute 是 CORS 白名单的作用范围：第三方 Harness 的协议入口 /v1/*、Anthropic 别名
-// /anthropic/v1/* 与 /mcp。
+// /anthropic/v1/*、Responses 别名 /responses 与 /mcp。
 func isCORSRoute(path string) bool {
-	return path == "/mcp" || strings.HasPrefix(path, "/v1/") || strings.HasPrefix(path, "/anthropic/v1/")
+	return path == "/mcp" || strings.HasPrefix(path, "/v1/") || strings.HasPrefix(path, "/anthropic/v1/") || isResponsesAPIPath(path)
 }
 
 // setCORSGrant 精确回显请求的 Origin，并声明响应随 Origin 变化。

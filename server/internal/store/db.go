@@ -123,6 +123,10 @@ func (s *Store) Migrate(ctx context.Context) error {
 		applied[v] = true
 	}
 	rows.Close()
+	if err := rows.Err(); err != nil {
+		// 读不全就会把已执行的迁移当成未执行，下次启动重跑非幂等 DDL。
+		return fmt.Errorf("读取已执行迁移: %w", err)
+	}
 
 	files, err := fs.Glob(migrationFS, "migrations/*.sql")
 	if err != nil {
