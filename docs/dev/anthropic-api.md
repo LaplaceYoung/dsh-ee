@@ -75,7 +75,8 @@ curl -fsS "$BASE/anthropic/v1/messages" ...  # 参数与上面完全相同
 - 限流：与 `/v1/*` 共用每令牌固定窗口限流（默认每分钟 60 次，`DSH_EE_RATE_LIMIT` 调整）。
   只带 `x-api-key` 的请求也按令牌计额度，不会退回按 IP 计数；超限同样返回 Anthropic 错误壳与 `Retry-After`。
 - `anthropic-version` / `anthropic-beta`：DeepSeek 原生透传路径会把这两个头**原样透传**给上游（是否支持由 DeepSeek 决定，dsh-ee 不解析）；其它 provider 的降级转换路径忽略、不报错。
-- **Files API 不在 v0 范围**：带 `anthropic-beta: files-api-2025-04-14` 也不会让 dsh-ee 实现 Files；降级转换路径的 `image.source.type=file` 文件引用返回 400（图片只支持 `base64` / `url`），原生透传路径的文件/vision 块原样交给 DeepSeek；Files / Batches 端点返回 404。
+- **Files API 不在 v0 范围**：带 `anthropic-beta: files-api-2025-04-14` 也不会让 dsh-ee 实现 Files；降级转换路径的 `image.source.type=file` 文件引用返回 400（图片只支持 `base64` / `url`），原生透传路径的文件/vision 块原样交给 DeepSeek（能否引用见下一条）；Files / Batches 端点返回 404。
+- **`file_id` 访问拦截（共享文件默认不开放）**：DeepSeek Files 是上游账号级共享资源，员工令牌与管理员共用上游 key，所以 dsh-ee 在**转发前**扫描请求内容块里的文件引用：`file` 块的 `file_id`、`document` / `image` 的 `source.file_id`（`tool_result` 里嵌套的内容块也扫）。普通员工默认 403 `file_access_denied`（Anthropic 错误壳 `permission_error`，并带 `error.code=file_access_denied`），**不请求上游**；管理员账号（账号有任一管理权限）与 `account_type=bot` 的机器人账号放行；需要全体员工引用共享文件时显式设置 `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true`（默认 `false`，fail closed）。原生透传与降级转换两条路径都拦截；只判断「有没有引用文件」，不记录 `file_id`、不做内容审计。后续新增的模型入口（例如 `/v1/responses`，当前 main 还未实现）必须复用同一套判定，见 `server/internal/api/file_access.go`。
 - 服务发现：`GET /.well-known/dsh-ee` 的 `models.anthropic_messages_endpoint` 给出本端点地址，
   `GET /v1/openapi.json` 里也有 `POST /v1/messages` 的请求/响应/错误描述。
 
@@ -85,7 +86,7 @@ dsh-ee 按对外模型的候选线路决定这次请求怎么到上游（候选�
 
 | 候选线路第一条的 `provider.vendor` | 转发方式 | dsh-ee 做什么 |
 |---|---|---|
-| `deepseek` | **原生透传**：`POST <provider.base>/anthropic/v1/messages` | 只做鉴权、模型权限、额度、限流、`model` 改写（对外名→上游名）；`anthropic-version` / `anthropic-beta` 原样透传；请求体其余字段（server tools、citations、safety、title、latest_reminder、file/vision 块等）原样转发；成功响应 JSON/SSE **逐字节转发**；旁路解析 usage 记账（无 usage 时估算）；上游错误也按原状态/body 原样转发。 |
+| `deepseek` | **原生透传**：`POST <provider.base>/anthropic/v1/messages` | 只做鉴权、模型权限、额度、限流、`model` 改写（对外名→上游名）；`anthropic-version` / `anthropic-beta` 原样透传；请求体其余字段（server tools、citations、safety、title、latest_reminder、file/vision 块等）原样转发（file_id 访问拦截见 §2）；成功响应 JSON/SSE **逐字节转发**；旁路解析 usage 记账（无 usage 时估算）；上游错误也按原状态/body 原样转发。 |
 | 其它 | **降级转换**：Anthropic Messages → OpenAI chat completions | 见 §4「请求转换」与 §5「响应与流式」；`anthropic-version` / `anthropic-beta` 被忽略；不支持的块返回 400 或忽略。 |
 
 - 原生透传下 dsh-ee **不校验** `max_tokens` / `temperature` 等生成参数（交给 DeepSeek），也不解析内容块；月度额度、每令牌限流、模型权限仍由 dsh-ee 强制。
@@ -169,6 +170,7 @@ event: message_stop
 | 400 | `invalid_request_error` | 请求体不是 JSON、缺 `model` / `max_tokens`、参数越界、不支持的块类型 |
 | 401 | `authentication_error` | 缺少或无效的令牌 |
 | 403 | `permission_error` | 令牌缺 `models` scope、账号缺 `llm.use`、模型不在范围、额度过期 |
+| 403 + `error.code=file_access_denied` | `permission_error` | 请求引用了上游共享文件（`file_id` / `source.file_id`），当前账号不是管理员/机器人且未打开 `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE`（见 §2） |
 | 404 | `not_found_error` | 对外模型没有可用上游；`count_tokens` 等未实现的兼容端点 |
 | 413 | `request_too_large` | 请求体超过 16 MiB |
 | 429 | `rate_limit_error` | 账号/令牌月度额度用完、每令牌请求限流、上游返回 429 |
@@ -189,6 +191,7 @@ DeepSeek 原生透传路径下，上游返回的错误（DeepSeek 本身就是 A
 - thinking 内容通过上游的 `reasoning_content` / `reasoning` 字段识别；上游不返回思考内容时，
   响应里不会有 `thinking` 块。`budget_tokens` 不生效，思考强度用 `reasoning_effort` / `output_config.effort` 控制。
 - 图片会转成 OpenAI 的 `image_url` 内容段，上游模型是否支持图片由上游决定；`document` 等文件块不支持。
+- 上游共享文件（`file_id`）默认只对管理员与 `account_type=bot` 的机器人账号开放，普通员工 403；这是共享文件访问的 hotfix，完整 Files 代理（上传 / 列举 / 删除）不在本仓库 main 上。
 - `stop_sequences` 命中与普通结束在上游都是 `finish_reason=stop`，无法区分，统一返回 `end_turn`。
 - 签名不校验：thinking 块的 `signature` 是占位值，服务端不做验证也不依赖它。
 - DeepSeek 原生透传路径不在 dsh-ee 做生成参数校验与内容块解析，`max_tokens` 等上限由 DeepSeek 决定；
@@ -200,4 +203,4 @@ DeepSeek 原生透传路径下，上游返回的错误（DeepSeek 本身就是 A
 - OpenAI 兼容网关、令牌与 scope：[Harness 接入](./harness.md)
 - 第三方客户端完整手册与错误表：[l1-client.md](../l1-client.md)
 - 模型网关错误码索引：[errors.md](../errors.md)
-- 实现：`server/internal/api/anthropic.go`、`server/internal/api/anthropic_convert.go`
+- 实现：`server/internal/api/anthropic.go`、`server/internal/api/anthropic_convert.go`、`server/internal/api/anthropic_native.go`、`server/internal/api/file_access.go`

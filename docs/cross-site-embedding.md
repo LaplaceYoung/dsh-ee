@@ -41,7 +41,7 @@
 | mint 一次性 code：`POST /api/embed/sessions`，60 秒、一次性、绑定用户+应用+宿主 origin | ✅ 已实现 | `server/internal/api/embed.go` |
 | 内存 Bearer：`POST /api/auth/embed/exchange` → `ee_emb_…`，不 Set-Cookie、只存 SPA 内存 | ✅ 已实现 | `embed.go`、`web/src/lib/api.ts` |
 | 嵌入会话存储：`embed_sessions` 表（迁移 `0032`），limited 权限，过期/吊销清理 | ✅ 已实现 | `server/internal/store/embed_sessions.go`、`server/internal/store/migrations/0032_embed_sessions.sql`、`server/cmd/dsh-ee/main.go`（每小时清理） |
-| 路由白名单：白名单外 403 `embed_scope` | ✅ 已实现 | `embed.go` 的 `embedRouteAllowed`、`embed_whitelist_test.go` |
+| 路由白名单 + 应用绑定：白名单外、或路径应用标识 ≠ mint 绑定应用 403 `embed_scope` | ✅ 已实现 | `embed.go` 的 `embedRouteAllowed` / `embedAppScopeSlug`、`embed_whitelist_test.go`、`embed_test.go` |
 | 注销：`POST /api/auth/embed/logout`（204） | ✅ 已实现（接口） | `embed.go` |
 | 审计：`embed.session_create` / `auth.login(via=embed)` / `embed.revoke` / `embed.deny` | ✅ 已实现 | `server/internal/api/audit.go`、`web/src/lib/audit.ts`、i18n 文案 |
 | 改密/禁用/解绑身份同时失效嵌入会话 | ✅ 已实现 | `server/internal/store/users.go`（`DeleteUserSessions`） |
@@ -64,7 +64,7 @@
 | D3 | embed 会话 = limited 会话（员工权限、无 `keys.self`、无管理） | `withEmbedUser` 复用 `limitedAccess`；`/api/auth/me` 返回 `limited` + `embed{app,host}` | 与设计一致 |
 | D4 | code 60 秒、一次性、绑定用户+应用+宿主 origin | 只存哈希在内存 map，取用即删；过期与无效区分 `embed_code_expired` / `embed_code_invalid`；`next` 校验为 `/a/<slug>` 前缀 | `next` 已被校验并绑定，但 exchange/前端当前**未消费**（保留字段） |
 | D5 | 会话短 TTL、不提供 refresh、可吊销 | `DSH_EE_EMBED_SESSION_TTL` 默认 `2h`，范围 `1m–8h`；过期后 401 → `auth-required{reason:"expired"}`；logout 删会话 | 与设计一致；TTL 放在环境变量而非设置页 |
-| D6 | 只能访问**路由白名单** | `embedRouteAllowed` 固定清单；白名单外 403 `embed_scope`；有测试固定清单 | 与设计一致 |
+| D6 | 只能访问**路由白名单**，且只能访问 mint 时绑定的应用 | `embedRouteAllowed` 固定清单；路径里的 `{slug}` 必须等于会话的 `app_slug`，不相等 403 `embed_scope` 并记 `embed.deny`；两类测试固定清单与边界 | 与设计一致；白名单只校验形状，应用绑定由 `requireEmbedUser` 单独校验 |
 | D7 | CSP `frame-ancestors` 只对 `/a/*` 放行，默认 `'self'` | `security_headers.go` 按路径加头；管理页/登录页保持 `'self'` | 与设计一致；XFO 不设 |
 | D8 | 每用户令牌是硬前提，不提供共享令牌 | mint 要求 human 账号 + `agent` scope；机器人令牌 403 并记 `embed.deny` | 与设计一致；**实际还要求 `hub` scope**（mint 走 `dshPrincipal`），令牌需同时带 `hub` + `agent` |
 | D9 | 默认关闭，按配置启用 | `DSH_EE_EMBED_CROSS_SITE` 默认 false；开启但未配 `DSH_EE_EMBED_ORIGINS` 时**启动失败** | 与设计一致；只有环境变量，没有管理端设置页（见 §11） |
@@ -103,7 +103,7 @@
 | 失效 | 改密码、禁用账号、解绑身份 → `DeleteUserSessions` 同时删网页会话与嵌入会话；后台每小时清理过期嵌入会话 |
 | 读取顺序 | `requireUser`：先看会话 cookie（同站/顶层不受影响），没有 cookie 时只认 `Authorization: Bearer ee_emb_…` |
 | 审计 | mint → `embed.session_create`（app、host_origin）；exchange 成功 → `auth.login`（`via=embed`、app、host_origin、limited）；logout → `embed.revoke`；拒绝 → `embed.deny`（reason；不记 code/令牌明文） |
-| 白名单 | `GET /api/auth/me`、`GET /api/auth/methods`、`GET /api/settings`、`GET /api/me/menus`、`GET /api/me/apps/{slug}/web`、`POST /api/me/apps/{slug}/source`、`/api/apps/{slug}/data…`（表清单/行读写/导出 CSV）、`POST /api/auth/embed/logout`；其余 403 `{"error":"嵌入会话不能访问这个接口","code":"embed_scope"}` |
+| 白名单 | `GET /api/auth/me`、`GET /api/auth/methods`、`GET /api/settings`、`GET /api/me/menus`、`GET /api/me/apps/{slug}/web`、`POST /api/me/apps/{slug}/source`、`/api/apps/{slug}/data…`（表清单/行读写/导出 CSV）、`POST /api/auth/embed/logout`；其余 403 `{"error":"嵌入会话不能访问这个接口","code":"embed_scope"}`。带 `{slug}` 的接口还要求 `slug` 等于 mint 时绑定的应用，否则 403 `{"error":"这个嵌入会话只能访问被嵌入的应用","code":"embed_scope"}` |
 
 白名单是**额外**约束，不是替代 RBAC/scope：应用可用范围、部门/角色权限继续按现有逻辑校验；新增页面接口时要显式评估并加进白名单（有测试固定清单）。
 
@@ -157,7 +157,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 | 应用不存在 / 未开放网页版 / 无权限 | `app_not_found` / `app_not_web` / `forbidden` | 宿主后端（mint）或 iframe（403/404 → `forbidden`） | 页内说明；顶层打开或引导申请权限 |
 | code 过期/已用、会话过期/被吊销 | `embed_code_expired` / `embed_code_invalid` / `auth_required{expired}` | iframe（exchange/401） | 宿主重新 mint 一次；仍失败则顶层打开 |
 | 网络不可达、5xx | `load_failed` / `network` | iframe | 页内重试；宿主超时兜底 |
-| 白名单外接口 | 403 `embed_scope` | iframe fetch | 属前端/宿主问题，不应出现 |
+| 白名单外接口、或路径应用 ≠ 会话应用 | 403 `embed_scope` | iframe fetch | 属前端/宿主问题，不应出现；宿主必须为它实际嵌入的应用 mint |
 | 移动端窄屏 | — | 宿主 | **没有自动策略**：宿主自行顶层打开（`embedding.md` 给建议，见 §11） |
 
 原则：嵌入模式下 iframe **不跳登录页**；任何失败都提供「在浏览器打开」（去掉嵌入参数、顶层打开）；验证以 `embedding.md` §6 的清单为准。
@@ -181,7 +181,7 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 | R3 | 反代重复 CSP / 残留 XFO | 文档要求代理不写；`embedding.md` §2 有反代注意 |
 | R4 | iframe 加载失败宿主不可观测 | 8 秒超时 + 常驻「在浏览器打开」 |
 | R5 | 浏览器三方存储差异 | 不依赖三方 cookie，只用内存 + postMessage |
-| R6 | 宿主把 embed 会话当普通令牌复用 | 路由白名单 403 `embed_scope`；宿主侧说明只嵌应用 |
+| R6 | 宿主把 embed 会话当普通令牌复用 / 跨应用访问 | 路由白名单 + 应用绑定：白名单外或应用标识不符均 403 `embed_scope`；宿主侧说明只嵌应用 |
 | R7 | 多实例下内存 code 不共享 | 单实例可用；多实例需共享存储（§11） |
 | R8 | 误把「嵌入可用」当成「安全审计通过」 | 文档与 UI 明确边界；签名/供应链是另一条线（见 [plugin-signing.md](./plugin-signing.md)） |
 

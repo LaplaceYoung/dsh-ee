@@ -178,3 +178,19 @@ func (s *Store) ResolveAccessRequest(ctx context.Context, id int64, status strin
 	}
 	return nil
 }
+
+// ReopenAccessRequest 把已经通过、但授权失败的申请退回待处理，让审批人可以把授权重做一遍。
+// 只退回 status = 'approved' 的记录：申请一旦被驳回就保持驳回，不会被这里意外打开。
+// 返回 ErrNotFound 表示没有可退回的申请（例如期间被别人改过），调用方记日志按「回滚没做到」处理。
+func (s *Store) ReopenAccessRequest(ctx context.Context, id int64) error {
+	res, err := s.db.ExecContext(ctx,
+		"UPDATE connection_requests SET status = 'pending', handled_by = NULL, handled_at = NULL, note = '' WHERE id = ? AND status = 'approved'",
+		id)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

@@ -4,11 +4,30 @@ import json
 import unittest
 
 from dsh_ee_harness import (
+    ChatCompletionRequest,
+    ChatMessage,
+    DeepSeekDocumentBlock,
+    DeepSeekDocumentSourceFile,
+    DeepSeekDocumentSourceText,
+    DeepSeekFileContentPart,
+    DeepSeekLatestReminder,
+    DeepSeekLatestReminderMessage,
+    DeepSeekRefusal,
+    DeepSeekSafetyCheck,
+    DeepSeekServerToolCall,
+    DeepSeekServerToolDeclaration,
+    DeepSeekServerToolStep,
+    DeepSeekStopDetails,
+    DeepSeekTitleConfig,
+    DeepSeekUrlCitation,
     DeviceFlowError,
+    format_latest_reminder,
     DshClient,
     DshClientError,
     DshJsonRpcError,
     McpSession,
+    ReasoningEffort,
+    ThinkingConfig,
     extract_confirmation,
     is_pending_confirmation,
     parse_rate_limit_headers,
@@ -213,6 +232,292 @@ class TestModelsAndChat(unittest.TestCase):
                 "temperature": 0.2,
             },
         )
+
+    def test_chat_completion_thinking_mode(self):
+        completion = {
+            "id": "chatcmpl-think",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "company-reasoner",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": "先查日期",
+                        "tool_calls": [
+                            {"id": "call_1", "type": "function", "function": {"name": "get_date", "arguments": "{}"}}
+                        ],
+                    },
+                }
+            ],
+        }
+        transport = FakeTransport(lambda call, index: json_response(completion))
+        client = DshClient(BASE, token="ee_at_test", transport=transport)
+        messages = [
+            {"role": "user", "content": "明天天气怎么样"},
+            {"role": "assistant", "content": "", "reasoning_content": "先查日期"},
+            {"role": "tool", "tool_call_id": "call_0", "content": "2026-11-14"},
+        ]
+        result = client.chat_completion(
+            "company-reasoner",
+            messages,
+            thinking={"type": "enabled"},
+            reasoning_effort="high",
+        )
+        # 思考参数与历史 reasoning_content 必须原样出现在请求体里（网关不补不删）。
+        self.assertEqual(transport.calls[0]["json"]["thinking"], {"type": "enabled"})
+        self.assertEqual(transport.calls[0]["json"]["reasoning_effort"], "high")
+        self.assertEqual(transport.calls[0]["json"]["messages"], messages)
+        # 非流式响应里的 reasoning_content 原样返回。
+        self.assertEqual(result["choices"][0]["message"]["reasoning_content"], "先查日期")
+
+    def test_chat_types(self):
+        # TypedDict 只是给静态检查用的类型提示；这里确认导出与关键字段存在。
+        self.assertIn("reasoning_content", ChatMessage.__annotations__)
+        self.assertIn("thinking", ChatCompletionRequest.__annotations__)
+        self.assertIn("reasoning_effort", ChatCompletionRequest.__annotations__)
+        self.assertEqual(getattr(ThinkingConfig, "__origin__", None), dict)
+        self.assertIs(ReasoningEffort, str)
+
+    def test_chat_completion_chatbot_extensions(self):
+        completion = {
+            "id": "chatcmpl-bot",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "company-bot",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "DeepSeek V4.1 发布了新能力。",
+                        "title": "DeepSeek V4.1 新特性",
+                        "annotations": [
+                            {
+                                "type": "url_citation",
+                                "url_citation": {
+                                    "url": "https://example.com/news",
+                                    "title": "V4.1 release",
+                                    "start_index": 0,
+                                    "end_index": 25,
+                                },
+                            }
+                        ],
+                        "server_tool_calls": [
+                            {
+                                "index": 0,
+                                "reasoning_content": "",
+                                "calls": [
+                                    {
+                                        "index": 0,
+                                        "id": "srvtoolu_rl_00_abc",
+                                        "type": "deepseek_read_url",
+                                        "kind": "read_link",
+                                        "action": {"type": "read_link", "url": "https://example.com"},
+                                        "status": "completed",
+                                        "page": {"url": "https://example.com", "title": "Example Domain"},
+                                        "signature": "tQU8k+8Ko7MY5XDAvJd0",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {
+                "prompt_tokens": 10,
+                "completion_tokens": 5,
+                "total_tokens": 15,
+                "completion_tokens_details": {"safety_tokens": 2},
+                "server_tool_use": {"tool_search": 1, "tool_fetch": 1},
+            },
+        }
+        transport = FakeTransport(lambda call, index: json_response(completion))
+        client = DshClient(BASE, token="ee_at_test", transport=transport)
+
+        # 第二轮：把上一轮 assistant 消息（含 server_tool_calls 的 kind/signature）原样带回。
+        read_call = {
+            "index": 0,
+            "id": "srvtoolu_rl_00_abc",
+            "type": "deepseek_read_url",
+            "kind": "read_link",
+            "action": {"type": "read_link", "url": "https://example.com"},
+            "status": "completed",
+            "page": {"url": "https://example.com", "title": "Example Domain"},
+            "signature": "tQU8k+8Ko7MY5XDAvJd0",
+        }
+        messages = [
+            {"role": "user", "content": "总结 https://example.com/"},
+            {"role": "assistant", "content": "该域名用于文档示例。", "server_tool_calls": [{"index": 0, "calls": [read_call]}]},
+            {"role": "user", "content": "引用第一句"},
+        ]
+        result = client.chat_completion(
+            "company-bot",
+            messages,
+            tools=[{"type": "deepseek_web_search"}, {"type": "deepseek_read_url"}],
+            safety_check={"level": "high"},
+            title={"enabled": True},
+        )
+
+        # 扩展参数原样透传；SDK 不执行服务端工具，只负责带过去。
+        sent = transport.calls[0]["json"]
+        self.assertEqual(sent["tools"], [{"type": "deepseek_web_search"}, {"type": "deepseek_read_url"}])
+        self.assertEqual(sent["safety_check"], {"level": "high"})
+        self.assertEqual(sent["title"], {"enabled": True})
+        self.assertEqual(sent["messages"], messages)
+
+        # 响应里的 Chatbot 扩展字段原样可读。
+        message = result["choices"][0]["message"]
+        self.assertEqual(message["title"], "DeepSeek V4.1 新特性")
+        self.assertEqual(message["annotations"][0]["url_citation"]["url"], "https://example.com/news")
+        call = message["server_tool_calls"][0]["calls"][0]
+        self.assertEqual(call["kind"], "read_link")
+        self.assertEqual(call["signature"], "tQU8k+8Ko7MY5XDAvJd0")
+        self.assertEqual(call["page"]["title"], "Example Domain")
+        self.assertEqual(result["usage"]["completion_tokens_details"]["safety_tokens"], 2)
+        self.assertEqual(result["usage"]["server_tool_use"]["tool_fetch"], 1)
+
+    def test_chatbot_refusal_and_types(self):
+        # 内容安全拒答：finish_reason=content_filter，message.refusal 是说明。
+        completion = {
+            "id": "chatcmpl-refusal",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "company-bot",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "refusal": "The following images were blocked by content moderation: messages.1.content.0",
+                    },
+                    "finish_reason": "content_filter",
+                }
+            ],
+        }
+        transport = FakeTransport(lambda call, index: json_response(completion))
+        client = DshClient(BASE, token="ee_at_test", transport=transport)
+        result = client.chat_completion(
+            "company-bot", [{"role": "user", "content": "看看这张图"}], safety_check={"level": "high"}
+        )
+        self.assertEqual(result["choices"][0]["finish_reason"], "content_filter")
+        self.assertIn("blocked by content moderation", result["choices"][0]["message"]["refusal"])
+
+        # 类型只是静态提示：确认导出与关键字段存在，且服务端工具/拒答块都有类型可引用。
+        self.assertIn("tools", ChatCompletionRequest.__annotations__)
+        self.assertIn("safety_check", ChatCompletionRequest.__annotations__)
+        self.assertIn("server_tool_calls", ChatMessage.__annotations__)
+        self.assertIn("reasoning_content", DeepSeekServerToolStep.__annotations__)
+        self.assertIn("kind", DeepSeekServerToolCall.__annotations__)
+        self.assertIn("signature", DeepSeekServerToolCall.__annotations__)
+        self.assertIn("refusal", DeepSeekRefusal.__annotations__)
+        self.assertIn("explanation", DeepSeekStopDetails.__annotations__)
+        self.assertIn("url_citation", DeepSeekUrlCitation.__annotations__)
+        self.assertIn("level", DeepSeekSafetyCheck.__annotations__)
+        self.assertIn("enabled", DeepSeekTitleConfig.__annotations__)
+        self.assertIn("type", DeepSeekServerToolDeclaration.__annotations__)
+
+    def test_latest_reminder_and_file_blocks(self):
+        # latest_reminder content 格式：date,weekday,location,platform,language
+        self.assertEqual(
+            format_latest_reminder(
+                {
+                    "date": "2026-11-11",
+                    "weekday": "Wednesday",
+                    "location": "Singapore",
+                    "platform": "Web",
+                    "language": "English",
+                }
+            ),
+            "2026-11-11,Wednesday,Singapore,Web,English",
+        )
+        # location 可空 / 可含逗号（在第三段，不能用 split(',') 反解）
+        self.assertEqual(
+            format_latest_reminder({"date": "2026-11-11", "weekday": "星期三", "platform": "App", "language": "中文"}),
+            "2026-11-11,星期三,,App,中文",
+        )
+        self.assertEqual(
+            format_latest_reminder(
+                {
+                    "date": "2026-11-12",
+                    "weekday": "Thursday",
+                    "location": "Paris, France",
+                    "platform": "Web",
+                    "language": "English",
+                }
+            ),
+            "2026-11-12,Thursday,Paris, France,Web,English",
+        )
+
+        completion = {
+            "id": "chatcmpl-files",
+            "object": "chat.completion",
+            "created": 1,
+            "model": "company-bot",
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": "ok"}, "finish_reason": "stop"}],
+        }
+        transport = FakeTransport(lambda call, index: json_response(completion))
+        client = DshClient(BASE, token="ee_at_test", transport=transport)
+
+        messages = [
+            # 历史轮次的 reminder 原样带回（可提高 context cache 命中）。
+            {"role": "latest_reminder", "content": "2026-11-10,Tuesday,Singapore,Web,English"},
+            {"role": "user", "content": "What is DeepSeek?"},
+            {"role": "assistant", "content": "DeepSeek is ..."},
+            {
+                "role": "latest_reminder",
+                "content": format_latest_reminder(
+                    {
+                        "date": "2026-11-11",
+                        "weekday": "Wednesday",
+                        "location": "Singapore",
+                        "platform": "Web",
+                        "language": "English",
+                    }
+                ),
+            },
+            {"role": "user", "content": "What is in the news today?"},
+            # file_id：引用 Files API 上传并解析后的文档/图片。
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "总结这份文档的重点。"},
+                    {"type": "file", "file_id": "file-api-xxxxxxxxxxxxxxxx"},
+                ],
+            },
+            # file_data：内联 base64（可带 filename），与 file_id 互斥。
+            {
+                "role": "user",
+                "content": [
+                    {"type": "file", "file_data": "data:image/jpeg;base64,/9j/4AAQSkZJRg==", "filename": "image.jpg"},
+                ],
+            },
+            # Messages API 的 document 块（source: file / text）；SDK 不改写调用方内容块。
+            {
+                "role": "user",
+                "content": [{"type": "document", "source": {"type": "file", "file_id": "file-api-yyyyyyyyyyyyyyyy"}}],
+            },
+            {
+                "role": "user",
+                "content": [{"type": "document", "source": {"type": "text", "media_type": "text/plain", "data": "The document text"}}],
+            },
+        ]
+        client.chat_completion("company-bot", messages)
+        self.assertEqual(transport.calls[0]["json"]["messages"], messages)
+
+        # 类型只是静态提示：确认导出与关键字段存在。
+        self.assertIn("date", DeepSeekLatestReminder.__annotations__)
+        self.assertIn("platform", DeepSeekLatestReminder.__annotations__)
+        self.assertIn("content", DeepSeekLatestReminderMessage.__annotations__)
+        self.assertIn("file_id", DeepSeekFileContentPart.__annotations__)
+        self.assertIn("file_data", DeepSeekFileContentPart.__annotations__)
+        self.assertIn("source", DeepSeekDocumentBlock.__annotations__)
+        self.assertIn("file_id", DeepSeekDocumentSourceFile.__annotations__)
+        self.assertIn("media_type", DeepSeekDocumentSourceText.__annotations__)
 
     def test_openai_error_shape(self):
         transport = FakeTransport(

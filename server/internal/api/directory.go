@@ -50,20 +50,22 @@ type directoryDocView struct {
 
 // directoryEntryPlan 是单条条目的展示信息 + 它自己的校验结果。
 type directoryEntryPlan struct {
-	Index      int                    `json:"index"`
-	ID         string                 `json:"id"` // kind:name@version/channel，给人看
-	Kind       string                 `json:"kind"`
-	Name       string                 `json:"name"`
-	Version    string                 `json:"version"`
-	Channel    string                 `json:"channel"`
-	Digest     string                 `json:"digest"`
-	Source     directory.Source       `json:"source"`
-	Size       int64                  `json:"size,omitempty"`
-	Publisher  *directory.Publisher   `json:"publisher,omitempty"`
-	Notes      string                 `json:"notes,omitempty"`
-	MinVersion string                 `json:"min_version,omitempty"`
-	Signature  *directoryEntrySigView `json:"signature,omitempty"`
-	Issues     []directory.Issue      `json:"issues"`
+	Index      int                  `json:"index"`
+	ID         string               `json:"id"` // kind:name@version/channel，给人看
+	Kind       string               `json:"kind"`
+	Name       string               `json:"name"`
+	Version    string               `json:"version"`
+	Channel    string               `json:"channel"`
+	Digest     string               `json:"digest"`
+	Source     directory.Source     `json:"source"`
+	Size       int64                `json:"size,omitempty"`
+	Publisher  *directory.Publisher `json:"publisher,omitempty"`
+	Notes      string               `json:"notes,omitempty"`
+	MinVersion string               `json:"min_version,omitempty"`
+	// 条目声明的 auto_upgrade（format 2 additive）；本期只登记，不执行自动升级
+	AutoUpgrade bool                   `json:"auto_upgrade"`
+	Signature   *directoryEntrySigView `json:"signature,omitempty"`
+	Issues      []directory.Issue      `json:"issues"`
 }
 
 // directoryEntrySigView 是条目内嵌签名声明的状态。目录里没有内容，所以只能核对声明和签名者
@@ -186,7 +188,7 @@ func (s *Server) directoryPlanOf(ctx context.Context, doc *directory.Document) (
 		view := directoryEntryPlan{
 			Index: i, ID: docEntryIdentity(e), Kind: e.Kind, Name: e.Name, Version: e.Version, Channel: e.Channel,
 			Digest: e.Digest, Source: e.Source, Size: e.Size, Publisher: e.Publisher, Notes: e.Notes, MinVersion: e.MinVersion,
-			Issues: byIndex[i],
+			AutoUpgrade: e.AutoUpgrade, Issues: byIndex[i],
 		}
 		if view.Issues == nil {
 			view.Issues = []directory.Issue{}
@@ -235,6 +237,7 @@ func directoryStoreEntry(directoryID string, e directory.Entry, er directory.Ent
 		SourceRegistry:    e.Source.Registry,
 		SourceURL:         e.Source.URL,
 		Size:              e.Size,
+		AutoUpgrade:       e.AutoUpgrade,
 		Notes:             e.Notes,
 		SignatureKeyID:    er.SignatureKeyID,
 		SignatureKeyState: er.SignatureKeyState,
@@ -328,7 +331,7 @@ func directoryEntrySame(row store.DirectoryEntry, e directory.Entry) bool {
 	}
 	return row.Kind == e.Kind && row.Name == e.Name && row.Version == e.Version && row.Channel == e.Channel &&
 		row.Digest == e.Digest && row.SourceType == e.Source.Type && row.SourceRegistry == e.Source.Registry &&
-		row.SourceURL == e.Source.URL && row.Size == e.Size &&
+		row.SourceURL == e.Source.URL && row.Size == e.Size && row.AutoUpgrade == e.AutoUpgrade &&
 		rowPublisherUser == publisherUser && row.PublisherUsername == publisherName && row.PublisherDept == publisherDept &&
 		row.Notes == e.Notes && row.SignatureKeyID == sigKeyID && row.SignatureJSON == sigJSON
 }

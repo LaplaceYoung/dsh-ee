@@ -41,6 +41,9 @@ test('discovery：解析发现文档、发送版本头、ETag 304 走缓存', as
   assert.equal(doc.name, 'dsh-ee');
   assert.equal(doc.api_version, '1');
   assert.deepEqual(doc.mcp.protocol_versions, ['2025-11-25', '2025-06-18']);
+  assert.equal(doc.models.reasoning?.content_field, 'reasoning_content');
+  assert.deepEqual(doc.models.input_modalities, ['text', 'image', 'file']);
+  assert.deepEqual(doc.models.reasoning?.parameters, ['thinking', 'reasoning_effort']);
   assert.equal(calls[0].url, `${BASE}/.well-known/dsh-ee`);
   assert.equal(calls[0].method, 'GET');
   assert.equal(calls[0].headers.get('dsh-ee-api-version'), '1');
@@ -77,6 +80,9 @@ test('capabilities：匿名不带 Authorization，带令牌带 Bearer', async ()
   const authed = new DshHarnessClient({ baseUrl: BASE, fetch, token: 'ee_at_test' });
   const caps2 = await authed.capabilities();
   assert.equal(caps2.authenticated, true);
+  assert.equal(caps2.reasoning?.supported, true);
+  assert.equal(caps2.reasoning?.per_model, true);
+  assert.deepEqual(caps2.input_modalities, ['text', 'image', 'file']);
   assert.equal(calls[1].headers.get('authorization'), 'Bearer ee_at_test');
   assert.equal(caps2.tools.count, 7);
 });
@@ -112,8 +118,21 @@ test('models：解析模型列表、记录限流头', async () => {
       {
         object: 'list',
         data: [
-          { id: 'company-chat', object: 'model', owned_by: 'dsh-ee' },
-          { id: 'company-reasoner', object: 'model', owned_by: 'dsh-ee' },
+          {
+            id: 'company-chat',
+            object: 'model',
+            owned_by: 'dsh-ee',
+            capabilities: { reasoning: { supported: false, efforts: [] }, input: ['text'] },
+          },
+          {
+            id: 'company-reasoner',
+            object: 'model',
+            owned_by: 'dsh-ee',
+            capabilities: {
+              reasoning: { supported: true, efforts: ['low', 'high', 'max'] },
+              input: ['text', 'image', 'file'],
+            },
+          },
         ],
       },
       {
@@ -132,6 +151,12 @@ test('models：解析模型列表、记录限流头', async () => {
     ['company-chat', 'company-reasoner'],
   );
   assert.equal(calls[0].url, `${BASE}/v1/models`);
+  // additive 能力声明：旧字段不变，新客户端可按模型读思考能力。
+  assert.equal(models[0].capabilities?.reasoning?.supported, false);
+  assert.equal(models[1].capabilities?.reasoning?.supported, true);
+  assert.deepEqual(models[1].capabilities?.reasoning?.efforts, ['low', 'high', 'max']);
+  assert.deepEqual(models[0].capabilities?.input, ['text']);
+  assert.deepEqual(models[1].capabilities?.input, ['text', 'image', 'file']);
   assert.equal(client.lastRateLimit.limit, 60);
   assert.equal(client.lastRateLimit.remaining, 59);
   assert.equal(client.lastRateLimit.resetAt.getTime(), 1700000000 * 1000);
@@ -288,6 +313,123 @@ test('chat（流式）：跨 chunk 解析 SSE、CRLF、[DONE] 与 usage', async 
   assert.equal(received[2].usage.total_tokens, 4);
   assert.equal(calls[0].json().stream, true);
   assert.equal(calls[0].headers.get('accept'), 'text/event-stream');
+});
+
+test('chat（思考模式）：thinking/reasoning_effort 原样发送，工具轮次带 reasoning_content', async () => {
+  const completion = {
+    id: 'chatcmpl-think',
+    object: 'chat.completion',
+    created: 1700000000,
+    model: 'company-reasoner',
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: 'assistant',
+          content: '',
+          reasoning_content: '先查日期',
+          tool_calls: [
+            {
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'get_date', arguments: '{}' },
+            },
+          ],
+        },
+        finish_reason: 'tool_calls',
+      },
+    ],
+    usage: { prompt_tokens: 9, completion_tokens: 4, total_tokens: 13 },
+  };
+  const { fetch, calls } = mockFetch(() => jsonResponse(completion));
+  const client = new DshHarnessClient({ baseUrl: BASE, fetch, token: 'ee_at_test' });
+
+  const messages = [
+    { role: 'user', content: '明天天气怎么样' },
+    {
+      role: 'assistant',
+      content: '',
+      reasoning_content: '先查日期',
+      tool_calls: [{ id: 'call_0', type: 'function', function: { name: 'get_date', arguments: '{}' } }],
+    },
+    { role: 'tool', tool_call_id: 'call_0', content: '2026-11-14' },
+  ];
+  const tools = [{ type: 'function', function: { name: 'get_weather', parameters: { type: 'object' } } }];
+
+  const result = await client.createChatCompletion({
+    model: 'company-reasoner',
+    messages,
+    tools,
+    thinking: { type: 'enabled' },
+    reasoning_effort: 'high',
+  });
+
+  // 请求体原样转发：如果 SDK/网关丢了历史 reasoning_content，上游会 400。
+  assert.deepEqual(calls[0].json(), {
+    model: 'company-reasoner',
+    messages,
+    tools,
+    thinking: { type: 'enabled' },
+    reasoning_effort: 'high',
+    stream: false,
+  });
+  assert.equal(result.choices[0].message.reasoning_content, '先查日期');
+  assert.equal(result.choices[0].message.tool_calls[0].function.name, 'get_date');
+});
+
+test('chat（流式思考模式）：delta.reasoning_content 原样透出、可与 content 分离', async () => {
+  const chunks = [
+    {
+      id: 'c1',
+      object: 'chat.completion.chunk',
+      created: 1700000000,
+      model: 'company-reasoner',
+      choices: [{ index: 0, delta: { role: 'assistant', reasoning_content: '先想' }, finish_reason: null }],
+    },
+    {
+      id: 'c1',
+      object: 'chat.completion.chunk',
+      created: 1700000000,
+      model: 'company-reasoner',
+      choices: [{ index: 0, delta: { reasoning_content: '一下' }, finish_reason: null }],
+    },
+    {
+      id: 'c1',
+      object: 'chat.completion.chunk',
+      created: 1700000000,
+      model: 'company-reasoner',
+      choices: [{ index: 0, delta: { content: '答案' }, finish_reason: null }],
+    },
+    {
+      id: 'c1',
+      object: 'chat.completion.chunk',
+      created: 1700000000,
+      model: 'company-reasoner',
+      choices: [],
+      usage: { prompt_tokens: 3, completion_tokens: 1, total_tokens: 4 },
+    },
+  ];
+  const text = chunks.map((chunk) => `data: ${JSON.stringify(chunk)}\n\n`).join('') + 'data: [DONE]\n\n';
+  const { fetch, calls } = mockFetch(() => chunkedSseResponse(text, 5));
+  const client = new DshHarnessClient({ baseUrl: BASE, fetch, token: 'ee_at_test' });
+
+  const reasoning = [];
+  const content = [];
+  for await (const chunk of client.streamChatCompletion({
+    model: 'company-reasoner',
+    messages: [{ role: 'user', content: 'hi' }],
+    thinking: { type: 'enabled' },
+    reasoning_effort: 'medium',
+  })) {
+    for (const choice of chunk.choices) {
+      if (choice.delta.reasoning_content) reasoning.push(choice.delta.reasoning_content);
+      if (choice.delta.content) content.push(choice.delta.content);
+    }
+  }
+  assert.equal(reasoning.join(''), '先想一下');
+  assert.equal(content.join(''), '答案');
+  assert.equal(calls[0].json().thinking.type, 'enabled');
+  assert.equal(calls[0].json().reasoning_effort, 'medium');
 });
 
 test('device code：申请参数、公开端点不带令牌', async () => {

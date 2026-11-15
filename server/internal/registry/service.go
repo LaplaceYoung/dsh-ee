@@ -48,6 +48,9 @@ type Service struct {
 	up       *Upstream
 	log      *slog.Logger
 	settings func(context.Context) (*store.AppSettings, error)
+	// owner 是本实例标识（cfg.Addr），写进新建同步任务的 sync_jobs.owner，
+	// 供多实例启动时只清理本实例遗留的任务。
+	owner string
 	// 单个 tarball 的大小上限
 	MaxTarball int64
 	// 同时运行的同步/导入任务上限；0 表示用默认值（见 mirror.go）
@@ -60,9 +63,9 @@ type Service struct {
 	gate syncGate
 }
 
-func NewService(st *store.Store, blobs *Blobs, up *Upstream, settings func(context.Context) (*store.AppSettings, error), log *slog.Logger) *Service {
+func NewService(st *store.Store, blobs *Blobs, up *Upstream, settings func(context.Context) (*store.AppSettings, error), log *slog.Logger, owner string) *Service {
 	return &Service{
-		store: st, blobs: blobs, up: up, log: log, settings: settings,
+		store: st, blobs: blobs, up: up, log: log, settings: settings, owner: owner,
 		MaxTarball:         100 << 20,
 		MaxSyncJobs:        defaultMaxSyncJobs,
 		MaxSyncJobsPerUser: defaultMaxSyncJobsPerUser,

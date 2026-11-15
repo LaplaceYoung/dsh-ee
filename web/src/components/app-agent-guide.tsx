@@ -11,6 +11,7 @@ import { Button, Card, cx, Field, ToggleRow } from "./ui";
 
 const textareaCls = "w-full rounded-md border border-neutral-300 bg-card px-3 py-2 text-sm outline-none placeholder:text-neutral-500 focus:border-brand-500 focus:ring-2 focus:ring-brand-100";
 const EXAMPLES = ["signup", "visit", "expense", "ledger"] as const;
+const EXPERT_EXAMPLES = ["contract", "tax", "onboarding", "team"] as const;
 
 /** 可点选的小标签：选项不多，直接平铺比下拉好挑。 */
 function Pills({ options, values, onChange, empty }: { options: { value: string; label: string }[]; values: string[]; onChange: (v: string[]) => void; empty: string }) {
@@ -45,7 +46,8 @@ function Pills({ options, values, onChange, empty }: { options: { value: string;
  * 「新建应用 → 让 AI 帮我做」：员工描述需求，页面拼出一段提示词，复制到 DSH 里发送。
  * AI 那边靠的是系统技能 dsh-ee-app-design 和 ee_hub 的 create（for_me），见 server/internal/api/agent_tools.go。
  */
-export function AppAgentGuide({ onManual }: { onManual: () => void }) {
+/** expert：做专家（docs/expert-center.md）——示例、提示词换成专家的，没有数据表和网页版。 */
+export function AppAgentGuide({ onManual, expert = false }: { onManual: () => void; expert?: boolean }) {
   const { t } = useTranslation();
   const { notify } = useStore();
   const hub = useApi(api.hub);
@@ -67,17 +69,20 @@ export function AppAgentGuide({ onManual }: { onManual: () => void }) {
 
   const prompt = useMemo(() => {
     if (!what.trim()) return "";
-    const P = (k: string, o?: Record<string, string>) => t(`appAgent.prompt.${k}` as "appAgent.prompt.head", o);
+    const P = (k: string, o?: Record<string, string>) =>
+      expert && (k === "head" || k === "steps" || k === "what")
+        ? t(`expertCenter.agent.prompt.${k}` as "expertCenter.agent.prompt.head", o)
+        : t(`appAgent.prompt.${k}` as "appAgent.prompt.head", o);
     const lines = [P("head"), "", P("what") + what.trim()];
     if (users.trim()) lines.push(P("users") + users.trim());
     lines.push(conns.length ? P("connections", { list: conns.map((c) => label(connOptions, c)).join("、") }) : P("connectionsAuto"));
     if (kbs.length) lines.push(P("knowledge", { list: kbs.map((k) => label(kbOptions, k)).join("、") }));
-    if (tables) lines.push(P("tables"));
-    if (web) lines.push(P("web"));
+    if (tables && !expert) lines.push(P("tables"));
+    if (web && !expert) lines.push(P("web"));
     lines.push("", P("steps", { tables: tables ? P("tablesSuffix") : "", origin: window.location.origin }));
     return lines.join("\n");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [what, users, conns, kbs, tables, web, connOptions, kbOptions, t]);
+  }, [what, users, conns, kbs, tables, web, connOptions, kbOptions, t, expert]);
 
   const copy = async () => {
     if (!prompt) return;
@@ -87,8 +92,8 @@ export function AppAgentGuide({ onManual }: { onManual: () => void }) {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const steps = t("appAgent.steps", { returnObjects: true }) as string[];
-  const iterate = t("appAgent.iterate", { returnObjects: true }) as string[];
+  const steps = t(expert ? "expertCenter.agent.steps" : "appAgent.steps", { returnObjects: true }) as string[];
+  const iterate = t(expert ? "expertCenter.agent.iterate" : "appAgent.iterate", { returnObjects: true }) as string[];
   const tips = t("appAgent.tips", { returnObjects: true }) as string[];
 
   return (
@@ -96,16 +101,26 @@ export function AppAgentGuide({ onManual }: { onManual: () => void }) {
       <div className="space-y-4">
         <div className="flex gap-3 rounded-lg border border-brand-200/80 bg-brand-50/70 px-4 py-3 text-sm leading-6 text-neutral-800 dark:border-brand-400/25 dark:bg-brand-500/10">
           <Sparkles size={18} className="mt-0.5 shrink-0 text-brand-600 dark:text-brand-300" />
-          <p>{t("appAgent.intro")}</p>
+          <p>{expert ? t("expertCenter.agent.intro") : t("appAgent.intro")}</p>
         </div>
 
         <Card className="space-y-5 p-6">
-          <h2 className="text-neutral-900 text-[15px] leading-6 font-semibold">{t("appAgent.describeTitle")}</h2>
+          <h2 className="text-neutral-900 text-[15px] leading-6 font-semibold">{expert ? t("expertCenter.agent.describeTitle") : t("appAgent.describeTitle")}</h2>
           <Field label={t("appAgent.describeLabel")}>
-            <textarea className={cx(textareaCls, "h-24")} value={what} placeholder={t("appAgent.describePlaceholder")} onChange={(e) => setWhat(e.target.value)} />
+            <textarea className={cx(textareaCls, "h-24")} value={what} placeholder={expert ? t("expertCenter.agent.describePlaceholder") : t("appAgent.describePlaceholder")} onChange={(e) => setWhat(e.target.value)} />
             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-neutral-600">
               <span>{t("appAgent.examples")}</span>
-              {EXAMPLES.map((k) => (
+              {expert && EXPERT_EXAMPLES.map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setWhat(t(`expertCenter.agent.example.${k}.text`))}
+                  className="rounded-full bg-neutral-100 px-2.5 py-1 text-neutral-700 transition hover:bg-brand-50 hover:text-brand-700 dark:hover:bg-brand-400/15"
+                >
+                  {t(`expertCenter.agent.example.${k}.label`)}
+                </button>
+              ))}
+              {!expert && EXAMPLES.map((k) => (
                 <button
                   key={k}
                   type="button"
@@ -129,8 +144,12 @@ export function AppAgentGuide({ onManual }: { onManual: () => void }) {
           <Field label={t("appAgent.knowledgeLabel")}>
             <Pills options={kbOptions} values={kbs} onChange={setKbs} empty={t("appAgent.noKnowledge")} />
           </Field>
-          <ToggleRow label={t("appAgent.needTables")} desc={t("appAgent.needTablesDesc")} checked={tables} onChange={setTables} />
-          <ToggleRow label={t("appAgent.needWeb")} desc={t("appAgent.needWebDesc")} checked={web} onChange={setWeb} />
+          {!expert && (
+            <>
+              <ToggleRow label={t("appAgent.needTables")} desc={t("appAgent.needTablesDesc")} checked={tables} onChange={setTables} />
+              <ToggleRow label={t("appAgent.needWeb")} desc={t("appAgent.needWebDesc")} checked={web} onChange={setWeb} />
+            </>
+          )}
         </Card>
 
         <Card className="space-y-3 p-6">

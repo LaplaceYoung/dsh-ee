@@ -100,7 +100,15 @@ func (s *Store) DB() *sql.DB { return s.db }
 
 // Migrate 按文件名顺序执行未执行过的迁移。DDL 在这两种库里都不在事务内，
 // 所以每个文件执行完才记版本；中途失败需要人工检查后重跑。
+// 多个实例同时首次启动时用 migration_lock 行锁串行化：同一时刻只有一个实例执行 DDL，
+// 其它实例等待（见 acquireMigrateLock）。
 func (s *Store) Migrate(ctx context.Context) error {
+	release, err := s.acquireMigrateLock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version    VARCHAR(64) NOT NULL,
 		applied_at DATETIME(3) NOT NULL,
@@ -123,6 +131,10 @@ func (s *Store) Migrate(ctx context.Context) error {
 		applied[v] = true
 	}
 	rows.Close()
+	if err := rows.Err(); err != nil {
+		// 读不全就会把已执行的迁移当成未执行，下次启动重跑非幂等 DDL。
+		return fmt.Errorf("读取已执行迁移: %w", err)
+	}
 
 	files, err := fs.Glob(migrationFS, "migrations/*.sql")
 	if err != nil {
