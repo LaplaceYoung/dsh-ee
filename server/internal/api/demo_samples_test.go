@@ -155,11 +155,14 @@ func TestSampleApps(t *testing.T) {
 	if strings.Contains(string(body), `"customers":0`) {
 		t.Fatalf("管理员试用时「我的客户」不应是 0：%s", body)
 	}
-	code, body = zhengWeb.do("POST", "/api/me/apps/customer-brief/source", map[string]any{"pane": "brief", "widget": 8}, nil)
-	expect(t, "郑小雨的客户", code, 200, body)
+	code, body = admin.do("POST", "/api/me/apps/customer-brief/source", map[string]any{"pane": "brief", "widget": 8}, nil)
+	expect(t, "管理员的客户列表", code, 200, body)
 	if strings.Contains(string(body), `"owner":"周航"`) {
 		t.Fatalf("借来的客户要换成本人的名字：%.300s", body)
 	}
+	// 研发部被示例禁用策略挡在客户类应用外
+	code, body = zhengWeb.do("POST", "/api/me/apps/customer-brief/source", map[string]any{"pane": "brief", "widget": 8}, nil)
+	expect(t, "郑小雨看客户简报", code, 404, body)
 
 	// 写表的行按钮：数据源必须就是那张表，set 和 delete 二选一
 	rowApp := func(action map[string]any) map[string]any {

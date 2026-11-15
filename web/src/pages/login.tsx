@@ -119,7 +119,7 @@ export default function Login() {
                     aria-selected={id === scenario}
                     data-scenario={id}
                     onClick={() => setDemoScenario(id)}
-                    className={cx("rounded-full px-4 py-1.5 text-sm font-medium transition", id === scenario ? "bg-white text-neutral-900 shadow" : "text-white/90 hover:bg-white/15")}
+                    className={cx("rounded-full px-4 py-1.5 text-sm font-medium transition", id === scenario ? "bg-white text-[#0a2540] shadow" : "text-white/90 hover:bg-white/15")}
                   >
                     {t(`login.demo.scenarios.${id}.tab`, { defaultValue: allPersonas.find((p) => p.scenario === id)?.scenario_title ?? id })}
                   </button>

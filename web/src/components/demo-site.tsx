@@ -69,7 +69,7 @@ export function DemoConnectDsh({ className }: { className?: string }) {
                 key={k}
                 type="button"
                 onClick={() => setOs(k)}
-                className={cx("rounded px-1.5 py-0.5", os === k ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900" : "text-neutral-500 hover:bg-neutral-100")}
+                className={cx("rounded px-1.5 py-0.5", os === k ? "bg-neutral-900 text-neutral-50" : "text-neutral-500 hover:bg-neutral-100")}
               >
                 {t(k === "unix" ? "login.demo.dsh.unix" : "login.demo.dsh.win")}
               </button>

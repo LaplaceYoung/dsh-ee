@@ -9,6 +9,7 @@ import { checkBoardBlocks, checkForm, fillPrompt, formatValue, getPath, parseWor
 import { BoardStore, insertFormRow, readWidgetData, runWorkbenchTool } from "../src/workbench-host.js";
 import { boardView, missingPaneView, panelView, type PanelHandlers } from "../src/workbench-view.js";
 import { openWorkbench, waitMounted, workbenchOpenIn } from "../src/workbench-open.js";
+import { localeTag } from "../src/i18n/index.js";
 
 const h = (type: string, props: any, ...children: any[]) => ({ type, props, children });
 
@@ -44,6 +45,8 @@ test("点号路径、格式化与表格行", () => {
   assert.equal(formatValue(1234.5, "money"), "1,234.50");
   assert.equal(formatValue(0.256, "percent"), "25.6%");
   assert.equal(formatValue({ x: 1 }), '{"x":1}');
+  // 纯日期按本地日历日显示，不随时区差一天
+  assert.equal(formatValue("2026-11-25", "date"), new Date(2026, 10, 25).toLocaleDateString(localeTag()));
   const many = { items: Array.from({ length: 60 }, (_, i) => ({ id: i })) };
   assert.deepEqual(tableRows(many, "items").rows.length, 50);
   assert.equal(tableRows(many, "items").total, 60);
