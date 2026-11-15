@@ -292,7 +292,8 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 	expectToast(t, "重复回调不能重复审批", code, body, "info", "已经处理过")
 
 	// 限制为财务可用，作者研发部的人发起权限申请；再让审批人打开。
-	code, body = admin.do("PATCH", fmt.Sprintf("/api/hub/%d", assetID), map[string]any{"scope": map[string]any{"departments": []string{"财务部"}}}, nil)
+	code, body = admin.do("PATCH", fmt.Sprintf("/api/hub/%d", assetID), map[string]any{"scope": map[string]any{"departments": []string{"财务部"}},
+		"updated_at": scopeToken(t, admin, fmt.Sprintf("/api/hub/%d", assetID))}, nil)
 	expect(t, "缩小技能范围", code, 200, body)
 	code, body = applicantClient.do("POST", "/api/me/access-requests", map[string]any{"kind": "skill", "slug": "feishu-review", "reason": "需要查阅流程"}, nil)
 	expect(t, "员工权限申请", code, 201, body)

@@ -1419,6 +1419,8 @@ export interface PluginPolicy {
   name: string;
   scope: Scope;
   delivery: Delivery;
+  /** 乐观并发令牌：更新已有策略时原样带回；没有记录（第一次设置）时为空。 */
+  updated_at?: string;
 }
 
 export interface AssetReviewItem {
@@ -1959,7 +1961,7 @@ export const api = {
   knowledge: () => request<{ items: KBase[]; can_manage: boolean; formats: string[]; qa: KBQASettings }>("GET", "/api/kb"),
   createKB: (b: { slug: string; title: string; description: string; scope?: Scope; maintainers?: KBMaintainers }) => request<KBase>("POST", "/api/kb", b),
   kb: (id: number) => request<{ kb: KBase; docs: KDoc[]; used_by?: UsedByApp[] }>("GET", `/api/kb/${id}`),
-  patchKB: (id: number, p: Partial<{ title: string; description: string; scope: Scope; maintainers: KBMaintainers }>) => request<KBase>("PATCH", `/api/kb/${id}`, p),
+  patchKB: (id: number, p: Partial<{ title: string; description: string; scope: Scope; maintainers: KBMaintainers; updated_at: string }>) => request<KBase>("PATCH", `/api/kb/${id}`, p),
   deleteKB: (id: number) => request<void>("DELETE", `/api/kb/${id}`),
   saveKBSettings: (s: KBQASettings) => request<KBQASettings>("PUT", "/api/kb/settings", s),
   /** asNew：同名时另存为新文档的文件名；其它同名文件更新成新版本 */
@@ -2032,7 +2034,7 @@ export const api = {
   dataTableDelete: (name: string) => request<void>("DELETE", `/api/admin/data/tables/${encodeURIComponent(name)}`),
   dataRun: (sql: string, values: Record<string, unknown>, params: DataParam[]) =>
     request<{ result: DataResult; params: DataParam[] }>("POST", "/api/admin/data/run", { sql, values, params }),
-  dataSetSave: (d: { slug: string; title: string; description: string; sql: string; params: DataParam[]; scope: Scope }, update: boolean) =>
+  dataSetSave: (d: { slug: string; title: string; description: string; sql: string; params: DataParam[]; scope: Scope; updated_at?: string }, update: boolean) =>
     update
       ? request<DataSet>("PUT", `/api/admin/data/datasets/${encodeURIComponent(d.slug)}`, d)
       : request<DataSet>("POST", "/api/admin/data/datasets", d),
@@ -2049,7 +2051,7 @@ export const api = {
       spec,
       ...(secret !== undefined ? { secret } : {}),
     }),
-  patchAsset: (id: number, p: Partial<{ category: string; category_id: number; featured: boolean; scope: Scope; delivery: Delivery; status: "active" | "unpublished"; note: string }>) =>
+  patchAsset: (id: number, p: Partial<{ category: string; category_id: number; featured: boolean; scope: Scope; delivery: Delivery; status: "active" | "unpublished"; note: string; updated_at: string }>) =>
     request<HubAsset>("PATCH", `/api/hub/${id}`, p),
   /** 解析技能包（.zip，含 SKILL.md），返回编辑器用的草稿；不写库 */
   parseSkillPackage: (filename: string, data: string) =>
@@ -2085,7 +2087,7 @@ export const api = {
   reviewScope: (r: { asset_id: number; action: "approve" | "reject"; note?: string }) => request<void>("POST", "/api/admin/hub/scope-review", { note: "", ...r }),
   reviewAsset: (r: { asset_id: number; version: number; action: "approve" | "reject"; note?: string }) =>
     request<void>("POST", "/api/admin/hub/review", { note: "", ...r }),
-  setPluginPolicy: (name: string, p: { scope: Scope; delivery: Delivery }) =>
+  setPluginPolicy: (name: string, p: { scope: Scope; delivery: Delivery; updated_at?: string }) =>
     request<PluginPolicy>("PUT", `/api/admin/plugin-policies/${encName(name)}`, p),
   sharedCredentials: (id: number) => request<SharedCredentialsResp>("GET", `/api/admin/connections/${id}/shared-credentials`),
   saveSharedCredential: (id: number, name: string, secret: string) =>

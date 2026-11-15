@@ -425,6 +425,13 @@ type AssetPatch struct {
 	Scope       *Scope
 	Delivery    *string
 	Status      *string
+	// ExpectedUpdatedAt 非空时做乐观并发检查：只有 updated_at 还是这个值才写，
+	// 否则返回 ErrConflict。范围是整段覆盖的，用旧快照保存会丢掉期间新审批进来的授权。
+	ExpectedUpdatedAt *time.Time
+	// ClearPendingScope 在同一条 UPDATE 里撤销在审的范围申请（范围改成了不需要审核的样子）。
+	// 必须和 Scope 一起原子写：分两句的话，「保存成功」到「清空」之间的窗口会把并发提交的
+	// 新申请静默清掉；清空本身也要受 ExpectedUpdatedAt 的同一次检查保护。
+	ClearPendingScope bool
 	// 受管分类：指向 0 表示取消归类；设了分类时 Category 文本由调用方同步成分类名
 	CategoryID *int64
 	Featured   *bool
@@ -459,6 +466,10 @@ func (s *Store) UpdateAsset(ctx context.Context, id int64, p AssetPatch) error {
 	if p.Status != nil {
 		add("status", *p.Status)
 	}
+	if p.ClearPendingScope {
+		// 与上面一样进同一条 UPDATE、同一次 updated_at 检查：不能拆成两句
+		sets = append(sets, "pending_scope = NULL", "scope_requested_at = NULL")
+	}
 	if p.CategoryID != nil {
 		add("category_id", nullID(*p.CategoryID))
 	}
@@ -466,11 +477,19 @@ func (s *Store) UpdateAsset(ctx context.Context, id int64, p AssetPatch) error {
 		add("featured", *p.Featured)
 	}
 	args = append(args, id)
-	res, err := s.db.ExecContext(ctx, "UPDATE assets SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...)
+	where := "id = ?"
+	if p.ExpectedUpdatedAt != nil {
+		where += " AND updated_at = ?"
+		args = append(args, *p.ExpectedUpdatedAt)
+	}
+	res, err := s.db.ExecContext(ctx, "UPDATE assets SET "+strings.Join(sets, ", ")+" WHERE "+where, args...)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
+		if p.ExpectedUpdatedAt != nil {
+			return s.casMiss(ctx, "assets", "id", id, *p.ExpectedUpdatedAt)
+		}
 		var existing int64
 		err := s.db.QueryRowContext(ctx, "SELECT id FROM assets WHERE id = ?", id).Scan(&existing)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -526,36 +545,81 @@ func (s *Store) grantScopeUser(ctx context.Context, table string, id, userID int
 }
 
 // RequestAssetScope 记下负责人申请的新范围，等审核；已有的申请被替换。
-func (s *Store) RequestAssetScope(ctx context.Context, id int64, sc Scope) error {
+// expected 非空时做乐观并发检查（申请也是整段范围的快照，要看快照是不是最新的）。
+func (s *Store) RequestAssetScope(ctx context.Context, id int64, sc Scope, expected *time.Time) error {
 	text, err := scopeText(sc)
 	if err != nil {
 		return err
 	}
 	t := now()
-	_, err = s.db.ExecContext(ctx, "UPDATE assets SET pending_scope = ?, scope_requested_at = ?, scope_note = '', updated_at = ? WHERE id = ?", text, t, t, id)
-	return err
-}
-
-// ClearAssetScopeRequest 撤销在审的范围申请（负责人把范围改回不需要审核的样子时）。
-func (s *Store) ClearAssetScopeRequest(ctx context.Context, id int64) error {
-	_, err := s.db.ExecContext(ctx, "UPDATE assets SET pending_scope = NULL, scope_requested_at = NULL WHERE id = ?", id)
-	return err
-}
-
-// ResolveAssetScope 审核范围申请：通过时新范围生效，驳回时记下原因。返回是否有在审的申请。
-func (s *Store) ResolveAssetScope(ctx context.Context, id int64, approve bool, note string) (bool, error) {
-	q := "UPDATE assets SET scope = pending_scope, pending_scope = NULL, scope_requested_at = NULL, scope_note = '', updated_at = ? WHERE id = ? AND pending_scope IS NOT NULL"
-	args := []any{now(), id}
-	if !approve {
-		q = "UPDATE assets SET pending_scope = NULL, scope_requested_at = NULL, scope_note = ?, updated_at = ? WHERE id = ? AND pending_scope IS NOT NULL"
-		args = []any{note, now(), id}
+	q := "UPDATE assets SET pending_scope = ?, scope_requested_at = ?, scope_note = '', updated_at = ? WHERE id = ?"
+	args := []any{text, t, t, id}
+	if expected != nil {
+		q += " AND updated_at = ?"
+		args = append(args, *expected)
 	}
 	res, err := s.db.ExecContext(ctx, q, args...)
 	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 && expected != nil {
+		return s.casMiss(ctx, "assets", "id", id, *expected)
+	}
+	return nil
+}
+
+// ResolveAssetScope 审核范围申请：通过时新范围生效，驳回时记下原因。返回是否有在审的申请。
+// 通过时不能把 pending_scope 直接整段写回：它是申请那一刻的快照，之后可能又有人
+// （如审批「申请使用」）往范围里追加了用户。这里以快照为基础合并当前范围里的 Users，
+// 只让申请本身想加的 All / Departments / Roles 生效；当前已经是「所有人」时保持所有人，
+// 不因为旧申请再收窄。
+func (s *Store) ResolveAssetScope(ctx context.Context, id int64, approve bool, note string) (bool, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
 		return false, err
 	}
-	n, _ := res.RowsAffected()
-	return n > 0, nil
+	defer tx.Rollback()
+	var curRaw string
+	var pendingRaw sql.NullString
+	err = tx.QueryRowContext(ctx, "SELECT scope, pending_scope FROM assets WHERE id = ? FOR UPDATE", id).Scan(&curRaw, &pendingRaw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !pendingRaw.Valid || pendingRaw.String == "" {
+		return false, nil
+	}
+	if !approve {
+		if _, err := tx.ExecContext(ctx,
+			"UPDATE assets SET pending_scope = NULL, scope_requested_at = NULL, scope_note = ?, updated_at = ? WHERE id = ?",
+			note, now(), id); err != nil {
+			return false, err
+		}
+		return true, tx.Commit()
+	}
+	cur := parseScope(curRaw)
+	next := parseScope(pendingRaw.String)
+	if cur.All {
+		next = Scope{All: true}
+	} else if !next.All {
+		for _, u := range cur.Users {
+			if !slices.Contains(next.Users, u) {
+				next.Users = append(next.Users, u)
+			}
+		}
+	}
+	text, err := scopeText(next)
+	if err != nil {
+		return false, err
+	}
+	if _, err := tx.ExecContext(ctx,
+		"UPDATE assets SET scope = ?, pending_scope = NULL, scope_requested_at = NULL, scope_note = '', updated_at = ? WHERE id = ?",
+		text, now(), id); err != nil {
+		return false, err
+	}
+	return true, tx.Commit()
 }
 
 func (s *Store) DeleteAsset(ctx context.Context, id int64) error {
@@ -760,13 +824,14 @@ func (s *Store) AssetUsage(ctx context.Context, from time.Time) (map[int64]Asset
 // ---- 插件的可用范围 ----
 
 type PluginPolicy struct {
-	Name     string `json:"name"`
-	Scope    Scope  `json:"scope"`
-	Delivery string `json:"delivery"`
+	Name      string    `json:"name"`
+	Scope     Scope     `json:"scope"`
+	Delivery  string    `json:"delivery"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 func (s *Store) PluginPolicies(ctx context.Context) (map[string]PluginPolicy, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT name, scope, delivery FROM plugin_policies")
+	rows, err := s.db.QueryContext(ctx, "SELECT name, scope, delivery, updated_at FROM plugin_policies")
 	if err != nil {
 		return nil, err
 	}
@@ -775,7 +840,7 @@ func (s *Store) PluginPolicies(ctx context.Context) (map[string]PluginPolicy, er
 	for rows.Next() {
 		var p PluginPolicy
 		var scope string
-		if err := rows.Scan(&p.Name, &scope, &p.Delivery); err != nil {
+		if err := rows.Scan(&p.Name, &scope, &p.Delivery, &p.UpdatedAt); err != nil {
 			return nil, err
 		}
 		p.Scope = parseScope(scope)
@@ -784,16 +849,41 @@ func (s *Store) PluginPolicies(ctx context.Context) (map[string]PluginPolicy, er
 	return out, rows.Err()
 }
 
-func (s *Store) SetPluginPolicy(ctx context.Context, p PluginPolicy, by int64) error {
+// SetPluginPolicy 保存插件策略。expected 非空时做乐观并发检查（策略的可用范围是整段覆盖的，
+// 拿旧快照保存会覆盖掉别人的改动）；0 行受影响 → ErrNotFound / ErrConflict。
+// expected 为空表示新建（页面上还没有这条策略）：已有记录时不覆盖，返回 ErrConflict。
+// 首次创建是单条 INSERT，靠 name 的唯一键冲突判定「已经有人先建了」（不做先查再插），
+// 所以两个管理员同时首次设置时只有一个 200，另一个稳定拿到 409。
+func (s *Store) SetPluginPolicy(ctx context.Context, p *PluginPolicy, by int64, expected *time.Time) error {
 	scope, err := scopeText(p.Scope)
 	if err != nil {
 		return err
 	}
-	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO plugin_policies (name, scope, delivery, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)
-		 ON DUPLICATE KEY UPDATE scope = VALUES(scope), delivery = VALUES(delivery), updated_by = VALUES(updated_by), updated_at = VALUES(updated_at)`,
-		p.Name, scope, p.Delivery, nullID(by), now())
-	return err
+	n := now()
+	if expected == nil {
+		_, err := s.db.ExecContext(ctx,
+			"INSERT INTO plugin_policies (name, scope, delivery, updated_by, updated_at) VALUES (?, ?, ?, ?, ?)",
+			p.Name, scope, p.Delivery, nullID(by), n)
+		if isDuplicate(err) {
+			return ErrConflict
+		}
+		if err != nil {
+			return err
+		}
+		p.UpdatedAt = n
+		return nil
+	}
+	res, err := s.db.ExecContext(ctx,
+		"UPDATE plugin_policies SET scope = ?, delivery = ?, updated_by = ?, updated_at = ? WHERE name = ? AND updated_at = ?",
+		scope, p.Delivery, nullID(by), n, p.Name, *expected)
+	if err != nil {
+		return err
+	}
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		return s.casMiss(ctx, "plugin_policies", "name", p.Name, *expected)
+	}
+	p.UpdatedAt = n
+	return nil
 }
 
 // DefaultPluginPolicy 是没有记录时的策略：全公司可见、自选安装。

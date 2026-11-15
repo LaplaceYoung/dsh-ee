@@ -215,6 +215,9 @@ type KBasePatch struct {
 	Description *string
 	Scope       *Scope
 	Maintainers *Maintainers
+	// ExpectedUpdatedAt 非空时做乐观并发检查：只有 updated_at 还是这个值才写，否则 ErrConflict。
+	// 范围与维护者都是整段覆盖的，用旧快照保存会丢掉期间新加的授权。
+	ExpectedUpdatedAt *time.Time
 }
 
 func (s *Store) UpdateKBase(ctx context.Context, id int64, p KBasePatch) error {
@@ -240,11 +243,20 @@ func (s *Store) UpdateKBase(ctx context.Context, id int64, p KBasePatch) error {
 		}
 		sets, args = append(sets, "maintainers = ?"), append(args, m)
 	}
-	res, err := s.db.ExecContext(ctx, "UPDATE kb_bases SET "+strings.Join(sets, ", ")+" WHERE id = ?", append(args, id)...)
+	args = append(args, id)
+	where := "id = ?"
+	if p.ExpectedUpdatedAt != nil {
+		where += " AND updated_at = ?"
+		args = append(args, *p.ExpectedUpdatedAt)
+	}
+	res, err := s.db.ExecContext(ctx, "UPDATE kb_bases SET "+strings.Join(sets, ", ")+" WHERE "+where, args...)
 	if err != nil {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
+		if p.ExpectedUpdatedAt != nil {
+			return s.casMiss(ctx, "kb_bases", "id", id, *p.ExpectedUpdatedAt)
+		}
 		if _, err := s.GetKBase(ctx, id); err != nil {
 			return err
 		}

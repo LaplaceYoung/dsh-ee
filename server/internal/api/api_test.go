@@ -210,6 +210,33 @@ func expect(t *testing.T, what string, got, want int, body []byte) {
 	}
 }
 
+// scopeToken 取资源当前的 updated_at，作为改可用范围时的乐观并发令牌
+// （范围整段覆盖，不带上就可能拿旧快照盖掉别人刚审批的授权）。
+func scopeToken(t *testing.T, c *client, path string) string {
+	t.Helper()
+	code, body := c.do("GET", path, nil, nil)
+	expect(t, "读取 updated_at", code, 200, body)
+	var resp struct {
+		UpdatedAt string `json:"updated_at"`
+		Asset     *struct {
+			UpdatedAt string `json:"updated_at"`
+		} `json:"asset"`
+		KB *struct {
+			UpdatedAt string `json:"updated_at"`
+		} `json:"kb"`
+	}
+	if err := json.Unmarshal(body, &resp); err != nil {
+		t.Fatalf("解析 updated_at：%v；响应 %s", err, body)
+	}
+	switch {
+	case resp.Asset != nil:
+		return resp.Asset.UpdatedAt
+	case resp.KB != nil:
+		return resp.KB.UpdatedAt
+	}
+	return resp.UpdatedAt
+}
+
 func TestLoginAndUserQuota(t *testing.T) {
 	st := openTestStore(t)
 	ctx := context.Background()

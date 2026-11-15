@@ -1004,6 +1004,9 @@ type hubPatchReq struct {
 	// active / unpublished
 	Status *string `json:"status"`
 	Note   string  `json:"note"`
+	// 改范围时必须带上打开页面时读到的 updated_at：范围是整段覆盖的，
+	// 用旧快照保存会悄悄丢掉这期间别人新审批进来的授权。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // PATCH /api/hub/{id}：可用范围与分类（负责人或管理员）、下发方式与上下架（管理员）。
@@ -1043,6 +1046,11 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Category, p.CategoryID = &catName, catID
 	}
+	// 范围是整段覆盖的：必须带上读到的 updated_at，避免拿旧快照覆盖期间的新授权
+	if req.Scope != nil && req.UpdatedAt == nil {
+		writeErr(w, http.StatusBadRequest, "改范围要带上 updated_at；请刷新页面后重试")
+		return
+	}
 	// 负责人（没有管理权限）把范围改大：新范围进入审核，通过前照旧
 	var requested *store.Scope
 	if req.Scope != nil {
@@ -1055,7 +1063,7 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 		if needReview {
 			requested = &sc
 		} else {
-			p.Scope = &sc
+			p.Scope, p.ExpectedUpdatedAt = &sc, req.UpdatedAt
 		}
 	}
 	if req.Delivery != nil {
@@ -1074,24 +1082,34 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// 申请也带着范围快照：先做并发检查，失败就整单不落库，免得旧快照把申请本身也写歪
+	if requested != nil {
+		if err := s.store.RequestAssetScope(r.Context(), a.ID, *requested, req.UpdatedAt); err != nil {
+			if errors.Is(err, store.ErrConflict) {
+				writeErr(w, http.StatusConflict, "范围已被其他人修改，请刷新后重试")
+				return
+			}
+			s.internalErr(w, r, err)
+			return
+		}
+	}
+	if requested == nil && p.Scope != nil && a.PendingScope != nil {
+		// 改成了不用审核的范围，原来的申请作废。清空必须和范围保存同一条 UPDATE、同一次
+		// updated_at 检查：拆成两句时「保存成功 → 清空」之间的窗口会把并发提交的新申请清掉。
+		p.ClearPendingScope = true
+	}
 	if err := s.store.UpdateAsset(r.Context(), a.ID, p); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			writeErr(w, http.StatusConflict, "范围已被其他人修改，请刷新后重试")
+			return
+		}
 		s.internalErr(w, r, err)
 		return
 	}
 	if requested != nil {
-		if err := s.store.RequestAssetScope(r.Context(), a.ID, *requested); err != nil {
-			s.internalErr(w, r, err)
-			return
-		}
 		a.PendingScope = requested
 		s.feishuReviewScope(a)
 		s.audit(r, auditScopeRequest, a.Kind+":"+a.Slug, map[string]any{"id": a.ID, "scope": requested})
-	} else if p.Scope != nil && a.PendingScope != nil {
-		// 改成了不用审核的范围，原来的申请作废
-		if err := s.store.ClearAssetScopeRequest(r.Context(), a.ID); err != nil {
-			s.internalErr(w, r, err)
-			return
-		}
 	}
 	detail := map[string]any{"id": a.ID}
 	if p.Scope != nil {
@@ -1401,6 +1419,8 @@ func (s *Server) handleHubReview(w http.ResponseWriter, r *http.Request) {
 type pluginPolicyReq struct {
 	Scope    store.Scope `json:"scope"`
 	Delivery string      `json:"delivery"`
+	// 更新已有策略时要带上 GET /api/hub 里读到的 updated_at；第一次设置（还没有记录）可以不带。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // PUT /api/admin/plugin-policies/{name...}
@@ -1425,7 +1445,11 @@ func (s *Server) handlePutPluginPolicy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := store.PluginPolicy{Name: name, Scope: req.Scope.Normalize(), Delivery: req.Delivery}
-	if err := s.store.SetPluginPolicy(r.Context(), p, currentUser(r).ID); err != nil {
+	if err := s.store.SetPluginPolicy(r.Context(), &p, currentUser(r).ID, req.UpdatedAt); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			writeErr(w, http.StatusConflict, "插件策略已被其他人修改，请刷新后重试")
+			return
+		}
 		s.internalErr(w, r, err)
 		return
 	}

@@ -591,7 +591,7 @@ function AssetDetail() {
         selfId={owns && a.kind !== "connection" ? user?.id : undefined}
         labels={{ auto: t("asset.deliveryAuto"), optional: t("asset.deliveryOptional"), autoHint: t("editor.deliveryAutoHint"), optionalHint: t("editor.deliveryOptionalHint") }}
         onSave={async (scope, delivery) => {
-          const res = await api.patchAsset(a.id, a.can_manage ? { scope, delivery } : { scope });
+          const res = await api.patchAsset(a.id, a.can_manage ? { scope, delivery, updated_at: a.updated_at } : { scope, updated_at: a.updated_at });
           notify(res.pending_scope ? t("build.shareSubmitted") : t("asset.scopeSaved"));
           detail.reload();
           hub.reload();
