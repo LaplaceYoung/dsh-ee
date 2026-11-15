@@ -434,7 +434,8 @@ func TestAgentTools(t *testing.T) {
 				crmID = as.ID
 			}
 		}
-		code, body = f.admin.do("PATCH", fmt.Sprintf("/api/hub/%d", crmID), map[string]any{"scope": map[string]any{"all": true}}, nil)
+		code, body = f.admin.do("PATCH", fmt.Sprintf("/api/hub/%d", crmID), map[string]any{"scope": map[string]any{"all": true},
+			"updated_at": scopeToken(t, f.admin, fmt.Sprintf("/api/hub/%d", crmID))}, nil)
 		expect(t, "开放范围", code, 200, body)
 		mine = a.ok("ee_connections", map[string]any{"action": "mine"})
 		if len(mine["connections"].([]any)) != 1 || len(mine["requestable"].([]any)) != 0 {

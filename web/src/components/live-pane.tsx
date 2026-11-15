@@ -112,7 +112,7 @@ export function LivePane({
   const kbsText = () => {
     const items = scopeState?.status === "ready" && Array.isArray((scopeState.value as { items?: unknown })?.items) ? (scopeState.value as { items: { kb: string; title: string }[] }).items : [];
     const picked = items.filter((x) => selectedKBs.includes(x.kb));
-    return picked.length ? picked.map((x) => `「${x.title}」`).join("、") : "全部知识库";
+    return picked.length ? picked.map((x) => t("studio.kbItem", { title: x.title })).join(t("studio.kbSeparator")) : t("studio.allKnowledgeBases");
   };
 
   const send = (key: string, action: WorkbenchAction, values: { row?: Record<string, unknown>; form?: Record<string, unknown> }) => {

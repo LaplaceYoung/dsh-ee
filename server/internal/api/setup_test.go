@@ -42,7 +42,20 @@ func setupScriptServer(t *testing.T, publicURL ...string) (*httptest.Server, *cl
 
 func getScript(t *testing.T, base, path string) string {
 	t.Helper()
-	resp, err := http.Get(base + path)
+	return getScriptLang(t, base, path, "")
+}
+
+// getScriptLang 取脚本；acceptLanguage 非空时带上请求头，用来测语言协商。
+func getScriptLang(t *testing.T, base, path, acceptLanguage string) string {
+	t.Helper()
+	req, err := http.NewRequest("GET", base+path, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if acceptLanguage != "" {
+		req.Header.Set("Accept-Language", acceptLanguage)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +74,7 @@ func TestSetupScripts(t *testing.T) {
 	code, body := admin.do("POST", "/api/admin/connect/publish", map[string]bool{"force": true}, nil)
 	expect(t, "发布接入插件", code, 200, body)
 	sh := getScript(t, ts.URL, "/setup.sh")
-	for _, want := range []string{"node -e", "/api/device/code", "/api/device/token", "--token", "DSH_EE_SETUP_INTERACTIVE", "token.pending", `if [ "$DEVICE_LOGIN" -eq 0 ]`, "${PENDING_FILE}，", "${ENV_FILE}（", "令牌格式不对", `PROFILES="${DSH_PROFILES:-`} {
+	for _, want := range []string{"node -e", "/api/device/code", "/api/device/token", "--token", "DSH_EE_SETUP_INTERACTIVE", "token.pending", `if [ "$DEVICE_LOGIN" -eq 0 ]`, `msg_saved_pending "$PENDING_FILE"`, `msg_saved_env "$ENV_FILE"`, "令牌格式不对", `PROFILES="${DSH_PROFILES:-`} {
 		if !strings.Contains(sh, want) {
 			t.Errorf("setup.sh 缺少 %q", want)
 		}
@@ -96,6 +109,91 @@ func TestSetupScripts(t *testing.T) {
 	}
 	if !strings.Contains(ps, `Write-Host "以后在 $Base/hub`) {
 		t.Error("setup.ps1 的收尾提示应该用双引号，否则 $Base 不会展开")
+	}
+}
+
+// setup.sh 是多语言的：?lang= 与 Accept-Language 在生成时选定语言；都不带时脚本在员工机器上
+// 按 LANG 选（zh* → 中文，其它 → 英文），命令、路径与退出码不变。
+func TestSetupScriptLanguage(t *testing.T) {
+	ts, admin := setupScriptServer(t)
+	// 发布接入插件，让脚本走完整分支（含 CONNECT_PKG 收尾提示）。
+	code, body := admin.do("POST", "/api/admin/connect/publish", map[string]bool{"force": true}, nil)
+	expect(t, "发布接入插件", code, 200, body)
+
+	han := regexp.MustCompile(`[\x{4e00}-\x{9fff}]`)
+	shSyntax := func(name, script string) string {
+		t.Helper()
+		file := filepath.Join(t.TempDir(), name)
+		if err := os.WriteFile(file, []byte(script), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if out, err := exec.Command("sh", "-n", file).CombinedOutput(); err != nil {
+			t.Fatalf("sh -n %s：%v\n%s", name, err, out)
+		}
+		return file
+	}
+
+	en := getScriptLang(t, ts.URL, "/setup.sh?lang=en", "")
+	if m := han.FindString(en); m != "" {
+		t.Fatalf("?lang=en 的 setup.sh 不应含中文提示，找到 %q", m)
+	}
+	for _, want := range []string{"Usage: sh -s -- --token <token>", "Invalid token format", "Node.js / npm not found", "Device sign-in timed out", "Signed in as", "Installed"} {
+		if !strings.Contains(en, want) {
+			t.Errorf("?lang=en 脚本缺少 %q", want)
+		}
+	}
+	shSyntax("setup-en.sh", en)
+
+	zh := getScriptLang(t, ts.URL, "/setup.sh?lang=zh", "")
+	for _, want := range []string{"令牌格式不对", "没有找到 Node.js / npm", "请在浏览器中确认登录", "管理员还没有发布 DSH 接入插件", "已在 DSH 的"} {
+		if !strings.Contains(zh, want) {
+			t.Errorf("?lang=zh 脚本缺少 %q", want)
+		}
+	}
+	shSyntax("setup-zh.sh", zh)
+
+	// Accept-Language 与 ?lang= 等价；curl 默认不带该头。
+	if han.MatchString(getScriptLang(t, ts.URL, "/setup.sh", "en-US,en;q=0.9,zh;q=0.8")) {
+		t.Error("Accept-Language: en 时 setup.sh 不应含中文提示")
+	}
+	if !strings.Contains(getScriptLang(t, ts.URL, "/setup.sh", "zh-CN,zh;q=0.9"), "令牌格式不对") {
+		t.Error("Accept-Language: zh 时 setup.sh 应输出中文提示")
+	}
+
+	// 默认（curl | sh）：脚本自带运行端 LANG 判断，两种语言的文案都在。
+	auto := getScript(t, ts.URL, "/setup.sh")
+	for _, want := range []string{`case "${LC_ALL:-${LANG:-}}"`, "令牌格式不对", "Invalid token format"} {
+		if !strings.Contains(auto, want) {
+			t.Errorf("默认脚本缺少 %q", want)
+		}
+	}
+	shSyntax("setup-auto.sh", auto)
+
+	// 真正执行脚本：参数校验阶段（Node 检查）就会输出提示，不需要联网或 Node。
+	run := func(script, lang string) string {
+		t.Helper()
+		file := filepath.Join(t.TempDir(), "setup-run.sh")
+		if err := os.WriteFile(file, []byte(script), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("/bin/sh", file, "--token", "ee_test")
+		// PATH 指向空目录：脚本在“找不到 Node.js / npm”处停下，只验证语言选择。
+		cmd.Env = []string{"PATH=" + t.TempDir(), "HOME=" + t.TempDir(), "LANG=" + lang}
+		out, _ := cmd.CombinedOutput()
+		return string(out)
+	}
+	if out := run(auto, "zh_CN.UTF-8"); !strings.Contains(out, "没有找到 Node.js / npm") {
+		t.Errorf("LANG=zh_CN 时应输出中文提示：%s", out)
+	}
+	if out := run(auto, "C"); !strings.Contains(out, "Node.js / npm not found") {
+		t.Errorf("LANG=C 时应输出英文提示：%s", out)
+	}
+	// 生成时指定了语言，就不再随员工机器的 LANG 变化。
+	if out := run(en, "zh_CN.UTF-8"); han.MatchString(out) || !strings.Contains(out, "Node.js / npm not found") {
+		t.Errorf("?lang=en 应固定英文：%s", out)
+	}
+	if out := run(zh, "C"); !strings.Contains(out, "没有找到 Node.js / npm") {
+		t.Errorf("?lang=zh 应固定中文：%s", out)
 	}
 }
 

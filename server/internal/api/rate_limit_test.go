@@ -346,3 +346,30 @@ func TestValidRequestID(t *testing.T) {
 		}
 	}
 }
+
+// 共享限流的 key 上限：每窗口最多 maxRateKeys 个 key，超出的陌生 key 进同一个溢出 key，
+// 已有的 key 继续用自己的 key；窗口翻页后重新计数。
+func TestRateKeyAdmissionBounded(t *testing.T) {
+	var a rateKeyAdmission
+	start := time.Now().UTC().Truncate(time.Minute)
+	for i := 0; i < maxRateKeys; i++ {
+		key := "token-" + strconv.Itoa(i)
+		if got := a.admit(key, start); got != key {
+			t.Fatalf("第 %d 个 key 应原样返回：%q", i+1, got)
+		}
+	}
+	if got := a.admit("token-new", start); got != sharedRateOverflowKey {
+		t.Fatalf("超过上限后的陌生 key 应进溢出 key，得到 %q", got)
+	}
+	if got := a.admit("token-5", start); got != "token-5" {
+		t.Fatalf("已有的 key 应继续用自己的 key，得到 %q", got)
+	}
+	if len(a.keys) > maxRateKeys {
+		t.Fatalf("key 集合应有上限：%d", len(a.keys))
+	}
+	// 窗口翻页后集合重置，可以重新登记新 key。
+	next := start.Add(time.Minute)
+	if got := a.admit("token-new", next); got != "token-new" {
+		t.Fatalf("窗口翻页后应重新登记：%q", got)
+	}
+}

@@ -64,7 +64,7 @@ exit 1`+"\n")
 	log := filepath.Join(root, "calls.log")
 	pgrepDone := filepath.Join(root, "pgrep.done")
 	cmd := exec.Command("sh", scriptPath, "--token", "ee_at_test")
-	cmd.Env = []string{"HOME=" + home, "DSH_HOME=" + dshHome, "DSH_DESKTOP_APP=" + app, "PATH=" + bin + ":/usr/bin:/bin", "FAKE_LOG=" + log, "FAKE_PGREP_DONE=" + pgrepDone}
+	cmd.Env = []string{"HOME=" + home, "DSH_HOME=" + dshHome, "DSH_DESKTOP_APP=" + app, "PATH=" + bin + ":/usr/bin:/bin", "FAKE_LOG=" + log, "FAKE_PGREP_DONE=" + pgrepDone, "LANG=zh_CN.UTF-8"}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Desktop 脚本执行失败：%v\n%s", err, output)
@@ -113,7 +113,7 @@ exit 1`+"\n")
 		t.Fatal(err)
 	}
 	cmd = exec.Command("sh", scriptPath, "--token", "ee_at_test")
-	cmd.Env = []string{"HOME=" + noProfileHome, "DSH_HOME=" + noProfileDSH, "DSH_DESKTOP_APP=" + app, "PATH=" + bin + ":/usr/bin:/bin", "FAKE_LOG=" + log, "FAKE_PGREP_DONE=" + pgrepDone}
+	cmd.Env = []string{"HOME=" + noProfileHome, "DSH_HOME=" + noProfileDSH, "DSH_DESKTOP_APP=" + app, "PATH=" + bin + ":/usr/bin:/bin", "FAKE_LOG=" + log, "FAKE_PGREP_DONE=" + pgrepDone, "LANG=zh_CN.UTF-8"}
 	output, err = cmd.CombinedOutput()
 	var exitErr *exec.ExitError
 	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 1 {

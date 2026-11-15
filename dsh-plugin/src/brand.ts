@@ -6,6 +6,9 @@ export interface ClientServiceActions {
   readApps: () => Promise<any>;
   readAvailableApps: () => Promise<any>;
   setAppSubscription: (name: string, enabled: boolean) => Promise<any>;
+  /** 「专家 · 技能 · 连接器」面板：读目录、启用或停用一项自选能力；旧版后端没有 */
+  readCenter: () => Promise<any>;
+  setSubscription: (request: { kind: string; name: string; enabled: boolean }) => Promise<any>;
   readOverview: () => Promise<any>;
   readAppBindings: () => Promise<any>;
   bindApp: (name: string, sessionId: string) => Promise<any>;
@@ -57,6 +60,16 @@ export class DshEEClientService extends TypertRemoteService {
   @Remote
   async disableApp(request: { name: string }): Promise<any> {
     return this.actions.setAppSubscription(request?.name, false);
+  }
+
+  @Remote
+  async center(): Promise<any> {
+    return this.actions.readCenter();
+  }
+
+  @Remote
+  async setSubscription(request: { kind: string; name: string; enabled: boolean }): Promise<any> {
+    return this.actions.setSubscription(request ?? ({} as any));
   }
 
   @Remote

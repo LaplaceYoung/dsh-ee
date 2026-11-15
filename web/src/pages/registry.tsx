@@ -34,6 +34,7 @@ import AdminSettings from "./admin/settings";
 import AdminBrand from "./admin/brand";
 import AdminAuth from "./admin/auth";
 import AdminSigningKeys from "./admin/signing-keys";
+import AdminExpertCenter from "./admin/expert-center";
 import AdminDirectory from "./admin/directory";
 import type { PageKey } from "../lib/page-meta";
 
@@ -71,6 +72,7 @@ export const PAGE_COMPONENTS: Record<PageKey, ComponentType> = {
   "admin-brand": AdminBrand,
   "admin-auth": AdminAuth,
   "admin-signing-keys": AdminSigningKeys,
+  "admin-expert-center": AdminExpertCenter,
   "admin-directory": AdminDirectory,
   "admin-settings": AdminSettings,
 };

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { ArrowRight, FileText } from "lucide-react";
 import { kindOf } from "../../lib/catalog";
+import { formatNumber } from "../../lib/format";
 import { useStore } from "../../lib/store";
 import { useAuth } from "../../lib/auth";
 import type { Plugin, PluginKind } from "../../lib/types";
@@ -99,7 +100,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-3">
         <ChainPanel
           step={t("dashboard.assets")}
-          lead={approved.length.toLocaleString()}
+          lead={formatNumber(approved.length)}
           unit={t("dashboard.published")}
           note={t("dashboard.assetsNote", { internal, upstream: approved.length - internal })}
         >
@@ -129,7 +130,7 @@ export default function AdminDashboard() {
 
         <ChainPanel
           step={t("dashboard.endpoints")}
-          lead={s ? s.totals.active_users.toLocaleString() : "—"}
+          lead={s ? formatNumber(s.totals.active_users) : "—"}
           unit={t("dashboard.activeUnit")}
           note={s ? t("dashboard.endpointsNote", { users: s.totals.users }) : ""}
         >
@@ -159,7 +160,7 @@ export default function AdminDashboard() {
               {s && (
                 <>
                   <p className="mb-6 text-sm text-neutral-600">
-                    {t("dashboard.installsSummary", { installs: s.totals.installs.toLocaleString(), deps: (s.totals.downloads - s.totals.installs).toLocaleString() })}
+                    {t("dashboard.installsSummary", { installs: formatNumber(s.totals.installs), deps: formatNumber(s.totals.downloads - s.totals.installs) })}
                   </p>
                   <DailyBars values={s.daily.map((d) => d.installs)} dates={dates} unit={t("dashboard.installsUnit")} height="h-44" />
                 </>
@@ -175,9 +176,9 @@ export default function AdminDashboard() {
                 <>
                   <p className="mb-6 text-sm text-neutral-600">
                     {t("dashboard.callsSummary", {
-                      calls: s.totals.calls.toLocaleString(),
+                      calls: formatNumber(s.totals.calls),
                       tokens: formatTokens(s.totals.tokens),
-                      errors: s.totals.call_errors.toLocaleString(),
+                      errors: formatNumber(s.totals.call_errors),
                     })}
                   </p>
                   <DailyBars values={s.daily.map((d) => d.calls)} dates={dates} unit={t("dashboard.callsUnit")} height="h-44" />
@@ -221,8 +222,8 @@ export default function AdminDashboard() {
                         <div className="font-mono text-xs text-neutral-600">{p.name}</div>
                       </td>
                       <td className="px-5 py-2.5 text-neutral-600 max-sm:hidden">{p.origin === "hosted" ? t("dashboard.internal") : t("dashboard.upstream")}</td>
-                      <td className="px-5 py-2.5 text-right text-neutral-900 tabular-nums">{p.installs.toLocaleString()}</td>
-                      <td className="px-5 py-2.5 text-right text-neutral-900 tabular-nums">{p.users.toLocaleString()}</td>
+                      <td className="px-5 py-2.5 text-right text-neutral-900 tabular-nums">{formatNumber(p.installs)}</td>
+                      <td className="px-5 py-2.5 text-right text-neutral-900 tabular-nums">{formatNumber(p.users)}</td>
                     </tr>
                   ))}
                 </tbody>

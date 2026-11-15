@@ -32,21 +32,9 @@ func cliDirectory(args []string, stdout, stderr io.Writer) int {
 	case "verify":
 		return cliDirectoryVerify(args[1:], stdout, stderr)
 	}
-	fmt.Fprintf(stderr, "不认识的命令 dsh-ee directory %s\n\n%s", args[0], directoryUsage)
+	fmt.Fprintf(stderr, tr("不认识的命令 dsh-ee directory %s\n\n%s", "unknown command dsh-ee directory %s\n\n%s"), args[0], directoryUsage)
 	return 2
 }
-
-const directoryUsage = `用法：
-  dsh-ee directory sign <文件> --key <私钥文件> [-o 文件] [--tarball-hosts 主机,...] [--json]
-                         给企业目录（dsh-ee-directory.json）整体签名；默认原地写回
-  dsh-ee directory verify <文件> [--key 公钥文件] [--tarball-hosts 主机,...] [--json]
-                         核对目录签名与条目；没有签名或验不过时退出码为 1
-
-目录格式见 docs/plugin-signing.md §8（format 2）。目录里包含插件（npm 包）和扩展条目，
-tarball 来源必须是 https 地址；内网对象存储要把主机写进 DSH_EE_DIRECTORY_TARBALL_HOSTS
-（或 --tarball-hosts）白名单。受信任的签名公钥用 --key 给文件，或设
-DSH_EE_EXTENSION_TRUSTED_KEYS（和服务端同名；目录签名复用同一套信任根）。
-`
 
 // directoryHosts 取 tarball 主机白名单：命令行参数优先，其次环境变量。
 func directoryHosts(flagValue string) ([]string, error) {
@@ -69,14 +57,14 @@ func printDirectoryIssues(w io.Writer, r *directory.Result) {
 	if len(r.Issues) == 0 {
 		return
 	}
-	sev := map[string]string{"error": "错误", "warning": "提醒"}
+	sev := map[string]string{"error": tr("错误", "error"), "warning": tr("提醒", "warning")}
 	for _, is := range r.Issues {
 		where := is.Field
 		if is.Index >= 0 {
-			where = fmt.Sprintf("第 %d 条 %s", is.Index+1, is.Field)
+			where = fmt.Sprintf(tr("第 %d 条 %s", "entry %d %s"), is.Index+1, is.Field)
 		}
 		if where != "" {
-			where = "（" + where + "）"
+			where = tr("（", " (") + where + tr("）", ")")
 		}
 		fmt.Fprintf(w, "  [%s] %s %s%s\n", sev[is.Severity], is.Code, is.Message, where)
 	}
@@ -88,18 +76,18 @@ func cliDirectorySign(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee directory sign <文件> --key <私钥文件> [-o 文件] [--tarball-hosts 主机,...] [--json]")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee directory sign <文件> --key <私钥文件> [-o 文件] [--tarball-hosts 主机,...] [--json]", "Usage: dsh-ee directory sign <file> --key <private-key-file> [-o file] [--tarball-hosts host,...] [--json]"))
 		return 2
 	}
 	path := rest[0]
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Fprintln(stderr, "读目录：", err)
+		fmt.Fprintln(stderr, tr("读目录：", "read directory: "), err)
 		return 1
 	}
 	doc, err := directory.Parse(raw)
 	if err != nil {
-		fmt.Fprintln(stderr, "目录不对：", err)
+		fmt.Fprintln(stderr, tr("目录不对：", "invalid directory: "), err)
 		return 1
 	}
 	hosts, err := directoryHosts(vals["--tarball-hosts"])
@@ -109,21 +97,21 @@ func cliDirectorySign(args []string, stdout, stderr io.Writer) int {
 	}
 	res := directory.Validate(doc, directory.Options{TarballHosts: hosts})
 	if !res.OK {
-		fmt.Fprintf(stderr, "目录有 %d 个错误，不签名：\n", res.Errors)
+		fmt.Fprintf(stderr, tr("目录有 %d 个错误，不签名：\n", "the directory has %d errors; not signing:\n"), res.Errors)
 		printDirectoryIssues(stderr, res)
 		return 1
 	}
 	if res.Warnings > 0 {
-		fmt.Fprintf(stderr, "目录有 %d 个提醒（不影响签名）：\n", res.Warnings)
+		fmt.Fprintf(stderr, tr("目录有 %d 个提醒（不影响签名）：\n", "the directory has %d warnings (signing will proceed):\n"), res.Warnings)
 		printDirectoryIssues(stderr, res)
 	}
 	priv, err := extension.LoadPrivateKey(vals["--key"])
 	if err != nil {
-		fmt.Fprintln(stderr, "读私钥：", err)
+		fmt.Fprintln(stderr, tr("读私钥：", "read private key: "), err)
 		return 1
 	}
 	if err := directory.SignDocument(doc, priv); err != nil {
-		fmt.Fprintln(stderr, "签名失败：", err)
+		fmt.Fprintln(stderr, tr("签名失败：", "signing failed: "), err)
 		return 1
 	}
 	out := vals["-o"]
@@ -135,11 +123,11 @@ func cliDirectorySign(args []string, stdout, stderr io.Writer) int {
 	}
 	body, err := marshalDirectory(doc)
 	if err != nil {
-		fmt.Fprintln(stderr, "写目录：", err)
+		fmt.Fprintln(stderr, tr("写目录：", "write directory: "), err)
 		return 1
 	}
 	if err := os.WriteFile(out, body, 0o644); err != nil {
-		fmt.Fprintln(stderr, "写目录：", err)
+		fmt.Fprintln(stderr, tr("写目录：", "write directory: "), err)
 		return 1
 	}
 	if on["--json"] {
@@ -150,9 +138,9 @@ func cliDirectorySign(args []string, stdout, stderr io.Writer) int {
 		})
 		return 0
 	}
-	fmt.Fprintf(stdout, "已签名：%s\n", out)
-	fmt.Fprintf(stdout, "目录：%s（%d 条）\n签名者 key id：%s\n内容摘要：%s\n", doc.DirectoryID, len(doc.Entries), doc.Signature.KeyID, doc.Signature.Digest)
-	fmt.Fprintln(stdout, "\n把公钥交给管理员加进受信任公钥（purpose=directory 或 extension），再把这份 JSON 贴进 /api/admin/directory/check 校验、apply 登记。")
+	fmt.Fprintf(stdout, tr("已签名：%s\n", "signed: %s\n"), out)
+	fmt.Fprintf(stdout, tr("目录：%s（%d 条）\n签名者 key id：%s\n内容摘要：%s\n", "directory: %s (%d entries)\nsigner key id: %s\ncontent digest: %s\n"), doc.DirectoryID, len(doc.Entries), doc.Signature.KeyID, doc.Signature.Digest)
+	fmt.Fprintln(stdout, tr("\n把公钥交给管理员加进受信任公钥（purpose=directory 或 extension），再把这份 JSON 贴进 /api/admin/directory/check 校验、apply 登记。", "\nGive the public key to an admin to add to the trusted keys (purpose=directory or extension), then paste this JSON into /api/admin/directory/check to validate and apply to register it."))
 	return 0
 }
 
@@ -162,18 +150,18 @@ func cliDirectoryVerify(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee directory verify <文件> [--key 公钥文件] [--tarball-hosts 主机,...] [--json]")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee directory verify <文件> [--key 公钥文件] [--tarball-hosts 主机,...] [--json]", "Usage: dsh-ee directory verify <file> [--key public-key-file] [--tarball-hosts host,...] [--json]"))
 		return 2
 	}
 	path := rest[0]
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		fmt.Fprintln(stderr, "读目录：", err)
+		fmt.Fprintln(stderr, tr("读目录：", "read directory: "), err)
 		return 1
 	}
 	doc, err := directory.Parse(raw)
 	if err != nil {
-		fmt.Fprintln(stderr, "目录不对：", err)
+		fmt.Fprintln(stderr, tr("目录不对：", "invalid directory: "), err)
 		return 1
 	}
 	hosts, err := directoryHosts(vals["--tarball-hosts"])
@@ -190,7 +178,7 @@ func cliDirectoryVerify(args []string, stdout, stderr io.Writer) int {
 	if keyFile != "" {
 		pubs, err := extension.LoadPublicKeys(keyFile)
 		if err != nil {
-			fmt.Fprintln(stderr, "读受信任公钥：", err)
+			fmt.Fprintln(stderr, tr("读受信任公钥：", "read trusted public keys: "), err)
 			return 1
 		}
 		trusted = extension.ActiveKeys(pubs)
@@ -205,16 +193,16 @@ func cliDirectoryVerify(args []string, stdout, stderr io.Writer) int {
 	} else {
 		printDirectoryIssues(stdout, res)
 		if sig.KeyID != "" {
-			fmt.Fprintf(stdout, "签名：%s（key id %s，公钥 %s）\n", sig.Status, sig.KeyID, sig.KeyState)
+			fmt.Fprintf(stdout, tr("签名：%s（key id %s，公钥 %s）\n", "signature: %s (key id %s, key %s)\n"), sig.Status, sig.KeyID, sig.KeyState)
 		} else {
-			fmt.Fprintf(stdout, "签名：%s\n", sig.Status)
+			fmt.Fprintf(stdout, tr("签名：%s\n", "signature: %s\n"), sig.Status)
 		}
 		if sig.Message != "" {
 			fmt.Fprintln(stdout, sig.Message)
 		}
-		fmt.Fprintf(stdout, "条目：%d 条，%d 个错误，%d 个提醒\n", len(doc.Entries), res.Errors, res.Warnings)
+		fmt.Fprintf(stdout, tr("条目：%d 条，%d 个错误，%d 个提醒\n", "entries: %d, %d errors, %d warnings\n"), len(doc.Entries), res.Errors, res.Warnings)
 		if ok {
-			fmt.Fprintf(stdout, "通过：%s\n", doc.DirectoryID)
+			fmt.Fprintf(stdout, tr("通过：%s\n", "passed: %s\n"), doc.DirectoryID)
 		}
 	}
 	if !ok {

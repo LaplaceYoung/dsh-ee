@@ -1,5 +1,6 @@
 import { RefreshCw } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { formatTimeOnly } from "@/lib/format";
 import { api } from "../lib/api";
 import { useApi } from "../lib/use-api";
 import { Button, Notice, Skeleton, cx } from "./ui";
@@ -8,7 +9,7 @@ import { Button, Notice, Skeleton, cx } from "./ui";
 function formatUpdatedAt(ts: string): string {
   const d = new Date(ts);
   if (Number.isNaN(d.getTime())) return ts;
-  return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+  return formatTimeOnly(d);
 }
 
 /**

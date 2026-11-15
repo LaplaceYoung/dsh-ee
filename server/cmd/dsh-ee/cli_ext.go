@@ -65,14 +65,14 @@ func options(args []string, withValue, switches []string) (rest []string, vals m
 		case has(withValue, name):
 			if !inline {
 				if i+1 >= len(args) {
-					return nil, nil, nil, fmt.Errorf("%s 后面要跟一个值", name)
+					return nil, nil, nil, fmt.Errorf(tr("%s 后面要跟一个值", "%s requires a value"), name)
 				}
 				i++
 				value = args[i]
 			}
 			vals[name] = value
 		default:
-			return nil, nil, nil, fmt.Errorf("不认识的参数 %s", name)
+			return nil, nil, nil, fmt.Errorf(tr("不认识的参数 %s", "unknown option %s"), name)
 		}
 	}
 	return rest, vals, on, nil
@@ -86,7 +86,7 @@ func parseJSONObject(raw, what string) (map[string]any, error) {
 	}
 	var out map[string]any
 	if err := json.Unmarshal([]byte(raw), &out); err != nil {
-		return nil, fmt.Errorf("%s 要是一个 JSON 对象：%w", what, err)
+		return nil, fmt.Errorf(tr("%s 要是一个 JSON 对象：%w", "%s must be a JSON object: %w"), what, err)
 	}
 	return out, nil
 }
@@ -144,7 +144,7 @@ func startExtension(dir, run, eeURL string, stderr io.Writer) (string, *syncBuff
 	logs := &syncBuffer{}
 	cmd.Stdout, cmd.Stderr = logs, logs
 	if err := cmd.Start(); err != nil {
-		return "", nil, nil, fmt.Errorf("启动命令跑不起来：%w", err)
+		return "", nil, nil, fmt.Errorf(tr("启动命令跑不起来：%w", "the start command failed to run: %w"), err)
 	}
 	exited := make(chan error, 1)
 	go func() { exited <- cmd.Wait() }()
@@ -162,7 +162,7 @@ func startExtension(dir, run, eeURL string, stderr io.Writer) (string, *syncBuff
 	for time.Now().Before(deadline) {
 		select {
 		case err := <-exited:
-			return "", nil, nil, fmt.Errorf("扩展启动后就退出了（%v）。它的输出：\n%s", err, tail(logs.String(), 2000))
+			return "", nil, nil, fmt.Errorf(tr("扩展启动后就退出了（%v）。它的输出：\n%s", "the extension exited right after starting (%v). Its output:\n%s"), err, tail(logs.String(), 2000))
 		default:
 		}
 		if resp, err := hc.Get(url + "/.well-known/dsh-ee-extension.json"); err == nil {
@@ -174,7 +174,7 @@ func startExtension(dir, run, eeURL string, stderr io.Writer) (string, *syncBuff
 		time.Sleep(300 * time.Millisecond)
 	}
 	stop()
-	return "", nil, nil, fmt.Errorf("等了 120 秒，扩展还没在 %s 上提供清单。启动命令要让扩展监听环境变量 EXTENSION_ADDR 给的地址（SDK 的 ListenAndServe(\"\") 会这样做）。它的输出：\n%s", addr, tail(logs.String(), 2000))
+	return "", nil, nil, fmt.Errorf(tr("等了 120 秒，扩展还没在 %s 上提供清单。启动命令要让扩展监听环境变量 EXTENSION_ADDR 给的地址（SDK 的 ListenAndServe(\"\") 会这样做）。它的输出：\n%s", "after waiting 120 seconds the extension still does not serve its manifest at %s. The start command must make the extension listen on the address in the EXTENSION_ADDR environment variable (the SDK's ListenAndServe(\"\") does this). Its output:\n%s"), addr, tail(logs.String(), 2000))
 }
 
 func tail(s string, n int) string {
@@ -190,10 +190,13 @@ func cliExtTest(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, `用法：dsh-ee extension test <目录|地址> [--run "启动命令"] [--listen 地址] [--credential 值] [--config JSON] [--write] [--json]
+		fmt.Fprintln(stderr, tr(`用法：dsh-ee extension test <目录|地址> [--run "启动命令"] [--listen 地址] [--credential 值] [--config JSON] [--write] [--json]
   给目录：先做 check；是服务扩展的话用 --run 给的命令把它跑起来再测（启动命令会拿到 DSH_EE_URL、EXTENSION_ADDR 两个环境变量），目录下 tests/*.yaml 的场景测试一起跑
   给地址：测一个已经在跑的服务扩展；它启动时的 DSH_EE_URL 要指向这里的模拟环境（默认 http://`+exttest.DefaultListen+`）
-  --write 连写工具也用合法的参数真的调一次（会改数据）`)
+  --write 连写工具也用合法的参数真的调一次（会改数据）`, `Usage: dsh-ee extension test <dir|url> [--run "start command"] [--listen addr] [--credential value] [--config JSON] [--write] [--json]
+  dir: run check first; for a service extension, start it with the --run command and then test it (the start command gets DSH_EE_URL and EXTENSION_ADDR), and also run scenario tests from tests/*.yaml
+  url: test an already running service extension; its DSH_EE_URL at startup must point at the mock environment here (default http://`+exttest.DefaultListen+`)
+  --write also really calls write tools with valid arguments (this changes data)`))
 		return 2
 	}
 	cfg, err := parseJSONObject(vals["--config"], "--config")
@@ -208,7 +211,7 @@ func cliExtTest(args []string, stdout, stderr io.Writer) int {
 	if !isURL(target) {
 		st, err := os.Stat(target)
 		if err != nil || !st.IsDir() {
-			fmt.Fprintf(stderr, "%s 不是一个目录，也不是 http(s) 地址\n", target)
+			fmt.Fprintf(stderr, tr("%s 不是一个目录，也不是 http(s) 地址\n", "%s is not a directory or an http(s) URL\n"), target)
 			return 2
 		}
 		scenarios = os.DirFS(target)
@@ -217,11 +220,11 @@ func cliExtTest(args []string, stdout, stderr io.Writer) int {
 			res := extension.Check(scenarios)
 			if !res.OK || res.Kind == extension.KindDeclarative {
 				if on["--json"] {
-					printJSON(stdout, map[string]any{"ok": res.OK, "check": res, "note": "声明式扩展没有代码，check 通过就是合格；装进 dsh-ee 后可以用「试连」看接口通不通"})
+					printJSON(stdout, map[string]any{"ok": res.OK, "check": res, "note": tr("声明式扩展没有代码，check 通过就是合格；装进 dsh-ee 后可以用「试连」看接口通不通", "a declarative extension has no code, so passing check is enough; after installing it into dsh-ee, use \"test connection\" to see whether the API works")})
 				} else {
 					printCheck(stdout, res)
 					if res.OK {
-						fmt.Fprintln(stdout, "声明式扩展没有代码，check 通过就是合格。")
+						fmt.Fprintln(stdout, tr("声明式扩展没有代码，check 通过就是合格。", "a declarative extension has no code, so passing check is enough."))
 					}
 				}
 				if !res.OK {
@@ -231,7 +234,7 @@ func cliExtTest(args []string, stdout, stderr io.Writer) int {
 			}
 		}
 		if run == "" {
-			fmt.Fprintln(stderr, `这是一个服务扩展的目录：加 --run "启动命令" 让我把它跑起来，例如 --run "go run ."`)
+			fmt.Fprintln(stderr, tr(`这是一个服务扩展的目录：加 --run "启动命令" 让我把它跑起来，例如 --run "go run ."`, `this is a service extension directory: add --run "start command" so it can be started, e.g. --run "go run ."`))
 			return 2
 		}
 		if listen == "" {
@@ -277,7 +280,7 @@ func printTest(w io.Writer, rep *exttest.Report) {
 		fmt.Fprintf(w, "%s  %s\n", rep.Identity, rep.URL)
 	}
 	group := ""
-	mark := map[string]string{"pass": "通过", "fail": "没过", "skip": "跳过"}
+	mark := map[string]string{"pass": tr("通过", "pass"), "fail": tr("没过", "fail"), "skip": tr("跳过", "skip")}
 	for _, c := range rep.Cases {
 		if c.Group != group {
 			group = c.Group
@@ -287,7 +290,7 @@ func printTest(w io.Writer, rep *exttest.Report) {
 		if c.Status == "fail" {
 			fmt.Fprintf(w, "        %s  %s\n", c.Code, c.Message)
 			if c.Fix != "" {
-				fmt.Fprintf(w, "        改法：%s\n", c.Fix)
+				fmt.Fprintf(w, tr("        改法：%s\n", "        fix: %s\n"), c.Fix)
 			}
 		} else if c.Status == "skip" && c.Message != "" {
 			fmt.Fprintf(w, "        %s\n", c.Message)
@@ -295,9 +298,9 @@ func printTest(w io.Writer, rep *exttest.Report) {
 	}
 	fmt.Fprintln(w)
 	if rep.OK {
-		fmt.Fprintf(w, "通过：%d 项通过，%d 项跳过\n", rep.Passed, rep.Skipped)
+		fmt.Fprintf(w, tr("通过：%d 项通过，%d 项跳过\n", "passed: %d passed, %d skipped\n"), rep.Passed, rep.Skipped)
 	} else {
-		fmt.Fprintf(w, "没通过：%d 项没过，%d 项通过，%d 项跳过\n", rep.Failed, rep.Passed, rep.Skipped)
+		fmt.Fprintf(w, tr("没通过：%d 项没过，%d 项通过，%d 项跳过\n", "failed: %d failed, %d passed, %d skipped\n"), rep.Failed, rep.Passed, rep.Skipped)
 	}
 }
 
@@ -309,7 +312,7 @@ func cliExtDev(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension dev [--listen 地址]")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension dev [--listen 地址]", "Usage: dsh-ee extension dev [--listen addr]"))
 		return 2
 	}
 	listen := vals["--listen"]
@@ -322,15 +325,15 @@ func cliExtDev(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	defer env.Close()
-	fmt.Fprintf(stdout, "模拟的 dsh-ee 在 %s（只有 JWKS 和几个预置的员工，不是真的 dsh-ee）\n\n", env.URL)
-	fmt.Fprintf(stdout, "另开一个终端启动扩展：\n  DSH_EE_URL=%s EXTENSION_ADDR=127.0.0.1:9000 go run .\n\n", env.URL)
-	fmt.Fprintln(stdout, "然后以某位员工的身份调它：")
-	fmt.Fprintf(stdout, "  dsh-ee extension call http://127.0.0.1:9000 <工具> --as zhangsan --args '{}'\n")
-	fmt.Fprintf(stdout, "  dsh-ee extension test http://127.0.0.1:9000\n\n预置的员工：\n")
+	fmt.Fprintf(stdout, tr("模拟的 dsh-ee 在 %s（只有 JWKS 和几个预置的员工，不是真的 dsh-ee）\n\n", "a mock dsh-ee is running at %s (only JWKS and a few preset users; it is not a real dsh-ee)\n\n"), env.URL)
+	fmt.Fprintf(stdout, tr("另开一个终端启动扩展：\n  DSH_EE_URL=%s EXTENSION_ADDR=127.0.0.1:9000 go run .\n\n", "start the extension in another terminal:\n  DSH_EE_URL=%s EXTENSION_ADDR=127.0.0.1:9000 go run .\n\n"), env.URL)
+	fmt.Fprintln(stdout, tr("然后以某位员工的身份调它：", "then call it as one of the users:"))
+	fmt.Fprint(stdout, tr("  dsh-ee extension call http://127.0.0.1:9000 <工具> --as zhangsan --args '{}'\n", "  dsh-ee extension call http://127.0.0.1:9000 <tool> --as zhangsan --args '{}'\n"))
+	fmt.Fprint(stdout, tr("  dsh-ee extension test http://127.0.0.1:9000\n\n预置的员工：\n", "  dsh-ee extension test http://127.0.0.1:9000\n\nPreset users:\n"))
 	for _, u := range exttest.Users {
-		fmt.Fprintf(stdout, "  %-10s %s，%s，角色 %s\n", u.Username, u.Name, u.Dept, strings.Join(u.Roles, " / "))
+		fmt.Fprintf(stdout, tr("  %-10s %s，%s，角色 %s\n", "  %-10s %s, %s, roles %s\n"), u.Username, u.Name, u.Dept, strings.Join(u.Roles, " / "))
 	}
-	fmt.Fprintln(stdout, "\n按 Ctrl+C 结束。")
+	fmt.Fprintln(stdout, tr("\n按 Ctrl+C 结束。", "\nPress Ctrl+C to stop."))
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
 	<-sig
@@ -343,7 +346,7 @@ func cliExtCall(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension call <地址> <工具> [--as 员工] [--args JSON] [--credential 值] [--config JSON] [--listen 地址]\n  扩展启动时的 DSH_EE_URL 要指向模拟环境（`dsh-ee extension dev` 打印的地址）")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension call <地址> <工具> [--as 员工] [--args JSON] [--credential 值] [--config JSON] [--listen 地址]\n  扩展启动时的 DSH_EE_URL 要指向模拟环境（`dsh-ee extension dev` 打印的地址）", "Usage: dsh-ee extension call <url> <tool> [--as user] [--args JSON] [--credential value] [--config JSON] [--listen addr]\n  the extension's DSH_EE_URL at startup must point at the mock environment (the address printed by `dsh-ee extension dev`)"))
 		return 2
 	}
 	toolArgs, err := parseJSONObject(vals["--args"], "--args")
@@ -362,7 +365,7 @@ func cliExtCall(args []string, stdout, stderr io.Writer) int {
 	}
 	user, ok := exttest.FindUser(who)
 	if !ok {
-		fmt.Fprintf(stderr, "模拟环境里没有员工 %s；有 zhangsan、lisi、wangwu、admin\n", who)
+		fmt.Fprintf(stderr, tr("模拟环境里没有员工 %s；有 zhangsan、lisi、wangwu、admin\n", "the mock environment has no user %s; available: zhangsan, lisi, wangwu, admin\n"), who)
 		return 2
 	}
 	listen := vals["--listen"]
@@ -382,14 +385,14 @@ func cliExtCall(args []string, stdout, stderr io.Writer) int {
 	hc := &http.Client{Timeout: 30 * time.Second}
 	resp, err := hc.Get(base + "/.well-known/dsh-ee-extension.json")
 	if err != nil {
-		fmt.Fprintln(stderr, "连不上扩展：", err)
+		fmt.Fprintln(stderr, tr("连不上扩展：", "cannot reach the extension: "), err)
 		return 1
 	}
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	resp.Body.Close()
 	m, err := extension.ParseManifest(raw)
 	if err != nil || m.ID == "" {
-		fmt.Fprintln(stderr, "取不到扩展的清单")
+		fmt.Fprintln(stderr, tr("取不到扩展的清单", "cannot fetch the extension manifest"))
 		return 1
 	}
 	if toolArgs == nil {
@@ -408,7 +411,7 @@ func cliExtCall(args []string, stdout, stderr io.Writer) int {
 	}
 	resp, err = hc.Do(req)
 	if err != nil {
-		fmt.Fprintln(stderr, "调用失败：", err)
+		fmt.Fprintln(stderr, tr("调用失败：", "call failed: "), err)
 		return 1
 	}
 	defer resp.Body.Close()
@@ -433,18 +436,18 @@ func cliExtPack(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension pack <目录> [-o 文件] [--json]")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension pack <目录> [-o 文件] [--json]", "Usage: dsh-ee extension pack <dir> [-o file] [--json]"))
 		return 2
 	}
 	dir := rest[0]
 	res := extension.Check(os.DirFS(dir))
 	if !res.OK {
 		printCheck(stderr, res)
-		fmt.Fprintln(stderr, "检查没通过，不打包。")
+		fmt.Fprintln(stderr, tr("检查没通过，不打包。", "check failed; not packing."))
 		return 1
 	}
 	if res.Kind != extension.KindDeclarative {
-		fmt.Fprintln(stderr, "只有声明式扩展要打包；服务扩展交付的是代码仓库或镜像，管理员装的时候填服务地址。")
+		fmt.Fprintln(stderr, tr("只有声明式扩展要打包；服务扩展交付的是代码仓库或镜像，管理员装的时候填服务地址。", "only declarative extensions are packed; service extensions are delivered as a code repository or image, and an admin fills in the service address when installing."))
 		return 2
 	}
 	m := res.Manifest
@@ -474,7 +477,7 @@ func cliExtPack(args []string, stdout, stderr io.Writer) int {
 		seen[name] = true
 		data, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(name)))
 		if err != nil {
-			fmt.Fprintf(stderr, "读 %s：%v\n", name, err)
+			fmt.Fprintf(stderr, tr("读 %s：%v\n", "read %s: %v\n"), name, err)
 			return 1
 		}
 		// 固定时间：同样的内容打出来的包一模一样，校验和才对得上
@@ -506,7 +509,7 @@ func cliExtPack(args []string, stdout, stderr io.Writer) int {
 	if on["--json"] {
 		printJSON(stdout, info)
 	} else {
-		fmt.Fprintf(stdout, "%s（%s）\n包的 sha256：%s\n清单和接口文档的摘要：%s\n管理员在「企业连接 → 安装扩展」上传这个文件。\n", out, res.Identity, info["sha256"], res.Digest)
+		fmt.Fprintf(stdout, tr("%s（%s）\n包的 sha256：%s\n清单和接口文档的摘要：%s\n管理员在「企业连接 → 安装扩展」上传这个文件。\n", "%s (%s)\npackage sha256: %s\nmanifest and OpenAPI doc digest: %s\nAn admin uploads this file under \"Enterprise connections → Install extension\".\n"), out, res.Identity, info["sha256"], res.Digest)
 	}
 	return 0
 }
@@ -519,14 +522,14 @@ func cliExtReport(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension report <目录|地址>")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension report <目录|地址>", "Usage: dsh-ee extension report <dir|url>"))
 		return 2
 	}
 	var res *extension.Result
 	if isURL(rest[0]) {
 		resp, err := (&http.Client{Timeout: 15 * time.Second}).Get(strings.TrimRight(rest[0], "/") + "/.well-known/dsh-ee-extension.json")
 		if err != nil {
-			fmt.Fprintln(stderr, "连不上扩展：", err)
+			fmt.Fprintln(stderr, tr("连不上扩展：", "cannot reach the extension: "), err)
 			return 1
 		}
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
@@ -554,7 +557,7 @@ func cliExtInit(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension init <目录> --id 作者/名字 [--kind declarative|service]\n  有接口文档、不写代码的用 declarative（默认）；要写逻辑的用 service")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension init <目录> --id 作者/名字 [--kind declarative|service]\n  有接口文档、不写代码的用 declarative（默认）；要写逻辑的用 service", "Usage: dsh-ee extension init <dir> --id author/name [--kind declarative|service]\n  use declarative (default) when you have an OpenAPI doc and no code; use service when you need logic"))
 		return 2
 	}
 	kind := vals["--kind"]
@@ -568,7 +571,7 @@ func cliExtInit(args []string, stdout, stderr io.Writer) int {
 	}
 	dir := rest[0]
 	if entries, err := os.ReadDir(dir); err == nil && len(entries) > 0 {
-		fmt.Fprintf(stderr, "%s 不是空目录，不往里写\n", dir)
+		fmt.Fprintf(stderr, tr("%s 不是空目录，不往里写\n", "%s is not an empty directory; not writing into it\n"), dir)
 		return 1
 	}
 	names := make([]string, 0, len(files))
@@ -588,6 +591,6 @@ func cliExtInit(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stdout, "  %s\n", filepath.Join(dir, name))
 	}
-	fmt.Fprintf(stdout, "\n建好了。下一步见 %s。\n", filepath.Join(dir, "AGENTS.md"))
+	fmt.Fprintf(stdout, tr("\n建好了。下一步见 %s。\n", "\ncreated. See %s for next steps.\n"), filepath.Join(dir, "AGENTS.md"))
 	return 0
 }

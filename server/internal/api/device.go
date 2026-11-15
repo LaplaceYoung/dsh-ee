@@ -67,8 +67,10 @@ func (l *ipRate) allow(ip string) bool {
 	return true
 }
 
-func writeDeviceErr(w http.ResponseWriter, status int, code string) {
-	writeJSON(w, status, map[string]string{"error": code})
+// writeDeviceErr 写设备码流程（RFC 8628）的错误。error 字段是协议机器码，DSH 客户端按它
+// 分支，必须保持原样；另加前端用的 code（见 errcodes.go 的 deviceErrCode）。
+func writeDeviceErr(w http.ResponseWriter, status int, oauthCode string) {
+	writeErrCode(w, status, deviceErrCode[oauthCode], nil, oauthCode)
 }
 
 type deviceCodeReq struct {
@@ -124,7 +126,7 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 		req.Scopes = []string{rbac.ScopeModels, rbac.ScopeRegistryRead, rbac.ScopeHub, rbac.ScopeConnections, rbac.ScopeAgent}
 	}
 	if !validDeviceScopes(req.Scopes) {
-		writeErr(w, http.StatusBadRequest, "scope 不受支持")
+		writeErrCode(w, http.StatusBadRequest, codeDeviceScopeUnsupported, nil, "scope 不受支持")
 		return
 	}
 	setupCodeOK, err := s.validSetupCode(r.Context(), req.SetupCode)
@@ -133,7 +135,7 @@ func (s *Server) handleDeviceCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !setupCodeOK {
-		writeErr(w, http.StatusBadRequest, setupCodeExpired)
+		writeErrCode(w, http.StatusBadRequest, codeDeviceSetupCodeExpired, nil, setupCodeExpired)
 		return
 	}
 	plain := secret.Token()
@@ -246,7 +248,7 @@ func (s *Server) handleDeviceToken(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDeviceInfo(w http.ResponseWriter, r *http.Request) {
 	d, err := s.store.DeviceByUserCode(r.Context(), r.PathValue("user_code"))
 	if err != nil || d.ExpiresAt.Before(time.Now()) {
-		writeErr(w, http.StatusNotFound, "确认码不存在或已过期")
+		writeErrCode(w, http.StatusNotFound, codeDeviceCodeNotFound, nil, "确认码不存在或已过期")
 		return
 	}
 	replace := false
@@ -273,7 +275,7 @@ func (s *Server) handleDeviceApprove(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.store.DeviceByUserCode(r.Context(), r.PathValue("user_code"))
 	if err != nil || d.Status != "pending" || d.ExpiresAt.Before(time.Now()) {
-		writeErr(w, http.StatusBadRequest, "确认码不存在、已处理或已过期")
+		writeErrCode(w, http.StatusBadRequest, codeDeviceCodeNotPending, nil, "确认码不存在、已处理或已过期")
 		return
 	}
 	var req struct {

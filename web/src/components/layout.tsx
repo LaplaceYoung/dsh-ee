@@ -260,7 +260,9 @@ export function AppLayout() {
         <WhaleMark size={22} className="shrink-0 text-brand-500" />
         <span className="text-sm font-bold text-neutral-900">dsh-ee</span>
         <span className="min-w-0 truncate text-sm text-neutral-500">{settings.orgName}</span>
-        <button type="button" aria-label={t("nav.search")} onClick={() => setSearching(true)} className="ml-auto shrink-0 rounded-md p-1.5 text-neutral-600 transition-colors hover:bg-neutral-100">
+        {/* 窄屏顶栏的语言入口：Globe + 原生下拉，375px 宽下仍可用（与搜索按钮同一行）。 */}
+        <LangSwitch compact className="ml-auto -mr-1" />
+        <button type="button" aria-label={t("nav.search")} onClick={() => setSearching(true)} className="shrink-0 rounded-md p-1.5 text-neutral-600 transition-colors hover:bg-neutral-100">
           <Search size={18} />
         </button>
       </header>

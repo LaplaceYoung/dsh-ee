@@ -35,6 +35,7 @@ export {
 } from './errors.js';
 export type { DshErrorOptions, DshNetworkErrorCode } from './errors.js';
 
+export { formatLatestReminder } from './types.js';
 export { parseRateLimitHeaders, parseRetryAfter } from './http.js';
 export type { HttpResponseMeta } from './http.js';
 
@@ -46,8 +47,39 @@ export type {
   ChatCompletionChunkChoice,
   ChatCompletionRequest,
   ChatContentPart,
+  ChatContentPartUnion,
   ChatMessage,
+  ChatRole,
+  ChatToolDefinition,
   ChatUsage,
+  DeepSeekCitation,
+  DeepSeekDocumentBlock,
+  DeepSeekDocumentSource,
+  DeepSeekFileContentPart,
+  DeepSeekLatestReminder,
+  DeepSeekLatestReminderMessage,
+  DeepSeekRefusal,
+  DeepSeekSafetyCheck,
+  DeepSeekServerToolAction,
+  DeepSeekServerToolCall,
+  DeepSeekServerToolContentBlock,
+  DeepSeekServerToolDeclaration,
+  DeepSeekServerToolEvent,
+  DeepSeekServerToolPage,
+  DeepSeekServerToolSource,
+  DeepSeekServerToolStep,
+  DeepSeekServerToolType,
+  DeepSeekServerToolUsage,
+  DeepSeekServerToolUseBlock,
+  DeepSeekStopDetails,
+  DeepSeekTitleConfig,
+  DeepSeekUrlCitation,
+  DeepSeekWebFetchResult,
+  DeepSeekWebFetchToolResultBlock,
+  DeepSeekWebFetchToolResultError,
+  DeepSeekWebSearchResult,
+  DeepSeekWebSearchToolResultBlock,
+  DeepSeekWebSearchToolResultError,
   DeviceCode,
   DeviceCodeRequest,
   DeviceFlowErrorCode,
@@ -61,6 +93,7 @@ export type {
   HarnessAppsPage,
   HarnessCapabilities,
   HarnessDiscovery,
+  HarnessReasoningCapability,
   JsonRpcErrorObject,
   JsonRpcId,
   JsonRpcRequest,
@@ -73,8 +106,11 @@ export type {
   McpToolCallResult,
   McpToolContent,
   McpToolsPage,
+  ModelCapabilities,
   ModelInfo,
   RateLimitInfo,
+  ReasoningEffort,
+  ThinkingConfig,
 } from './types.js';
 
 /** 本 SDK 的版本；与服务端 Dsh-EE-API-Version 无关。 */

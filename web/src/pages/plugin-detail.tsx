@@ -1,6 +1,7 @@
 import { useParams } from "react-router";
 import { ArrowLeft, Building2, CheckCircle2, ExternalLink, SearchX } from "lucide-react";
 import { categoryLabel } from "../lib/catalog";
+import { formatNumber } from "../lib/format";
 import { api, formatBytes, formatTime, toPlugin } from "../lib/api";
 import { useApi } from "../lib/use-api";
 import { pluginAddCommand } from "../lib/install";
@@ -149,7 +150,7 @@ function Detail({ d, core, scoringUpstream, profile }: { d: NonNullable<Awaited<
               [t("registry.detail.size"), formatBytes(d.size)],
               ...(d.dep_count !== null ? [[t("pluginDetail.deps"), t("pluginDetail.depsValue", { count: d.dep_count, size: formatBytes(d.closure_size ?? 0) })]] : []),
               [t("pluginDetail.offline"), p.offlineReady ? t("common.yes") : t("pluginDetail.offlineNo")],
-              ...(p.origin === "upstream" && d.stars !== null ? [["GitHub Star", d.stars.toLocaleString()]] : []),
+              ...(p.origin === "upstream" && d.stars !== null ? [["GitHub Star", formatNumber(d.stars)]] : []),
             ].map(([k, v]) => (
               <div key={k} className="flex justify-between gap-3 px-4 py-2.5">
                 <span className="text-neutral-500">{k}</span>

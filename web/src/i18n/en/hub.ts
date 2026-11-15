@@ -162,6 +162,9 @@ export default {
     noRows: "No rows",
     resultCount: "Showing {{shown}} of {{total}} rows",
     truncated: " (first 1000 rows only)",
+    sampleTableTitle: "Customer master data",
+    sampleDatasetTitle: "My customers",
+    sampleSql: "SELECT customer AS name, annual_contract AS arr\nFROM customers\nWHERE owner = :me_name\nORDER BY arr DESC",
   },
   appWeb: {
     dataTab: "Data",

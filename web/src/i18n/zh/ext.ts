@@ -84,6 +84,7 @@ export default {
   fieldSync: {
     desc: "把 LDAP 或飞书通讯录里的属性同步成用户字段：LDAP 在员工登录时同步，飞书在组织同步时同步。人一调岗，能看的范围跟着变。手工改过的值不会被覆盖，除非勾「以同步为准」。",
     source: "来源",
+    sourceFeishu: "飞书 / Feishu",
     attr: "目录里的属性",
     attrHint: "LDAP 写属性名（title、employeeType…）；飞书写 job_title、city、employee_no、employee_type，或自定义字段的 id（C-…）",
     field: "用户字段",
@@ -234,6 +235,7 @@ export default {
     rollbackBack: "返回列表",
     rollbackConfirm: "确认回滚",
     rollbackDone: "已回滚到 {{version}}，工具已重新同步。",
+    rollbackNoPlan: "回滚预览没有返回计划",
   },
   extInstall: {
     fromService: "填服务地址",

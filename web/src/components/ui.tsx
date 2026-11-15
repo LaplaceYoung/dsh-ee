@@ -5,6 +5,7 @@ import { Tip } from "@/components/tip";
 import { copyText } from "@/lib/clipboard";
 import { useStore } from "@/lib/store";
 import { cn } from "@/lib/utils";
+import { formatDateOnly, formatDecimal, formatNumber } from "@/lib/format";
 
 export function cx(...xs: (string | false | null | undefined)[]) {
   return xs.filter(Boolean).join(" ");
@@ -386,12 +387,12 @@ export const inputBase =
 export const inputCls = `${inputBase} w-full`;
 
 export function formatKb(kb: number) {
-  return kb >= 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${kb} KB`;
+  return kb >= 1024 ? `${formatDecimal(kb / 1024, 1)} MB` : `${formatNumber(kb)} KB`;
 }
 
-/** 时间戳按秒（后端多为秒级），内部 ×1000 后再格式化；Date.parse() 得到的是毫秒，传进来前要 /1000。 */
+/** Unix 秒级时间戳 → 本地日期（按界面语言）。Date.parse() 得到的是毫秒，传进来前要 /1000。 */
 export function formatDate(ts: number) {
-  return new Date(ts * 1000).toLocaleDateString("zh-CN");
+  return formatDateOnly(new Date(ts * 1000), undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
 /**

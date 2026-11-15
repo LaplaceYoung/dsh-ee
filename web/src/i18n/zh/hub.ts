@@ -160,6 +160,9 @@ export default {
     noRows: "没有数据",
     resultCount: "显示 {{shown}} 行，共 {{total}} 行",
     truncated: "（只取了前 1000 行）",
+    sampleTableTitle: "客户主数据",
+    sampleDatasetTitle: "我负责的客户",
+    sampleSql: "SELECT 客户 AS name, 年合同额 AS arr\nFROM customers\nWHERE 负责人 = :me_name\nORDER BY arr DESC",
   },
   appWeb: {
     dataTab: "数据",

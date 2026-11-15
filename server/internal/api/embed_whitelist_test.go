@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"net/http/httptest"
 	"testing"
 )
 
@@ -45,6 +46,35 @@ func TestEmbedRouteWhitelist(t *testing.T) {
 	for _, c := range blocked {
 		if embedRouteAllowed(c.method, c.path) {
 			t.Errorf("%s %s 不应该在嵌入白名单里", c.method, c.path)
+		}
+	}
+}
+
+func TestEmbedAppScopeSlug(t *testing.T) {
+	// 正常路由：PathValue 已由 mux 填好，直接用它（与处理函数看到的值一致）。
+	req := httptest.NewRequest("GET", "/api/apps/app-b/data/notes", nil)
+	req.SetPathValue("slug", "app-b")
+	if got := embedAppScopeSlug(req); got != "app-b" {
+		t.Errorf("PathValue 优先：得到 %q，期望 app-b", got)
+	}
+
+	// PathValue 没填（旧版 mux 兼容模式）：按路径形状兜底，不能被编码/多段路径绕过。
+	cases := map[string]string{
+		"/api/apps/app-b/data":       "app-b",
+		"/api/apps/app-b/data/notes": "app-b",
+		"/api/apps/app-b/data/n/1":   "app-b",
+		"/api/me/apps/app-b/web":     "app-b",
+		"/api/me/apps/app-b/source":  "app-b",
+		"/api/auth/me":               "",
+		"/api/auth/methods":          "",
+		"/api/settings":              "",
+		"/api/me/menus":              "",
+		"/api/apps":                  "",
+		"/api/me/apps":               "",
+	}
+	for path, want := range cases {
+		if got := embedAppScopeSlug(httptest.NewRequest("GET", path, nil)); got != want {
+			t.Errorf("%s => %q，期望 %q", path, got, want)
 		}
 	}
 }

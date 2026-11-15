@@ -130,7 +130,7 @@ func npmPath(r *http.Request) (special bool, name string, rest []string, ok bool
 
 func (s *Server) handleNpm(w http.ResponseWriter, r *http.Request) {
 	if s.registry == nil {
-		writeErr(w, http.StatusServiceUnavailable, "npm 源没有初始化（数据目录不可写），请检查服务端日志")
+		writeErr(w, http.StatusServiceUnavailable, "npm registry is not initialized (the data directory is not writable); check the server logs")
 		return
 	}
 	if s.demoSiteNpmWrite(w, r) {
@@ -138,7 +138,7 @@ func (s *Server) handleNpm(w http.ResponseWriter, r *http.Request) {
 	}
 	caller, err := s.npmAuth(r)
 	if errors.Is(err, errBadToken) {
-		writeErr(w, http.StatusUnauthorized, "npm 令牌无效或已吊销，请在 dsh-ee 的「接入指南」里重新生成")
+		writeErr(w, http.StatusUnauthorized, "Invalid or revoked npm token; regenerate one in the dsh-ee web UI under Integration Guide")
 		return
 	}
 	if err != nil {
@@ -147,7 +147,7 @@ func (s *Server) handleNpm(w http.ResponseWriter, r *http.Request) {
 	}
 	special, name, rest, ok := npmPath(r)
 	if !ok {
-		writeErr(w, http.StatusBadRequest, "非法的路径")
+		writeErr(w, http.StatusBadRequest, "Invalid path")
 		return
 	}
 	if special {
@@ -159,7 +159,7 @@ func (s *Server) handleNpm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !registry.ValidName(name) {
-		writeErr(w, http.StatusBadRequest, "非法的包名")
+		writeErr(w, http.StatusBadRequest, "Invalid package name")
 		return
 	}
 
@@ -179,9 +179,9 @@ func (s *Server) handleNpm(w http.ResponseWriter, r *http.Request) {
 			s.serveVersion(w, r, name, rest[0])
 		}
 	case len(rest) >= 1 && (rest[0] == "-rev" || r.Method == http.MethodDelete):
-		writeErr(w, http.StatusMethodNotAllowed, "dsh-ee 不支持用 npm unpublish 删除版本；请在 dsh-ee 网页的「能力管理」里下架，或发布新版本后用 npm deprecate")
+		writeErr(w, http.StatusMethodNotAllowed, "dsh-ee does not support removing versions with npm unpublish; unpublish the version from the Capabilities page in the dsh-ee web UI, or publish a new version and deprecate the old one with npm deprecate")
 	default:
-		writeErr(w, http.StatusNotFound, "接口不存在")
+		writeErr(w, http.StatusNotFound, "Endpoint not found")
 	}
 }
 
@@ -197,11 +197,11 @@ func (s *Server) npmRead(w http.ResponseWriter, r *http.Request, c *npmCaller) b
 	}
 	if c == nil {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="dsh-ee"`)
-		writeErr(w, http.StatusUnauthorized, "这个 npm 源需要令牌：在 dsh-ee 的「接入指南」里生成后写进 .npmrc")
+		writeErr(w, http.StatusUnauthorized, "This npm registry requires a token; generate one in the dsh-ee web UI under Integration Guide and add it to .npmrc")
 		return false
 	}
 	if !c.access.Has(rbac.RegistryUse) || c.principal != nil && !c.principal.Scopes.Has(rbac.ScopeRegistryRead) {
-		writeErr(w, http.StatusForbidden, "你的账号没有安装能力的权限，请联系管理员")
+		writeErr(w, http.StatusForbidden, "Your account does not have permission to install capabilities; contact your administrator")
 		return false
 	}
 	return true
@@ -213,7 +213,7 @@ func (s *Server) registryErr(w http.ResponseWriter, r *http.Request, err error) 
 	case errors.As(err, &re):
 		writeErr(w, re.Status, re.Msg)
 	case errors.Is(err, registry.ErrNotFound), notFound(err):
-		writeErr(w, http.StatusNotFound, "没有这个包或版本（企业作用域的包只在这里发布；社区插件需要管理员审核上架）")
+		writeErr(w, http.StatusNotFound, "No such package or version (enterprise-scoped packages are only published here; community plugins must be approved by an administrator before they are listed)")
 	default:
 		s.internalErr(w, r, err)
 	}
@@ -265,7 +265,7 @@ func (s *Server) serveVersion(w http.ResponseWriter, r *http.Request, name, spec
 	}
 	v := registry.ResolveRange(spec, names, doc.DistTags)
 	if v == "" {
-		writeErr(w, http.StatusNotFound, "没有满足 "+spec+" 的版本")
+		writeErr(w, http.StatusNotFound, "No version satisfies "+spec+".")
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -275,7 +275,7 @@ func (s *Server) serveVersion(w http.ResponseWriter, r *http.Request, name, spec
 func (s *Server) serveTarball(w http.ResponseWriter, r *http.Request, c *npmCaller, name, file string) {
 	version, ok := registry.VersionFromFile(name, file)
 	if !ok {
-		writeErr(w, http.StatusNotFound, "tarball 文件名不对")
+		writeErr(w, http.StatusNotFound, "Invalid tarball file name")
 		return
 	}
 	f, v, err := s.registry.Tarball(r.Context(), name, version)
@@ -307,15 +307,15 @@ func (s *Server) publisher(c *npmCaller) registry.Publisher {
 func (s *Server) requirePublish(w http.ResponseWriter, c *npmCaller) bool {
 	if c == nil {
 		w.Header().Set("WWW-Authenticate", `Bearer realm="dsh-ee"`)
-		writeErr(w, http.StatusUnauthorized, "发布需要登录：在 dsh-ee 的「接入指南」里生成「可发布」令牌")
+		writeErr(w, http.StatusUnauthorized, "Publishing requires login; generate a publish token in the dsh-ee web UI under Integration Guide")
 		return false
 	}
 	if !c.access.Has(rbac.RegistryPublish) {
-		writeErr(w, http.StatusForbidden, "你的账号没有发布能力的权限，请联系管理员")
+		writeErr(w, http.StatusForbidden, "Your account does not have permission to publish capabilities; contact your administrator")
 		return false
 	}
 	if c.token != nil && c.token.Access != "publish" || c.principal != nil && !c.principal.Scopes.Has(rbac.ScopeRegistryPublish) {
-		writeErr(w, http.StatusForbidden, "这个令牌是只读的，发布需要「可发布」令牌")
+		writeErr(w, http.StatusForbidden, "This token is read-only; publishing requires a publish token")
 		return false
 	}
 	return true
@@ -328,14 +328,14 @@ func (s *Server) handleNpmPublish(w http.ResponseWriter, r *http.Request, c *npm
 	limit := s.registry.MaxTarball*4/3 + 4<<20
 	var doc registry.PublishDoc
 	if err := json.NewDecoder(io.LimitReader(r.Body, limit)).Decode(&doc); err != nil {
-		writeErr(w, http.StatusBadRequest, "发布内容不是合法的 JSON："+err.Error())
+		writeErr(w, http.StatusBadRequest, "Publish payload is not valid JSON: "+err.Error())
 		return
 	}
 	if doc.Name == "" {
 		doc.Name = name
 	}
 	if doc.Name != name {
-		writeErr(w, http.StatusBadRequest, "请求路径里的包名与发布内容不一致")
+		writeErr(w, http.StatusBadRequest, "Package name in the request path does not match the publish payload")
 		return
 	}
 	// 没有 tarball 的 PUT 是 npm deprecate / undeprecate
@@ -372,7 +372,7 @@ func (s *Server) handleNpmSpecial(w http.ResponseWriter, r *http.Request, c *npm
 		writeJSON(w, http.StatusOK, map[string]any{})
 	case path == "whoami" && r.Method == http.MethodGet:
 		if c == nil {
-			writeErr(w, http.StatusUnauthorized, "未登录")
+			writeErr(w, http.StatusUnauthorized, "Not logged in")
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]string{"username": c.user.Username})
@@ -389,7 +389,7 @@ func (s *Server) handleNpmSpecial(w http.ResponseWriter, r *http.Request, c *npm
 	case len(rest) >= 3 && rest[0] == "package" && rest[len(rest)-1] == "dist-tags" || len(rest) >= 4 && rest[0] == "package" && rest[len(rest)-2] == "dist-tags":
 		s.handleDistTags(w, r, c, rest[1:])
 	default:
-		writeErr(w, http.StatusNotFound, "接口不存在")
+		writeErr(w, http.StatusNotFound, "Endpoint not found")
 	}
 }
 
@@ -403,7 +403,7 @@ func (s *Server) handleDistTags(w http.ResponseWriter, r *http.Request, c *npmCa
 	case 2:
 		name = segs[0] + "/" + segs[1]
 	default:
-		writeErr(w, http.StatusBadRequest, "非法的路径")
+		writeErr(w, http.StatusBadRequest, "Invalid path")
 		return
 	}
 	if len(segs) > i+1 {
@@ -427,7 +427,7 @@ func (s *Server) handleDistTags(w http.ResponseWriter, r *http.Request, c *npmCa
 		return
 	}
 	if tag == "" || (r.Method != http.MethodPut && r.Method != http.MethodDelete) {
-		writeErr(w, http.StatusMethodNotAllowed, "不支持的操作")
+		writeErr(w, http.StatusMethodNotAllowed, "Unsupported operation")
 		return
 	}
 	if !s.requirePublish(w, c) {
@@ -436,7 +436,7 @@ func (s *Server) handleDistTags(w http.ResponseWriter, r *http.Request, c *npmCa
 	version := ""
 	if r.Method == http.MethodPut {
 		if err := json.NewDecoder(io.LimitReader(r.Body, 1024)).Decode(&version); err != nil || version == "" {
-			writeErr(w, http.StatusBadRequest, "请求体应该是 JSON 字符串形式的版本号")
+			writeErr(w, http.StatusBadRequest, "Request body must be a JSON string containing a version")
 			return
 		}
 	}
@@ -455,7 +455,7 @@ func (s *Server) handleNpmLogin(w http.ResponseWriter, r *http.Request) {
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<16)).Decode(&body); err != nil {
-		writeErr(w, http.StatusBadRequest, "请求体格式错误")
+		writeErr(w, http.StatusBadRequest, "Malformed request body")
 		return
 	}
 	username := strings.ToLower(strings.TrimSpace(body.Name))
@@ -472,7 +472,7 @@ func (s *Server) handleNpmLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !a.Has(rbac.RegistryUse, rbac.RegistryPublish) {
-		writeErr(w, http.StatusForbidden, "你的账号没有使用 npm 源的权限")
+		writeErr(w, http.StatusForbidden, "Your account does not have permission to use the npm registry")
 		return
 	}
 	access := "read"
@@ -543,7 +543,7 @@ func (s *Server) publicBase(r *http.Request) string {
 // DSH 请求索引源时不一定能带认证头；下载 tarball 仍然要令牌。
 func (s *Server) handleDshIndex(w http.ResponseWriter, r *http.Request) {
 	if s.registry == nil {
-		writeErr(w, http.StatusServiceUnavailable, "npm 源没有初始化")
+		writeErr(w, http.StatusServiceUnavailable, "npm registry is not initialized")
 		return
 	}
 	idx, err := s.registry.BuildIndex(r.Context(), s.publicBase(r))

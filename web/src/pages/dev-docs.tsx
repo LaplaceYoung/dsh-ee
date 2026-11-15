@@ -15,6 +15,7 @@ import { DOC_CATEGORIES, DEV_DOCS, readMinutes, type DocCategory } from "../data
 import { matchesDevDoc } from "../data/dev-docs-search";
 import { isZh } from "../i18n";
 import { Badge, Card, cardHover, cx, Empty, Notice, PageHeader, Segmented } from "../components/ui";
+import { LangSwitch } from "../components/lang-switch";
 
 type Filter = "all" | DocCategory;
 
@@ -30,7 +31,8 @@ export default function DevDocs() {
 
   return (
     <div className="max-w-4xl" data-dev-page="docs">
-      <PageHeader title={t("devdocs.title")} desc={t("devdocs.desc")} />
+      {/* 文档语言与界面语言是同一个入口：切换后界面与文档列表标题/摘要一起换语言。 */}
+      <PageHeader title={t("devdocs.title")} desc={t("devdocs.desc")} actions={<LangSwitch />} />
 
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
         <div className="relative w-full sm:max-w-xs">

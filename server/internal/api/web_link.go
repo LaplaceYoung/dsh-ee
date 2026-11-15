@@ -52,8 +52,9 @@ func (s *Server) requireFullSession(w http.ResponseWriter, r *http.Request) bool
 	return true
 }
 
-// webNext 只接受站内相对路径；不合法时返回空串。比 safeNext 更严：不允许反斜杠和控制字符
-// （浏览器会吞掉制表符和换行，「/\t/evil」会变成「//evil」）。
+// webNext 只接受站内相对路径；不合法时返回空串。OIDC 登录入口的 safeNext 也复用这套判断
+// （区别只是回退到 /go），两边不能各写一套：浏览器会吞掉制表符和换行，「/\t/evil」会变成
+// 「//evil」。
 func webNext(raw string) string {
 	if len(raw) > 2048 || strings.ContainsAny(raw, "\\") {
 		return ""
@@ -128,6 +129,7 @@ func (s *Server) handleAuthHandoff(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("Cache-Control", "no-store")
 	q := r.URL.Query()
+	codeHash := secret.Hash(q.Get("code"))
 	consumeFailed := func() {
 		fallback := webNext(q.Get("next"))
 		if fallback == "" {
@@ -135,8 +137,7 @@ func (s *Server) handleAuthHandoff(w http.ResponseWriter, r *http.Request) {
 		}
 		http.Redirect(w, r, "/login?handoff=expired&next="+url.QueryEscape(fallback), http.StatusSeeOther)
 	}
-	st, err := s.store.ConsumeEphemeralState(r.Context(), webLinkKind, secret.Hash(q.Get("code")))
-	if err != nil {
+	stateFailed := func(err error) {
 		switch {
 		case errors.Is(err, store.ErrNotFound), errors.Is(err, store.ErrEphemeralStateExpired):
 			consumeFailed()
@@ -144,6 +145,12 @@ func (s *Server) handleAuthHandoff(w http.ResponseWriter, r *http.Request) {
 			// 数据库不可用：不能凭内存里的副本继续，否则多实例下行为不一致。
 			s.internalErr(w, r, err)
 		}
+	}
+	// 先读不消费：得先知道 code 属于谁，才能判断浏览器里是不是已经登录了另一个人。
+	// 已有别人的会话时下面不消费 code —— 员工退出后，同一个链接在 60 秒内还能用。
+	st, err := s.store.GetEphemeralState(r.Context(), webLinkKind, codeHash)
+	if err != nil {
+		stateFailed(err)
 		return
 	}
 	var pending webLinkPayload
@@ -152,12 +159,28 @@ func (s *Server) handleAuthHandoff(w http.ResponseWriter, r *http.Request) {
 		consumeFailed()
 		return
 	}
-	// 浏览器里已经有这个人的会话（不管是不是完整的）就直接用，不把完整会话降级
+	// 浏览器里已经有会话：是自己的就沿用（不把完整会话降级）；是别人的则绝不能替换。
+	// handoff 是 GET、没有 CSRF 令牌，SameSite=Lax 也拦不住顶层导航：任何拿到 agent 令牌的
+	// 员工都能把链接发给同事，静默把同事踢下线并登录成自己（登录 CSRF / 会话替换）。
+	// 这时回登录页提示先退出，不自动登出当前用户（否则发个链接就能把人踢下线）。
+	sameUser := false
 	if c, err := r.Cookie(sessionCookie); err == nil && c.Value != "" {
-		if u, _, err := s.store.SessionInfo(r.Context(), secret.Hash(c.Value)); err == nil && u.ID == pending.UserID {
-			http.Redirect(w, r, pending.Next, http.StatusSeeOther)
-			return
+		if u, _, err := s.store.SessionInfo(r.Context(), secret.Hash(c.Value)); err == nil {
+			if u.ID != pending.UserID {
+				http.Redirect(w, r, "/login?handoff=other-session&next="+url.QueryEscape(pending.Next), http.StatusSeeOther)
+				return
+			}
+			sameUser = true
 		}
+	}
+	// 真正「使用」这个链接：原子消费，保证一次性（多实例并发时也只有一个请求能建会话）。
+	if _, err := s.store.ConsumeEphemeralState(r.Context(), webLinkKind, codeHash); err != nil {
+		stateFailed(err)
+		return
+	}
+	if sameUser {
+		http.Redirect(w, r, pending.Next, http.StatusSeeOther)
+		return
 	}
 	u, err := s.store.GetUser(r.Context(), pending.UserID)
 	if notFound(err) || (err == nil && (u.Disabled || u.AccountType != "human")) {

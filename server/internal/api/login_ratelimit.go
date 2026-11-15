@@ -102,9 +102,10 @@ func (l *loginIPLimiter) pruneLocked(now time.Time) {
 }
 
 // writeLoginRateLimited 写 429 并带上 Retry-After（秒，向上取整），客户端据此等待。
-func writeLoginRateLimited(w http.ResponseWriter, retry time.Duration, msg string) {
+// code 是前端用的机器码，params 里同时给出 retry_after（秒），与 Retry-After 头一致。
+func writeLoginRateLimited(w http.ResponseWriter, retry time.Duration, code string, params map[string]any, msg string) {
 	w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(retry)))
-	writeErr(w, http.StatusTooManyRequests, msg)
+	writeErrCode(w, http.StatusTooManyRequests, code, params, msg)
 }
 
 // retryAfterSeconds 把剩余等待时间换算成 Retry-After 的秒数，至少 1 秒。

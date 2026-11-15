@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/hikariming/dsh-ee/server/internal/datahub"
 	"github.com/hikariming/dsh-ee/server/internal/mcp"
@@ -274,6 +275,8 @@ type dataSetReq struct {
 	Params      []store.DataParam `json:"params"`
 	Scope       *store.Scope      `json:"scope"`
 	Values      map[string]any    `json:"values"`
+	// 覆盖已有数据集时要带上打开页面时读到的 updated_at：范围与 SQL 都是整段覆盖的。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // cleanDataSet 校验数据集，并按 SQL 里出现的参数整理参数表（自动参数标上 auto，其余保留填写的标题和默认值）。
@@ -406,6 +409,10 @@ func (s *Server) handleDataSetSave(w http.ResponseWriter, r *http.Request) {
 	update := r.Method == http.MethodPut
 	if update {
 		req.Slug = r.PathValue("slug")
+		if req.UpdatedAt == nil {
+			writeErr(w, http.StatusBadRequest, "改数据集要带上 updated_at；请刷新页面后重试")
+			return
+		}
 	}
 	d, msg := cleanDataSet(&req)
 	if msg != "" {
@@ -425,11 +432,14 @@ func (s *Server) handleDataSetSave(w http.ResponseWriter, r *http.Request) {
 	var err error
 	action := auditDataSetCreate
 	if update {
-		err, action = s.store.UpdateDataSet(ctx, d, by), auditDataSetUpdate
+		err, action = s.store.UpdateDataSet(ctx, d, by, req.UpdatedAt), auditDataSetUpdate
 	} else {
 		err = s.store.CreateDataSet(ctx, d, by)
 	}
 	switch {
+	case errors.Is(err, store.ErrConflict):
+		writeErr(w, http.StatusConflict, "数据集已被其他人修改，请刷新后重试")
+		return
 	case errors.Is(err, store.ErrDuplicate):
 		writeErr(w, http.StatusConflict, "已经有数据集 "+d.Slug)
 		return

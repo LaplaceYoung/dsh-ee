@@ -55,7 +55,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Username = strings.ToLower(strings.TrimSpace(req.Username))
 	if !usernameRe.MatchString(req.Username) {
-		writeErr(w, http.StatusBadRequest, "用户名只能包含小写字母、数字和 . _ -，2 到 64 个字符")
+		writeErrCode(w, http.StatusBadRequest, codeUserInvalidUsername, nil, "用户名只能包含小写字母、数字和 . _ -，2 到 64 个字符")
 		return
 	}
 	var roleIDs []int64
@@ -73,30 +73,30 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// 分配角色属于「管理角色」的权限；只有用户管理权限时只能用默认角色
 	if req.RoleIDs != nil && !currentAccess(r).Has(rbac.RolesManage) {
-		writeErr(w, http.StatusForbidden, "分配角色需要「管理角色与权限」权限")
+		writeErrCode(w, http.StatusForbidden, codeUserRolesAssignForbidden, nil, "分配角色需要「管理角色与权限」权限")
 		return
 	}
 	// 默认角色是系统约定，不算「授予」；显式指定的角色要过防提权检查
 	if req.RoleIDs != nil {
-		if msg, ok := s.checkGrantable(r, roleIDs); !ok {
-			writeErr(w, http.StatusForbidden, msg)
+		if e, ok := s.checkGrantable(r, roleIDs); !ok {
+			writeErrCode(w, http.StatusForbidden, e.code, e.params, e.msg)
 			return
 		}
 	}
 	// 额度属于「分配额度」权限：只有「管理用户」权限时，不能借建号显式设置或清空额度
 	if !canSetQuotaOnCreate(currentAccess(r), req.MonthlyTokenLimit) {
-		writeErr(w, http.StatusForbidden, "设置月度额度需要「分配额度」权限")
+		writeErrCode(w, http.StatusForbidden, codeUserQuotaAssignForbidden, nil, "设置月度额度需要「分配额度」权限")
 		return
 	}
 	if req.AccountType == "" {
 		req.AccountType = store.AccountHuman
 	}
 	if req.AccountType != store.AccountHuman && req.AccountType != store.AccountBot {
-		writeErr(w, http.StatusBadRequest, "account_type 只能是 human 或 bot")
+		writeErrCode(w, http.StatusBadRequest, codeUserInvalidAccountType, nil, "account_type 只能是 human 或 bot")
 		return
 	}
 	if req.AccountType == store.AccountBot && (req.AuthSource != "" && req.AuthSource != store.AuthLocal || req.Password != "") {
-		writeErr(w, http.StatusBadRequest, "机器人账号不能设置密码或 LDAP 登录")
+		writeErrCode(w, http.StatusBadRequest, codeUserBotCredentialsForbidden, nil, "机器人账号不能设置密码或 LDAP 登录")
 		return
 	}
 	var hash string
@@ -112,11 +112,11 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 			hash = h
 		case store.AuthLDAP, store.AuthOIDC:
 			if req.Password != "" {
-				writeErr(w, http.StatusBadRequest, "LDAP / OIDC 账号不设本地密码")
+				writeErrCode(w, http.StatusBadRequest, codeUserExternalPasswordForbidden, nil, "LDAP / OIDC 账号不设本地密码")
 				return
 			}
 		default:
-			writeErr(w, http.StatusBadRequest, "auth_source 只能是 local、ldap 或 oidc")
+			writeErrCode(w, http.StatusBadRequest, codeUserInvalidAuthSource, nil, "auth_source 只能是 local、ldap 或 oidc")
 			return
 		}
 	}
@@ -124,7 +124,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	limit := int64(0)
 	if req.MonthlyTokenLimit.Set {
 		if req.MonthlyTokenLimit.Value != nil && *req.MonthlyTokenLimit.Value < 0 {
-			writeErr(w, http.StatusBadRequest, "monthly_token_limit 不能为负数")
+			writeErrCode(w, http.StatusBadRequest, codeUserInvalidQuota, nil, "monthly_token_limit 不能为负数")
 			return
 		}
 		if req.MonthlyTokenLimit.Value != nil {
@@ -147,7 +147,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.CreateUser(r.Context(), u); err != nil {
 		if errors.Is(err, store.ErrDuplicate) {
-			writeErr(w, http.StatusConflict, "用户名已存在")
+			writeErrCode(w, http.StatusConflict, codeUserExists, nil, "用户名已存在")
 			return
 		}
 		s.internalErr(w, r, err)
@@ -191,11 +191,11 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	me := currentUser(r)
 	if id == me.ID && req.Disabled != nil && *req.Disabled {
-		writeErr(w, http.StatusBadRequest, "不能禁用自己")
+		writeErrCode(w, http.StatusBadRequest, codeUserCannotDisableSelf, nil, "不能禁用自己")
 		return
 	}
 	if id == me.ID && req.UnbindIdentity {
-		writeErr(w, http.StatusBadRequest, "不能解除自己的身份绑定")
+		writeErrCode(w, http.StatusBadRequest, codeUserCannotUnbindSelf, nil, "不能解除自己的身份绑定")
 		return
 	}
 	target, err := s.store.UserAccess(r.Context(), id)
@@ -205,14 +205,14 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	// 不能动权限比自己大的人，否则禁用、重置密码或解除身份绑定就能变相夺权
 	if (req.Disabled != nil || req.Password != nil || req.UnbindIdentity) && !outranks(currentAccess(r), target) {
-		writeErr(w, http.StatusForbidden, "不能禁用、重置密码或解除权限比自己大的用户的身份绑定")
+		writeErrCode(w, http.StatusForbidden, codeUserOutrankedTarget, nil, "不能禁用、重置密码或解除权限比自己大的用户的身份绑定")
 		return
 	}
 	// 部门是资产 / 知识库的可见范围，也是「本部门令牌管理」的作用域：改部门等于替
 	// 目标调整可访问的范围，所以只能由权限严格大于目标的管理员调整下级部门，
 	// 改自己、同级或上级都不行（超级管理员本来就绕开一切检查，不受此限）。
 	if req.Department != nil && !canChangeDepartment(currentAccess(r), target) {
-		writeErr(w, http.StatusForbidden, "不能修改自己、同级或权限比自己大的用户的部门")
+		writeErrCode(w, http.StatusForbidden, codeUserDepartmentChangeForbidden, nil, "不能修改自己、同级或权限比自己大的用户的部门")
 		return
 	}
 	// 部门变更要记前后值，先读一次变更前的用户
@@ -221,7 +221,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		before, err = s.store.GetUser(r.Context(), id)
 		if err != nil {
 			if notFound(err) {
-				writeErr(w, http.StatusNotFound, "用户不存在")
+				writeErrCode(w, http.StatusNotFound, codeUserNotFound, nil, "用户不存在")
 				return
 			}
 			s.internalErr(w, r, err)
@@ -233,14 +233,14 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			s.internalErr(w, r, err)
 			return
 		} else if n == 0 {
-			writeErr(w, http.StatusBadRequest, "这是最后一个启用中的超级管理员，不能禁用")
+			writeErrCode(w, http.StatusBadRequest, codeUserLastSuperAdminDisable, nil, "这是最后一个启用中的超级管理员，不能禁用")
 			return
 		}
 	}
 	p := store.UserPatch{DisplayName: req.DisplayName, Department: req.Department, Disabled: req.Disabled}
 	if req.Password != nil {
 		if u, err := s.store.GetUser(r.Context(), id); err == nil && (u.AuthSource == store.AuthLDAP || u.AuthSource == store.AuthOIDC) {
-			writeErr(w, http.StatusBadRequest, "LDAP / OIDC 账号的密码由企业目录或统一登录管理，不能在这里重置")
+			writeErrCode(w, http.StatusBadRequest, codeUserPasswordManagedExternally, nil, "LDAP / OIDC 账号的密码由企业目录或统一登录管理，不能在这里重置")
 			return
 		}
 		hash, err := HashPassword(*req.Password)
@@ -252,7 +252,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.UnbindIdentity {
 		if u, err := s.store.GetUser(r.Context(), id); err != nil || u.AuthSource != store.AuthOIDC {
-			writeErr(w, http.StatusBadRequest, "只有企业统一登录（OIDC）的账号有身份绑定可以解除")
+			writeErrCode(w, http.StatusBadRequest, codeUserNoIdentityBinding, nil, "只有企业统一登录（OIDC）的账号有身份绑定可以解除")
 			return
 		}
 		none := ""
@@ -260,7 +260,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.UpdateUser(r.Context(), id, p); err != nil {
 		if notFound(err) {
-			writeErr(w, http.StatusNotFound, "用户不存在")
+			writeErrCode(w, http.StatusNotFound, codeUserNotFound, nil, "用户不存在")
 			return
 		}
 		s.internalErr(w, r, err)
@@ -348,16 +348,16 @@ func (s *Server) handleIssueKey(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
-		writeErr(w, http.StatusBadRequest, "name 不能为空")
+		writeErrCode(w, http.StatusBadRequest, codeKeyInvalidName, nil, "name 不能为空")
 		return
 	}
 	if req.ExpiresAt != nil && !req.ExpiresAt.After(time.Now()) {
-		writeErr(w, http.StatusBadRequest, "expires_at 必须是将来的时间")
+		writeErrCode(w, http.StatusBadRequest, codeKeyInvalidExpiry, nil, "expires_at 必须是将来的时间")
 		return
 	}
 	owner, err := s.store.GetUser(r.Context(), req.UserID)
 	if notFound(err) {
-		writeErr(w, http.StatusBadRequest, "user_id 对应的用户不存在")
+		writeErrCode(w, http.StatusBadRequest, codeKeyUserNotFound, nil, "user_id 对应的用户不存在")
 		return
 	}
 	if err != nil {
@@ -365,7 +365,7 @@ func (s *Server) handleIssueKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if owner.Disabled {
-		writeErr(w, http.StatusBadRequest, "该用户已被禁用")
+		writeErrCode(w, http.StatusBadRequest, codeKeyUserDisabled, nil, "该用户已被禁用")
 		return
 	}
 
@@ -399,7 +399,7 @@ func (s *Server) handleRevokeKey(w http.ResponseWriter, r *http.Request) {
 	k, _ := s.store.GetAPIKey(r.Context(), id)
 	if err := s.store.RevokeAPIKey(r.Context(), id); err != nil {
 		if notFound(err) {
-			writeErr(w, http.StatusNotFound, "key 不存在或已吊销")
+			writeErrCode(w, http.StatusNotFound, codeKeyNotFoundOrRevoked, nil, "key 不存在或已吊销")
 			return
 		}
 		s.internalErr(w, r, err)

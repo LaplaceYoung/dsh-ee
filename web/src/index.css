@@ -40,7 +40,9 @@
 @layer base {
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    /* 末尾补 Devanagari（印地语）fallback：不引外部字体文件（离线部署），
+       系统没有 Noto Sans Devanagari / Nirmala UI 时浏览器仍会用自带字形兜底。 */
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", "Noto Sans Devanagari", "Nirmala UI", sans-serif;
   }
 }
 
@@ -311,7 +313,7 @@ svg .scene-fade { animation-name: scene-fade-in; }
 
 @theme inline {
   --font-heading: var(--font-sans);
-  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", "Noto Sans Devanagari", "Nirmala UI", sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);

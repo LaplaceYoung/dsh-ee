@@ -23,7 +23,7 @@ func cliExtKeygen(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension keygen <私钥文件> [--public 公钥文件] [--json]")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension keygen <私钥文件> [--public 公钥文件] [--json]", "Usage: dsh-ee extension keygen <private-key-file> [--public public-key-file] [--json]"))
 		return 2
 	}
 	privPath := rest[0]
@@ -39,31 +39,31 @@ func cliExtKeygen(args []string, stdout, stderr io.Writer) int {
 	}
 	for _, p := range []string{privPath, pubPath} {
 		if _, err := os.Stat(p); err == nil {
-			fmt.Fprintf(stderr, "%s 已经存在，不覆盖。换一个文件名，或者先把它挪走\n", p)
+			fmt.Fprintf(stderr, tr("%s 已经存在，不覆盖。换一个文件名，或者先把它挪走\n", "%s already exists; not overwriting. Use another file name, or move it away first\n"), p)
 			return 1
 		}
 	}
 	pub, priv, err := extension.GenerateKey()
 	if err != nil {
-		fmt.Fprintln(stderr, "生成密钥失败：", err)
+		fmt.Fprintln(stderr, tr("生成密钥失败：", "key generation failed: "), err)
 		return 1
 	}
 	privPEM, err := extension.MarshalPrivateKeyPEM(priv)
 	if err != nil {
-		fmt.Fprintln(stderr, "生成密钥失败：", err)
+		fmt.Fprintln(stderr, tr("生成密钥失败：", "key generation failed: "), err)
 		return 1
 	}
 	pubPEM, err := extension.MarshalPublicKeyPEM(pub)
 	if err != nil {
-		fmt.Fprintln(stderr, "生成密钥失败：", err)
+		fmt.Fprintln(stderr, tr("生成密钥失败：", "key generation failed: "), err)
 		return 1
 	}
 	if err := os.WriteFile(privPath, privPEM, 0o600); err != nil {
-		fmt.Fprintln(stderr, "写私钥：", err)
+		fmt.Fprintln(stderr, tr("写私钥：", "write private key: "), err)
 		return 1
 	}
 	if err := os.WriteFile(pubPath, pubPEM, 0o644); err != nil {
-		fmt.Fprintln(stderr, "写公钥：", err)
+		fmt.Fprintln(stderr, tr("写公钥：", "write public key: "), err)
 		return 1
 	}
 	id := extension.KeyID(pub)
@@ -71,12 +71,12 @@ func cliExtKeygen(args []string, stdout, stderr io.Writer) int {
 		printJSON(stdout, map[string]any{"private_key": privPath, "public_key": pubPath, "key_id": id, "alg": extension.SignatureAlg})
 		return 0
 	}
-	fmt.Fprintf(stdout, "私钥：%s（权限 0600；不要提交到仓库，也不要发给别人）\n", privPath)
-	fmt.Fprintf(stdout, "公钥：%s\n", pubPath)
-	fmt.Fprintf(stdout, "key id：%s\n\n", id)
-	fmt.Fprintln(stdout, "给扩展签名：")
-	fmt.Fprintf(stdout, "  dsh-ee extension sign <扩展目录> --key %s\n\n", privPath)
-	fmt.Fprintln(stdout, "把公钥交给管理员，加进 dsh-ee 的受信任公钥（安装时据此核对签名）：")
+	fmt.Fprintf(stdout, tr("私钥：%s（权限 0600；不要提交到仓库，也不要发给别人）\n", "private key: %s (mode 0600; do not commit it or share it with anyone)\n"), privPath)
+	fmt.Fprintf(stdout, tr("公钥：%s\n", "public key: %s\n"), pubPath)
+	fmt.Fprintf(stdout, tr("key id：%s\n\n", "key id: %s\n\n"), id)
+	fmt.Fprintln(stdout, tr("给扩展签名：", "Sign the extension:"))
+	fmt.Fprintf(stdout, tr("  dsh-ee extension sign <扩展目录> --key %s\n\n", "  dsh-ee extension sign <extension-dir> --key %s\n\n"), privPath)
+	fmt.Fprintln(stdout, tr("把公钥交给管理员，加进 dsh-ee 的受信任公钥（安装时据此核对签名）：", "Give the public key to an admin to add to the trusted keys in dsh-ee (signatures are checked against it at install time):"))
 	fmt.Fprintf(stdout, "  %s=%s\n", trustedKeysEnv, pubPath)
 	return 0
 }
@@ -87,37 +87,37 @@ func cliExtSign(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension sign <目录> --key <私钥文件> [-o 文件] [--json]")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension sign <目录> --key <私钥文件> [-o 文件] [--json]", "Usage: dsh-ee extension sign <dir> --key <private-key-file> [-o file] [--json]"))
 		return 2
 	}
 	dir := rest[0]
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-		fmt.Fprintf(stderr, "%s 不是一个目录\n", dir)
+		fmt.Fprintf(stderr, tr("%s 不是一个目录\n", "%s is not a directory\n"), dir)
 		return 2
 	}
 	res := extension.Check(os.DirFS(dir))
 	if !res.OK {
 		printCheck(stderr, res)
-		fmt.Fprintln(stderr, "检查没通过，不签名。")
+		fmt.Fprintln(stderr, tr("检查没通过，不签名。", "check failed; not signing."))
 		return 1
 	}
 	if res.Manifest == nil {
-		fmt.Fprintln(stderr, "读不到扩展的清单，不签名。")
+		fmt.Fprintln(stderr, tr("读不到扩展的清单，不签名。", "cannot read the extension manifest; not signing."))
 		return 1
 	}
 	priv, err := extension.LoadPrivateKey(vals["--key"])
 	if err != nil {
-		fmt.Fprintln(stderr, "读私钥：", err)
+		fmt.Fprintln(stderr, tr("读私钥：", "read private key: "), err)
 		return 1
 	}
 	manifest, err := os.ReadFile(filepath.Join(dir, extension.ManifestFile))
 	if err != nil {
-		fmt.Fprintln(stderr, "读清单：", err)
+		fmt.Fprintln(stderr, tr("读清单：", "read manifest: "), err)
 		return 1
 	}
 	sig, raw, err := extension.SignExtension(manifest, res.OpenAPIDoc, priv)
 	if err != nil {
-		fmt.Fprintln(stderr, "签名失败：", err)
+		fmt.Fprintln(stderr, tr("签名失败：", "signing failed: "), err)
 		return 1
 	}
 	out := vals["-o"]
@@ -128,7 +128,7 @@ func cliExtSign(args []string, stdout, stderr io.Writer) int {
 		out = filepath.Join(dir, extension.SignatureFile)
 	}
 	if err := os.WriteFile(out, raw, 0o644); err != nil {
-		fmt.Fprintln(stderr, "写签名：", err)
+		fmt.Fprintln(stderr, tr("写签名：", "write signature: "), err)
 		return 1
 	}
 	if on["--json"] {
@@ -138,12 +138,12 @@ func cliExtSign(args []string, stdout, stderr io.Writer) int {
 		})
 		return 0
 	}
-	fmt.Fprintf(stdout, "已签名：%s\n", sig.Identity)
-	fmt.Fprintf(stdout, "签名者：%s\n", sig.KeyID)
-	fmt.Fprintf(stdout, "清单和接口文档的摘要：%s\n", sig.Digest)
-	fmt.Fprintf(stdout, "签名写到：%s\n\n", out)
-	fmt.Fprintln(stdout, "接下来：dsh-ee extension pack <目录>，把带签名的包交给管理员；")
-	fmt.Fprintln(stdout, "管理员那边要有这把公钥（"+trustedKeysEnv+"）才算受信任。")
+	fmt.Fprintf(stdout, tr("已签名：%s\n", "signed: %s\n"), sig.Identity)
+	fmt.Fprintf(stdout, tr("签名者：%s\n", "signer: %s\n"), sig.KeyID)
+	fmt.Fprintf(stdout, tr("清单和接口文档的摘要：%s\n", "manifest and OpenAPI doc digest: %s\n"), sig.Digest)
+	fmt.Fprintf(stdout, tr("签名写到：%s\n\n", "signature written to: %s\n\n"), out)
+	fmt.Fprintln(stdout, tr("接下来：dsh-ee extension pack <目录>，把带签名的包交给管理员；", "Next: dsh-ee extension pack <dir>, then hand the signed package to an admin;"))
+	fmt.Fprintln(stdout, tr("管理员那边要有这把公钥（", "The admin side must have this public key (")+trustedKeysEnv+tr("）才算受信任。", ") for the signature to be trusted."))
 	return 0
 }
 
@@ -153,7 +153,7 @@ func cliExtVerify(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension verify <目录> [--key <公钥文件>] [--json]")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension verify <目录> [--key <公钥文件>] [--json]", "Usage: dsh-ee extension verify <dir> [--key <public-key-file>] [--json]"))
 		return 2
 	}
 	keyFile := vals["--key"]
@@ -161,19 +161,19 @@ func cliExtVerify(args []string, stdout, stderr io.Writer) int {
 		keyFile = os.Getenv(trustedKeysEnv)
 	}
 	if keyFile == "" {
-		fmt.Fprintln(stderr, "用法：dsh-ee extension verify <目录> [--key <公钥文件>] [--json]")
-		fmt.Fprintln(stderr, "要给一把受信任的公钥来核对签名：--key <公钥文件>，或设置 "+trustedKeysEnv+"=<公钥文件>。")
-		fmt.Fprintln(stderr, "公钥可以是 PEM 公钥、证书，或直接给签名用的私钥文件。")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension verify <目录> [--key <公钥文件>] [--json]", "Usage: dsh-ee extension verify <dir> [--key <public-key-file>] [--json]"))
+		fmt.Fprintln(stderr, tr("要给一把受信任的公钥来核对签名：--key <公钥文件>，或设置 ", "A trusted public key is required to verify the signature: --key <public-key-file>, or set ")+trustedKeysEnv+tr("=<公钥文件>。", "=<public-key-file>."))
+		fmt.Fprintln(stderr, tr("公钥可以是 PEM 公钥、证书，或直接给签名用的私钥文件。", "The key can be a PEM public key, a certificate, or the private key file used for signing."))
 		return 2
 	}
 	trusted, err := extension.LoadPublicKeys(keyFile)
 	if err != nil {
-		fmt.Fprintln(stderr, "读受信任的公钥：", err)
+		fmt.Fprintln(stderr, tr("读受信任的公钥：", "read trusted public key: "), err)
 		return 2
 	}
 	dir := rest[0]
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-		fmt.Fprintf(stderr, "%s 不是一个目录\n", dir)
+		fmt.Fprintf(stderr, tr("%s 不是一个目录\n", "%s is not a directory\n"), dir)
 		return 2
 	}
 	status := extension.VerifyDir(dir, trusted)
@@ -182,11 +182,11 @@ func cliExtVerify(args []string, stdout, stderr io.Writer) int {
 	} else {
 		switch status.Status {
 		case extension.SignatureValid:
-			fmt.Fprintln(stdout, "签名有效："+status.Message)
+			fmt.Fprintln(stdout, tr("签名有效：", "signature valid: ")+status.Message)
 		case extension.SignatureUnsigned:
-			fmt.Fprintln(stderr, "没有签名："+status.Message)
+			fmt.Fprintln(stderr, tr("没有签名：", "unsigned: ")+status.Message)
 		default:
-			fmt.Fprintln(stderr, "签名没通过："+status.Message)
+			fmt.Fprintln(stderr, tr("签名没通过：", "signature invalid: ")+status.Message)
 		}
 	}
 	if status.Status != extension.SignatureValid {

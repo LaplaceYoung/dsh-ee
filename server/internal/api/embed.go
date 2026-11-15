@@ -27,7 +27,8 @@ import (
 //  3. iframe 在自己同源的 fetch 里调 POST /api/auth/embed/exchange，换 ee_emb_ 内存 Bearer，
 //     响应不 Set-Cookie；
 //  4. 之后 iframe 的 /api/* 请求带 Authorization: Bearer ee_emb_…，服务端按 limited 会话处理
-//     （员工权限、无 keys.self、无管理权限），并且只能访问 embedRouteAllowed 里的白名单接口；
+//     （员工权限、无 keys.self、无管理权限），并且只能访问 embedRouteAllowed 里的白名单接口，
+//     且路径里的应用标识必须等于 mint 时绑定的应用（见 requireEmbedUser）；
 //  5. 过期/被吊销时 iframe 不跳登录页，而是通知宿主重新 mint。
 //
 // 有效配置 = 部署环境变量（只读基线）∪ 管理端 settings.embed（DB 覆盖/追加）：
@@ -466,6 +467,26 @@ func (s *Server) handleEmbedLogout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// embedAppScopeSlug 返回这次请求指向的应用标识：/api/apps/{slug}/… 与 /api/me/apps/{slug}/…。
+// 这两族路由的变量都叫 slug，优先用路由匹配填好的 PathValue——它与处理函数实际拿到的值完全一致，
+// 不受路径编码等解析差异影响；PathValue 为空（旧版 mux 兼容模式）时按路径形状兜底，宁可多拒绝。
+func embedAppScopeSlug(r *http.Request) string {
+	if slug := r.PathValue("slug"); slug != "" {
+		return slug
+	}
+	parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(parts) < 3 || parts[0] != "api" {
+		return ""
+	}
+	if parts[1] == "apps" {
+		return parts[2]
+	}
+	if parts[1] == "me" && len(parts) >= 4 && parts[2] == "apps" {
+		return parts[3]
+	}
+	return ""
+}
+
 // requireEmbedUser 是 requireUser 的无 cookie 分支：只认 ee_emb_ 内存 Bearer。
 func (s *Server) requireEmbedUser(w http.ResponseWriter, r *http.Request, next http.Handler, token string) {
 	rid := newEmbedRequestID()
@@ -494,6 +515,13 @@ func (s *Server) requireEmbedUser(w http.ResponseWriter, r *http.Request, next h
 		writeEmbedErr(w, rid, "session", http.StatusForbidden, "embed_scope", "嵌入会话不能访问这个接口")
 		return
 	}
+	// 白名单只固定接口形状，不校验路径里的 {slug}。mint 时已经按员工权限选定应用并把应用写进会话，
+	// 这里必须比较：否则为 A 换来的会话能读/写员工本来就有权限的 B，越出嵌入方的授权边界。
+	if requested := embedAppScopeSlug(r); requested != "" && requested != appSlug {
+		s.auditEmbedDenied(r, u, "app_scope", map[string]any{"app": requested, "session_app": appSlug})
+		writeEmbedErr(w, rid, "session", http.StatusForbidden, "embed_scope", "这个嵌入会话只能访问被嵌入的应用")
+		return
+	}
 	access, err := s.store.UserAccess(r.Context(), u.ID)
 	if err != nil {
 		s.internalErr(w, r, err)
@@ -505,6 +533,7 @@ func (s *Server) requireEmbedUser(w http.ResponseWriter, r *http.Request, next h
 
 // embedRouteAllowed 是嵌入会话能访问的全部接口。前端启动与微应用页面实际请求的只有这些；
 // 新增页面接口时要显式评估并加进来（有测试固定这张清单）。
+// 这里只校验接口形状：带应用标识的路径还要求标识等于会话绑定的应用，见 requireEmbedUser。
 func embedRouteAllowed(method, path string) bool {
 	switch {
 	case method == http.MethodGet && (path == "/api/auth/me" || path == "/api/auth/methods" || path == "/api/settings" || path == "/api/me/menus"):

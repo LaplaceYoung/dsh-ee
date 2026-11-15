@@ -191,6 +191,10 @@ type Usage struct {
 	TotalTokens      int
 	StatusCode       int
 	LatencyMS        int
+	// 细项：上游给了才非 0。推理 token 是 completion 的一部分，缓存命中是 prompt 的一部分，
+	// 都只用于报表拆分，不改变 total_tokens / 额度口径。
+	ReasoningTokens int
+	CachedTokens    int
 }
 
 func (s *Store) RecordUsage(ctx context.Context, u Usage) error {
@@ -199,9 +203,10 @@ func (s *Store) RecordUsage(ctx context.Context, u Usage) error {
 		tokenID = u.TokenID
 	}
 	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO usage_logs (api_key_id, user_id, provider_id, model, prompt_tokens, completion_tokens, total_tokens, status_code, latency_ms, created_at, token_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		u.APIKeyID, u.UserID, u.ProviderID, u.Model, u.PromptTokens, u.CompletionTokens, u.TotalTokens, u.StatusCode, u.LatencyMS, now(), tokenID)
+		`INSERT INTO usage_logs (api_key_id, user_id, provider_id, model, prompt_tokens, completion_tokens, total_tokens, status_code, latency_ms, created_at, token_id, reasoning_tokens, cached_tokens)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		u.APIKeyID, u.UserID, u.ProviderID, u.Model, u.PromptTokens, u.CompletionTokens, u.TotalTokens, u.StatusCode, u.LatencyMS, now(), tokenID,
+		u.ReasoningTokens, u.CachedTokens)
 	return err
 }
 

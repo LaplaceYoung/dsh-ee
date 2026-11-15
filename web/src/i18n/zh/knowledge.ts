@@ -179,6 +179,12 @@ export default {
     dropHere: "松开就上传到「{{folder}}」",
     skippedBadge: "{{count}} 页未收录",
     editedBadge: "手工改过",
+    noResult: "没有结果",
+  },
+  /** 知识库原文阅读器：Excel 工作表切换、继续加载。 */
+  kbReader: {
+    sheets: "工作表",
+    more: "还有 {{n}} 段，继续显示…",
   },
   kdocs: {
     folders: "目录",
