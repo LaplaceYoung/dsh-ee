@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useTranslation } from "react-i18next";
 import { ArrowLeft, Download, MoreHorizontal, RefreshCw, Terminal } from "lucide-react";
-import { api, formatTime, type ConnectionTool, type HubAsset } from "../lib/api";
+import { api, formatTime, isExpert, type ConnectionTool, type HubAsset } from "../lib/api";
 import { useAction, useApi } from "../lib/use-api";
 import { useStore } from "../lib/store";
 import { useAuth } from "../lib/auth";
@@ -221,7 +221,10 @@ function AssetDetail() {
           <h1 className="text-2xl text-neutral-900 leading-8 font-bold tracking-[-0.02em]">{a.spec.title}</h1>
           <div className="font-mono text-sm text-neutral-500">{a.kind === "connection" ? a.slug : `/${a.slug}`}</div>
           <div className="mt-2 flex flex-wrap gap-1.5">
-            <Badge>{t(`assetKinds.${a.kind}`)}</Badge>
+            <Badge tone={isExpert(a) ? "brand" : "slate"}>{isExpert(a) ? t("expertCenter.formExpert") : t(`assetKinds.${a.kind}`)}</Badge>
+            {a.featured && <Badge tone="amber">{t("expertCenter.featured")}</Badge>}
+            {a.category && <Badge>{a.category}</Badge>}
+            {(a.spec.members?.length ?? 0) > 0 && <Badge tone="brand">{t("expertCenter.team", { count: a.spec.members!.length + 1 })}</Badge>}
             {a.live_version > 0 && <Badge>{t("asset.version", { n: a.live_version })}</Badge>}
             {a.enabled && <Badge tone="green">{t("hub.enabledBadge")}</Badge>}
             {a.delivery === "auto" && <Badge tone="brand">{t("hub.autoBadge")}</Badge>}
@@ -352,11 +355,26 @@ function AssetDetail() {
                 </Card>
               )}
               <Card className="p-5">
-                <h2 className="mb-3 text-neutral-900 text-[15px] leading-6 font-semibold">{t("asset.persona")}</h2>
+                <h2 className="mb-3 text-neutral-900 text-[15px] leading-6 font-semibold">{isExpert(a) ? t("expertCenter.editor.role") : t("asset.persona")}</h2>
+                {isExpert(a) && (a.spec.expertise?.length ?? 0) > 0 && (
+                  <div className="mb-3 flex flex-wrap gap-1">
+                    {a.spec.expertise!.map((x) => (
+                      <span key={x} className="rounded-[5px] bg-brand-50 px-1.5 py-0.5 text-xs text-brand-700 dark:bg-brand-400/15 dark:text-brand-200">
+                        {x}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <Body text={a.spec.persona} />
+                {isExpert(a) && a.spec.method && (
+                  <>
+                    <h3 className="mt-5 mb-2 text-sm font-semibold text-neutral-900">{t("expertCenter.editor.method")}</h3>
+                    <Body text={a.spec.method} />
+                  </>
+                )}
                 {(a.spec.starters?.length ?? 0) > 0 && (
                   <>
-                    <h3 className="mt-5 mb-2 text-sm font-semibold text-neutral-900">{t("asset.starters")}</h3>
+                    <h3 className="mt-5 mb-2 text-sm font-semibold text-neutral-900">{isExpert(a) ? t("expertCenter.examples") : t("asset.starters")}</h3>
                     <ul className="list-disc space-y-1 pl-5 text-sm text-neutral-700">
                       {a.spec.starters!.map((s) => (
                         <li key={s}>{s}</li>

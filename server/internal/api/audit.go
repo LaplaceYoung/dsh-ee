@@ -101,6 +101,11 @@ const (
 	// API 客户端注册：client.create 创建 / client.revoke 禁用（docs/token-lifecycle.md）
 	auditAPIClientCreate = "client.create"
 	auditAPIClientRevoke = "client.revoke"
+	// DeepSeek 文件/工具代理（deepseek_tools.go）：文件属于上游共享账号，上传/删除/列出
+	// 记录操作人与 file_id（只记 id，不记文件名/内容），便于事后追溯。
+	auditFilesUpload = "files.upload"
+	auditFilesDelete = "files.delete"
+	auditFilesList   = "files.list"
 )
 
 // audit 以当前登录用户的身份记一条操作。写失败只记日志，不影响请求本身。
@@ -133,6 +138,28 @@ func (s *Server) auditAs(r *http.Request, u *store.User, action, target string, 
 	if u != nil {
 		id := u.ID
 		a.ActorID, a.ActorName = &id, u.Username
+	}
+	// 请求可能已经结束（客户端断开），记录不随之取消
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)
+	defer cancel()
+	if err := s.store.InsertAudit(ctx, a); err != nil {
+		s.log.Warn("写审计日志失败", "action", action, "err", err)
+	}
+}
+
+// auditToken 记录经协议面令牌发起的操作（/v1 没有会话中间件，principal 已由 handler 解析）：
+// 直接写操作人与令牌信息，不再按 Authorization 二次解析。写失败只记日志，不影响请求。
+func (s *Server) auditToken(r *http.Request, p *Principal, action, target string, detail map[string]any) {
+	a := &store.AuditLog{Action: action, Target: target, Detail: detail, IP: s.clientIP(r), Via: "token"}
+	if p != nil {
+		if p.User != nil {
+			id := p.User.ID
+			a.ActorID, a.ActorName = &id, p.User.Username
+		}
+		if p.TokenID > 0 {
+			a.TokenID = &p.TokenID
+		}
+		a.Client = p.Client
 	}
 	// 请求可能已经结束（客户端断开），记录不随之取消
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 5*time.Second)

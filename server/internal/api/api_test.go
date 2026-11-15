@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 
@@ -25,13 +27,84 @@ import (
 //
 //	DSH_EE_TEST_DSN='root:@tcp(127.0.0.1:4000)/' go test ./...
 //
-// 每次测试建一个随机库，结束后删除。
+// 每次测试用一个随机库，结束后删除。
+//
+// 全量迁移是这个包测试耗时的大头（每个测试一次，几十个 DDL），而 TiDB 能并发跑
+// 不同库的 DDL。所以池子空了时一次并发建好并迁移 testDBBatch 个库，之后的测试
+// 直接拿现成的。每个测试仍然独占一个刚迁移完、没人用过的新库，语义不变。
+//
+// 只在测试自己调用 openTestStore 时（也就是测试主体还没开始跑时）才迁移，不在后台
+// 迁移：后台 DDL 会拖慢同时在跑的测试，而不少测试对时间窗口敏感（例如几百毫秒的
+// 密钥轮换延迟）。
 func openTestStore(t *testing.T) *store.Store {
 	t.Helper()
 	base := os.Getenv("DSH_EE_TEST_DSN")
 	if base == "" {
 		t.Skip("未设置 DSH_EE_TEST_DSN，跳过数据库集成测试")
 	}
+	p := testDBs.take(base)
+	if p.err != nil {
+		t.Fatalf("准备测试库: %v", p.err)
+	}
+	st := p.st
+	t.Cleanup(func() { dropTestDB(st, p.name) })
+	// 迁移可重复执行
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatalf("second migrate: %v", err)
+	}
+	return st
+}
+
+// 一次并发准备几个库。再多 TiDB 的 DDL 也快不了多少，还会在包结束时多剩几个没用上的库。
+const testDBBatch = 4
+
+type preparedDB struct {
+	st   *store.Store
+	name string
+	err  error
+}
+
+var testDBs testDBPool
+
+type testDBPool struct {
+	mu    sync.Mutex
+	ready []preparedDB
+}
+
+func (p *testDBPool) take(base string) preparedDB {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.ready) == 0 {
+		batch := make([]preparedDB, testDBBatch)
+		var wg sync.WaitGroup
+		for i := range batch {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				batch[i] = prepareTestDB(base)
+			}()
+		}
+		wg.Wait()
+		p.ready = batch
+	}
+	db := p.ready[0]
+	p.ready = p.ready[1:]
+	return db
+}
+
+// drain 删掉已经建好但没被用上的库。
+func (p *testDBPool) drain() {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	for _, db := range p.ready {
+		if db.err == nil {
+			dropTestDB(db.st, db.name)
+		}
+	}
+	p.ready = nil
+}
+
+func prepareTestDB(base string) preparedDB {
 	suffix := make([]byte, 4)
 	_, _ = rand.Read(suffix)
 	dbName := "dsh_ee_test_" + hex.EncodeToString(suffix)
@@ -39,20 +112,24 @@ func openTestStore(t *testing.T) *store.Store {
 	ctx := context.Background()
 	st, err := store.Open(ctx, dsn)
 	if err != nil {
-		t.Fatalf("open: %v", err)
+		return preparedDB{err: fmt.Errorf("open: %w", err)}
 	}
-	t.Cleanup(func() {
-		_, _ = st.DB().ExecContext(context.Background(), "DROP DATABASE `"+dbName+"`")
-		st.Close()
-	})
 	if err := st.Migrate(ctx); err != nil {
-		t.Fatalf("migrate: %v", err)
+		dropTestDB(st, dbName)
+		return preparedDB{err: fmt.Errorf("migrate: %w", err)}
 	}
-	// 迁移可重复执行
-	if err := st.Migrate(ctx); err != nil {
-		t.Fatalf("second migrate: %v", err)
-	}
-	return st
+	return preparedDB{st: st, name: dbName}
+}
+
+func dropTestDB(st *store.Store, name string) {
+	_, _ = st.DB().ExecContext(context.Background(), "DROP DATABASE `"+name+"`")
+	st.Close()
+}
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	testDBs.drain()
+	os.Exit(code)
 }
 
 const upstreamSecret = "sk-upstream-secret-1234"

@@ -48,6 +48,9 @@ type ReportDept struct {
 	ActiveUsers int    `json:"active_users"`
 	AppRuns     int    `json:"app_runs"`
 	Tokens      int64  `json:"tokens"`
+	// 用量细项，Tokens 的子集：推理 token 含在 completion 里、缓存命中含在 prompt 里
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+	CachedTokens    int64 `json:"cached_tokens"`
 }
 
 type ReportDay struct {
@@ -60,20 +63,23 @@ type MonthlyReport struct {
 	Users       int `json:"users"`
 	ActiveUsers int `json:"active_users"`
 	// 应用（微应用）被打开的次数与人数；技能、提示词另计
-	AppRuns      int              `json:"app_runs"`
-	AppUsers     int              `json:"app_users"`
-	SkillRuns    int              `json:"skill_runs"`
-	ToolCalls    int              `json:"tool_calls"`
-	ToolErrors   int              `json:"tool_errors"`
-	KBSearches   int              `json:"kb_searches"`
-	KBHits       int              `json:"kb_hits"`
-	ModelCalls   int              `json:"model_calls"`
-	Tokens       int64            `json:"tokens"`
-	Apps         []ReportUsage    `json:"apps"`
-	Capabilities []ReportUsage    `json:"capabilities"`
-	Questions    []ReportQuestion `json:"questions"`
-	Departments  []ReportDept     `json:"departments"`
-	Days         []ReportDay      `json:"days"`
+	AppRuns    int   `json:"app_runs"`
+	AppUsers   int   `json:"app_users"`
+	SkillRuns  int   `json:"skill_runs"`
+	ToolCalls  int   `json:"tool_calls"`
+	ToolErrors int   `json:"tool_errors"`
+	KBSearches int   `json:"kb_searches"`
+	KBHits     int   `json:"kb_hits"`
+	ModelCalls int   `json:"model_calls"`
+	Tokens     int64 `json:"tokens"`
+	// 用量细项，Tokens 的子集；上游没给细项或旧数据时为 0
+	ReasoningTokens int64            `json:"reasoning_tokens"`
+	CachedTokens    int64            `json:"cached_tokens"`
+	Apps            []ReportUsage    `json:"apps"`
+	Capabilities    []ReportUsage    `json:"capabilities"`
+	Questions       []ReportQuestion `json:"questions"`
+	Departments     []ReportDept     `json:"departments"`
+	Days            []ReportDay      `json:"days"`
 }
 
 // Report 汇总 [from, to) 的数据；按 offsetMin 时区分天。
@@ -104,8 +110,9 @@ func (s *Store) Report(ctx context.Context, from, to time.Time, offsetMin int) (
 		[]any{from, to}, &rep.KBSearches, &rep.KBHits); err != nil {
 		return nil, err
 	}
-	if err := scalar(`SELECT COUNT(*), COALESCE(SUM(total_tokens), 0) FROM usage_logs WHERE created_at >= ? AND created_at < ?`,
-		[]any{from, to}, &rep.ModelCalls, &rep.Tokens); err != nil {
+	if err := scalar(`SELECT COUNT(*), COALESCE(SUM(total_tokens), 0), COALESCE(SUM(reasoning_tokens), 0), COALESCE(SUM(cached_tokens), 0)
+		FROM usage_logs WHERE created_at >= ? AND created_at < ?`,
+		[]any{from, to}, &rep.ModelCalls, &rep.Tokens, &rep.ReasoningTokens, &rep.CachedTokens); err != nil {
 		return nil, err
 	}
 
@@ -199,6 +206,28 @@ func (s *Store) Report(ctx context.Context, from, to time.Time, offsetMin int) (
 			return nil, err
 		}
 	}
+	// 部门用量细项单独查一次，不必为两个可选列改写上面的通用扫描循环。
+	rows, err = s.db.QueryContext(ctx, `SELECT u.department, COALESCE(SUM(l.reasoning_tokens), 0), COALESCE(SUM(l.cached_tokens), 0)
+		FROM usage_logs l JOIN users u ON u.id = l.user_id
+		WHERE l.created_at >= ? AND l.created_at < ? GROUP BY u.department`, from, to)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var d string
+		var reasoning, cached int64
+		if err := rows.Scan(&d, &reasoning, &cached); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		x := dept(d)
+		x.ReasoningTokens, x.CachedTokens = reasoning, cached
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	for _, d := range order {
 		rep.Departments = append(rep.Departments, *byDept[d])
 	}
