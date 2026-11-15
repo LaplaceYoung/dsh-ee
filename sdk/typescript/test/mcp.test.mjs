@@ -154,7 +154,7 @@ test('MCP tools/list：重复 cursor 会停止翻页并抛错', async () => {
   const client = new DshHarnessClient({ baseUrl: BASE, fetch });
   await assert.rejects(client.listAllTools(), (error) => {
     assert.ok(error instanceof DshError);
-    assert.match(error.message, /重复/);
+    assert.match(error.message, /duplicate nextCursor/);
     return true;
   });
 });

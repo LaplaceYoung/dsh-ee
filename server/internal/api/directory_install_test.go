@@ -810,7 +810,7 @@ func TestDirectoryPluginInstall(t *testing.T) {
 	code, mismatch, raw := installDirEntry(t, users.plugins, rows["dsh-plugin-dir@2.2.0"].ID, false, nil)
 	expect(t, "摘要不一致的插件照样起任务", code, 202, raw)
 	failed := waitStoreJob(t, st, dirInstallResultJob(t, mismatch))
-	if failed.Status != "failed" || !strings.Contains(failed.Log, "摘要") {
+	if failed.Status != "failed" || !strings.Contains(failed.Log, "digest") {
 		t.Fatalf("摘要不一致应让同步失败：%+v", failed)
 	}
 	if _, err := st.GetVersion(ctx, "dsh-plugin-dir", "2.2.0"); err == nil {
@@ -821,7 +821,7 @@ func TestDirectoryPluginInstall(t *testing.T) {
 	code, missing, raw := installDirEntry(t, users.plugins, rows["dsh-plugin-dir@9.9.9"].ID, false, nil)
 	expect(t, "上游没有的版本", code, 202, raw)
 	missJob := waitStoreJob(t, st, dirInstallResultJob(t, missing))
-	if missJob.Status != "failed" || !strings.Contains(missJob.Log, "上游没有版本") {
+	if missJob.Status != "failed" || !strings.Contains(missJob.Log, "Upstream has no version") {
 		t.Fatalf("上游没有的版本应同步失败：%+v", missJob)
 	}
 

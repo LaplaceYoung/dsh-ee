@@ -226,12 +226,12 @@ class DeviceFlowError(DshClientError):
 
 def _device_error_message(flow_code: str) -> str:
     return {
-        "authorization_pending": "等待用户在网页上确认设备码",
-        "slow_down": "轮询过快，需要降低频率",
-        "access_denied": "用户拒绝了这次设备码授权",
-        "expired_token": "设备码已过期或已被使用",
-        "rate_limited": "设备码轮询被限流",
-    }.get(flow_code, "设备码流程失败")
+        "authorization_pending": "Waiting for the user to confirm the device code in the browser",
+        "slow_down": "Polling too fast; slow down",
+        "access_denied": "The user denied this device code authorization",
+        "expired_token": "The device code has expired or already been used",
+        "rate_limited": "Device code polling is rate limited",
+    }.get(flow_code, "Device code flow failed")
 
 
 def _error_from_response(response: Response) -> DshClientError:
@@ -249,7 +249,7 @@ def _error_from_response(response: Response) -> DshClientError:
         error = payload.get("error")
         if payload.get("jsonrpc") == "2.0" and isinstance(error, dict) and isinstance(error.get("code"), int):
             return DshJsonRpcError(
-                str(error.get("message") or f"JSON-RPC 错误 {error.get('code')}"),
+                str(error.get("message") or f"JSON-RPC error {error.get('code')}"),
                 error["code"],
                 rpc_data=error.get("data"),
                 **common,
@@ -289,14 +289,14 @@ def urllib_transport(
     except urllib.error.HTTPError as error:  # 4xx/5xx 仍然读 body
         return error.code, dict(error.headers or {}), error.read()
     except socket.timeout as error:
-        raise DshNetworkError(f"请求超时（{timeout}s）：{url}", "timeout") from error
+        raise DshNetworkError(f"Request timed out ({timeout}s): {url}", "timeout") from error
     except urllib.error.URLError as error:
         reason = getattr(error, "reason", error)
         if isinstance(reason, socket.timeout):
-            raise DshNetworkError(f"请求超时（{timeout}s）：{url}", "timeout") from error
-        raise DshNetworkError(f"网络请求失败：{url}（{reason}）", "network") from error
+            raise DshNetworkError(f"Request timed out ({timeout}s): {url}", "timeout") from error
+        raise DshNetworkError(f"Network request failed: {url} ({reason})", "network") from error
     except OSError as error:
-        raise DshNetworkError(f"网络请求失败：{url}（{error}）", "network") from error
+        raise DshNetworkError(f"Network request failed: {url} ({error})", "network") from error
 
 
 def _is_record(value: Any) -> bool:
@@ -419,10 +419,10 @@ class McpSession:
             params["cursor"] = cursor
         result = self._request("tools/list", params)
         if not _is_record(result) or not isinstance(result.get("tools"), list):
-            raise DshClientError("MCP tools/list 响应缺少 tools 数组")
+            raise DshClientError("MCP tools/list response is missing the tools array")
         next_cursor = result.get("nextCursor")
         if next_cursor is not None and not isinstance(next_cursor, str):
-            raise DshClientError("MCP tools/list 的 nextCursor 不是字符串")
+            raise DshClientError("MCP tools/list nextCursor is not a string")
         return {"tools": result["tools"], "nextCursor": next_cursor}
 
     def list_all_tools(
@@ -443,7 +443,7 @@ class McpSession:
             if next_cursor is None:
                 return tools
             if next_cursor in seen:
-                raise DshClientError("MCP tools/list 返回了重复的 nextCursor，已停止翻页")
+                raise DshClientError("MCP tools/list returned a duplicate nextCursor; stopped paginating")
             seen.add(next_cursor)
             cursor = next_cursor
 
@@ -451,7 +451,7 @@ class McpSession:
         """调用工具；结果里的 isError 不抛错，写确认用 extract_confirmation() 取。"""
         result = self._request("tools/call", {"name": name, "arguments": arguments or {}})
         if not _is_record(result) or not isinstance(result.get("content"), list):
-            raise DshClientError(f"MCP tools/call（{name}）响应缺少 content 数组")
+            raise DshClientError(f"MCP tools/call ({name}) response is missing the content array")
         return result
 
     def close(self) -> None:
@@ -479,7 +479,7 @@ class McpSession:
 
     def _request_with_response(self, method: str, params: Any) -> Tuple[Any, Response]:
         if self._closed:
-            raise DshClientError("MCP 会话已关闭，请重新 connect_mcp()")
+            raise DshClientError("MCP session is closed; call connect_mcp() again")
         request_id = self._next_id
         self._next_id += 1
         body: Dict[str, Any] = {"jsonrpc": "2.0", "id": request_id, "method": method}
@@ -493,14 +493,14 @@ class McpSession:
         )
         message = _rpc_message(response)
         if message is None:
-            raise DshClientError(f"MCP {method} 没有返回匹配 id={request_id} 的 JSON-RPC 响应")
+            raise DshClientError(f"MCP {method} did not return a JSON-RPC response matching id={request_id}")
         if "result" not in message:
-            raise DshClientError(f"MCP {method} 响应既没有 result 也没有 error")
+            raise DshClientError(f"MCP {method} response has neither result nor error")
         return message["result"], response
 
     def _notify(self, method: str, params: Any = None) -> None:
         if self._closed:
-            raise DshClientError("MCP 会话已关闭，请重新 connect_mcp()")
+            raise DshClientError("MCP session is closed; call connect_mcp() again")
         body: Dict[str, Any] = {"jsonrpc": "2.0", "method": method}
         if params is not None:
             body["params"] = params
@@ -533,7 +533,7 @@ def _rpc_message(response: Response) -> Optional[Dict[str, Any]]:
         error = message.get("error")
         if _is_record(error) and isinstance(error.get("code"), int):
             raise DshJsonRpcError(
-                str(error.get("message") or "JSON-RPC 错误"),
+                str(error.get("message") or "JSON-RPC error"),
                 error["code"],
                 rpc_data=error.get("data"),
                 status=response.status,
@@ -599,10 +599,10 @@ class DshClient:
         timeout: Optional[float] = DEFAULT_TIMEOUT,
     ) -> None:
         if not isinstance(base_url, str) or not base_url.strip():
-            raise ValueError("DshClient 需要 base_url")
+            raise ValueError("DshClient requires base_url")
         self.base_url = base_url.strip().rstrip("/")
         if not self.base_url:
-            raise ValueError("DshClient 的 base_url 不能只有斜杠")
+            raise ValueError("DshClient base_url cannot consist only of slashes")
         self._token = token
         self._transport: Transport = transport or urllib_transport
         self._default_headers = dict(headers or {})
@@ -634,11 +634,11 @@ class DshClient:
         response = self._send("GET", "/.well-known/dsh-ee", auth=False, headers=headers)
         if response.status == 304:
             if self._discovery_cache is None:
-                raise DshClientError("发现文档返回 304，但本地没有缓存", status=304)
+                raise DshClientError("Discovery document returned 304 but there is no local cache", status=304)
             return self._discovery_cache
         payload = self._request_json(response)
         if not _is_record(payload):
-            raise DshClientError("发现文档不是 JSON 对象")
+            raise DshClientError("Discovery document is not a JSON object")
         self._discovery_cache = payload
         self._discovery_etag = response.headers.get("etag")
         return payload
@@ -651,7 +651,7 @@ class DshClient:
         """GET /v1/models：当前令牌可用的对外模型名。"""
         payload = self._request_json(self._send("GET", "/v1/models"))
         if not _is_record(payload) or not isinstance(payload.get("data"), list):
-            raise DshClientError("GET /v1/models 响应缺少 data 数组")
+            raise DshClientError("GET /v1/models response is missing the data array")
         return list(payload["data"])
 
     def chat_completion(
@@ -697,7 +697,7 @@ class DshClient:
         body.update(params)
         payload = self._request_json(self._send("POST", "/v1/chat/completions", body=body))
         if not _is_record(payload) or not isinstance(payload.get("choices"), list):
-            raise DshClientError("POST /v1/chat/completions 响应缺少 choices 数组")
+            raise DshClientError("POST /v1/chat/completions response is missing the choices array")
         return payload
 
     # ---- 设备码 ----
@@ -725,7 +725,7 @@ class DshClient:
             body["setup_code"] = setup_code
         payload = self._request_json(self._send("POST", "/api/device/code", body=body, auth=False))
         if not _is_record(payload) or not isinstance(payload.get("device_code"), str):
-            raise DshClientError("设备码响应缺少 device_code")
+            raise DshClientError("Device code response is missing device_code")
         return payload
 
     def poll_device_token(self, device_code: str) -> Dict[str, Any]:
@@ -734,7 +734,7 @@ class DshClient:
         if response.ok:
             payload = response.json
             if not _is_record(payload) or not isinstance(payload.get("access_token"), str):
-                raise DshClientError("设备码令牌响应缺少 access_token")
+                raise DshClientError("Device token response is missing access_token")
             return payload
         payload = response.json
         code = None
@@ -911,9 +911,9 @@ class DshClient:
             raise _error_from_response(response)
         if not response.body:
             raise DshClientError(
-                f"HTTP {response.status} 响应为空（content-type: {response.headers.get('content-type', '未知')}）"
+                f"HTTP {response.status} response is empty (content-type: {response.headers.get('content-type', 'unknown')})"
             )
         payload = response.json
         if payload is None:
-            raise DshClientError(f"HTTP {response.status} 响应不是 JSON：{response.text[:200]}")
+            raise DshClientError(f"HTTP {response.status} response is not JSON: {response.text[:200]}")
         return payload

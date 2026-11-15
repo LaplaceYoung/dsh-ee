@@ -3,8 +3,8 @@
   "info": {
     "title": "dsh-ee Harness API",
     "version": "1.0.0",
-    "summary": "第三方 Harness 接入 dsh-ee 的中立 v1 契约（只读部分）",
-    "description": "dsh-ee 面向第三方 Harness 的中立契约 v1 静态描述。运行时的实际入口、scope、模型与应用以 GET /.well-known/dsh-ee 与 /v1/capabilities 为准；本文件描述这些只读端点的形状、统一错误壳与响应头。MCP（JSON-RPC）与 npm registry 协议不在本文件内；DeepSeek 的 FIM / Chat Prefix beta 透传（/beta/*，只转发给启用中的 vendor=deepseek 上游）也在本文件内。所有 /.well-known/dsh-ee、/v1/* 与 /responses（Responses API 别名）响应都带 Dsh-EE-API-Version: 1。 模型网关的扩展工具面还包括 DeepSeek Files / ASR / TTS / Search / Fetch / OCR 代理（见 tools tag）与 Anthropic 兼容 Files API（见 anthropic tag）：请求与响应按上游原样转发，文件/音频/识别文本不在 dsh-ee 落盘或缓存，这些调用也不写 token 用量统计。 文件/工具接口默认只允许管理员与机器人/服务账号调用（`DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` 才放开普通员工，文件属于上游共享账号）；普通员工在 Chat Completions 里引用 `file_id` 返回 403 `file_access_denied`，文件上传/删除/列出写 `files.*` 审计（只记 `file_id`，不记文件名/内容）。",
+    "summary": "Neutral v1 contract for third-party Harness integration with dsh-ee (read-only subset)",
+    "description": "Static description of the neutral v1 contract that dsh-ee offers to third-party Harnesses. The actual runtime entry points, scopes, models, and apps are described by GET /.well-known/dsh-ee and /v1/capabilities; this file describes the shape, the unified error envelope, and the response headers of these read-only endpoints. The MCP (JSON-RPC) and npm registry protocols are out of scope for this file; the DeepSeek FIM / Chat Prefix beta passthrough (/beta/*, forwarded only to an enabled vendor=deepseek upstream) is included. All /.well-known/dsh-ee, /v1/* and /responses (Responses API alias) responses carry Dsh-EE-API-Version: 1. The model gateway's extended tool surface also includes the DeepSeek Files / ASR / TTS / Search / Fetch / OCR proxies (see the tools tag) and the Anthropic-compatible Files API (see the anthropic tag): requests and responses are forwarded as-is, files/audio/recognized text are never stored or cached by dsh-ee, and these calls are not counted in token usage. The file/tool endpoints are limited to admins and bot/service accounts by default (`DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` opens them to regular employees; files belong to a shared upstream account); a regular employee referencing a `file_id` in Chat Completions gets 403 `file_access_denied`, and file upload/delete/list writes `files.*` audit entries (only the `file_id`, never file names or content).",
     "license": {
       "name": "Apache-2.0",
       "identifier": "Apache-2.0"
@@ -13,7 +13,7 @@
   "servers": [
     {
       "url": "/",
-      "description": "当前 dsh-ee 实例（相对地址，按实际访问地址解析）"
+      "description": "Current dsh-ee instance (relative address, resolved against the actual request address)"
     }
   ],
   "security": [
@@ -24,11 +24,15 @@
   "tags": [
     {
       "name": "discovery",
-      "description": "公开发现、能力摘要与机器可读契约"
+      "description": "Public discovery, capability summary, and machine-readable contract"
+    },
+    {
+      "name": "models",
+      "description": "Model gateway: compatible with OpenAI chat completions and Anthropic Messages"
     },
     {
       "name": "apps",
-      "description": "只读中立微应用"
+      "description": "Read-only neutral micro apps"
     },
     {
       "name": "beta",
@@ -51,15 +55,15 @@
     "/.well-known/dsh-ee": {
       "get": {
         "operationId": "getDiscovery",
-        "summary": "公开发现文档（匿名）",
+        "summary": "Public discovery document (anonymous)",
         "tags": [
           "discovery"
         ],
-        "description": "返回本实例的入口、鉴权方式、能力与限制。带 ETag 与 Cache-Control: private, max-age=300，支持 If-None-Match 304。文档内的端点地址按请求 Host / X-Forwarded-*（或配置的 PublicURL）生成。",
+        "description": "Returns this instance's entry points, authentication methods, capabilities, and limits. Carries ETag and Cache-Control: private, max-age=300, and supports If-None-Match 304. Endpoint URLs in the document are generated from the request Host / X-Forwarded-* (or the configured PublicURL).",
         "security": [],
         "responses": {
           "200": {
-            "description": "发现文档",
+            "description": "Discovery document",
             "headers": {
               "ETag": {
                 "$ref": "#/components/headers/ETag"
@@ -83,7 +87,7 @@
             }
           },
           "304": {
-            "description": "If-None-Match 命中，文档未变化"
+            "description": "If-None-Match matched; the document has not changed"
           },
           "400": {
             "$ref": "#/components/responses/NeutralError"
@@ -97,11 +101,11 @@
     "/v1/capabilities": {
       "get": {
         "operationId": "getCapabilities",
-        "summary": "当前令牌的能力摘要（Bearer 可选）",
+        "summary": "Capability summary of the current token (Bearer optional)",
         "tags": [
           "discovery"
         ],
-        "description": "不带 Authorization 时返回公开子集（authenticated=false，用户数据为空数组）；带令牌时按令牌 scope 与账号权限返回模型、工具计数、微应用、技能摘要与目录 revision。带错令牌返回 401，不会静默降级为匿名。响应 Cache-Control: no-store。",
+        "description": "Without Authorization, returns the public subset (authenticated=false, user data as empty arrays). With a token, returns the models, tool counts, micro apps, skill summaries, and catalog revision permitted by the token scopes and the account permissions. An invalid token returns 401 instead of silently degrading to anonymous. Response Cache-Control: no-store.",
         "security": [
           {},
           {
@@ -110,7 +114,7 @@
         ],
         "responses": {
           "200": {
-            "description": "能力摘要",
+            "description": "Capability summary",
             "headers": {
               "Dsh-EE-API-Version": {
                 "$ref": "#/components/headers/DshEEAPIVersion"
@@ -145,14 +149,14 @@
     "/v1/models": {
       "get": {
         "operationId": "listModels",
-        "summary": "对外模型列表（OpenAI 形状）",
+        "summary": "Public model list (OpenAI shape)",
         "tags": [
           "models"
         ],
-        "description": "只返回额度与令牌允许的对外模型名；上游厂商模型名不暴露。需要 models scope + 账号 llm.use 权限。",
+        "description": "Returns only the public model names allowed by the quota and the token; upstream vendor model names are not exposed. Requires the models scope plus the account llm.use permission.",
         "responses": {
           "200": {
-            "description": "模型列表",
+            "description": "Model list",
             "headers": {
               "Dsh-EE-API-Version": {
                 "$ref": "#/components/headers/DshEEAPIVersion"
@@ -191,7 +195,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           },
           "403": {
             "type": "object",
@@ -218,7 +222,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           },
           "429": {
             "type": "object",
@@ -245,7 +249,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           }
         }
       }
@@ -253,11 +257,11 @@
     "/v1/chat/completions": {
       "post": {
         "operationId": "createChatCompletion",
-        "summary": "对话补全（OpenAI chat completions 子集）",
+        "summary": "Chat completions (subset of OpenAI chat completions)",
         "tags": [
           "models"
         ],
-        "description": "请求体原样转发上游（model 换成上游模型名，流式时补 stream_options.include_usage）；额度、审计、上游故障转移由 dsh-ee 处理。不提供 /v1/embeddings、/v1/completions；OpenAI Responses API 兼容入口见 POST /v1/responses。",
+        "description": "The request body is forwarded upstream as-is (model is mapped to the upstream model name; for streaming, stream_options.include_usage is added). Quota, auditing, and upstream failover are handled by dsh-ee. /v1/embeddings and /v1/completions are not provided; the OpenAI Responses API compatibility entry point is POST /v1/responses.",
         "requestBody": {
           "required": true,
           "content": {
@@ -270,7 +274,7 @@
         },
         "responses": {
           "200": {
-            "description": "对话补全结果；stream=true 时为 text/event-stream",
+            "description": "Chat completion result; text/event-stream when stream=true",
             "headers": {
               "Dsh-EE-API-Version": {
                 "$ref": "#/components/headers/DshEEAPIVersion"
@@ -314,7 +318,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           },
           "401": {
             "type": "object",
@@ -341,7 +345,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           },
           "403": {
             "type": "object",
@@ -368,7 +372,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。请求引用了上游共享文件（file_id / document.source.file_id）时返回 403 + file_access_denied：普通员工默认拒绝，管理员与机器人账号放行（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开员工，见 docs/dev/deepseek-tools.md），命中时不请求上游。也可能是 model_not_allowed / permission_denied。"
+            "description": "OpenAI error envelope of the /v1 model gateway (the Dsh-EE-API-Version header is still present). A request that references a shared upstream file (file_id / document.source.file_id) gets 403 + file_access_denied: regular employees are denied by default, admins and bot accounts are allowed (DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true opens it to employees, see docs/dev/deepseek-tools.md), and the upstream is not called. Can also be model_not_allowed / permission_denied."
           },
           "404": {
             "type": "object",
@@ -395,7 +399,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           },
           "413": {
             "type": "object",
@@ -422,7 +426,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           },
           "429": {
             "type": "object",
@@ -449,7 +453,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           },
           "502": {
             "type": "object",
@@ -476,10 +480,283 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
           }
         }
       }
+    },
+    "/v1/apps": {
+      "get": {
+        "operationId": "listApps",
+        "summary": "Read-only neutral micro app list",
+        "tags": [
+          "apps"
+        ],
+        "description": "Micro apps enabled / automatically active for the current user (excluding DSH-specific system apps). Requires the hub scope plus workbench permission; response Cache-Control: no-store.",
+        "responses": {
+          "200": {
+            "description": "Micro app list",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NeutralError"
+          },
+          "403": {
+            "$ref": "#/components/responses/NeutralError"
+          }
+        }
+      }
+    },
+    "/v1/apps/{name}": {
+      "get": {
+        "operationId": "getApp",
+        "summary": "Read-only neutral micro app description",
+        "tags": [
+          "apps"
+        ],
+        "description": "Returns the neutral description by app identifier; 404 when the app is not enabled for the current user or does not exist. Requires the hub scope plus workbench permission.",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Micro app identifier"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Micro app description",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestID"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlNoStore"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppDetail"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/NeutralError"
+          },
+          "403": {
+            "$ref": "#/components/responses/NeutralError"
+          },
+          "404": {
+            "$ref": "#/components/responses/NeutralError"
+          }
+        }
+      }
+    },
+    "/v1/openapi.json": {
+      "get": {
+        "operationId": "getOpenAPI",
+        "summary": "Static OpenAPI 3.1 contract (anonymous)",
+        "tags": [
+          "discovery"
+        ],
+        "description": "This file: the static read-only description of the neutral v1 contract that dsh-ee offers to third-party Harnesses. Carries ETag and Cache-Control: public, max-age=300, and supports If-None-Match 304. MCP (JSON-RPC) is out of scope for this file.",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OpenAPI 3.1 document",
+            "headers": {
+              "ETag": {
+                "$ref": "#/components/headers/ETag"
+              },
+              "Cache-Control": {
+                "$ref": "#/components/headers/CacheControlPublic"
+              },
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              },
+              "X-Request-Id": {
+                "$ref": "#/components/headers/XRequestID"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "If-None-Match matched; the contract has not changed"
+          },
+          "400": {
+            "$ref": "#/components/responses/NeutralError"
+          },
+          "405": {
+            "$ref": "#/components/responses/NeutralError"
+          }
+        }
+      }
+    },
+    "/v1/messages": {
+      "post": {
+        "operationId": "createAnthropicMessage",
+        "summary": "Anthropic Messages compatibility (requests converted to OpenAI chat; alias /anthropic/v1/messages)",
+        "tags": [
+          "models"
+        ],
+        "description": "Claude Code / Anthropic SDK compatibility entry point: call models connected to dsh-ee with an enterprise token (x-api-key or Authorization: Bearer). Requests are converted to OpenAI chat completions and reuse the model permissions, monthly quota, upstream failover, and usage accounting of /v1/chat/completions; responses and streaming SSE are converted back to the Anthropic shape. Only POST /v1/messages is implemented (plus the alias POST /anthropic/v1/messages with identical behavior); count_tokens / batches / Files API return 404. If the first candidate route (highest priority) has provider vendor=deepseek, the request is passed through natively: it is forwarded directly to <provider.base>/anthropic/v1/messages, only model is rewritten, anthropic-version/anthropic-beta are passed through as-is, and the response JSON/SSE is forwarded byte-for-byte without parsing extension blocks such as server tools/citations/safety; other vendors fall back to OpenAI chat conversion (anthropic-version/anthropic-beta are ignored). Failover only happens within the same vendor/protocol, never across protocols. The Files API itself is not implemented. The error body uses the Anthropic shape (AnthropicError). Before forwarding, file_id / document.source.file_id / image.source.file_id in Anthropic messages content are scanned: regular employees get 403 file_access_denied by default (Anthropic envelope permission_error + error.code) and the upstream is not called; admins (any admin permission) and account_type=bot accounts are allowed, and DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true allows all employees.",
+        "parameters": [
+          {
+            "name": "x-api-key",
+            "in": "header",
+            "required": false,
+            "description": "Enterprise token; equivalent to Authorization: Bearer; x-api-key takes precedence when both are present",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AnthropicMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Anthropic message; Anthropic SSE event stream when stream=true (message_start → content_block_* → message_delta → message_stop)",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicMessage"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request body is not JSON, model/max_tokens is missing, a parameter is out of range, or an unsupported content block is used (invalid_request_error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid token (authentication_error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Token lacks the models scope, the account lacks llm.use, the model is out of range, or the quota has expired (permission_error). Referencing a shared upstream file (file_id / source.file_id) without access gives error.code=file_access_denied; regular employees are denied by default.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No usable upstream for the public model, or an unimplemented compatibility endpoint such as count_tokens (not_found_error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Request body exceeds 16 MiB (request_too_large)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Account/token quota exhausted, per-token rate limit, or upstream 429 (rate_limit_error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "All upstream routes unavailable, or the upstream response cannot be parsed (api_error)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/anthropic/v1/messages": {
+      "$ref": "#/paths/~1v1~1messages"
     },
     "/beta/completions": {
       "post": {
@@ -716,279 +993,6 @@
           }
         }
       }
-    },
-    "/v1/apps": {
-      "get": {
-        "operationId": "listApps",
-        "summary": "只读中立微应用列表",
-        "tags": [
-          "apps"
-        ],
-        "description": "当前用户已启用 / 自动生效的微应用（不含 DSH 专属系统应用）。需要 hub scope + 工作台权限；响应 Cache-Control: no-store。",
-        "responses": {
-          "200": {
-            "description": "微应用列表",
-            "headers": {
-              "Dsh-EE-API-Version": {
-                "$ref": "#/components/headers/DshEEAPIVersion"
-              },
-              "X-Request-Id": {
-                "$ref": "#/components/headers/XRequestID"
-              },
-              "Cache-Control": {
-                "$ref": "#/components/headers/CacheControlNoStore"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AppList"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/NeutralError"
-          },
-          "403": {
-            "$ref": "#/components/responses/NeutralError"
-          }
-        }
-      }
-    },
-    "/v1/apps/{name}": {
-      "get": {
-        "operationId": "getApp",
-        "summary": "只读中立微应用描述",
-        "tags": [
-          "apps"
-        ],
-        "description": "按应用标识返回中立描述；未对当前用户启用或不存在时 404。需要 hub scope + 工作台权限。",
-        "parameters": [
-          {
-            "name": "name",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "微应用标识"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "微应用描述",
-            "headers": {
-              "Dsh-EE-API-Version": {
-                "$ref": "#/components/headers/DshEEAPIVersion"
-              },
-              "X-Request-Id": {
-                "$ref": "#/components/headers/XRequestID"
-              },
-              "Cache-Control": {
-                "$ref": "#/components/headers/CacheControlNoStore"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AppDetail"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/NeutralError"
-          },
-          "403": {
-            "$ref": "#/components/responses/NeutralError"
-          },
-          "404": {
-            "$ref": "#/components/responses/NeutralError"
-          }
-        }
-      }
-    },
-    "/v1/openapi.json": {
-      "get": {
-        "operationId": "getOpenAPI",
-        "summary": "静态 OpenAPI 3.1 契约（匿名）",
-        "tags": [
-          "discovery"
-        ],
-        "description": "本文件：dsh-ee 面向第三方 Harness 的中立 v1 契约静态描述，只读。带 ETag 与 Cache-Control: public, max-age=300，支持 If-None-Match 304。MCP（JSON-RPC）不在本文件内。",
-        "security": [],
-        "responses": {
-          "200": {
-            "description": "OpenAPI 3.1 文档",
-            "headers": {
-              "ETag": {
-                "$ref": "#/components/headers/ETag"
-              },
-              "Cache-Control": {
-                "$ref": "#/components/headers/CacheControlPublic"
-              },
-              "Dsh-EE-API-Version": {
-                "$ref": "#/components/headers/DshEEAPIVersion"
-              },
-              "X-Request-Id": {
-                "$ref": "#/components/headers/XRequestID"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true
-                }
-              }
-            }
-          },
-          "304": {
-            "description": "If-None-Match 命中，契约未变化"
-          },
-          "400": {
-            "$ref": "#/components/responses/NeutralError"
-          },
-          "405": {
-            "$ref": "#/components/responses/NeutralError"
-          }
-        }
-      }
-    },
-    "/v1/messages": {
-      "post": {
-        "operationId": "createAnthropicMessage",
-        "summary": "Anthropic Messages 兼容（请求转 OpenAI chat；别名 /anthropic/v1/messages）",
-        "tags": [
-          "models"
-        ],
-        "description": "Claude Code / Anthropic SDK 兼容入口：用企业令牌（x-api-key 或 Authorization: Bearer）调用 dsh-ee 已接入的模型。请求转成 OpenAI chat completions 后复用 /v1/chat/completions 的模型权限、月度额度、上游故障转移与用量记账；响应与流式 SSE 转回 Anthropic 形状。只实现 POST /v1/messages（及别名 POST /anthropic/v1/messages，行为完全一致）；count_tokens / batches / Files API 返回 404。候选线路第一条（最高优先级）的 provider vendor=deepseek 时走原生透传：请求直接转发到 <provider.base>/anthropic/v1/messages，只改写 model，anthropic-version/anthropic-beta 原样透传，响应 JSON/SSE 逐字节转发，不解析 server tools/citations/safety 等扩展块；其它 vendor 降级成 OpenAI chat 转换（anthropic-version/anthropic-beta 被忽略）。故障转移只在同 vendor/同协议内进行，不跨协议。Files API 本身不实现。错误体是 Anthropic 形状（AnthropicError）。 请求转发前会扫描 Anthropic messages content 里的 file_id / document.source.file_id / image.source.file_id：普通员工默认 403 file_access_denied（Anthropic 壳 permission_error + error.code），命中时不请求上游；管理员（任一管理权限）与 account_type=bot 机器人账号放行，DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 对全体员工放行。",
-        "parameters": [
-          {
-            "name": "x-api-key",
-            "in": "header",
-            "required": false,
-            "description": "企业令牌；与 Authorization: Bearer 等价，同时带时优先 x-api-key",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          },
-          {
-            "apiKeyAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AnthropicMessageRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Anthropic message；stream=true 时为 Anthropic SSE 事件流（message_start → content_block_* → message_delta → message_stop）",
-            "headers": {
-              "Dsh-EE-API-Version": {
-                "$ref": "#/components/headers/DshEEAPIVersion"
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnthropicMessage"
-                }
-              },
-              "text/event-stream": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "请求体不是 JSON、缺 model/max_tokens、参数越界或不支持的内容块（invalid_request_error）",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnthropicError"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "缺少或无效的令牌（authentication_error）",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnthropicError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "令牌缺 models scope、账号缺 llm.use、模型不在范围或额度过期（permission_error） 引用无权限的上游共享文件（file_id / source.file_id）时 error.code=file_access_denied，普通员工默认拒绝。",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnthropicError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "对外模型没有可用上游，或 count_tokens 等未实现的兼容端点（not_found_error）",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnthropicError"
-                }
-              }
-            }
-          },
-          "413": {
-            "description": "请求体超过 16 MiB（request_too_large）",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnthropicError"
-                }
-              }
-            }
-          },
-          "429": {
-            "description": "账号/令牌额度用完、每令牌限流或上游 429（rate_limit_error）",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnthropicError"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "所有上游线路不可用或上游响应无法解析（api_error）",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnthropicError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/anthropic/v1/messages": {
-      "$ref": "#/paths/~1v1~1messages"
     },
     "/v1/files": {
       "post": {
@@ -2579,18 +2583,18 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "ee_at_<token>",
-        "description": "员工接入令牌；设备码流程或网页「我的令牌」获取。scope 与账号 RBAC 求交。"
+        "description": "Employee access token; obtained via the device code flow or the 'My tokens' page on the web. Scopes are intersected with the account RBAC."
       },
       "apiKeyAuth": {
         "type": "apiKey",
         "in": "header",
         "name": "x-api-key",
-        "description": "Anthropic 兼容端点也接受 x-api-key: <token>，与 Authorization: Bearer 等价。"
+        "description": "Anthropic-compatible endpoints also accept x-api-key: <token>, equivalent to Authorization: Bearer."
       }
     },
     "headers": {
       "DshEEAPIVersion": {
-        "description": "中立 API 主版本，当前恒为 1",
+        "description": "Neutral API major version, currently always 1",
         "schema": {
           "type": "string",
           "enum": [
@@ -2599,13 +2603,13 @@
         }
       },
       "XRequestID": {
-        "description": "请求号；中立端点响应均带，错误体 request_id 与它一致",
+        "description": "Request ID; present on every neutral endpoint response, and the error body request_id matches it",
         "schema": {
           "type": "string"
         }
       },
       "ETag": {
-        "description": "内容摘要，可用于 If-None-Match",
+        "description": "Content digest, usable with If-None-Match",
         "schema": {
           "type": "string"
         }
@@ -2631,7 +2635,7 @@
     },
     "responses": {
       "NeutralError": {
-        "description": "中立统一错误壳（只用于新增中立端点）",
+        "description": "Unified neutral error envelope (only used by new neutral endpoints)",
         "headers": {
           "X-Request-Id": {
             "$ref": "#/components/headers/XRequestID"
@@ -2646,7 +2650,7 @@
         }
       },
       "OpenAIError": {
-        "description": "/v1 模型网关的 OpenAI 错误壳（形状不变）",
+        "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)",
         "content": {
           "application/json": {
             "schema": {
@@ -2689,21 +2693,21 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "协议里的服务名，固定为 dsh-ee",
+            "description": "Service name in the protocol, fixed to dsh-ee",
             "examples": [
               "dsh-ee"
             ]
           },
           "version": {
             "type": "string",
-            "description": "服务端构建版本（语义化版本或 dev/sha）",
+            "description": "Server build version (semantic version or dev/sha)",
             "examples": [
               "0.2.0"
             ]
           },
           "api_version": {
             "type": "string",
-            "description": "中立契约主版本；请求头 Dsh-EE-API-Version 的协商依据",
+            "description": "Neutral contract major version; the basis for negotiating the Dsh-EE-API-Version request header",
             "examples": [
               "1"
             ]
@@ -2714,19 +2718,19 @@
           "device_authorization_endpoint": {
             "type": "string",
             "format": "uri",
-            "description": "设备码流程：申请设备码（POST，公开）"
+            "description": "Device code flow: request a device code (POST, public)"
           },
           "token_endpoint": {
             "type": "string",
             "format": "uri",
-            "description": "设备码流程：轮询领取令牌（POST，公开）"
+            "description": "Device code flow: poll for a token (POST, public)"
           },
           "scopes_supported": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "设备码流程可申请的 scope；admin 只能网页限时开启，不在其中"
+            "description": "Scopes requestable via the device code flow; admin can only be enabled on the web for a limited time and is not included"
           },
           "models": {
             "$ref": "#/components/schemas/ModelsDiscovery"
@@ -2740,12 +2744,12 @@
           "capabilities_endpoint": {
             "type": "string",
             "format": "uri",
-            "description": "当前令牌的能力摘要"
+            "description": "Capability summary of the current token"
           },
           "openapi_url": {
             "type": "string",
             "format": "uri",
-            "description": "本静态契约（OpenAPI 3.1）的可读地址"
+            "description": "Readable address of this static contract (OpenAPI 3.1)"
           },
           "limits": {
             "$ref": "#/components/schemas/Limits"
@@ -2773,7 +2777,7 @@
           },
           "header": {
             "type": "string",
-            "description": "请求头格式",
+            "description": "Request header format",
             "examples": [
               "Authorization: Bearer <token>"
             ]
@@ -2783,7 +2787,7 @@
             "items": {
               "type": "string"
             },
-            "description": "支持的令牌前缀",
+            "description": "Supported token prefixes",
             "examples": [
               [
                 "ee_at_"
@@ -2799,7 +2803,7 @@
                 "web_manual"
               ]
             },
-            "description": "获取令牌的方式：device_code（RFC 8628 子集，员工在浏览器确认）/ web_manual（员工或管理员在网页生成；需要网页会话）"
+            "description": "Ways to obtain a token: device_code (RFC 8628 subset, confirmed by the employee in a browser) / web_manual (generated by an employee or admin on the web; requires a web session)"
           }
         }
       },
@@ -2820,22 +2824,22 @@
           },
           "streaming": {
             "type": "boolean",
-            "description": "是否支持 stream=true 的 SSE 流式响应"
+            "description": "Whether stream=true SSE streaming responses are supported"
           },
           "endpoint": {
             "type": "string",
             "format": "uri",
-            "description": "对外模型列表（OpenAI 形状）"
+            "description": "Public model list (OpenAI shape)"
           },
           "chat_completions_endpoint": {
             "type": "string",
             "format": "uri",
-            "description": "对话补全（OpenAI chat completions 子集）"
+            "description": "Chat completions (subset of OpenAI chat completions)"
           },
           "anthropic_messages_endpoint": {
             "type": "string",
             "format": "uri",
-            "description": "Anthropic Messages 兼容入口（Claude Code / Anthropic SDK；x-api-key 或 Bearer）"
+            "description": "Anthropic Messages compatibility entry point (Claude Code / Anthropic SDK; x-api-key or Bearer)"
           },
           "anthropic_messages_aliases": {
             "type": "array",
@@ -2843,18 +2847,18 @@
               "type": "string",
               "format": "uri"
             },
-            "description": "同一 handler 的别名入口；DeepSeek 风格的 Anthropic base URL（<base>/anthropic）会拼出 /anthropic/v1/messages"
+            "description": "Alias entry points served by the same handler; a DeepSeek-style Anthropic base URL (<base>/anthropic) resolves to /anthropic/v1/messages"
           },
           "anthropic_messages_native_vendors": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "走原生 Anthropic 透传的 provider vendor；这些候选线路直接转发到 <base>/anthropic/v1/messages，响应逐字节转发"
+            "description": "Provider vendors that use native Anthropic pass-through; these candidate routes forward directly to <base>/anthropic/v1/messages, and the response is forwarded byte-for-byte"
           },
           "anthropic_messages_conversion_fallback": {
             "type": "string",
-            "description": "其它 vendor 的降级方式：转成 OpenAI chat completions 后走现有转换层（openai-chat）"
+            "description": "Fallback for other vendors: convert to OpenAI chat completions and go through the existing conversion layer (openai-chat)"
           },
           "responses_endpoint": {
             "type": "string",
@@ -2909,14 +2913,14 @@
           "endpoint": {
             "type": "string",
             "format": "uri",
-            "description": "MCP JSON-RPC 端点（Streamable HTTP；JSON-RPC 协议本身不在本 OpenAPI 文件内）"
+            "description": "MCP JSON-RPC endpoint (Streamable HTTP; the JSON-RPC protocol itself is out of scope for this OpenAPI file)"
           },
           "protocol_versions": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "支持的 MCP 协议版本，新的在前"
+            "description": "Supported MCP protocol versions, newest first"
           }
         }
       },
@@ -2931,21 +2935,21 @@
         "properties": {
           "web": {
             "type": "boolean",
-            "description": "是否有网页版微应用（/a/<slug>）"
+            "description": "Whether a web version of the micro app exists (/a/<slug>)"
           },
           "data_tools": {
             "type": "boolean",
-            "description": "MCP 是否提供 app__/data__ 数据工具"
+            "description": "Whether MCP exposes app__/data__ data tools"
           },
           "endpoint": {
             "type": "string",
             "format": "uri",
-            "description": "只读的微应用描述列表"
+            "description": "Read-only micro app description list"
           },
           "web_url": {
             "type": "string",
             "format": "uri-template",
-            "description": "网页版微应用地址模板，{slug} 换成应用标识"
+            "description": "Web micro app URL template; replace {slug} with the app identifier"
           }
         }
       },
@@ -2959,15 +2963,15 @@
         "properties": {
           "max_request_bytes": {
             "type": "integer",
-            "description": "/v1/chat/completions 请求体上限（字节）"
+            "description": "Request body limit for /v1/chat/completions (bytes)"
           },
           "max_response_bytes": {
             "type": "integer",
-            "description": "/v1/chat/completions 非流式响应体上限（字节）"
+            "description": "/v1/chat/completions non-streaming response body limit (bytes)"
           },
           "max_mcp_request_bytes": {
             "type": "integer",
-            "description": "/mcp JSON-RPC 请求体上限（字节）"
+            "description": "/mcp JSON-RPC request body limit (bytes)"
           }
         }
       },
@@ -2981,19 +2985,19 @@
         "properties": {
           "format": {
             "type": "string",
-            "description": "统一错误壳形状；/api/* 与 /v1 网关的既有形状保持不变"
+            "description": "Unified error envelope shape; the existing shapes of /api/* and the /v1 gateway remain unchanged"
           },
           "documentation_url": {
             "type": "string",
             "format": "uri",
-            "description": "错误形状与错误码的机器可读文档（本 OpenAPI 文件）"
+            "description": "Machine-readable documentation of error shapes and error codes (this OpenAPI file)"
           },
           "codes": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "新增中立端点当前会返回的稳定错误码"
+            "description": "Stable error codes currently returned by new neutral endpoints"
           }
         }
       },
@@ -3020,7 +3024,7 @@
           },
           "authenticated": {
             "type": "boolean",
-            "description": "是否带了有效 Bearer 令牌"
+            "description": "Whether a valid Bearer token was supplied"
           },
           "server": {
             "$ref": "#/components/schemas/ServerInfo"
@@ -3040,14 +3044,14 @@
             "items": {
               "type": "string"
             },
-            "description": "令牌的 scope；匿名时为空数组"
+            "description": "Token scopes; empty array when anonymous"
           },
           "models": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "当前令牌允许的对外模型名；顺序与 /v1/models 一致"
+            "description": "Public model names allowed for the current token; same order as /v1/models"
           },
           "tools": {
             "type": "object",
@@ -3057,7 +3061,7 @@
             "properties": {
               "count": {
                 "type": "integer",
-                "description": "与 /mcp tools/list 数量一致；需 connections scope"
+                "description": "Matches the /mcp tools/list count; requires the connections scope"
               }
             }
           },
@@ -3066,18 +3070,18 @@
             "items": {
               "$ref": "#/components/schemas/App"
             },
-            "description": "当前用户已启用 / 自动生效的微应用；需 hub scope"
+            "description": "Micro apps enabled / automatically active for the current user; requires the hub scope"
           },
           "skills": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SkillSummary"
             },
-            "description": "当前用户可见的技能与提示词摘要（不含正文）；需 hub scope"
+            "description": "Skill and prompt summaries visible to the current user (no bodies); requires the hub scope"
           },
           "revision": {
             "type": "string",
-            "description": "能力目录 revision；需 hub scope"
+            "description": "Capability catalog revision; requires the hub scope"
           },
           "reasoning": {
             "$ref": "#/components/schemas/ReasoningCapability"
@@ -3104,7 +3108,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "技能 / 提示词标识"
+            "description": "Skill / prompt identifier"
           },
           "title": {
             "type": "string"
@@ -3132,7 +3136,7 @@
         "properties": {
           "name": {
             "type": "string",
-            "description": "微应用标识；网页版地址是 /a/<name>"
+            "description": "Micro app identifier; the web address is /a/<name>"
           },
           "title": {
             "type": "string"
@@ -3148,11 +3152,11 @@
             "items": {
               "type": "string"
             },
-            "description": "示例问法"
+            "description": "Example prompts"
           },
           "launch": {
             "type": "string",
-            "description": "在 Harness 里的打开方式（new/resume 等，由 DSH 语义定义）"
+            "description": "How to open it in the Harness (new/resume etc., defined by DSH semantics)"
           },
           "delivery": {
             "type": "string",
@@ -3160,14 +3164,14 @@
               "auto",
               "optional"
             ],
-            "description": "auto 自动生效；optional 需要员工自己启用"
+            "description": "auto: automatically active; optional: the employee must enable it"
           },
           "version": {
             "type": "integer"
           },
           "web": {
             "type": "boolean",
-            "description": "是否开放网页版 /a/<name>"
+            "description": "Whether the web version /a/<name> is available"
           }
         }
       },
@@ -3281,7 +3285,7 @@
         "properties": {
           "model": {
             "type": "string",
-            "description": "dsh-ee 的对外模型名（先 GET /v1/models）"
+            "description": "A public dsh-ee model name (call GET /v1/models first)"
           },
           "messages": {
             "type": "array",
@@ -3289,11 +3293,11 @@
               "type": "object",
               "additionalProperties": true
             },
-            "description": "OpenAI 消息数组"
+            "description": "OpenAI messages array"
           },
           "stream": {
             "type": "boolean",
-            "description": "true 时返回 text/event-stream"
+            "description": "Returns text/event-stream when true"
           },
           "thinking": {
             "type": "object",
@@ -3305,12 +3309,12 @@
           }
         },
         "additionalProperties": true,
-        "description": "请求体除 model 原样转发上游（上游 vendor=deepseek 且部署开启 DSH_EE_SAFETY_CHECK / DSH_EE_CHAT_TITLE 时，客户端未传的 safety_check / title 会补默认值，已传则保留；非 DeepSeek 上游不注入）；流式时服务端补 stream_options.include_usage；不支持 /v1/embeddings、/v1/completions（Responses API 见 POST /v1/responses）。DeepSeek Chatbot 扩展字段见 Chatbot schema 与 docs/dev/chatbot.md。"
+        "description": "The request body is forwarded upstream as-is except for model (for a vendor=deepseek upstream with DSH_EE_SAFETY_CHECK / DSH_EE_CHAT_TITLE enabled, safety_check / title are filled in when the client did not send them, and kept when it did; non-DeepSeek upstreams are never injected); for streaming, the server adds stream_options.include_usage; /v1/embeddings and /v1/completions are not supported (for the Responses API see POST /v1/responses). DeepSeek Chatbot extension fields: see the Chatbot schema and docs/dev/chatbot.md."
       },
       "ChatCompletionResponse": {
         "type": "object",
         "additionalProperties": true,
-        "description": "OpenAI chat completions 子集；上游响应体原样返回。"
+        "description": "Subset of OpenAI chat completions; the upstream response body is returned as-is."
       },
       "Error": {
         "type": "object",
@@ -3333,34 +3337,34 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "错误大类，如 authentication_error / permission_error / invalid_request_error / not_found_error / server_error"
+            "description": "Error category, e.g. authentication_error / permission_error / invalid_request_error / not_found_error / server_error"
           },
           "code": {
             "type": "string",
-            "description": "稳定错误码，取值见 Discovery.errors.codes"
+            "description": "Stable error code; see Discovery.errors.codes for values"
           },
           "message": {
             "type": "string",
-            "description": "给人看的说明"
+            "description": "Human-readable description"
           },
           "request_id": {
             "type": "string",
-            "description": "请求号，与响应头 X-Request-Id 一致"
+            "description": "Request ID, matching the X-Request-Id response header"
           },
           "retry_after": {
             "type": "integer",
-            "description": "建议退避秒数（只在可重试错误上出现）"
+            "description": "Suggested backoff in seconds (only present on retryable errors)"
           },
           "docs": {
             "type": "string",
-            "description": "错误说明链接（可选）"
+            "description": "Link to error documentation (optional)"
           },
           "supported_versions": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "description": "unsupported_api_version 时给出服务端支持的 API 主版本"
+            "description": "For unsupported_api_version, the API major versions supported by the server"
           }
         }
       },
@@ -3389,7 +3393,7 @@
             }
           }
         },
-        "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+        "description": "OpenAI error envelope of the /v1 model gateway (shape unchanged)"
       },
       "ServerInfo": {
         "type": "object",
@@ -3430,16 +3434,16 @@
         "properties": {
           "model": {
             "type": "string",
-            "description": "dsh-ee 的对外模型名（先 GET /v1/models）；不做 claude-* 名称映射"
+            "description": "A public dsh-ee model name (call GET /v1/models first); no claude-* name mapping is performed"
           },
           "max_tokens": {
             "type": "integer",
             "minimum": 1,
             "maximum": 32768,
-            "description": "必填；单次输出上限与 OpenAI 网关一致"
+            "description": "Required; per-request output limit, consistent with the OpenAI gateway"
           },
           "system": {
-            "description": "系统提示：字符串或文本块数组",
+            "description": "System prompt: a string or an array of text blocks",
             "oneOf": [
               {
                 "type": "string"
@@ -3459,7 +3463,7 @@
               "type": "object",
               "additionalProperties": true
             },
-            "description": "Anthropic 消息数组；支持 text / image / tool_use / tool_result / thinking 内容块"
+            "description": "Anthropic messages array; supports text / image / tool_use / tool_result / thinking content blocks"
           },
           "tools": {
             "type": "array",
@@ -3467,7 +3471,7 @@
               "type": "object",
               "additionalProperties": true
             },
-            "description": "客户端自定义工具 {name, description?, input_schema}；服务端工具（web_search 等）会被忽略"
+            "description": "Client-defined tools {name, description?, input_schema}; server tools (web_search etc.) are ignored"
           },
           "tool_choice": {
             "oneOf": [
@@ -3479,7 +3483,7 @@
                 "additionalProperties": true
               }
             ],
-            "description": "auto / any / none / tool；any 映射成 OpenAI 的 required"
+            "description": "auto / any / none / tool; any maps to OpenAI required"
           },
           "temperature": {
             "type": "number"
@@ -3495,16 +3499,16 @@
           },
           "stream": {
             "type": "boolean",
-            "description": "true 时返回 Anthropic SSE 事件流"
+            "description": "Returns an Anthropic SSE event stream when true"
           },
           "thinking": {
             "type": "object",
             "additionalProperties": true,
-            "description": "{type: enabled|disabled|adaptive}；budget_tokens 忽略"
+            "description": "{type: enabled|disabled|adaptive}; budget_tokens is ignored"
           },
           "reasoning_effort": {
             "type": "string",
-            "description": "DeepSeek 风格扩展；也接受 output_config.effort，归一到 OpenAI 的 reasoning_effort"
+            "description": "DeepSeek-style extension; output_config.effort is also accepted and normalized to OpenAI reasoning_effort"
           },
           "output_config": {
             "type": "object",
@@ -3513,11 +3517,11 @@
           "metadata": {
             "type": "object",
             "additionalProperties": true,
-            "description": "user_id 映射成 OpenAI 的 user，其余忽略"
+            "description": "user_id is mapped to OpenAI user; everything else is ignored"
           }
         },
         "additionalProperties": true,
-        "description": "Anthropic Messages 请求体；dsh-ee 转成 OpenAI chat completions 后转发上游，模型权限、额度与用量记账与 /v1/chat/completions 一致。"
+        "description": "Anthropic Messages request body; dsh-ee converts it to OpenAI chat completions and forwards it upstream, with model permissions, quota, and usage accounting identical to /v1/chat/completions."
       },
       "AnthropicMessage": {
         "type": "object",
@@ -3533,7 +3537,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "msg_… 开头的消息 id"
+            "description": "Message ID starting with msg_…"
           },
           "type": {
             "type": "string",
@@ -3545,7 +3549,7 @@
           },
           "model": {
             "type": "string",
-            "description": "客户端请求的对外模型名"
+            "description": "Public model name requested by the client"
           },
           "content": {
             "type": "array",
@@ -3553,7 +3557,7 @@
               "type": "object",
               "additionalProperties": true
             },
-            "description": "thinking / text / tool_use 内容块数组"
+            "description": "Array of thinking / text / tool_use content blocks"
           },
           "stop_reason": {
             "type": "string",
@@ -3579,7 +3583,7 @@
             "properties": {
               "input_tokens": {
                 "type": "integer",
-                "description": "prompt_tokens 去掉缓存命中；流式以 message_delta.usage 为准"
+                "description": "prompt_tokens minus cache hits; for streaming, message_delta.usage is authoritative"
               },
               "output_tokens": {
                 "type": "integer"
@@ -3589,7 +3593,7 @@
               },
               "cache_read_input_tokens": {
                 "type": "integer",
-                "description": "上游 prompt_tokens_details.cached_tokens"
+                "description": "Upstream prompt_tokens_details.cached_tokens"
               }
             }
           }
@@ -3616,11 +3620,11 @@
             "properties": {
               "type": {
                 "type": "string",
-                "description": "按 HTTP 状态码映射：401 authentication_error、403 permission_error、404 not_found_error、429 rate_limit_error、413 request_too_large、5xx api_error/overloaded_error，其余 4xx invalid_request_error"
+                "description": "Mapped from the HTTP status code: 401 authentication_error, 403 permission_error, 404 not_found_error, 429 rate_limit_error, 413 request_too_large, 5xx api_error/overloaded_error, other 4xx invalid_request_error"
               },
               "message": {
                 "type": "string",
-                "description": "给人看的说明"
+                "description": "Human-readable description"
               },
               "code": {
                 "type": "string",

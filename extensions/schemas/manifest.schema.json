@@ -1,14 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/hikariming/dsh-ee/extensions/schemas/manifest.schema.json",
-  "title": "dsh-ee 扩展清单 dsh-ee.extension.json",
-  "description": "放在扩展根目录下。写完用 `dsh-ee extension check <目录> --json` 检查，全部通过才算合格。设计见 docs/plugins.md §5。",
+  "title": "dsh-ee extension manifest dsh-ee.extension.json",
+  "description": "Placed in the extension root directory. After writing it, check it with `dsh-ee extension check <dir> --json`; it is valid only when every check passes. Design: docs/plugins.md §5.",
   "type": "object",
   "additionalProperties": false,
   "required": ["id", "version", "name", "kind"],
   "$defs": {
     "text": {
-      "description": "给人看的文字。可以写一个字符串，也可以分语言写。企业内部用的写中文一种就够；要公开分发的中英文都写。",
+      "description": "Human-readable text. Either a single string or one string per language. For internal enterprise use, a single string is enough; provide both Chinese and English when distributing publicly.",
       "oneOf": [
         { "type": "string" },
         {
@@ -24,37 +24,37 @@
     "id": {
       "type": "string",
       "pattern": "^[a-z0-9][a-z0-9-]{0,38}/[a-z0-9][a-z0-9-]{0,62}$",
-      "description": "扩展的身份：作者/名字。作者写公司或组织的简称（给自己公司内部用的，就用公司简称），只用小写字母、数字、连字符。",
+      "description": "Extension identity: author/name. Use a short company or organization name as the author (for internal use, the company short name); lowercase letters, digits, and hyphens only.",
       "examples": ["acme/oa"]
     },
     "version": {
       "type": "string",
-      "description": "语义化版本号。交付给管理员之后，每次再改清单或接口文档都要升版本；交付前反复修改不用升。",
+      "description": "Semantic version. After delivering the extension to an administrator, bump the version whenever the manifest or the API document changes; there is no need to bump it while iterating before delivery.",
       "examples": ["1.2.0"]
     },
     "minVersion": {
       "type": "string",
-      "description": "能装这个扩展的最低 dsh-ee 版本。一般不写；只有确实用到了某个版本才有的功能时才写。",
+      "description": "Minimum dsh-ee version that can install this extension. Usually omitted; set it only when you actually rely on a feature available in a specific version.",
       "examples": ["0.2.0"]
     },
-    "name": { "$ref": "#/$defs/text", "description": "给管理员和员工看的名字。" },
-    "description": { "$ref": "#/$defs/text", "description": "一句话说明这个扩展能做什么。" },
-    "icon": { "type": "string", "description": "图标文件，扩展目录里的相对路径。", "examples": ["icon.svg"] },
-    "repo": { "type": "string", "description": "源码仓库地址。没有就不写。", "examples": ["https://github.com/acme/dsh-ee-oa"] },
+    "name": { "$ref": "#/$defs/text", "description": "Name shown to administrators and employees." },
+    "description": { "$ref": "#/$defs/text", "description": "One sentence describing what this extension does." },
+    "icon": { "type": "string", "description": "Icon file, as a relative path inside the extension directory.", "examples": ["icon.svg"] },
+    "repo": { "type": "string", "description": "Source repository URL. Omit if there is none.", "examples": ["https://github.com/acme/dsh-ee-oa"] },
     "kind": {
       "enum": ["declarative", "service", "local"],
-      "description": "扩展形式。declarative：只有清单和接口文档，dsh-ee 自己发请求，不写代码、不部署；service：企业自己部署的服务，dsh-ee 按协议调它；local：跑在员工电脑上的 npm 包。怎么选见 docs/plugins.md §4.4。"
+      "description": "Extension kind. declarative: only a manifest and an API document; dsh-ee sends the requests itself, with no code to write and nothing to deploy; service: a service deployed by the enterprise that dsh-ee calls according to the protocol; local: an npm package that runs on employees' computers. How to choose: docs/plugins.md §4.4."
     },
     "openapi": {
       "type": "string",
-      "description": "只用于 declarative：OpenAPI 3.x 接口文档的文件名，扩展目录里的相对路径。JSON 和 YAML 都行，对方给的是什么格式就用什么格式。工具名来自每个接口的 operationId。",
+      "description": "declarative only: file name of the OpenAPI 3.x API document, as a relative path inside the extension directory. JSON and YAML are both fine; use whatever format the other side provides. Tool names come from each operation's operationId.",
       "examples": ["openapi.yaml", "openapi.json"]
     },
     "servers": {
       "type": "array",
       "minItems": 1,
       "items": { "type": "string" },
-      "description": "只用于 declarative：请求允许发往的服务器地址。dsh-ee 只往这些地址发请求，凭据也只带给它们。第一项是默认的接口根地址。",
+      "description": "declarative only: server addresses that requests may be sent to. dsh-ee only sends requests to these addresses and only sends credentials to them. The first entry is the default API base URL.",
       "examples": [["https://oa.acme.internal/api"]]
     },
     "service": {
@@ -62,42 +62,42 @@
       "additionalProperties": false,
       "required": ["url"],
       "properties": { "url": { "type": "string", "examples": ["https://oa-ext.acme.internal"] } },
-      "description": "只用于 service：服务地址。"
+      "description": "service only: service address."
     },
-    "package": { "type": "string", "description": "只用于 local：npm 包名。", "examples": ["@acme/oa-local"] },
+    "package": { "type": "string", "description": "local only: npm package name.", "examples": ["@acme/oa-local"] },
     "capabilities": {
       "type": "array",
       "items": { "enum": ["tools", "validate", "options", "health", "knowledge.documents", "knowledge.files", "knowledge.search", "endpoint", "oauth"] },
-      "description": "服务扩展实现了哪些约定接口。用 SDK 写的扩展会自动生成。声明式扩展只有 tools，可以不写。"
+      "description": "Which agreed endpoints the service extension implements. Extensions written with the SDK generate this automatically. Declarative extensions only have tools, so it can be omitted."
     },
     "permissions": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "kb": { "const": "read", "description": "以当前员工的身份检索和读取知识库" },
-        "approval": { "const": true, "description": "发起写操作审批" },
-        "audit": { "const": true, "description": "回报调用摘要" },
-        "notify": { "const": true, "description": "给员工发通知或待办" },
-        "endpoint": { "const": true, "description": "注册回调地址" }
+        "kb": { "const": "read", "description": "Search and read the knowledge base as the current employee" },
+        "approval": { "const": true, "description": "Initiate approval for write operations" },
+        "audit": { "const": true, "description": "Report call summaries" },
+        "notify": { "const": true, "description": "Send notifications or to-dos to employees" },
+        "endpoint": { "const": true, "description": "Register callback addresses" }
       },
-      "description": "扩展反过来调 dsh-ee 时能做的事，安装时逐项给管理员看。声明式扩展没有代码，不要写。只申请用得上的。"
+      "description": "Things the extension may do when calling back into dsh-ee; each item is shown to the administrator during installation. Declarative extensions have no code, so do not write this. Request only what you need."
     },
     "config": {
       "type": "array",
-      "description": "管理员安装时填的配置。",
+      "description": "Configuration filled in by the administrator during installation.",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["key", "type", "label"],
         "properties": {
           "key": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]{0,63}$", "examples": ["baseUrl"] },
-          "type": { "enum": ["text", "secret", "url", "select", "boolean", "kb", "app"], "description": "kb：选一个知识库；app：选一个应用；secret：密钥，加密保存、不回显。" },
+          "type": { "enum": ["text", "secret", "url", "select", "boolean", "kb", "app"], "description": "kb: select a knowledge base; app: select an app; secret: secret value, stored encrypted and never echoed back." },
           "label": { "$ref": "#/$defs/text" },
           "help": { "$ref": "#/$defs/text" },
           "required": { "type": "boolean" },
-          "default": { "description": "默认值。secret 类型不能有默认值。" },
+          "default": { "description": "Default value. The secret type cannot have a default." },
           "options": {
-            "description": "select 的选项：一个数组，或 \"dynamic\"（由服务扩展的 options 接口给出；声明式扩展不能用）。",
+            "description": "Options for select: an array, or 'dynamic' (provided by the service extension's options endpoint; declarative extensions cannot use it).",
             "oneOf": [{ "type": "array", "minItems": 1 }, { "const": "dynamic" }]
           }
         }
@@ -107,45 +107,45 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["mode"],
-      "description": "调用时用谁的身份（docs/plugins.md §7、docs/ee-jwt.md）。不写就是不带凭据。",
+      "description": "Whose identity to use for calls (docs/plugins.md §7, docs/ee-jwt.md). Omit for no credentials.",
       "properties": {
         "mode": {
           "enum": ["shared", "user_secret", "ee_jwt", "oauth"],
-          "description": "shared：管理员配的一份共享凭据，适合只读的公共数据；user_secret：员工各自填自己的 token；ee_jwt：dsh-ee 为当前员工现签一个 5 分钟有效的 JWT，对方用 JWKS 验签；oauth：员工授权一次，dsh-ee 按人保存令牌、到期前刷新（要配 oauth，或由服务扩展实现 oauth 约定接口）。对方能验 JWT 时优先用 ee_jwt。"
+          "description": "shared: a single shared credential configured by the administrator, suitable for read-only public data; user_secret: each employee provides their own token; ee_jwt: dsh-ee signs a 5-minute JWT for the current employee and the other side verifies it with JWKS; oauth: the employee authorizes once, then dsh-ee stores the token per person and refreshes it before expiry (configure oauth, or have the service extension implement the oauth agreed endpoint). Prefer ee_jwt when the other side can verify JWTs."
         },
-        "header": { "type": "string", "description": "凭据放在哪个请求头：ee_jwt / user_secret 模式下是员工身份，shared 模式下是那份共享凭据。写了名字，值会原样放进这个请求头，前面不加 Bearer。不写：员工身份是 Authorization: Bearer <值>；shared 模式由管理员安装时选（默认 Authorization: Bearer）。", "examples": ["X-User-Token", "X-API-Key"] },
-        "audience": { "type": "string", "description": "只用于 ee_jwt：令牌的 aud，对方验签时核对。不写就用连接名。", "examples": ["oa"] },
+        "header": { "type": "string", "description": "Which request header carries the credential: in ee_jwt / user_secret mode it is the employee identity; in shared mode it is the shared credential. If a name is set, the value is placed verbatim in that header without a Bearer prefix. If omitted: employee identity uses Authorization: Bearer <value>; shared mode is chosen by the administrator during installation (default Authorization: Bearer).", "examples": ["X-User-Token", "X-API-Key"] },
+        "audience": { "type": "string", "description": "ee_jwt only: the token aud, checked by the other side when verifying the signature. Defaults to the connection name.", "examples": ["oa"] },
         "claims": {
           "type": "array",
           "items": { "enum": ["dept", "roles", "idp_sub"] },
-          "description": "只用于 ee_jwt：除了 id、用户名、姓名、邮箱，还带哪些员工信息。用不上就不要写。"
+          "description": "ee_jwt only: which employee claims to include in addition to id, username, name, and email. Omit if not needed."
         },
-        "hint": { "$ref": "#/$defs/text", "description": "只用于 user_secret：告诉员工这个凭据去哪里拿。" },
+        "hint": { "$ref": "#/$defs/text", "description": "user_secret only: tells employees where to obtain this credential." },
         "shared": {
           "type": "object",
           "additionalProperties": false,
           "required": ["type"],
-          "description": "员工身份之外还要带一份共享凭据（比如服务账号的 API Key）时写。这里只声明它放在哪个请求头；凭据的值由管理员安装时填，不用在 config 里再写一项。两份凭据不能放在同一个请求头里。",
+          "description": "Set this when a shared credential (for example a service account API key) must also be sent in addition to the employee identity. Only the header it goes in is declared here; the credential value is filled in by the administrator during installation, so do not add another config item for it. The two credentials must not go in the same request header.",
           "properties": {
             "type": { "enum": ["bearer", "header"] },
-            "header": { "type": "string", "description": "type 是 header 时的请求头名字。", "examples": ["X-API-Key"] }
+            "header": { "type": "string", "description": "Request header name when type is header.", "examples": ["X-API-Key"] }
           }
         }
       }
     },
     "tools": {
       "type": "array",
-      "description": "工具。声明式扩展里，每一项是对接口文档里一个接口的补充；没列出来的接口照接口文档的默认处理（只有 GET 算只读）。",
+      "description": "Tools. In declarative extensions, each item supplements one endpoint in the API document; endpoints not listed follow the API document defaults (only GET is considered read-only).",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["name"],
         "properties": {
-          "name": { "type": "string", "pattern": "^[A-Za-z0-9_]{1,64}$", "description": "声明式扩展里就是接口的 operationId。", "examples": ["list_forms"] },
-          "description": { "$ref": "#/$defs/text", "description": "给模型看的说明。接口文档里的说明写得不好时，在这里改写：查什么、什么时候该用、返回什么。" },
+          "name": { "type": "string", "pattern": "^[A-Za-z0-9_]{1,64}$", "description": "In declarative extensions, this is the endpoint operationId.", "examples": ["list_forms"] },
+          "description": { "$ref": "#/$defs/text", "description": "Description shown to the model. When the API document description is poor, rewrite it here: what it queries, when to use it, and what it returns." },
           "readOnly": {
             "type": "boolean",
-            "description": "只读的工具才标 true。没标的一律当写操作，调用前要员工确认。不要把会改数据的接口标成只读。"
+            "description": "Set to true only for read-only tools. Anything not marked is treated as a write operation and requires employee confirmation before the call. Do not mark endpoints that modify data as read-only."
           },
           "params": {
             "type": "array",
@@ -156,30 +156,30 @@
               "properties": {
                 "name": {
                   "type": "string",
-                  "description": "声明式扩展里：接口的路径参数或查询参数的名字；JSON 请求体里的字段写成 body.<字段名>（只到第一层）。只列你要补充或限制的参数，没列的照接口文档。",
+                  "description": "Declarative extensions: name of a path or query parameter of the endpoint; a field in the JSON request body is written as body.<field> (first level only). List only the parameters you want to supplement or constrain; unlisted ones follow the API document.",
                   "examples": ["status", "body.tenant"]
                 },
-                "type": { "enum": ["string", "number", "integer", "boolean", "array", "object"], "description": "不写就用接口文档里的类型。" },
-                "description": { "$ref": "#/$defs/text", "description": "给模型看的说明，覆盖接口文档里的。" },
-                "label": { "$ref": "#/$defs/text", "description": "fill 是 app 或 admin 时必须写：给填的人看的名字。" },
+                "type": { "enum": ["string", "number", "integer", "boolean", "array", "object"], "description": "Defaults to the type in the API document." },
+                "description": { "$ref": "#/$defs/text", "description": "Description shown to the model, overriding the one in the API document." },
+                "label": { "$ref": "#/$defs/text", "description": "Required when fill is app or admin: the name shown to whoever fills it in." },
                 "required": { "type": "boolean" },
-                "enum": { "type": "array", "description": "限定可选的值。" },
+                "enum": { "type": "array", "description": "Restrict the allowed values." },
                 "fill": {
                   "enum": ["model", "app", "admin"],
-                  "description": "这个参数由谁填。model（默认）：模型填。app：搭应用的人在应用配置里固定，模型看不到也改不了；不同的应用可以填不同的值。admin：管理员安装扩展时统一设置，对所有人、所有应用生效，模型同样看不到；它会直接出现在安装时的配置表单里（用 label 作名字），不需要在 config 里再写一遍，同一个参数在几个工具上出现时只填一次。整个企业只有一个值的（公司代码、租户）用 admin；每个应用可以不同的（项目、范围）用 app。app 和 admin 的参数不出现在给模型的工具定义里，接口文档里的 required 不用改。"
+                  "description": "Who fills in this parameter. model (default): the model fills it in. app: fixed in the app configuration by the person building the app; the model cannot see or change it, and different apps may use different values. admin: set once by the administrator when installing the extension and applied to everyone and every app; the model also cannot see it. It appears directly in the install-time configuration form (named by label), so there is no need to write it again in config, and when the same parameter appears on several tools it is filled in only once. Use admin for values that are the same across the whole enterprise (company code, tenant); use app for values that may differ per app (project, scope). app and admin parameters do not appear in the tool definitions given to the model, and required in the API document does not need to be changed."
                 },
                 "default": {
-                  "description": "fill 是 app 或 admin 时预先填好的值。填的人（管理员、搭应用的人）可以改，模型和员工改不了。JSON 类型要和参数的类型一致：字符串加引号，数字和 true / false 不加。同一个 admin 参数在几个工具上的 default 要一样。模型填的参数不要写。",
+                  "description": "Pre-filled value when fill is app or admin. The person filling it in (administrator, app builder) can change it; the model and employees cannot. The JSON type must match the parameter type: quote strings, but do not quote numbers or true / false. The default for the same admin parameter must be identical across tools. Do not set it for parameters the model fills in.",
                   "examples": ["east-china", true, 50]
                 },
-                "options": { "description": "可选值：一个数组，或 \"dynamic\"。" }
+                "options": { "description": "Allowed values: an array, or 'dynamic'." }
               }
             }
           },
           "keep": {
             "type": "array",
             "items": { "type": "string" },
-            "description": "返回结果只保留这些字段，控制返回给模型的大小。写第一层的字段名：返回的是对象就留它的这些字段，是数组就留每一项的这些字段。列表包了一层（{\"items\": [...], \"total\": 1}）时写「字段.子字段」，到第二层为止：items.id、items.title，第一层要留的 total 也要写上。不知道返回里有哪些字段（接口文档没写 responses）就不要写。",
+            "description": "Keep only these fields in the result to control the size returned to the model. Write first-level field names: if the result is an object, keep those fields; if it is an array, keep those fields of each item. When the list is wrapped one level ({\"items\": [...], \"total\": 1}), write 'field.subfield' down to the second level: items.id, items.title, and also include the first-level total you want to keep. If you do not know which fields the result contains (the API document has no responses), do not write this.",
             "examples": [["id", "title", "status"], ["items.id", "items.title", "total"]]
           }
         }
@@ -187,31 +187,31 @@
     },
     "fields": {
       "type": "array",
-      "description": "扩展要加的扩展字段（docs/access-control.md §6.0）。安装时由管理员确认后建好；字段名会带上扩展的前缀，不会和别的字段冲突。",
+      "description": "Extension fields this extension adds (docs/access-control.md §6.0). They are created after administrator confirmation during installation; field names are prefixed with the extension, so they never collide with other fields.",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["key", "object", "type", "label"],
         "properties": {
           "key": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$", "examples": ["project"] },
-          "object": { "enum": ["document", "kbase", "user"], "description": "字段加在哪类对象上" },
-          "type": { "enum": ["text", "number", "date", "select", "tags", "level"], "description": "level 是有顺序的等级" },
+          "object": { "enum": ["document", "kbase", "user"], "description": "Which kind of object the field is added to" },
+          "type": { "enum": ["text", "number", "date", "select", "tags", "level"], "description": "level is an ordered level" },
           "label": { "$ref": "#/$defs/text" },
-          "options": { "type": "array", "items": { "type": "string" }, "description": "select / tags 的选项；level 从低到高的等级" },
-          "access": { "type": "boolean", "description": "用于访问控制：只有 select / tags / level 可以" }
+          "options": { "type": "array", "items": { "type": "string" }, "description": "Options for select / tags; levels from low to high for level" },
+          "access": { "type": "boolean", "description": "Used for access control: only select / tags / level" }
         }
       }
     },
     "protocol": {
       "type": "string",
-      "description": "服务扩展实现的协议版本（docs/extension-protocol.md），用 SDK 时自动填。不写当作 1。",
+      "description": "Protocol version implemented by the service extension (docs/extension-protocol.md); filled in automatically when using the SDK. Defaults to 1 when omitted.",
       "examples": ["1"]
     },
     "oauth": {
       "type": "object",
       "additionalProperties": false,
       "required": ["authorizeUrl", "tokenUrl"],
-      "description": "凭据模式是 oauth 时：标准 OAuth 2.0 授权码流程的参数，dsh-ee 自己完成跳转、换令牌和刷新；client_id / client_secret 由管理员安装时填。流程不标准的系统改用服务扩展并实现 oauth 约定接口，不写这一项。",
+      "description": "When the credential mode is oauth: parameters of the standard OAuth 2.0 authorization code flow; dsh-ee performs the redirects, token exchange, and refresh itself; client_id / client_secret are filled in by the administrator during installation. For systems with a non-standard flow, use a service extension that implements the oauth agreed endpoint instead of this item.",
       "properties": {
         "authorizeUrl": { "type": "string", "examples": ["https://sso.acme.com/oauth/authorize"] },
         "tokenUrl": { "type": "string", "examples": ["https://sso.acme.com/oauth/token"] },
@@ -221,21 +221,21 @@
     "apps": {
       "type": "array",
       "items": { "type": "string" },
-      "description": "附带的应用文件，扩展目录里的相对路径。安装时管理员选要不要一起导入。",
+      "description": "Bundled app files, as relative paths inside the extension directory. The administrator chooses whether to import them during installation.",
       "examples": [["apps/hr-helper.yaml"]]
     },
     "checkIgnore": {
       "type": "array",
-      "description": "确认过没问题、不需要再报的检查项。只有标了「可以忽略」的检查项才行，而且要写明理由。",
+      "description": "Check items that have been confirmed to be fine and should no longer be reported. Only check items marked 'can be ignored' qualify, and a reason must be given.",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["code", "reason"],
         "properties": {
           "code": { "type": "string", "examples": ["tool.readonly_suspect"] },
-          "tool": { "type": "string", "description": "只忽略这个工具上的（按工具名）。推荐用它：调整 tools 的顺序不受影响。", "examples": ["search_forms"] },
-          "where": { "type": "string", "description": "只忽略这个位置的：要和检查结果里的 where 一致，可以只写 # 后面的部分。tool 和 where 都不写就是这个检查项全部忽略。", "examples": ["/tools/2"] },
-          "reason": { "type": "string", "description": "为什么可以忽略。会原样显示给装扩展的管理员。" }
+          "tool": { "type": "string", "description": "Ignore only on this tool (by tool name). Recommended: reordering tools does not affect it.", "examples": ["search_forms"] },
+          "where": { "type": "string", "description": "Ignore only at this location: must match where in the check result; you may write only the part after #. If neither tool nor where is set, the whole check item is ignored.", "examples": ["/tools/2"] },
+          "reason": { "type": "string", "description": "Why it can be ignored. Shown verbatim to the administrator installing the extension." }
         }
       }
     }

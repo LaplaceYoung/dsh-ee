@@ -102,10 +102,10 @@ func (g *syncGate) reserve(by int64, roots []SyncRoot, maxJobs, maxPerUser int) 
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	if g.running >= maxJobs {
-		return nil, errf(429, "正在同步的任务太多（最多 %d 个同时运行），请等当前任务结束后再试", maxJobs)
+		return nil, errf(429, "Too many sync jobs are running (at most %d at the same time); wait for the current jobs to finish and try again", maxJobs)
 	}
 	if by != 0 && g.byUser[by] >= maxPerUser {
-		return nil, errf(429, "你正在同步的任务太多（最多 %d 个），请等当前任务结束后再试", maxPerUser)
+		return nil, errf(429, "You have too many sync jobs running (at most %d); wait for the current jobs to finish and try again", maxPerUser)
 	}
 	conflicts := map[string]bool{}
 	for _, r := range roots {
@@ -122,7 +122,7 @@ func (g *syncGate) reserve(by int64, roots []SyncRoot, maxJobs, maxPerUser int) 
 		if len(names) > 5 {
 			names = append(names[:5:5], "…")
 		}
-		return nil, errf(409, "%s 正在同步中，请等当前任务结束后再试", strings.Join(names, "、"))
+		return nil, errf(409, "%s is already syncing; wait for the current job to finish and try again", strings.Join(names, ", "))
 	}
 	g.running++
 	if by != 0 {
@@ -221,21 +221,21 @@ func (j *job) flush(force bool) {
 // StartSync 建一个任务并在后台执行，立即返回任务记录。
 func (s *Service) StartSync(ctx context.Context, kind string, params SyncParams, by int64) (*store.SyncJob, error) {
 	if len(params.Roots) == 0 {
-		return nil, errf(400, "没有要同步的包")
+		return nil, errf(400, "No packages to sync")
 	}
 	set, err := s.settings(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if UpstreamBase(set) == "" {
-		return nil, errf(409, "当前是离线模式或没有配置上游 registry，不能在线预载；请用离线导入")
+		return nil, errf(409, "Offline mode is active or no upstream registry is configured, so online prefetch is unavailable; use offline import instead")
 	}
 	for _, r := range params.Roots {
 		if !ValidName(r.Name) {
-			return nil, errf(400, "包名 %q 不合法", r.Name)
+			return nil, errf(400, "Invalid package name %q", r.Name)
 		}
 		if InScopes(r.Name, set.CompanyScopes()) {
-			return nil, errf(400, "%s 属于企业作用域，只能在企业内发布，不能从上游预载", r.Name)
+			return nil, errf(400, "%s is in the enterprise scope and can only be published internally; it cannot be prefetched from upstream", r.Name)
 		}
 	}
 	if params.RootStatus != store.StatusPublished {
@@ -301,10 +301,10 @@ func (s *Service) syncRoot(ctx context.Context, jb *job, root SyncRoot, params S
 	}
 	base := UpstreamBase(set)
 	if base == "" {
-		return errors.New("上游不可用（离线模式）")
+		return errors.New("Upstream unavailable (offline mode)")
 	}
 	if pkg, err := s.store.GetPackage(ctx, root.Name); err == nil && pkg.Origin == store.OriginHosted {
-		return fmt.Errorf("本地已有同名的企业托管包")
+		return fmt.Errorf("A hosted enterprise package with the same name already exists locally")
 	}
 	doc, err := s.up.Packument(ctx, base, root.Name, -1)
 	if err != nil {
@@ -316,16 +316,16 @@ func (s *Service) syncRoot(ctx context.Context, jb *job, root SyncRoot, params S
 	}
 	uv := doc.Version(version)
 	if uv == nil {
-		return fmt.Errorf("上游没有版本 %q", version)
+		return fmt.Errorf("Upstream has no version %q", version)
 	}
 	// 企业目录登记了内容摘要：上游声明的内容必须就是这一份。对不上时直接失败，
 	// 连 tarball 都不下载，也不写任何版本记录（失败不留半装）。
 	if root.Integrity != "" {
 		if uv.Integrity == "" {
-			return fmt.Errorf("上游没有给 %s@%s 提供 integrity，无法核对目录登记的摘要", root.Name, version)
+			return fmt.Errorf("Upstream provides no integrity for %s@%s; the digest recorded in the catalog cannot be verified", root.Name, version)
 		}
 		if uv.Integrity != root.Integrity {
-			return fmt.Errorf("%s@%s 的内容摘要（%s）和企业目录登记的不一致，拒绝同步", root.Name, version, uv.Integrity)
+			return fmt.Errorf("Content digest of %s@%s (%s) does not match the one recorded in the enterprise catalog; sync refused", root.Name, version, uv.Integrity)
 		}
 	}
 	status := store.StatusPublished
