@@ -1527,7 +1527,7 @@ func (s *Server) handleResponses(w http.ResponseWriter, r *http.Request) {
 	}
 	// 转换层复用 gateway.go 的候选线路 helper（与 chat / Anthropic 端点同一套冷却、
 	// 故障转移与失败记账），只传非 DeepSeek 候选，保证不跨协议。
-	upstreamResp, provider, ok := s.openChatUpstreamCandidates(w, r, k, model, chatBody, false, start, convertedCands, s.responsesErrorWriter(w))
+	upstreamResp, provider, ok := s.openChatUpstreamCandidates(w, r, k, model, chatBody, false, start, convertedCands, s.responsesErrorWriter(w), nil)
 	if !ok {
 		return
 	}

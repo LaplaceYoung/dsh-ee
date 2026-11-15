@@ -93,6 +93,19 @@ func modelAllowed(p *Principal, quota *store.UserQuota, model string) bool {
 	return len(p.Models) == 0 || slices.Contains(p.Models, model)
 }
 
+// modelReasoningCapability 是 /v1/models 里每个模型的思考模式能力声明。
+// additive 字段：旧客户端只读 id / object / owned_by，忽略这段不受影响。
+type modelReasoningCapability struct {
+	Supported bool     `json:"supported"`
+	Efforts   []string `json:"efforts"`
+}
+
+type modelCapabilities struct {
+	Reasoning modelReasoningCapability `json:"reasoning"`
+	// Input 是该模型接受的请求输入模态（text/image/file，text 始终存在）；additive 字段。
+	Input []string `json:"input"`
+}
+
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	k, quota, ok := s.authKey(w, r)
 	if !ok {
@@ -105,15 +118,32 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type model struct {
-		ID      string `json:"id"`
-		Object  string `json:"object"`
-		OwnedBy string `json:"owned_by"`
+		ID           string            `json:"id"`
+		Object       string            `json:"object"`
+		OwnedBy      string            `json:"owned_by"`
+		Capabilities modelCapabilities `json:"capabilities"`
 	}
 	data := []model{}
 	for _, m := range ms {
-		if modelAllowed(k, quota, m.Name) {
-			data = append(data, model{ID: m.Name, Object: "model", OwnedBy: m.OwnedBy})
+		if !modelAllowed(k, quota, m.Name) {
+			continue
 		}
+		efforts := m.ReasoningEfforts
+		if !m.SupportsReasoning || efforts == nil {
+			// 不支持思考模式时不公布 effort，避免客户端据此误判；JSON 里保持 [] 而不是 null。
+			efforts = []string{}
+		}
+		modalities := m.InputModalities
+		if modalities == nil {
+			modalities = []string{"text"}
+		}
+		data = append(data, model{
+			ID: m.Name, Object: "model", OwnedBy: m.OwnedBy,
+			Capabilities: modelCapabilities{
+				Reasoning: modelReasoningCapability{Supported: m.SupportsReasoning, Efforts: efforts},
+				Input:     modalities,
+			},
+		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"object": "list", "data": data})
 }
@@ -127,6 +157,12 @@ type tokenUsage struct {
 // llmErrWriter 写一条模型网关错误。同一套校验/故障转移逻辑供 OpenAI 与 Anthropic
 // 两个端点复用，差别只在错误壳与状态码文案，由各端点传入自己的写法。
 type llmErrWriter func(status int, typ, code, msg string)
+
+// upstreamBodyFn 在每条候选线路上生成实际发给上游的请求体，参数是客户端请求体、
+// 该线路的上游模型名与 provider.vendor。Chat Completions 用它按 vendor 注入 DeepSeek
+// Chatbot 的 safety_check / title（docs/dev/chatbot.md）；nil 时保持「只改写 model、
+// 其余字段原样」的默认行为（Anthropic 端点的转换层走这条路径）。
+type upstreamBodyFn func(clientBody map[string]any, upstreamModel, vendor string) map[string]any
 
 // openaiErrorWriter 是 OpenAI 兼容网关错误的写法：普通客户端拿 OpenAI 壳，
 // DSH 接入插件额外映射成 400 的可展示文案（见 writeGatewayError）。
@@ -190,19 +226,20 @@ func (s *Server) loadModelCandidates(w http.ResponseWriter, r *http.Request, mod
 }
 
 // openChatUpstream 按模型候选列表依次尝试上游，返回可用的上游响应和实际使用的 provider。
-// body 会按候选改写 model 字段；一旦开始向客户端写响应就不再切换。失败时它已经用 writeErr
-// 写好响应并返回 ok=false，调用方只需关闭 resp.Body 并继续转发/转换。
-func (s *Server) openChatUpstream(w http.ResponseWriter, r *http.Request, k *Principal, model string, body map[string]any, stream bool, start time.Time, writeErr llmErrWriter) (*http.Response, *store.Provider, bool) {
+// body 会按候选改写 model 字段（传入 bodyFn 时由它构造每条线路的请求体，例如 Chat
+// Completions 的 DeepSeek Chatbot 注入）；一旦开始向客户端写响应就不再切换。失败时它已经
+// 用 writeErr 写好响应并返回 ok=false，调用方只需关闭 resp.Body 并继续转发/转换。
+func (s *Server) openChatUpstream(w http.ResponseWriter, r *http.Request, k *Principal, model string, body map[string]any, stream bool, start time.Time, writeErr llmErrWriter, bodyFn upstreamBodyFn) (*http.Response, *store.Provider, bool) {
 	cands, ok := s.loadModelCandidates(w, r, model, writeErr)
 	if !ok {
 		return nil, nil, false
 	}
-	return s.openChatUpstreamCandidates(w, r, k, model, body, stream, start, cands, writeErr)
+	return s.openChatUpstreamCandidates(w, r, k, model, body, stream, start, cands, writeErr, bodyFn)
 }
 
 // openChatUpstreamCandidates 是 openChatUpstream 的候选线路版本，供已经取过候选列表的调用方
 // （Anthropic 端点要先按 vendor 决定原生透传还是降级转换）复用，避免重复查库。
-func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Request, k *Principal, model string, body map[string]any, stream bool, start time.Time, cands []store.Candidate, writeErr llmErrWriter) (*http.Response, *store.Provider, bool) {
+func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Request, k *Principal, model string, body map[string]any, stream bool, start time.Time, cands []store.Candidate, writeErr llmErrWriter, bodyFn upstreamBodyFn) (*http.Response, *store.Provider, bool) {
 	// 按优先级逐个尝试：连不上、429、5xx 时换下一条线路；一旦开始给客户端写响应就不再切换。
 	var resp *http.Response
 	var p *store.Provider
@@ -225,8 +262,7 @@ func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Reque
 			}
 			continue
 		}
-		body["model"] = c.UpstreamModel
-		out, err := json.Marshal(body)
+		out, err := json.Marshal(candidateChatBody(body, c.UpstreamModel, p.Vendor, bodyFn))
 		if err != nil {
 			writeErr(http.StatusBadRequest, "invalid_request_error", "invalid_json", "请求体无法转发")
 			return nil, nil, false
@@ -273,6 +309,18 @@ func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Reque
 		break
 	}
 	return resp, p, true
+}
+
+// candidateChatBody 返回发往一条候选线路的请求体。bodyFn 为空时保持原行为：只把
+// model 换成该线路的上游模型名、其余字段原样；Chat Completions 传入 s.upstreamChatBody，
+// 在 vendor=deepseek 的线路上按部署配置补 safety_check / title（客户端已传则保留），
+// 并且每次尝试都用独立 map，故障切换不会把注入字段带给其它线路。
+func candidateChatBody(body map[string]any, upstreamModel, vendor string, bodyFn upstreamBodyFn) map[string]any {
+	if bodyFn == nil {
+		body["model"] = upstreamModel
+		return body
+	}
+	return bodyFn(body, upstreamModel, vendor)
 }
 
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
@@ -323,8 +371,9 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		body["stream_options"] = opts
 	}
 
-	// 复用与 Anthropic 端点相同的候选选择、故障转移与冷却逻辑。
-	resp, p, ok := s.openChatUpstream(w, r, k, model, body, stream, start, s.openaiUpstreamErrorWriter(w))
+	// 复用与 Anthropic 端点相同的候选选择、故障转移与冷却逻辑；
+	// Chat Completions 额外按 vendor 注入 DeepSeek Chatbot 选项（docs/dev/chatbot.md）。
+	resp, p, ok := s.openChatUpstream(w, r, k, model, body, stream, start, s.openaiUpstreamErrorWriter(w), s.upstreamChatBody)
 	if !ok {
 		return
 	}

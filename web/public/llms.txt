@@ -7,18 +7,21 @@
 - [从哪开始：三条开发路径 / Where to start: three development paths](/docs/overview): 插件作者、扩展作者、非 DSH 客户端三条路径的入口、交付物与本系统里的落点。
 - [接第三方 Harness / 自研客户端 / Connect a third-party Harness or your own client](/docs/harness-quickstart): 五分钟路径：一个 ee_at_ 令牌接 /v1 模型、/mcp 工具与服务端写确认，含发现端点和限制。
 - [Anthropic Messages 兼容（POST /v1/messages） / Anthropic Messages compatibility (POST /v1/messages)](/docs/anthropic-api): Claude Code / Anthropic SDK 用企业令牌直接调 dsh-ee：x-api-key 或 Bearer 鉴权、请求与响应转换、流式 SSE 事件、错误壳与 v0 边界。
+- [思考模式：thinking / reasoning_effort / reasoning_content / Thinking mode: thinking / reasoning_effort / reasoning_content](/docs/thinking-mode): DeepSeek 思考模式在 dsh-ee 网关里是原样透传：开关、思考强度、响应 reasoning_content 与工具轮次的回传要求，以及 /v1/models 的能力声明。
 - [写 DSH 插件并发布到企业源 / Write a DSH plugin and publish it to the company registry](/docs/plugin-quickstart): 从骨架、清单字段、本地自查到三个发布入口；只讲企业侧必看的部分。
 - [写 dsh-ee 扩展：清单、检查与调用 / Write a dsh-ee extension: manifest, checks and calls](/docs/extension-quickstart): 声明式、服务式、本地三种扩展的骨架、CLI 命令与交付前检查。
 - [权限与访问规则速查 / Permissions and access rules: a quick reference](/docs/access-rules): 权限点、字段访问规则、管理约束三层的判断顺序与配置入口。
 - [发布入口与预检结果怎么读 / Publish entries and how to read the precheck](/docs/publish-precheck): 三个发布入口、预检的扫描键、结果语义与提交前自查清单。
 - [规范与检查：ENTRY / FLOW / BOOST / Standards and checks: ENTRY / FLOW / BOOST](/docs/quality-standards): 上游规范三层与 dsh-ee 预检的边界：哪些是作者自证，哪些是企业准入。
 - [OpenAI Responses API 兼容 / OpenAI Responses API compatibility](/docs/responses-api): 把 Codex / OpenAI Agents SDK 等 Responses 客户端接到 dsh-ee：POST /v1/responses 的请求映射、输出 item、SSE 事件、错误与 v0 边界。
+- [Chatbot 网关选项与透传 / Chatbot gateway options and passthrough](/docs/chatbot): DeepSeek Chatbot 的联网工具、内容安全与会话标题：网关只透传，可按部署注入 safety_check / title，能力在发现文档声明。
 
 ## 契约与错误入口
 
 - [能力发现文档](/.well-known/dsh-ee): 匿名的版本与能力发现：api_version、设备码端点、scopes、模型/MCP/应用能力与限制。
 - [模型网关](/v1/models): OpenAI 兼容的模型列表与 /v1/chat/completions；Bearer 令牌。
 - [Responses API](/v1/responses): OpenAI Responses API 兼容入口（`/v1/responses`，DeepSeek 习惯的等价别名 `/responses`）：DeepSeek 上游原生透传（保留 web_search、citations、title、image/file 等），其它上游走 chat completions 转换层（降级）。
+- [Chatbot 能力与透传](https://github.com/hikariming/dsh-ee/blob/main/docs/dev/chatbot.md): DeepSeek Chatbot 网关选项：联网/读网页工具、safety_check、会话标题与拒绝/引用块的原样透传。
 - [MCP 工具面](/mcp): Streamable HTTP + JSON-RPC：initialize、tools/list、tools/call；写工具走服务端确认。
 - [错误码索引](https://github.com/hikariming/dsh-ee/blob/main/docs/errors.md): 发布预检、审核、令牌、网关、MCP、扩展与嵌入的错误码与修法。
 - [扩展协议](https://github.com/hikariming/dsh-ee/blob/main/docs/extension-protocol.md): 服务扩展与端侧扩展和 dsh-ee 之间的协议、清单与调用约定。

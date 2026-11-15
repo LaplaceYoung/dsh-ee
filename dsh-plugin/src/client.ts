@@ -11,6 +11,7 @@ import { registerVotes } from "./votes.js";
 import { registerEeSave } from "./ee-save.js";
 import { registerServerSettings } from "./settings-view.js";
 import { registerTurnWrites } from "./turn-writes-client.js";
+import { registerCenter } from "./center-client.js";
 
 export const inject = ["slots", "remote", "sidebarRightTabs", "sidebarRight", "sessions", "conversation", "workspaces"];
 
@@ -27,6 +28,8 @@ const clientRemote = createTypertRemoteInfo({
     "dshEE/availableApps": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/enableApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/disableApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
+    "dshEE/center": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
+    "dshEE/setSubscription": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/appBindings": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/bindApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/unbindApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
@@ -148,6 +151,12 @@ export async function apply(ctx: any): Promise<void> {
     const workbench = registerWorkbench(ctx, { remote, unwrapRemote, appsNow: apps.appsNow, appsLoaded: apps.appsLoaded, loadApps: apps.loadApps, subscribeApps: apps.subscribeApps });
     apps.setWorkbenchOpener(workbench.openWorkbench);
     registerVotes(ctx, remote, unwrapRemote);
+    // 「专家 · 技能 · 连接器」标签页：出错不能拖死后面的品牌与企业面板
+    try {
+      registerCenter(ctx, { remote, unwrapRemote, useOverview, summon: apps.summon, reloadApps: apps.reloadApps });
+    } catch {
+      // 宿主不认右侧栏标签页
+    }
     registerEeSave(ctx);
     // 一轮末尾的「已留痕」提示不能拖死后面的品牌：宿主没有这个槽位时 inject 会一直等着，不会抛错
     try {

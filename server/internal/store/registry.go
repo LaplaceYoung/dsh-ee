@@ -591,6 +591,9 @@ func (s *Store) InstallCounts(ctx context.Context, names []string) (map[string]i
 			out[n] = c
 		}
 		rows.Close()
+		if err := rows.Err(); err != nil {
+			return nil, fmt.Errorf("读取包下载统计: %w", err)
+		}
 	}
 	return out, nil
 }

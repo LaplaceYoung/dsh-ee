@@ -20,6 +20,7 @@ lang: zh-CN
 | 把内部 DSH 插件发布到 dsh-ee | [快速开始](./quickstart.md) | [DSH 插件发布](./plugin-publish.md) |
 | 给企业系统写扩展（声明式 / 服务 / 端侧） | [扩展开发](./extensions.md) | [extension-protocol.md](../extension-protocol.md)、[plugins.md](../plugins.md) |
 | 让第三方 Harness / 自研客户端接入 dsh-ee | [Harness 接入](./harness.md) | [l1-client.md](../l1-client.md) |
+| 用 DeepSeek Chatbot 能力（联网工具 / 内容安全 / 会话标题） | [Chatbot 网关选项与透传](./chatbot.md) | [Web Tools](https://api-docs.deepseek.com/guides/web_tools.md) |
 | 隔一层看 dsh-ee 侧的三条路径与阅读顺序 | [从哪开始](./overview.md) | [权限与访问规则速查](./access-rules.md) |
 | 搞清 ENTRY / FLOW / BOOST 是什么、不是什么 | [规范与检查](./standards.md) | [plugin-quality.md](../plugin-quality.md) |
 | 查错误码和常见失败 | [错误与 FAQ](./errors-faq.md) | — |
@@ -33,12 +34,13 @@ lang: zh-CN
 | [overview.md](./overview.md) | 开始 | 三条开发路径的入口与阅读顺序 |
 | [harness-quickstart.md](./harness-quickstart.md) | Harness 接入 | 一个 `ee_at_` 令牌接 `/v1`、`/mcp` 与写确认 |
 | [anthropic-api.md](./anthropic-api.md) | Harness 接入 | Claude Code / Anthropic SDK 调 `POST /v1/messages`：鉴权、转换、流式与错误壳 |
-| [plugin-quickstart.md](./plugin-quickstart.md) | DSH 插件 | 插件骨架、清单、自查与发布入口 |
+| [thinking-mode.md](./thinking-mode.md) | Harness 接入 | 思考模式：`thinking` / `reasoning_effort` 透传、`reasoning_content` 与工具轮次回传 || [plugin-quickstart.md](./plugin-quickstart.md) | DSH 插件 | 插件骨架、清单、自查与发布入口 |
 | [extension-quickstart.md](./extension-quickstart.md) | dsh-ee 扩展 | 三种扩展形态、CLI 与交付前检查 |
 | [access-rules.md](./access-rules.md) | 权限 | 权限点、字段访问规则、管理约束速查 |
 | [publish-precheck.md](./publish-precheck.md) | 发布 | 发布入口、预检结果语义与自查清单 |
 | [quality-standards.md](./quality-standards.md) | 规范 | 上游规范三层与 dsh-ee 预检的边界 |
 | [responses-api.md](./responses-api.md) | Harness 接入 | Codex / OpenAI Agents SDK 等 Responses 客户端调 `POST /v1/responses`：请求映射、output item、SSE 与 v0 边界 |
+| [chatbot.md](./chatbot.md) | Harness 接入 | DeepSeek Chatbot 的联网工具、内容安全与会话标题：注入开关、透传规则与能力声明 |
 
 站内页面还会做标题、摘要、标签与正文的客户端全文搜索（中文两字词直接子串匹配，多词要求全部命中；`⌘K` 里也有一组「文档」），逻辑见 `web/src/data/dev-docs-search.ts`，不需要另建搜索索引。
 
@@ -72,6 +74,7 @@ lang: zh-CN
 | [publish-precheck.md](./publish-precheck.md) | 站内导读：发布入口与预检结果语义 | draft |
 | [quality-standards.md](./quality-standards.md) | 站内导读：上游规范三层与 dsh-ee 预检的边界 | draft |
 | [responses-api.md](./responses-api.md) | 站内导读：OpenAI Responses API 兼容入口的请求/响应/事件映射、错误与 v0 边界 | draft |
+| [chatbot.md](./chatbot.md) | Chatbot 网关选项与透传：注入开关、请求/响应透传、能力声明与边界 | draft |
 
 ## 术语表
 

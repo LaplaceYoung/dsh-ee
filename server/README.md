@@ -40,7 +40,7 @@ Go 写的 dsh-ee 服务端。目前实现：
 设计依据与取舍见 [docs/capability-hub.md](../docs/capability-hub.md)。
 
 - **统一接入令牌**：`ee_at_…` 同时用于 npm 源、模型网关（`/v1`）、技能目录（`/api/dsh/*`）与企业连接（`/mcp`）。每次请求按账号 RBAC 与令牌 scope 求交集，可配置令牌级月度额度、模型范围和有效期；明文只显示一次，服务端只存 sha256。旧 `ee_npm_…`、`sk-ee-…` 保持原有权限与额度行为。
-- **接入限流与请求 ID**：`/v1/*` 与 `/mcp` 按令牌做固定窗口限流（同一令牌共用一份额度），默认每分钟 60 次，可用 `DSH_EE_RATE_LIMIT` 调整，`0` 或 `off` 关闭。超限返回 429，带 `Retry-After` 与 `X-RateLimit-Limit/Remaining/Reset`；正常响应也带 `X-RateLimit-*`，便于客户端提前退避。所有响应带 `X-Request-Id`：请求里已有合法值时原样沿用（不覆盖），否则服务端生成；同一个 id 会写进访问日志，方便和客户端 / 反向代理对账。限流只影响错误头，不改 `/v1` 的 OpenAI 错误体与 `/mcp` 的 JSON-RPC 错误体形状。
+- **接入限流与请求 ID**：`/v1/*` 与 `/mcp` 按令牌做固定窗口限流（同一令牌共用一份额度），默认每分钟 60 次，可用 `DSH_EE_RATE_LIMIT` 调整，`0` 或 `off` 关闭。计数在数据库 `shared_rate_limits` 表里：多实例连同一个库时是**所有实例合计**的一份额度，不会按实例数量放大（窗口按分钟对齐，部署建议开 NTP）。数据库不可用时退回进程内限流（每实例一份额度）并写告警日志：仍然限流，不会 fail open，也不会因为限流存储故障把协议面整体打成 5xx。超限返回 429，带 `Retry-After` 与 `X-RateLimit-Limit/Remaining/Reset`；正常响应也带 `X-RateLimit-*`，便于客户端提前退避。所有响应带 `X-Request-Id`：请求里已有合法值时原样沿用（不覆盖），否则服务端生成；同一个 id 会写进访问日志，方便和客户端 / 反向代理对账。限流只影响错误头，不改 `/v1` 的 OpenAI 错误体与 `/mcp` 的 JSON-RPC 错误体形状。
 - **API 客户端（client_credentials）**：给第三方 Harness / CI 按集成方注册 `client_id` / `client_secret`（`POST /api/admin/clients`，需要 `keys.manage`），客户端用 `POST /api/auth/client-token` 换 1 小时有效的 `ee_at_`，不必把管理员令牌交给对方。scope 取注册范围 ∩ owner 账号当前权限（收权立即生效）；secret 只存 sha256、只在创建时显示一次；凭据失败统一 `invalid_client`，换 token 按 IP 限流。详见 [docs/token-lifecycle.md](../docs/token-lifecycle.md) §6。
 - **设备登录**：`POST /api/device/code` 发起 RFC 8628 设备码流程，员工在 `/device` 登录并确认；设备令牌只能领取一次，默认滑动有效 90 天，同账号同设备再次登录会吊销旧令牌。机器人账号由管理员创建并指定负责人，不能会话登录。
 - **技能、提示词、微应用**：存在 `assets` / `asset_versions`；员工提交的版本在白名单模式下要审核。DSH 通过 `GET /api/dsh/catalog`（带 ETag，没变化回 304）拿到自己此刻应有的目录，`GET /api/dsh/skills/{name}` 取正文。提示词与微应用以「只给人调用」的 skill 下发（DSH 里输入 `/名字`）。
@@ -63,6 +63,7 @@ Go 写的 dsh-ee 服务端。目前实现：
 ## 大模型接入
 
 - 上游一律走 OpenAI 兼容接口（DeepSeek、通义千问、智谱、豆包、Kimi、硅基流动、OpenAI、Ollama、vLLM 等都提供），网关按原始 JSON 透传，不经 SDK 二次序列化，厂商扩展字段（如 `reasoning_content`）原样保留。
+- **DeepSeek Chatbot 能力（只透传）**：联网工具（`deepseek_web_search` / `deepseek_read_url`）、内容安全 `safety_check`、会话标题 `title`，以及响应里的 `title` / `annotations`（引用）/ `refusal` / `server_tool_calls` / `server_tool_event` 等块都原样转发，网关不执行、不解析、不改写这些字段。可用 `DSH_EE_SAFETY_CHECK=high` / `DSH_EE_CHAT_TITLE=on` 给 `vendor=deepseek` 的 Chat Completions 上游请求注入默认值（客户端已传则保留；非 DeepSeek 上游不注入；`/v1/messages` 原生透传只转发客户端自带字段、不注入）；能力在发现文档与 `/v1/capabilities` 的 `chatbot` 里声明。详见 [docs/dev/chatbot.md](../docs/dev/chatbot.md)。
 - 模型单独成表：员工调用时写**对外名称**，转发时换成**上游模型名**。同一个对外名称可以挂在多个上游上，按上游优先级依次尝试，连不上、429、5xx 时自动切到下一条（开始向客户端写响应后不再切换）。
 - 「检查连接」请求上游 `/models`；上游不提供该接口时，用一个已配置的模型发一次 `max_tokens=1` 的对话验证。结果会存下来显示在管理端。
 
@@ -149,8 +150,10 @@ OceanBase 单机最低也要几 GB 内存，本地机器紧张时先用 TiDB 调
 | `DSH_EE_LOGIN_IP_LIMIT` | 同一客户端 IP 在窗口内允许的登录失败次数，默认 `50`；设为 `0` / `off` 关闭 |
 | `DSH_EE_LOGIN_IP_WINDOW` | 按 IP 统计登录失败的固定窗口，默认 `15m`，取值 `1m`～`24h` |
 | `DSH_EE_METRICS` | 设为 `true` 时开放 `GET /metrics`（Prometheus 文本格式，只允许本机 / 内网抓取）；默认关闭 |
-| `DSH_EE_RATE_LIMIT` | `/v1/*` 与 `/mcp` 的每令牌限流，单位「次/分钟」，默认 `60`；`0` 或 `off` 关闭 |
+| `DSH_EE_RATE_LIMIT` | `/v1/*` 与 `/mcp` 的每令牌限流，单位「次/分钟」，默认 `60`；`0` 或 `off` 关闭。计数在数据库 `shared_rate_limits` 里，多实例部署时是合计额度（窗口按分钟对齐，依赖各实例时钟同步）；数据库不可用时退回单实例内存限流 |
 | `DSH_EE_CLIENT_TOKEN_PER_MINUTE` | `POST /api/auth/client-token`（API 客户端 client_credentials）每 IP 每分钟最多换几次 token，默认 `120`；`0` 或 `off` 关闭。只防用错误 secret 撞库 / 刷库 |
+| `DSH_EE_SAFETY_CHECK` | `off`（默认）/ `high`。`high` 时向 `vendor=deepseek` 的 Chat Completions 上游请求注入 `safety_check:{"level":"high"}`；客户端已传 `safety_check` 时保留客户端值，非 DeepSeek 上游与 `/v1/messages` 原生透传不注入。见 [docs/dev/chatbot.md](../docs/dev/chatbot.md) |
+| `DSH_EE_CHAT_TITLE` | `off`（默认）/ `on`。`on` 时向 `vendor=deepseek` 的上游请求注入 `title:{"enabled":true}`；客户端已传 `title` 时保留客户端值。建议只在会话第一轮打开（上游可能为等标题多等约 5 秒）。 |
 | `DSH_EE_TRUSTED_PROXIES` | 可信反向代理的地址 / CIDR（逗号分隔）。只有来自这些对端的 `X-Forwarded-For`、`X-Forwarded-Host`、`X-Forwarded-Proto` 才会被采信；默认只有 `127.0.0.1/32` 与 `::1/128`。代理在别的机器、容器网络或云负载均衡后面时必须配置 |
 | `DSH_EE_EMBED_ORIGINS` | 允许用 iframe 嵌入微应用网页（`/a/*`）的宿主来源，逗号分隔的完整 origin，如 `https://harness.acme.internal,http://localhost:5173`；只接受 https（`http://localhost` 等回环地址例外），非法值启动失败；不设时只允许同站嵌入（`frame-ancestors 'self'`）。接入方式、embed 参数与 postMessage 协议见 [docs/embedding.md](../docs/embedding.md) |
 | `DSH_EE_EMBED_CROSS_SITE` | 跨站 iframe 嵌入 v1 总开关，默认关闭。开启后 `POST /api/embed/sessions`、`POST /api/auth/embed/exchange` 才可用，且必须同时设置 `DSH_EE_EMBED_ORIGINS`（否则启动失败）。管理端「系统设置 → 跨站嵌入」可显式覆盖（数据库值优先） |
@@ -237,6 +240,7 @@ curl -fsS http://127.0.0.1:8080/readyz    # 依赖就绪；-f 让 503 以非 0 �
 | GET / POST | `/api/device/{user_code}` | 查看设备信息 / 登录后批准或拒绝 |
 | GET | `/api/settings` | 系统设置（登录即可读） |
 | PUT | `/api/admin/settings` | 整份替换；按改动的段落校验权限（npm 源 / 上游段落也可由对应管理员修改） |
+| GET | `/api/admin/directory/updates` | 企业目录更新检查（**只读**）：对比登记过的目录条目与已装扩展连接 / 企业 npm 源已上架插件版本，返回 `available / current / not_installed / unknown`，每条带 `current / target / channel / signature / installed_connection / auto_upgrade`；不下载、不安装、不升级。`auto_upgrade` 声明与设置 `directory.autoUpgrade`（默认 `false`）本期只展示、不执行。需 `connections.manage` 或 `settings.manage`。见 [docs/plugin-signing.md](../docs/plugin-signing.md) §8 |
 | GET | `/api/catalog`、`/api/catalog/{包名}` | 能力市场：已上架的能力 / 详情（版本、检查结果、README） |
 | GET / POST | `/api/me/packages` | 我发布的包与各版本状态 / 网页发布（请求体是 `.tgz`，`Content-Type: application/octet-stream`） |
 | POST | `/api/me/packages/check` | 发布前预检：请求体同样是 `.tgz`，只解包并返回自动检查与发布冲突，不落库、不占用版本号 |
@@ -294,12 +298,13 @@ curl localhost:8080/v1/chat/completions -H 'Authorization: Bearer sk-ee-…' -H 
 ## 已知限制
 
 - 额度按 UTC 自然月重置，检查在请求前做，单次请求可能略微超出额度。
-- 登录限流在进程内存里，多实例部署时需改为共享存储。登录失败先按用户名锁（15 分钟 5 次），再按客户端 IP 固定窗口限流（默认 15 分钟 50 次，只统计用户名或密码错误），两者都在单实例内存里。
+- 登录限流在进程内存里，多实例部署时按实例各自计数（需要更严的登录防爆破时，建议在反向代理 / WAF 层再加一层）。登录失败先按用户名锁（15 分钟 5 次），再按客户端 IP 固定窗口限流（默认 15 分钟 50 次，只统计用户名或密码错误），两者都在单实例内存里。
 - 按 IP 限流默认值取得比较宽，避免公司多人共用一个出口 IP 时把整个出口封死；如果出口 IP 背后人数很多，可以调大 `DSH_EE_LOGIN_IP_LIMIT`，或设成 `0` / `off` 关闭。`/metrics` 的登录计数也是进程内累计，重启清零、多实例各自独立。嵌入的 `dsh_ee_embed_denied_total` 同样是进程内计数；`dsh_ee_embed_sessions_active` 是数据库里的全库活跃会话数，多实例抓取到的是同一个值（Prometheus 用 `max()` 而不是 `sum()`），数据库不可用时这一行省略。
-- `/v1/*` 与 `/mcp` 的每令牌限流同样在进程内存里，多实例部署时按实例各自计数；需要全局一致限流时得改用共享存储。
+- `/v1/*` 与 `/mcp` 的每令牌限流计数在数据库（`shared_rate_limits`），多实例部署时是所有实例合计的额度；窗口按 wall clock 对齐，依赖各实例时钟同步（部署时开 NTP），边界有几秒偏差时额度最多多放出一小截，不会成倍放大。
+- 共享限流在数据库不可用时退回单实例内存计数：仍然会 429，不会 fail open，也不会把 `/v1`、`/mcp` 整体打成 5xx；代价是多实例下额度暂时放大 N 倍，并会限频写告警日志。为避免无效令牌把限流表刷大，每个实例每个窗口最多为 1 万个 key 建行；其后的陌生 key 共用一个溢出 key（所有实例、所有陌生令牌合计不超过一次正常令牌额度），正常令牌数量远低于这个量级。
 - 管理操作（建用户、分配额度、代发 / 吊销 key）尚未写审计日志；网关调用已逐条记录在 `usage_logs`。
 - 只支持本地账号；LDAP / OIDC 后续加。
-- 多实例部署：一次性状态（web link handoff、开始使用接入码、OIDC state/PKCE）已放共享表 `ephemeral_states`，A 实例生成、B 实例可用；但登录限流、上游 packument 的内存缓存、预载任务、后台任务与进程内锁仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容）。tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。
+- 多实例部署：一次性状态（web link handoff、开始使用接入码、OIDC state/PKCE）已放共享表 `ephemeral_states`，A 实例生成、B 实例可用；每令牌限流（`/v1`、`/mcp`）也已放数据库共享表 `shared_rate_limits`，多实例合计一份额度；但登录限流、上游 packument 的内存缓存、预载任务、后台任务与进程内锁仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容）。tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。
 - 多实例部署：周期后台任务（LDAP/飞书/知识源同步、上游检查、接入插件发布、Desktop 版本同步、到期与清理）已用数据库租约选主（`background_leases`，默认开启，见 [docs/operations.md](../docs/operations.md) §9.2），同一任务不会重复执行；但登录限流、上游 packument 的内存缓存、MCP 事件流等仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容），tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。启动时的 `FailRunningJobs` 与管理员手动触发的镜像任务仍没有作业级归属。
 - 离线包没有签名（导入时只校验每个 tarball 的 sha512）；dshfind 签名种子包对接后再加 ed25519 校验。
 - 上游 registry 只支持匿名访问，不支持需要认证的 Nexus / Artifactory 代理仓库。
