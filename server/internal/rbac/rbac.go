@@ -143,6 +143,8 @@ var DefaultMenus = []Menu{
 	{Kind: "group", Title: "能力与连接", Children: []Menu{
 		{Kind: "page", Title: "能力管理", Path: "/admin/plugins", PageKey: "admin-plugins", Icon: "Boxes", Permission: PluginsManage},
 		{Kind: "page", Title: "待审核", Path: "/admin/review", PageKey: "admin-review", Icon: "ClipboardCheck", Permission: PluginsManage},
+		// 专家 · 技能 · 连接器的分类、精选、禁用策略与权限查询（docs/expert-center.md §6）
+		{Kind: "page", Title: "专家与连接器策略", Path: "/admin/expert-center", PageKey: "admin-expert-center", Icon: "GraduationCap", Permission: PluginsManage},
 		{Kind: "page", Title: "企业连接", Path: "/admin/connections", PageKey: "admin-connections", Icon: "Cable", Permission: ConnectionsManage},
 		// 扩展签名的信任根（docs/plugin-signing.md §7）：装扩展的管理员顺手管受信任公钥；
 		// 只有 settings.manage 的管理员也能直接打开这个路由（web/src/main.tsx 的兜底）。

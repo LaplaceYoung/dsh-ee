@@ -380,13 +380,11 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 		writeErr(w, http.StatusForbidden, "你不是这条申请的审批人")
 		return
 	}
+	// 先 CAS 抢占状态、再授权：两个审批人并发处理同一条申请（网页 approve 与飞书 reject 完全可能同时发生）时，
+	// 只有把 pending 改成终态的那一方可以去授权。反过来做会留下「申请已驳回、权限却授出去了」的脏数据。
 	status := "rejected"
 	if req.Decision == "approve" {
 		status = "approved"
-		if err := s.grantAccess(ctx, q); err != nil {
-			s.writeAppErr(w, r, err)
-			return
-		}
 	}
 	if err := s.store.ResolveAccessRequest(ctx, id, status, v.user.ID, req.Note); err != nil {
 		if notFound(err) {
@@ -395,6 +393,22 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 		}
 		s.internalErr(w, r, err)
 		return
+	}
+	// 抢占成功后授权；授权失败要把申请退回待处理，不能让「记录已通过、权限没授出去」静默发生。
+	if req.Decision == "approve" {
+		if err := s.grantAccess(ctx, q); err != nil {
+			if rerr := s.store.ReopenAccessRequest(ctx, id); rerr != nil {
+				s.log.Error("授权失败后退回申请失败", "id", id, "err", rerr)
+			}
+			s.log.Error("授权失败", "id", id, "err", err)
+			var ae *appDataError
+			if errors.As(err, &ae) {
+				writeErr(w, http.StatusInternalServerError, "授权失败（"+ae.msg+"），申请已退回待处理，可以重试")
+			} else {
+				writeErr(w, http.StatusInternalServerError, "授权失败，申请已退回待处理，可以重试")
+			}
+			return
+		}
 	}
 	action, target := "access.request_"+req.Decision, q.Kind+":"+q.Slug
 	if q.Kind == store.RequestConnection {

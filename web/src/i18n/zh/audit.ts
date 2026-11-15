@@ -13,6 +13,7 @@ export default {
       menu: "菜单",
       provider: "模型上游",
       model: "模型",
+      files: "DeepSeek 文件",
       key: "API key",
       settings: "系统设置",
       ldap: "LDAP",
@@ -68,6 +69,7 @@ export default {
       token: { create: "生成令牌", issue: "下发令牌", revoke: "吊销令牌", revoke_bulk: "批量吊销令牌", elevate: "开启管理模式", elevate_end: "结束管理模式", elevate_expire: "管理模式到期", refresh: "刷新令牌", refresh_reuse: "检测到刷新令牌复用（已吊销整族）" },
       device: { approve: "授权设备", deny: "拒绝设备" },
       asset: { create: "新建能力", version: "提交新版本", edit: "修改范围或上下架", delete: "删除能力", scope_request: "申请扩大可用范围" },
+      hub: { category: "修改能力分类", block: "修改禁用策略" },
       connection: { tool: "设置连接工具", request: "申请使用企业连接", credential_set: "填写连接凭据", credential_delete: "删除连接凭据", credential_revoke: "收回员工的连接凭据", ee_jwt_rotate: "轮换 ee_jwt 签名密钥", shared_credential_set: "保存命名共享凭据", shared_credential_delete: "删除命名共享凭据" },
       extension: { install: "安装或升级扩展", rollback: "回滚扩展版本" },
       connect: { publish: "发布接入插件" },
@@ -84,6 +86,7 @@ export default {
       embed: { session_create: "签发嵌入登录码", revoke: "撤销嵌入会话", deny: "拒绝嵌入请求" },
       directory: { apply: "登记企业目录" },
       client: { create: "创建 API 客户端", revoke: "禁用 API 客户端" },
+      files: { upload: "上传文件", delete: "删除文件", list: "列出文件" },
     },
   },
 };

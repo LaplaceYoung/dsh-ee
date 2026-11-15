@@ -142,9 +142,39 @@ type Asset struct {
 	ScopeRequestedAt *time.Time `json:"scope_requested_at"`
 	// 上一次范围申请被驳回的原因（再次申请或通过时清空）
 	ScopeNote string `json:"scope_note"`
+	// 受管分类（asset_categories）；nil 表示没归类
+	CategoryID *int64 `json:"category_id"`
+	// 精选：DSH 面板里排在最前（只有管理员能设）
+	Featured bool `json:"featured"`
+
+	// 下面两项由 attachGates 在读出资产时填上，判断某个人能不能用（Gate）
+	// 所在分类的可用范围；没归类时为 nil
+	CategoryScope *Scope `json:"-"`
+	// 命中这个资产的禁用策略的范围
+	Blocks []Scope `json:"-"`
 }
 
-const assetCols = "a.id, a.kind, a.slug, a.title, a.description, a.category, a.owner_id, a.scope, a.delivery, a.status, a.secret_hint, a.created_at, a.updated_at, a.pending_scope, a.scope_requested_at, a.scope_note"
+// 资产对某个人不可用的原因（Gate 的返回值）。
+const (
+	GateCategory = "category"
+	GateBlocked  = "blocked"
+)
+
+// Gate 判断分类范围与禁用策略：返回空表示放行，否则是挡住的原因。
+// 资产自己的可用范围、上下架不在这里看（api 层的 available）。
+func (a *Asset) Gate(userID int64, department string, roleIDs []int64) string {
+	if a.CategoryScope != nil && !a.CategoryScope.Allows(userID, department, roleIDs) {
+		return GateCategory
+	}
+	for _, b := range a.Blocks {
+		if b.Allows(userID, department, roleIDs) {
+			return GateBlocked
+		}
+	}
+	return ""
+}
+
+const assetCols = "a.id, a.kind, a.slug, a.title, a.description, a.category, a.owner_id, a.scope, a.delivery, a.status, a.secret_hint, a.created_at, a.updated_at, a.pending_scope, a.scope_requested_at, a.scope_note, a.category_id, a.featured"
 
 // 列表查询附带线上版本号与待审核数。
 const assetListCols = assetCols + `,
@@ -157,7 +187,8 @@ func scanAsset(row interface{ Scan(...any) error }, extra ...any) (*Asset, error
 	var scope string
 	var pendingScope sql.NullString
 	var requestedAt sql.NullTime
-	dest := []any{&a.ID, &a.Kind, &a.Slug, &a.Title, &a.Description, &a.Category, &owner, &scope, &a.Delivery, &a.Status, &a.SecretHint, &a.CreatedAt, &a.UpdatedAt, &pendingScope, &requestedAt, &a.ScopeNote}
+	var categoryID sql.NullInt64
+	dest := []any{&a.ID, &a.Kind, &a.Slug, &a.Title, &a.Description, &a.Category, &owner, &scope, &a.Delivery, &a.Status, &a.SecretHint, &a.CreatedAt, &a.UpdatedAt, &pendingScope, &requestedAt, &a.ScopeNote, &categoryID, &a.Featured}
 	err := row.Scan(append(dest, extra...)...)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
@@ -177,6 +208,10 @@ func scanAsset(row interface{ Scan(...any) error }, extra ...any) (*Asset, error
 	if requestedAt.Valid {
 		t := requestedAt.Time
 		a.ScopeRequestedAt = &t
+	}
+	if categoryID.Valid {
+		v := categoryID.Int64
+		a.CategoryID = &v
 	}
 	return &a, nil
 }
@@ -250,9 +285,9 @@ func (s *Store) CreateAsset(ctx context.Context, a *Asset, spec json.RawMessage,
 		a.Status = AssetActive
 	}
 	res, err := tx.ExecContext(ctx,
-		`INSERT INTO assets (kind, slug, title, description, category, owner_id, scope, delivery, status, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		a.Kind, a.Slug, a.Title, a.Description, a.Category, a.OwnerID, scope, a.Delivery, a.Status, t, t)
+		`INSERT INTO assets (kind, slug, title, description, category, category_id, featured, owner_id, scope, delivery, status, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		a.Kind, a.Slug, a.Title, a.Description, a.Category, a.CategoryID, a.Featured, a.OwnerID, scope, a.Delivery, a.Status, t, t)
 	if isDuplicate(err) {
 		return ErrDuplicate
 	}
@@ -336,11 +371,21 @@ func (s *Store) DeleteAssetVersion(ctx context.Context, assetID int64, version i
 }
 
 func (s *Store) GetAsset(ctx context.Context, id int64) (*Asset, error) {
-	return scanAssetListed(s.db.QueryRowContext(ctx, "SELECT "+assetListCols+" FROM assets a WHERE a.id = ?", id))
+	return s.gated(ctx)(scanAssetListed(s.db.QueryRowContext(ctx, "SELECT "+assetListCols+" FROM assets a WHERE a.id = ?", id)))
 }
 
 func (s *Store) GetAssetBySlug(ctx context.Context, slug string) (*Asset, error) {
-	return scanAssetListed(s.db.QueryRowContext(ctx, "SELECT "+assetListCols+" FROM assets a WHERE a.slug = ?", slug))
+	return s.gated(ctx)(scanAssetListed(s.db.QueryRowContext(ctx, "SELECT "+assetListCols+" FROM assets a WHERE a.slug = ?", slug)))
+}
+
+// gated 给读出来的单个资产填上分类范围与禁用策略。
+func (s *Store) gated(ctx context.Context) func(*Asset, error) (*Asset, error) {
+	return func(a *Asset, err error) (*Asset, error) {
+		if err != nil {
+			return nil, err
+		}
+		return a, s.attachGates(ctx, []*Asset{a})
+	}
 }
 
 // ListAssets 列出资产；kinds 为空表示全部类型。
@@ -366,7 +411,10 @@ func (s *Store) ListAssets(ctx context.Context, kinds ...string) ([]*Asset, erro
 		}
 		out = append(out, a)
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, s.attachGates(ctx, out)
 }
 
 // AssetPatch 里为 nil 的字段不修改。
@@ -377,6 +425,9 @@ type AssetPatch struct {
 	Scope       *Scope
 	Delivery    *string
 	Status      *string
+	// 受管分类：指向 0 表示取消归类；设了分类时 Category 文本由调用方同步成分类名
+	CategoryID *int64
+	Featured   *bool
 }
 
 func (s *Store) UpdateAsset(ctx context.Context, id int64, p AssetPatch) error {
@@ -407,6 +458,12 @@ func (s *Store) UpdateAsset(ctx context.Context, id int64, p AssetPatch) error {
 	}
 	if p.Status != nil {
 		add("status", *p.Status)
+	}
+	if p.CategoryID != nil {
+		add("category_id", nullID(*p.CategoryID))
+	}
+	if p.Featured != nil {
+		add("featured", *p.Featured)
 	}
 	args = append(args, id)
 	res, err := s.db.ExecContext(ctx, "UPDATE assets SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...)

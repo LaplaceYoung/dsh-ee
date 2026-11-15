@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
+	"os"
 	"strings"
 	"sync"
 	"testing"
@@ -13,14 +16,37 @@ import (
 
 func openTokenTestStore(t *testing.T) *Store {
 	t.Helper()
-	st := openFreshTestStores(t, 1)[0]
-	if err := st.Migrate(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	if err := st.Migrate(context.Background()); err != nil {
-		t.Fatal(err)
-	}
+	st, _ := openTokenTestStoreDSN(t)
 	return st
+}
+
+// openTokenTestStoreDSN 建一个随机测试库并返回它的 DSN，供需要开第二个连接模拟
+// 多实例的测试使用（两个连接池共用同一个库）。
+func openTokenTestStoreDSN(t *testing.T) (*Store, string) {
+	t.Helper()
+	base := os.Getenv("DSH_EE_TEST_DSN")
+	if base == "" {
+		t.Skip("未设置 DSH_EE_TEST_DSN，跳过数据库集成测试")
+	}
+	suffix := make([]byte, 4)
+	_, _ = rand.Read(suffix)
+	name := "dsh_ee_test_" + hex.EncodeToString(suffix)
+	dsn := strings.Replace(base, ")/", ")/"+name, 1)
+	st, err := Open(context.Background(), dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = st.DB().ExecContext(context.Background(), "DROP DATABASE `"+name+"`")
+		st.Close()
+	})
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.Migrate(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	return st, dsn
 }
 
 func tokenTestUser(t *testing.T, st *Store, bot bool) *User {

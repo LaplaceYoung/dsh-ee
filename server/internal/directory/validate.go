@@ -205,6 +205,11 @@ func validateEntry(r *Result, i int, e *Entry, opt Options) {
 	if e.MinVersion != "" && !extension.ValidVersion(e.MinVersion) {
 		r.errf("entry.min_version", at("min_version"), i, "min_version %q 不是语义化版本", e.MinVersion)
 	}
+	// auto_upgrade 是可选声明（format 2 additive）。本期只登记、只做只读更新检查，
+	// 不会真的自动升级；这里给 warning 让管理员在目录校验结果里就看到这个边界。
+	if e.AutoUpgrade {
+		r.warnf("entry.auto_upgrade", at("auto_upgrade"), i, "auto_upgrade=true 只登记、不执行：本期 dsh-ee 不会自动升级，升级仍要管理员显式触发")
+	}
 	if p := e.Publisher; p != nil {
 		if p.UserID < 0 {
 			r.warnf("entry.publisher.user_id", at("publisher.user_id"), i, "publisher.user_id 不能是负数")
