@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Check, Cpu, FileSearch, ShieldCheck, X } from "lucide-react";
+import { IntroFilmPlayer } from "../components/intro-film/player";
+import type { FilmLang } from "../components/intro-film/copy";
 import { WhaleMark } from "../components/whale-mark";
 import { auditLog, clientPlatforms, microApps } from "../mock/data";
 import { PageLink } from "../lib/menus";
@@ -268,19 +270,18 @@ function Guides() {
   );
 }
 
-/** 演示站首页的介绍视频：按界面语言挑一个，没有就用另一个。正常部署没有。 */
-function useDemoVideo() {
+/** 演示站首页播放介绍短片（代码画的，不是视频文件），按界面语言出中文或英文版。正常部署不放。 */
+function useDemoFilm(): FilmLang | null {
   const { i18n } = useTranslation();
-  const videos = useApi(api.authMethods).data?.demo?.videos ?? [];
-  if (!videos.length) return null;
-  const want = i18n.language.startsWith("zh") ? "zh" : "en";
-  return `/demo/intro/${videos.includes(want) ? want : videos[0]}`;
+  const demo = useApi(api.authMethods).data?.demo;
+  if (!demo) return null;
+  return i18n.language.startsWith("zh") ? "zh" : "en";
 }
 
 export default function Landing() {
   const { t } = useTranslation();
   const onTop = !useScrolled();
-  const video = useDemoVideo();
+  const film = useDemoFilm();
   useReveal();
   return (
     <div className="lp relative min-h-screen overflow-x-clip">
@@ -333,28 +334,16 @@ export default function Landing() {
               <p className="mt-2 text-[15px] leading-relaxed text-lp-muted">{t("landing.heroLead")}</p>
             </div>
             <div data-reveal className="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-3" style={delay(90)}>
-              {video && <Pill to="/login">{t("landing.tryDemo")}</Pill>}
+              {film && <Pill to="/login">{t("landing.tryDemo")}</Pill>}
               <Pill href="#how" tone="ghost">
                 {t("landing.seeHow")}
               </Pill>
             </div>
           </div>
           <div className="relative pb-10">
-            {video ? (
+            {film ? (
               <div className={cx(shell, "pt-4")}>
-                {/* 浏览器只允许静音的视频自动播放；视频本身也没有声音 */}
-                <video
-                  key={video}
-                  src={video}
-                  className="mx-auto block w-full max-w-5xl rounded-xl bg-white shadow-lp ring-1 ring-lp-line"
-                  aria-label={t("landing.videoLabel")}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  controls
-                  preload="metadata"
-                />
+                <IntroFilmPlayer lang={film} label={t("landing.videoLabel")} className="mx-auto block w-full max-w-5xl rounded-xl bg-white shadow-lp ring-1 ring-lp-line" />
               </div>
             ) : (
               <LandingHeroScene />
