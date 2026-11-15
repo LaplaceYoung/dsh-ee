@@ -27,6 +27,46 @@ const (
 // 用户不存在时也做一次比对，避免靠响应时间判断用户名是否存在。
 var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("dsh-ee-dummy-password"), bcryptCost)
 
+// comparePassword 是 bcrypt 比对的间接层：测试里可替换以统计比对次数、断言走的是
+// 真实 hash 还是 dummyHash。
+var comparePassword = bcrypt.CompareHashAndPassword
+
+// bcryptHashLen 是 bcrypt 哈希的固定长度：$2a$12$（7 字节）+ 22 字节盐 + 31 字节摘要。
+const bcryptHashLen = 60
+
+// isBcryptHash 只做长度与前缀（$2a$ / $2b$ / $2y$）的粗筛，不解析，避免歧义。
+// 放宽一点没有风险：筛过去的值仍会走 bcrypt；筛掉的值走 dummyHash，耗时一致。
+func isBcryptHash(hash []byte) bool {
+	if len(hash) != bcryptHashLen {
+		return false
+	}
+	switch string(hash[:4]) {
+	case "$2a$", "$2b$", "$2y$":
+		return true
+	}
+	return false
+}
+
+// verifyLocalPassword 验证本地密码。PasswordHash 为空或不是 bcrypt 格式时不能直接交给
+// bcrypt——bcrypt 会立刻返回错误，响应时间就能区分「账号存在但没有本地密码」（OIDC /
+// 设备码等渠道建的号）与「账号不存在」（后者已用 dummyHash 等时化）。这里同样跑一次
+// dummyHash 的完整比对再拒绝。没有本地密码的账号永远登录失败（空密码也不行）。
+func verifyLocalPassword(u *store.User, password string) bool {
+	if u == nil || !isBcryptHash([]byte(u.PasswordHash)) {
+		equalizePasswordCompare(password)
+		return false
+	}
+	return comparePassword([]byte(u.PasswordHash), []byte(password)) == nil
+}
+
+// equalizePasswordCompare 在「账号存在但注定拒绝」的分支里跑一次完整的 bcrypt（比对
+// dummyHash 与用户提交的密码）。少了这一步，这些分支会比「账号不存在」（同样比对
+// dummyHash）快一个 bcrypt 的时间，攻击者就能靠响应时间枚举账号。调用方随后仍返回
+// errBadCredentials，外部语义不变。
+func equalizePasswordCompare(password string) {
+	_ = comparePassword(dummyHash, []byte(password))
+}
+
 func HashPassword(pw string) (string, error) {
 	if utf8.RuneCountInString(pw) < minPasswordLen {
 		return "", errWeakPassword
@@ -336,7 +376,8 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "这个账号的密码由企业目录或统一登录管理，请在公司的账号系统里修改")
 		return
 	}
-	if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(req.OldPassword)) != nil {
+	// 与登录共用等时化校验：没有本地密码的账号（理论上的脏数据）也拒绝，不因空 hash 提前返回。
+	if !verifyLocalPassword(u, req.OldPassword) {
 		writeErr(w, http.StatusBadRequest, "原密码不正确")
 		return
 	}
