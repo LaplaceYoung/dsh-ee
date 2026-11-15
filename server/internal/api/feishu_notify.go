@@ -141,6 +141,42 @@ func feishuCardDocument(title, detail string) map[string]any {
 	}
 }
 
+// escapeFeishuMarkdown 转义进入卡片 markdown 正文的用户/管理员自由文本。
+// 申请理由、用户名、资产标题等值是员工可写的，卡片却是审批人信任的 bot 消息；
+// 不转义就能在正文里造出 [点我](https://evil) 这样的可点链接、![](https://attacker/px)
+// 这样会自动加载的图片（钓鱼、IP/UA 泄露），以及伪造的加粗/代码块/标题/引用。
+//
+// 用反斜杠逐字符转义飞书 markdown 的语法字符：即使渲染器不消费反斜杠，
+// 插入的 \ 也会把 "]("、"!["、"**"、"```" 等触发序列拆开，语法不会被解析；
+// 换行不转义，保留多行理由的排版。< 与 & 改用 HTML 实体：卡片 markdown
+// 支持 <a>/<at>/<font> 等 HTML 标签，反斜杠挡不住标签解析，实体才是飞书
+// 官方文档给出的「按字面显示特殊字符」的方式。转义后的文本仍按原样显示。
+func escapeFeishuMarkdown(s string) string {
+	if s == "" {
+		return s
+	}
+	// 普通文本（不含下面这些字符）原样返回，卡片显示不受影响。
+	if !strings.ContainsAny(s, "\\`*_{}[]()#+-.!>|<&~") {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s) + 8)
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '<':
+			b.WriteString("&lt;")
+		case '&':
+			b.WriteString("&amp;")
+		case '\\', '`', '*', '_', '{', '}', '[', ']', '(', ')', '#', '+', '-', '.', '!', '>', '|', '~':
+			b.WriteByte('\\')
+			b.WriteByte(s[i])
+		default:
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
+}
+
 func feishuButton(label, kind, decision, actionID string) map[string]any {
 	buttonType := "default"
 	if decision == "approve" {
@@ -166,6 +202,28 @@ type feishuCardCopy struct {
 	TitleParams  map[string]string
 	DetailKey    string
 	DetailParams map[string]string
+	// DetailFreeText 列出 DetailParams 里来自用户/管理员自由填写的参数名。正文是 markdown，
+	// 这些值必须先转义；固定文案、枚举、版本号、站内路径等结构化参数不转义。
+	// 标题（TitleParams）渲染进 plain_text，不解析 markdown，所以不需要转义。
+	DetailFreeText []string
+}
+
+// detailText 渲染卡片 markdown 正文。只有 DetailFreeText 里列出的自由文本参数会被转义，
+// 消息模板里的固定文案和结构化参数保持原样，避免把模板本身或版本号转义坏。
+func (c feishuCardCopy) detailText(lang string) string {
+	if len(c.DetailFreeText) == 0 {
+		return feishu.Text(lang, c.DetailKey, c.DetailParams)
+	}
+	params := make(map[string]string, len(c.DetailParams))
+	for k, v := range c.DetailParams {
+		params[k] = v
+	}
+	for _, k := range c.DetailFreeText {
+		if v, ok := params[k]; ok {
+			params[k] = escapeFeishuMarkdown(v)
+		}
+	}
+	return feishu.Text(lang, c.DetailKey, params)
 }
 
 func (s *Server) sendFeishuApproval(ctx context.Context, kind, objectKey string, assetID, subID int64, ownerID *int64, copy feishuCardCopy, operators []int64) {
@@ -191,7 +249,7 @@ func (s *Server) sendFeishuApproval(ctx context.Context, kind, objectKey string,
 		// 每张卡片按收件人自己的语言渲染：审批人设了语言就用它的，否则跟组织默认。
 		lang := s.userLanguage(ctx, u)
 		actionID := secret.Token()
-		doc := feishuCardDocument(feishu.Text(lang, copy.TitleKey, copy.TitleParams), feishu.Text(lang, copy.DetailKey, copy.DetailParams))
+		doc := feishuCardDocument(feishu.Text(lang, copy.TitleKey, copy.TitleParams), copy.detailText(lang))
 		actions := doc["body"].(map[string]any)["components"].([]any)
 		actions[1] = map[string]any{"tag": "action", "actions": []any{
 			feishuButton(feishu.Text(lang, feishu.MsgCardButtonApprove, nil), kind, "approve", actionID),
@@ -253,6 +311,9 @@ func (s *Server) feishuReviewScope(a *store.Asset) {
 		TitleParams:  map[string]string{"title": a.Title},
 		DetailKey:    feishu.MsgCardScopeDetail,
 		DetailParams: map[string]string{"title": a.Title, "path": "/assets/" + strconv.FormatInt(a.ID, 10)},
+		DetailFreeText: []string{
+			"title", // 资产标题由作者自由填写
+		},
 	}
 	s.sendFeishuApproval(context.WithoutCancel(context.Background()), store.FeishuActionScope, strconv.FormatInt(a.ID, 10)+":scope", a.ID, 0, a.OwnerID, copy, s.feishuReviewers(context.WithoutCancel(context.Background())))
 }
@@ -283,6 +344,9 @@ func (s *Server) feishuAccessRequest(ctx context.Context, q *store.AccessRequest
 		DetailKey:   feishu.MsgCardAccessDetail,
 		DetailParams: map[string]string{
 			"applicant": q.Username, "reason": q.Reason, "title": q.Title,
+		},
+		DetailFreeText: []string{
+			"applicant", "reason", "title", // 用户名、申请理由、资产/应用标题都由用户填写
 		},
 	}
 	s.sendFeishuApproval(ctx, store.FeishuActionAccess, strconv.FormatInt(q.ID, 10), q.AssetID, q.ID, ownerPtr(q.UserID), copy, ids)
