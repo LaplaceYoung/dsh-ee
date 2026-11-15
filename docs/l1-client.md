@@ -172,7 +172,7 @@ curl -fsS "$BASE/mcp" \
 
 ### 限流与请求 ID
 
-`/v1/*` 与 `/mcp` 按令牌限流（同一令牌共用一份额度，不同令牌互不影响），默认每分钟 60 次；服务端可用 `DSH_EE_RATE_LIMIT` 调整或关闭，实际值以响应头为准。超限时：
+`/v1/*` 与 `/mcp` 按令牌限流（同一令牌共用一份额度，不同令牌互不影响），默认每分钟 60 次；服务端可用 `DSH_EE_RATE_LIMIT` 调整或关闭，实际值以响应头为准。多实例部署时计数在服务端数据库里合计，额度不会按实例数量放大；窗口按分钟对齐，客户端按 `Retry-After` 退避即可。超限时：
 
 - HTTP 429 + `Retry-After`（秒）；
 - `X-RateLimit-Limit`（窗口额度）、`X-RateLimit-Remaining`（本次之后的剩余次数）、`X-RateLimit-Reset`（窗口重置的 Unix 秒）；

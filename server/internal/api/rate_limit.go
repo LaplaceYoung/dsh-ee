@@ -14,13 +14,20 @@ import (
 	"github.com/hikariming/dsh-ee/server/internal/secret"
 )
 
-// 公开协议面（/v1/* 与 /mcp）的每令牌限流与请求 ID。
+// 公开协议面（/v1/*、Anthropic Messages 兼容面与 /mcp）的每令牌限流与请求 ID。
 //
-// 限流和 device.go 里的 ipRate 用同一套固定窗口：每个 key 一个窗口，窗口到期重新计数。
-// key 是 Authorization 里令牌的 sha256（进程里不留明文），没有令牌时退回客户端 IP；
-// 同一个令牌的模型调用与 MCP 调用共用一份额度，不同令牌互不影响。
+// 限流计数在数据库的 shared_rate_limits 表里（见 store.TakeSharedRateLimit）：多实例
+// 连同一个库时所有实例共用同一份额度，不会因为多实例部署把额度放大 N 倍。固定窗口按
+// 窗口长度对齐，依赖各实例时钟同步（部署时用 NTP）；窗口边界有几秒偏差时额度最多多
+// 放出一小截，不会成倍放大。key 是令牌的 sha256（Anthropic 兼容端点支持 x-api-key；
+// 没有令牌时退回客户端 IP 的摘要），进程与数据库里都不留令牌明文；同一个令牌的模型调用与 MCP 调用共用一份
+// 额度，不同令牌互不影响。
+//
+// tokenRate 是进程内的固定窗口限流，现在只在两种情况下使用：数据库不可用时兜底
+// （takeRateLimit），以及单元测试直接构造 Server、没有数据库的时候。退化成每实例
+// 一份额度，仍然有限流（不会 fail open），只是多实例下额度会放大 N 倍。
 
-// tokenRate 是按令牌的固定窗口限流（window 内最多 limit 次）。
+// tokenRate 是按令牌的固定窗口限流（window 内最多 limit 次），作为共享限流的兜底。
 type tokenRate struct {
 	mu        sync.Mutex
 	limit     int
@@ -34,7 +41,42 @@ type tokenRate struct {
 const (
 	maxRateKeys    = 10000
 	rateOverflowID = "\x00overflow"
+
+	// 共享限流里超过 maxRateKeys 后的陌生 key 统一用这个 key（跨实例也都是同一行，
+	// 相当于所有「不认识的令牌」共用一个很窄的额度，防止拿随机令牌把表刷爆）。
+	sharedRateOverflowKey = "__overflow__"
+
+	// 共享限流单次查库的超时。库慢/挂时尽快退回内存限流，不把请求一起拖死。
+	sharedRateDBTimeout = 2 * time.Second
 )
+
+// rateKeyAdmission 记录当前窗口里已经为哪些 key 建过数据库行，把每个实例每窗口的
+// 行数限制在 maxRateKeys。只存内存、每个实例一份：总行数上限约「实例数 × maxRateKeys」，
+// 窗口翻页后重置。key 是哈希后的限流 key，不是令牌明文。
+type rateKeyAdmission struct {
+	mu          sync.Mutex
+	windowStart time.Time
+	keys        map[string]struct{}
+}
+
+// admit 返回这个 key 在共享限流里该用的 key：窗口内的老 key 原样返回，超过上限后的
+// 陌生 key 落到 sharedRateOverflowKey。窗口起点变化时清空上一窗口的集合。
+func (a *rateKeyAdmission) admit(key string, windowStart time.Time) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.keys == nil || !a.windowStart.Equal(windowStart) {
+		a.windowStart = windowStart
+		a.keys = map[string]struct{}{}
+	}
+	if _, ok := a.keys[key]; ok {
+		return key
+	}
+	if len(a.keys) >= maxRateKeys {
+		return sharedRateOverflowKey
+	}
+	a.keys[key] = struct{}{}
+	return key
+}
 
 func newTokenRate(limit int, window time.Duration) *tokenRate {
 	if window <= 0 {
@@ -90,6 +132,7 @@ func (s *Server) rateLimit(next http.Handler) http.Handler {
 	if s.tokenRate == nil {
 		return next
 	}
+	window := s.rateWindow()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !rateLimitedPath(r.URL.Path) {
 			next.ServeHTTP(w, r)
@@ -101,7 +144,7 @@ func (s *Server) rateLimit(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
-		info, ok := s.tokenRate.take(s.rateLimitKey(r))
+		info, ok := s.takeRateLimit(r.Context(), s.rateLimitKey(r), window)
 		setRateLimitHeaders(w.Header(), info)
 		if !ok {
 			// Retry-After 按秒向上取整，至少 1 秒；客户端照它退避。
@@ -117,6 +160,55 @@ func (s *Server) rateLimit(next http.Handler) http.Handler {
 	})
 }
 
+// rateWindow 返回限流窗口长度：线上固定 1 分钟；Options.RateLimitWindow 只给自动化测试缩短用。
+func (s *Server) rateWindow() time.Duration {
+	if s.opts.RateLimitWindow > 0 {
+		return s.opts.RateLimitWindow
+	}
+	return time.Minute
+}
+
+// takeRateLimit 记一次请求，返回当前窗口状态与是否放行。
+//
+// 优先用数据库里的共享计数（多实例合计一份额度）。数据库不可用时退回进程内固定窗口：
+// 限流是保护性措施，不能因为限流存储故障把 /v1 与 /mcp 整体打成 5xx 或 429；退化成
+// 每实例一份额度仍然有限流，不会 fail open，只是多实例下额度会放大 N 倍，并限频告警。
+func (s *Server) takeRateLimit(ctx context.Context, key string, window time.Duration) (rateInfo, bool) {
+	if s.store == nil {
+		// 单元测试会直接构造 &Server{}（没有数据库）：保持进程内限流。
+		return s.tokenRate.take(key)
+	}
+	windowStart := time.Now().UTC().Truncate(window)
+	sharedKey := s.rateKeys.admit(key, windowStart)
+	// 一次 upsert + 一次读回，正常在毫秒级；库慢/挂时由超时兜底退回内存限流。
+	dbCtx, cancel := context.WithTimeout(ctx, sharedRateDBTimeout)
+	state, err := s.store.TakeSharedRateLimit(dbCtx, sharedKey, windowStart, window, s.tokenRate.limit)
+	cancel()
+	if err != nil {
+		// 客户端自己断开导致的取消是正常现象，不算数据库故障，不写告警。
+		if ctx.Err() == nil {
+			s.warnRateLimitFallback(err)
+		}
+		return s.tokenRate.take(key)
+	}
+	return rateInfo{Limit: state.Limit, Remaining: state.Remaining, Reset: state.Reset}, state.Allowed
+}
+
+// warnRateLimitFallback 数据库不可用时退回内存限流，并限频告警（每分钟最多一条），
+// 避免数据库持续不可用时每个请求都刷一条日志。
+func (s *Server) warnRateLimitFallback(err error) {
+	const interval = time.Minute
+	now := time.Now().UnixNano()
+	last := s.rateDBWarnedAt.Load()
+	if last != 0 && now-last < int64(interval) {
+		return
+	}
+	if !s.rateDBWarnedAt.CompareAndSwap(last, now) {
+		return
+	}
+	s.log.Warn("共享限流数据库不可用，已退回单实例内存限流", "err", err)
+}
+
 // rateLimitedPath 只覆盖公开协议面：OpenAI 兼容网关、Anthropic 兼容端点（含别名）与 MCP。
 func rateLimitedPath(path string) bool {
 	return isV1Path(path) || isMCPPath(path) || isAnthropicMessagesPath(path)
@@ -129,6 +221,7 @@ func isMCPPath(path string) bool { return path == "/mcp" || strings.HasPrefix(pa
 // rateLimitKey 用令牌决定额度；没有 Authorization 时退回客户端 IP。
 // Anthropic 兼容端点允许只带 x-api-key：该端点优先按 x-api-key 取令牌（与 auth 一致），
 // 其它端点仍以 Bearer 为准。只放哈希，进程里的 map 不留令牌明文。
+// 只放令牌的 sha256，进程内存与数据库里都不留令牌明文。
 func (s *Server) rateLimitKey(r *http.Request) string {
 	token := ""
 	if isAnthropicMessagesPath(r.URL.Path) {

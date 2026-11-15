@@ -88,6 +88,14 @@ type Config struct {
 	DataDSN string
 	// 数据中台的只读账号（DSH_EE_DATA_READ_DSN）；不填时用 DataDSN 的账号自动建一个只有 SELECT 权限的账号。
 	DataReadDSN string
+	// DeepSeek Chatbot 的网关注入选项（docs/dev/chatbot.md）：
+	// SafetyCheck 是 DSH_EE_SAFETY_CHECK，默认空（off）不注入；high 时向 vendor=deepseek 的
+	// 上游请求注入 safety_check:{level:"high"}。客户端已经带了 safety_check 时保留客户端的值。
+	SafetyCheck string
+	// ChatTitle 是 DSH_EE_CHAT_TITLE，默认 off 不注入；on 时向 vendor=deepseek 的上游请求
+	// 注入 title:{enabled:true}。客户端已经带了 title 时保留客户端的值。
+	// 这两个选项只影响发往 DeepSeek 上游的那次请求，不改模型/额度/记账，也不改写响应。
+	ChatTitle bool
 	// 公开演示站（DSH_EE_DEMO_MODE）：登录页显示初始管理员账号，关掉改密码等会把别人锁在外面的操作，
 	// 对外请求只许连本机。DemoReset 是给访客看的重置周期说明，如「每 6 小时」。
 	// DemoResetEvery 是实际的重置间隔（和 crontab 一致），用来在登录页算下次重置的时间点；0 表示不显示。
@@ -359,6 +367,21 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("DSH_EE_METRICS: %w", err)
 		}
 		c.Metrics = b
+	}
+	// DeepSeek Chatbot 选项：只接受文档里的取值，写错让启动失败，避免以为开了其实没开。
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("DSH_EE_SAFETY_CHECK"))); v {
+	case "", "off":
+	case "high":
+		c.SafetyCheck = "high"
+	default:
+		return nil, errors.New("DSH_EE_SAFETY_CHECK 只能是 off 或 high")
+	}
+	switch v := strings.ToLower(strings.TrimSpace(os.Getenv("DSH_EE_CHAT_TITLE"))); v {
+	case "", "off":
+	case "on":
+		c.ChatTitle = true
+	default:
+		return nil, errors.New("DSH_EE_CHAT_TITLE 只能是 off 或 on")
 	}
 	if !cookieSecureSet && strings.HasPrefix(c.PublicURL, "https://") {
 		// 生产部署最常见的配置是只填 PUBLIC_URL。对外是 HTTPS 时会话 cookie 默认加 Secure，

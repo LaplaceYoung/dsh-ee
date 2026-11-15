@@ -342,6 +342,38 @@ func TestDshReleaseMirrorDoesNotRedownloadRemoved(t *testing.T) {
 	}
 }
 
+func TestDshReleaseOversizeUpstreamFails(t *testing.T) {
+	f := newReleaseFixture(t, "notify")
+	ctx := context.Background()
+	// 清单/DB 声明的大小比上游实际返回的小 1 字节：必须在下完之前就拒绝，并把状态置为 failed。
+	r := &store.DshRelease{
+		Target: "mac-arm64", Kind: "zip", Version: "9.9.9", ReleasedAt: time.Now(), File: "dsh-9.9.9.zip",
+		Size: f.manifestSize - 1, SHA512: f.manifestSHA,
+		UpstreamURL: f.upstream.URL + "/bin/dsh.zip", State: store.ReleaseAvailable,
+	}
+	if err := f.st.CreateDshRelease(ctx, r); err != nil {
+		t.Fatal(err)
+	}
+	err := f.s.downloadDshRelease(ctx, r.ID)
+	if err == nil || !strings.Contains(err.Error(), "比清单声明的") {
+		t.Fatalf("上游比清单大时应下载失败：%v", err)
+	}
+	got, err := f.st.DshReleaseByID(ctx, r.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.State != store.ReleaseFailed || !strings.Contains(got.Error, "比清单声明的") {
+		t.Fatalf("下载失败后状态应为 failed 且记录原因：%+v", got)
+	}
+	part, err := f.s.releasePartPath(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(part); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("失败后应删除 .part：%v", err)
+	}
+}
+
 func TestDshReleaseDMGVersionedFileAndSeparateCleanup(t *testing.T) {
 	f := newReleaseFixture(t, "notify")
 	m := &dshManifest{Version: "1.2.3", ReleaseDate: "2026-11-02T12:00:00Z"}

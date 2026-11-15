@@ -769,7 +769,10 @@ func (s *Server) runExtInstall(ctx context.Context, r *http.Request, in *extInst
 			}
 			return nil, err
 		}
-		_ = s.store.Subscribe(ctx, v.user.ID, a.ID)
+		// 新建的连接默认给自己启用；订阅失败不影响创建，记录待查。
+		if err := s.store.Subscribe(ctx, v.user.ID, a.ID); err != nil {
+			s.log.Warn("自动订阅能力失败", "user", v.user.ID, "asset", a.ID, "err", err)
+		}
 	}
 	if req.Secret != nil {
 		if err := s.saveConnSecret(r, a.ID, *req.Secret); err != nil {
