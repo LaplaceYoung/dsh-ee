@@ -7,7 +7,7 @@
 把 ERP、CRM、数仓和制度文档接进来，组装成 AI 微应用，审核授权后送到每位员工的 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness)。<br>
 数据和凭据都留在你自己的服务器上，每一次调用都可以审计。
 
-[English](./README.md) · 简体中文
+[English](./README.md) · 简体中文 · [Español](./README.es.md) · [Português](./README.pt.md) · [हिन्दी](./README.hi.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 

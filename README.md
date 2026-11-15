@@ -8,7 +8,7 @@ Connect your ERP, CRM, data warehouse and policy docs, assemble them into AI mic
 and ship them, reviewed and permissioned, to every employee's [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness).<br>
 Data and credentials stay on your own server, and every call can be audited.
 
-English · [简体中文](./README.zh-CN.md)
+English · [简体中文](./README.zh-CN.md) · [Español](./README.es.md) · [Português](./README.pt.md) · [हिन्दी](./README.hi.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
