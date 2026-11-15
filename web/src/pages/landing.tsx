@@ -302,6 +302,8 @@ export default function Landing() {
             ))}
           </nav>
           <nav className="ml-auto flex items-center gap-4">
+            {/* 手机端用收起形式，桌面端保持完整下拉：两个入口都在，最窄 375px 也能切换语言。 */}
+            <LangSwitch compact className="rounded-full px-2 sm:hidden" />
             <LangSwitch
               className={cx("hidden rounded-full px-2.5 sm:inline-flex", onTop && "bg-white/70 backdrop-blur dark:bg-white/10 dark:[&_select]:text-white/90")}
             />

@@ -87,6 +87,7 @@ DSH_EE_EMBED_ORIGINS='https://harness.acme.internal,http://localhost:5173'
 | `host` | 消息协议必填 | 宿主页面的 **origin**（`scheme://host[:port]`，`encodeURIComponent` 编码）。iframe 只把消息发到这个 origin；不传或非法时不发任何消息，页面仍可正常浏览 |
 | `fit` | 否 | `fill`（默认，由宿主固定高度）或 `auto`（iframe 主动上报**内容高度**，见 `dsh-ee:resize`；auto 下嵌入页头部不吸顶、不再用 `min-h-screen`，高度贴合内容） |
 | `theme` | 否 | `light` / `dark` / `system`：只作用于本次 iframe 渲染（**不写 localStorage**），首屏即生效。`system` 跟随 `prefers-color-scheme` 实时变化；宿主 `dsh-ee:theme` 消息仍可覆盖 |
+| `lang` | 否 | `zh-CN` / `en` / `es` / `pt` / `hi`（大小写与区域变体接受，`en-US` → `en`、`zh-TW` → `zh-CN`）：只作用于本次 iframe 渲染的界面语言，**URL 上的 `lang` 不写 localStorage**（与 `theme` 语义一致；i18next 仍会像普通页面一样缓存浏览器检测到的语言，只是不会缓存 URL 值）。未注册的语言（语言包还没上线的 `es`/`pt`/`hi`）按 fallback 规则回退英文，语言包上线后自动生效；非法值忽略。地址栏里的 `lang` 在站内切页签时保留，失败态「在浏览器打开」会去掉它 |
 
 - `host` 必须与 `DSH_EE_EMBED_ORIGINS` 中配置的来源一致，否则 iframe 会被 CSP 直接拦下。
 - 不要给 iframe 加 `sandbox`（或至少给足 `allow-scripts allow-same-origin allow-forms`）：嵌入依赖同站 cookie 与脚本。
@@ -113,7 +114,7 @@ DSH_EE_EMBED_ORIGINS='https://harness.acme.internal,http://localhost:5173'
 
 | 方向 | type | 载荷 | 说明 |
 |---|---|---|---|
-| iframe → 宿主 | `dsh-ee:ready` | `{ app: { slug }, theme, supports: ["connect-v1"], viewport: { mobile, width, height } }` | 嵌入页一加载就发（早于认证）。同站宿主可据此收起 loading；跨站宿主据此 mint code 再发 connect；`viewport.mobile` 用于移动端策略 |
+| iframe → 宿主 | `dsh-ee:ready` | `{ app: { slug }, theme, locale, supports: ["connect-v1", "lang"], viewport: { mobile, width, height } }` | 嵌入页一加载就发（早于认证）。同站宿主可据此收起 loading；跨站宿主据此 mint code 再发 connect；`viewport.mobile` 用于移动端策略；`locale` 是当前界面语言（`zh-CN`/`en`，加语言后可能是 `es`/`pt`/`hi`） |
 | 宿主 → iframe | `dsh-ee:connect` | `{ code }` | 仅跨站 v1：宿主后端 mint 的一次性 code（60 秒，绑定用户+应用+宿主 origin） |
 | iframe → 宿主 | `dsh-ee:session` | `{ user: { display_name }, limited, expires_in? }` | 会话可用（cookie 或 exchange 成功）后发一次；不含 token |
 | iframe → 宿主 | `dsh-ee:auth-required` | `{ reason: "missing" \| "expired" }` | 没有可用会话/会话过期：宿主 mint 新 code 后重新发 connect（只重试一次） |
@@ -121,7 +122,7 @@ DSH_EE_EMBED_ORIGINS='https://harness.acme.internal,http://localhost:5173'
 | iframe → 宿主 | `dsh-ee:error` | `{ code, message, retryable, stage }` | 失败态，见下表；同一条错误只发一次；`stage` 标明卡在加载/会话/code 交换哪一步 |
 | 宿主 → iframe | `dsh-ee:theme` | `{ theme: "light" \| "dark" }` | 切换主题，只改 DOM、不写 localStorage |
 | iframe → 宿主 | `dsh-ee:theme` | `{ theme }` | 确认当前实际主题（初始一次 + 每次变更） |
-| iframe → 宿主 | `dsh-ee:hello` (v2) | `{ protocol: 2, supports: [...], app: { slug }, theme, viewport, timeouts: { handshake_ms: 10000, host_fallback_ms: 8000 } }` | 能力声明：`connect-v1` / `navigate` / `navigate-request` / `open-external` / `logout` / `deeplink` / `theme` / `resize`；`timeouts` 让宿主按同一口径设兜底。老宿主忽略即可 |
+| iframe → 宿主 | `dsh-ee:hello` (v2) | `{ protocol: 2, supports: [...], app: { slug }, theme, locale, viewport, timeouts: { handshake_ms: 10000, host_fallback_ms: 8000 } }` | 能力声明：`connect-v1` / `navigate` / `navigate-request` / `open-external` / `logout` / `deeplink` / `theme` / `resize` / `lang`；`locale` 是当前界面语言；`timeouts` 让宿主按同一口径设兜底。老宿主忽略即可 |
 | 宿主 → iframe | `dsh-ee:navigate` (v2) | `{ path: "/a/<slug>?tab=…" }` | 只允许本应用 `/a/<slug>`；iframe 用 `history.pushState`/前端路由切换，**不整页刷新**（刷新会丢内存 Bearer） |
 | iframe → 宿主 | `dsh-ee:navigate-request` (v2) | `{ path }` | iframe 内点击同源、但不属于本应用的站内链接时发出，由宿主决定顶层打开/路由 |
 | iframe → 宿主 | `dsh-ee:open-external` (v2) | `{ url }` | 只发 `https://` 或登记过的 `dsh://`；宿主确认后再打开，iframe 不直接跳 |
@@ -237,12 +238,13 @@ frame.addEventListener("load", () => {
 3. 宿主控制台能收到 `dsh-ee:ready`（含 `viewport`）、`dsh-ee:theme`、`dsh-ee:resize`（`fit=auto` 时）；v2 宿主还能收到 `dsh-ee:hello`（含 `viewport`、`timeouts`），`navigate`/`logout` 生效。
 4. **fit=auto**：`dsh-ee:resize.height` 是内容高度（把 iframe 拉高到明显大于内容时应小于 iframe 视口高度，而不是跟着变高），≤ 4000；切换页签/加载数据后重新上报；嵌入页 `header` 不再是 sticky。
 5. **theme**：`theme=dark/light` 首屏生效；`theme=system` 跟系统深浅色切换，且 iframe 的 localStorage 里没有 `dsh-ee:theme`；宿主发 `dsh-ee:theme` 后以宿主为准，系统主题再变也不回退。
-6. **移动端**：把 iframe 宽度改成 375–390px（或移动 UA）时，嵌入页顶部出现常驻「在浏览器打开」，内容仍可用，宿主页地址不变（没有自动顶层跳转）。
-7. 管理端「系统设置 → 跨站嵌入」保存后：`curl -sI` 的 CSP 立即带上新来源；`/api/admin/embed-settings` 能看到 env 基线与有效值。
-8. 嵌入会话 logout 后原 token 调 `/api/auth/me` 返回 401（服务端会话已删）。
-9. 退出 dsh-ee 会话或换无痕窗口：iframe 显示失败态，宿主收到带 `stage` 的 `dsh-ee:error`（或 `auth_required`），iframe 的地址仍停在 `/a/...`。
-10. 失败可观测：制造 404/无权限时宿主收到 `dsh-ee:error {code: "forbidden", stage: "load"}`；把宿主 origin 去掉后重新加载，iframe 被 CSP 拦下、宿主 8 秒后显示手动「在浏览器打开」。
-11. 管理端「系统设置 → 跨站嵌入 → 运行概览」：完成一次握手后点「刷新」，活跃会话与 top apps 出现；`GET /api/admin/embed/stats` 不返回用户、IP、令牌或宿主 origin。
+6. **lang**：`lang=en` 时 iframe 首屏界面为英文（`<html lang="en">`），且刷新后回到浏览器语言（URL 值没有进 localStorage；`dsh-ee:lang` 只会是浏览器检测结果或不存在）；`dsh-ee:hello` / `dsh-ee:ready` 的 `locale` 为 `en`、`supports` 含 `lang`。传非法值（如 `lang=xx`）忽略，按浏览器语言正常检测。
+7. **移动端**：把 iframe 宽度改成 375–390px（或移动 UA）时，嵌入页顶部出现常驻「在浏览器打开」，内容仍可用，宿主页地址不变（没有自动顶层跳转）。
+8. 管理端「系统设置 → 跨站嵌入」保存后：`curl -sI` 的 CSP 立即带上新来源；`/api/admin/embed-settings` 能看到 env 基线与有效值。
+9. 嵌入会话 logout 后原 token 调 `/api/auth/me` 返回 401（服务端会话已删）。
+10. 退出 dsh-ee 会话或换无痕窗口：iframe 显示失败态，宿主收到带 `stage` 的 `dsh-ee:error`（或 `auth_required`），iframe 的地址仍停在 `/a/...`。
+11. 失败可观测：制造 404/无权限时宿主收到 `dsh-ee:error {code: "forbidden", stage: "load"}`；把宿主 origin 去掉后重新加载，iframe 被 CSP 拦下、宿主 8 秒后显示手动「在浏览器打开」。
+12. 管理端「系统设置 → 跨站嵌入 → 运行概览」：完成一次握手后点「刷新」，活跃会话与 top apps 出现；`GET /api/admin/embed/stats` 不返回用户、IP、令牌或宿主 origin。
 
 ## 7. 跨站嵌入 v1（不同站点的 iframe）
 
