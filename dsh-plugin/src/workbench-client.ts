@@ -2,6 +2,7 @@
 import { createElement, useEffect, useRef, useState } from "react";
 import { sendUnknownNotice } from "./app-launcher.js";
 import { currentSessionOf, sendToSession } from "./host-session.js";
+import { t } from "./i18n/index.js";
 import type { CatalogApp } from "./skills.js";
 import { checklistKey, docWindow, fillPrompt, kbDocUrl, parseWorkbenchAddress, rowWriteOf, scopeText, workbenchAddress, workbenchScheme, type Board, type Citation, type KBaseItem, type WorkbenchAction, type WorkbenchPane } from "./workbench.js";
 import { openWorkbench } from "./workbench-open.js";
@@ -56,7 +57,7 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
   const titleOf = (address: string) => {
     const parsed = parseWorkbenchAddress(address);
     const pane = deps.appsNow().find((app) => app.name === parsed?.app)?.workbench?.panes.find((item) => item.id === parsed?.pane);
-    return pane?.title || "工作台";
+    return pane?.title || t("workbenchClient.fallbackTitle");
   };
 
   const useAppsList = () => {
@@ -82,16 +83,16 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
     const send = (key: string, text: string, label: string, done?: () => void) => {
       if (sending.has(key)) return;
       const sessionId = onScreenSession(ctx);
-      if (!sessionId) return setNotice("没有找到当前会话，请先打开这个应用的会话");
+      if (!sessionId) return setNotice(t("workbenchClient.noSession"));
       setSending((current) => new Set(current).add(key));
       setNotice("");
       sendToSession(ctx, sessionId, text)
         .then(() => {
-          setNotice(`已发给 AI：${label}`);
+          setNotice(t("workbenchClient.sentToAi", { label }));
           done?.();
         })
         // 发送失败时消息可能已经到了宿主：只提示，不自动重试
-        .catch(() => setNotice(sendUnknownNotice))
+        .catch(() => setNotice(sendUnknownNotice()))
         .finally(() => setSending((current) => {
           const next = new Set(current);
           next.delete(key);
@@ -123,7 +124,7 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
         const state: WidgetState = result?.forbidden ? { status: "forbidden" } : result?.error ? { status: "error", error: String(result.error) } : { status: "ready", value: result?.value };
         setData((current) => ({ ...current, [index]: state }));
       } catch (error) {
-        setData((current) => ({ ...current, [index]: { status: "error", error: error instanceof Error ? error.message : "网络错误" } }));
+        setData((current) => ({ ...current, [index]: { status: "error", error: error instanceof Error ? error.message : t("workbenchClient.networkError") } }));
       }
     };
     const loadAll = () => (pane.widgets ?? []).forEach((widget, index) => { if (widget.source) void load(index); });
@@ -148,7 +149,7 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
     };
     const toggleCheck = (index: number, id: string) => {
       const key = checklistKey(pane.id, index);
-      if (!sessionRef.current) return setNotice("没有找到当前会话，勾选不会保存");
+      if (!sessionRef.current) return setNotice(t("workbenchClient.noSessionCheck"));
       const done = !(checks[key] ?? []).includes(id);
       setChecks((current) => ({ ...current, [key]: done ? [...(current[key] ?? []), id] : (current[key] ?? []).filter((x) => x !== id) }));
       Promise.resolve(remote.setChecklist({ app: app.name, sessionId: sessionRef.current, key, id, done }))
@@ -156,7 +157,7 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
           const next = unwrapRemote(raw);
           if (Array.isArray(next)) setChecks((current) => ({ ...current, [key]: next }));
         })
-        .catch(() => setNotice("勾选没有保存，请稍后再试"));
+        .catch(() => setNotice(t("workbenchClient.checkNotSaved")));
     };
 
     // 打开标签页或配置变化时取一次数；不做定时刷新，组件上有刷新按钮
@@ -196,13 +197,13 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
       Promise.resolve(remote.insertFormRow?.({ app: app.name, pane: pane.id, widget: index, values: form }))
         .then((raw: any) => {
           const result = unwrapRemote(raw);
-          if (!result?.ok) return setFormError(index, result?.error || "没有保存，请把接入插件更新到最新版本");
+          if (!result?.ok) return setFormError(index, result?.error || t("workbenchClient.saveFailedDefault"));
           setForms((current) => ({ ...current, [index]: {} }));
-          setNotice(`已保存：${action.label}`);
+          setNotice(t("workbenchClient.saved", { label: action.label }));
           (pane.widgets ?? []).forEach((widget, i) => { if (widget.source?.table === action.table) void load(i); });
           if (action.prompt) sendPrompt(key, action, { form });
         })
-        .catch(() => setFormError(index, "没有保存，请检查网络后重试"));
+        .catch(() => setFormError(index, t("workbenchClient.saveFailedNetwork")));
     };
     const setFormError = (index: number, error: string) => setFormErrors((current) => ({ ...current, [index]: error }));
     // 表格的行按钮写表：改状态或删除这一行（删除要点两次），完了刷新读这张表的组件
@@ -220,12 +221,12 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
       Promise.resolve(remote.writeTableRow?.({ app: app.name, pane: pane.id, widget: index, action: a, id: Number(row?.id) }))
         .then((raw: any) => {
           const result = unwrapRemote(raw);
-          if (!result?.ok) return setNotice(`没有${write === "delete" ? "删除" : "保存"}：${result?.error || "请把接入插件更新到最新版本"}`);
-          setNotice(write === "delete" ? "已删除这一行" : `已更新：${action.label}`);
+          if (!result?.ok) return setNotice(t("workbenchClient.writeFailed", { action: write === "delete" ? t("common.delete") : t("common.save"), error: result?.error || t("workbenchClient.updatePlugin") }));
+          setNotice(write === "delete" ? t("workbenchClient.deletedRow") : t("workbenchClient.updated", { label: action.label }));
           (pane.widgets ?? []).forEach((widget, i) => { if (widget.source?.table === action.table) void load(i); });
           if (action.prompt) sendPrompt(key, action, { row });
         })
-        .catch(() => setNotice("没有保存，请检查网络后重试"))
+        .catch(() => setNotice(t("workbenchClient.saveFailedNetwork")))
         .finally(() => setWriting((current) => {
           const next = new Set(current);
           next.delete(key);
@@ -291,7 +292,7 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
           const result = unwrapRemote(raw);
           setState(result?.forbidden ? { status: "forbidden" } : result?.error ? { status: "error", error: String(result.error) } : { status: "ready", value: result?.value });
         })
-        .catch((error: unknown) => { if (live) setState({ status: "error", error: error instanceof Error ? error.message : "网络错误" }); });
+        .catch((error: unknown) => { if (live) setState({ status: "error", error: error instanceof Error ? error.message : t("workbenchClient.networkError") }); });
       return () => { live = false; };
     }, [target, range?.from, range?.to]);
     // 每条引用第一次显示出来时，滚到高亮的那一行
@@ -316,8 +317,8 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
       toggleRaw: () => setRaw((v: boolean) => !v),
       ask: () => {
         if (!target) return;
-        const title = value?.title || target.title || `文档 ${target.doc}`;
-        send("ask", `接着看知识库文档「${title}」（文档编号 ${target.doc}）第 ${target.from}～${target.to} 行前后的内容：这一部分还有哪些相关规定或例外情况？请带出处回答。`, "在这篇里继续问");
+        const title = value?.title || target.title || t("workbenchClient.docLabel", { doc: target.doc });
+        send("ask", t("workbenchClient.askPrompt", { title, doc: target.doc, from: target.from, to: target.to }), t("workbenchClient.ask"));
       },
     });
     return notice ? createElement("div", { style: { height: "100%", display: "grid", gridTemplateRows: "auto 1fr" } },
@@ -332,7 +333,7 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
     const { apps, loaded } = useAppsList();
     const app = apps.find((item) => item.name === parsed?.app);
     const pane = app?.workbench?.panes.find((item) => item.id === parsed?.pane && (item.type === "panel" || item.type === "kb_doc"));
-    if (!app || !pane) return loaded ? missingPaneView(createElement) : createElement("div", { style: { padding: 16, fontSize: 13, opacity: 0.65 } }, "加载中…");
+    if (!app || !pane) return loaded ? missingPaneView(createElement) : createElement("div", { style: { padding: 16, fontSize: 13, opacity: 0.65 } }, t("common.loading"));
     if (pane.type === "kb_doc") return createElement(DocPane, { key: `${app.name}/${pane.id}`, app });
     return createElement(PanelPane, { key: `${app.name}/${pane.id}`, app, pane, info, visible });
   };

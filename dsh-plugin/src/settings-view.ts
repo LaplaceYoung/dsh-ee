@@ -1,6 +1,7 @@
 import { readSidebarMode, setSidebarMode, subscribeSidebarMode, type SidebarAppsMode } from "./sidebar-pref.js";
 import type { ConnectUpdate } from "./connect-update.js";
 import type { ServerSettings, ServerTest } from "./server-settings.js";
+import { t } from "./i18n/index.js";
 
 // DSH 设置面板里的「dsh-ee」页：看、改、测试接入插件连的 dsh-ee 地址，以及一键更新接入插件。
 
@@ -42,15 +43,15 @@ function button(createElement: (...args: any[]) => any, label: string, onClick: 
 export function serverSettingsView(createElement: (...args: any[]) => any, state: ServerSettingsState, actions: ServerSettingsActions) {
   const { settings, draft, busy, test, notice, error } = state;
   const children: any[] = [
-    createElement("h2", { key: "title", style: { margin: "0 0 6px", fontSize: 16 } }, "dsh-ee 连接"),
+    createElement("h2", { key: "title", style: { margin: "0 0 6px", fontSize: 16 } }, t("settingsView.title")),
     createElement("p", { key: "desc", style: { margin: "0 0 18px", lineHeight: 1.6, ...muted } },
-      "接入插件通过这个地址登录企业账号、同步企业技能和微应用、调用企业模型。连不上时，先在浏览器里打开 dsh-ee 网页，把能打开的地址填在这里。"),
+      t("settingsView.description")),
   ];
   if (!settings) {
-    children.push(createElement("p", { key: "loading" }, error || "正在读取…"));
+    children.push(createElement("p", { key: "loading" }, error || t("settingsView.reading")));
     return createElement("div", { "data-dsh-ee-settings": "loading", style: { maxWidth: 640 } }, ...children);
   }
-  children.push(createElement("label", { key: "label", htmlFor: "dsh-ee-base", style: { display: "block", marginBottom: 6, fontWeight: 500 } }, "dsh-ee 地址"));
+  children.push(createElement("label", { key: "label", htmlFor: "dsh-ee-base", style: { display: "block", marginBottom: 6, fontWeight: 500 } }, t("settingsView.addressLabel")));
   children.push(createElement("input", {
     key: "input",
     id: "dsh-ee-base",
@@ -63,12 +64,12 @@ export function serverSettingsView(createElement: (...args: any[]) => any, state
     style: { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1px solid color-mix(in srgb, currentColor 30%, transparent)", background: "transparent", color: "inherit", font: "inherit" },
   }));
   children.push(createElement("p", { key: "packaged", style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted } },
-    settings.overridden ? `插件包里的地址是 ${settings.packaged}，你改成了现在这个。` : `这是管理员发布接入插件时写进去的地址。`));
+    settings.overridden ? t("settingsView.packagedOverridden", { packaged: settings.packaged }) : t("settingsView.packagedDefault")));
   const changed = draft.trim().replace(/\/+$/, "") !== settings.base;
   children.push(createElement("div", { key: "actions", style: { display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" } },
-    button(createElement, busy === "test" ? "正在测试…" : "测试连接", actions.test, !!busy),
-    button(createElement, busy === "save" ? "正在保存…" : "保存", actions.save, !!busy || !changed, true),
-    settings.overridden ? button(createElement, "恢复插件包里的地址", actions.reset, !!busy) : null,
+    button(createElement, busy === "test" ? t("settingsView.testing") : t("settingsView.testConnection"), actions.test, !!busy),
+    button(createElement, busy === "save" ? t("settingsView.saving") : t("common.save"), actions.save, !!busy || !changed, true),
+    settings.overridden ? button(createElement, t("settingsView.resetAddress"), actions.reset, !!busy) : null,
   ));
   if (test) {
     children.push(createElement("ul", { key: "checks", "data-dsh-ee-test": test.ok ? "ok" : "fail", style: { listStyle: "none", padding: 0, margin: "16px 0 0", display: "grid", gap: 8 } },
@@ -82,13 +83,13 @@ export function serverSettingsView(createElement: (...args: any[]) => any, state
   if (error) children.push(createElement("p", { key: "error", style: { marginTop: 14, color: "#d92d20", lineHeight: 1.6 } }, error));
   children.push(createElement("div", { key: "plugin", "data-dsh-ee-settings": "plugin-update", style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid color-mix(in srgb, currentColor 14%, transparent)" } },
     createElement("div", { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
-      createElement("span", { style: { fontWeight: 500 } }, "接入插件"),
-      createElement("span", { style: { fontSize: 12, ...muted } }, `当前版本 ${settings.version}`),
-      button(createElement, busy === "update" ? "正在更新…" : "更新到最新版", actions.update, !!busy)),
+      createElement("span", { style: { fontWeight: 500 } }, t("settingsView.plugin")),
+      createElement("span", { style: { fontSize: 12, ...muted } }, t("settingsView.currentVersion", { version: settings.version })),
+      button(createElement, busy === "update" ? t("settingsView.updating") : t("settingsView.updateLatest"), actions.update, !!busy)),
     state.update ? createElement("p", { "data-dsh-ee-update": state.update.ok ? "ok" : "fail", style: { margin: "8px 0 0", fontSize: 12, lineHeight: 1.6, color: state.update.ok ? "inherit" : "#d92d20" } }, state.update.message) : null,
-    createElement("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted } }, "更新到企业端已发布的最新版；装好后需要重启 DSH 才生效。")));
+    createElement("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted } }, t("settingsView.updateHint"))));
   children.push(createElement("p", { key: "hint", style: { marginTop: 22, fontSize: 12, lineHeight: 1.6, ...muted } },
-    `改地址只影响这台电脑。如果大家都连不上，请管理员在 dsh-ee 网页的系统设置里填写「访问地址」，再重新发布接入插件。`));
+    t("settingsView.changeHint")));
   return createElement("div", { "data-dsh-ee-settings": "ready", style: { maxWidth: 640 } }, ...children);
 }
 
@@ -98,8 +99,8 @@ export function sidebarAppsToggle(createElement: (...args: any[]) => any, mode: 
   return createElement("div", { "data-dsh-ee-settings": "sidebar-apps", style: { maxWidth: 640, marginTop: 20, paddingTop: 16, borderTop: "1px solid color-mix(in srgb, currentColor 14%, transparent)" } },
     createElement("label", { style: { display: "flex", alignItems: "center", gap: 8, fontWeight: 500, cursor: "pointer" } },
       createElement("input", { type: "checkbox", checked: mode !== "hidden", onChange: () => onChange(mode === "hidden") }),
-      "在左侧栏显示企业应用"),
-    createElement("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted } }, "左侧栏只列前 3 个应用，其余在「查看更多」里；隐藏后首屏输入框下方和右侧企业面板里照样能打开企业应用。"));
+      t("appsView.showInSidebar")),
+    createElement("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted } }, t("settingsView.sidebarHint")));
 }
 
 export function registerServerSettings(ctx: any, deps: {
@@ -122,7 +123,7 @@ export function registerServerSettings(ctx: any, deps: {
           const settings = unwrapRemote(await remote.serverSettings()) as ServerSettings;
           patch({ settings, draft: settings.base });
         } catch (error) {
-          patch({ error: `读取设置失败：${message(error)}` });
+          patch({ error: t("settingsView.readFailed", { error: message(error) }) });
         }
       })();
     }, []);
@@ -131,7 +132,7 @@ export function registerServerSettings(ctx: any, deps: {
       try {
         patch({ test: unwrapRemote(await remote.testServer({ base: state.draft })) });
       } catch (error) {
-        patch({ error: `测试失败：${message(error)}` });
+        patch({ error: t("settingsView.testFailed", { error: message(error) }) });
       } finally {
         patch({ busy: undefined });
       }
@@ -140,10 +141,10 @@ export function registerServerSettings(ctx: any, deps: {
       patch({ busy: "save", notice: undefined, error: undefined });
       try {
         const settings = unwrapRemote(await remote.saveServer({ base })) as ServerSettings;
-        patch({ settings, draft: settings.base, notice: "已保存并生效。企业技能、微应用和工具正在按新地址同步；登录无效的话，去侧栏企业面板重新登录。" });
+        patch({ settings, draft: settings.base, notice: t("settingsView.savedNotice") });
         deps.onSaved();
       } catch (error) {
-        patch({ error: `保存失败：${message(error)}` });
+        patch({ error: t("settingsView.saveFailed", { error: message(error) }) });
       } finally {
         patch({ busy: undefined });
       }
@@ -153,7 +154,7 @@ export function registerServerSettings(ctx: any, deps: {
       try {
         patch({ update: unwrapRemote(await remote.updatePlugin()) });
       } catch (error) {
-        patch({ update: { ok: false, version: state.settings?.version ?? "", message: `更新失败：${message(error)}` } });
+        patch({ update: { ok: false, version: state.settings?.version ?? "", message: t("settingsView.updateFailed", { error: message(error) }) } });
       } finally {
         patch({ busy: undefined });
       }

@@ -3,6 +3,8 @@
 // 认不出来的按普通文字显示。每一行都记着原文行号：悬停显示行号，#L40 能跳过去，引用的几行和摘句能精确高亮。
 // 纯函数，createElement 作参数（跟 workbench-view.ts 一样），方便单测。
 
+import { t } from "./i18n/index.js";
+
 type H = (...args: any[]) => any;
 
 export interface DocLine {
@@ -421,7 +423,7 @@ function blockView(h: H, b: DocBlock, ctx: Ctx, opt: DocViewOptions): any {
       const n = b.line.n;
       const pm = pageHeading.exec(b.text);
       if (opt.format === "pdf" && b.level === 2 && pm) {
-        return h("div", { ...lineProps(n, ctx, "kbr-page"), role: "separator" }, h("span", null, `第 ${pm[1]} 页`));
+        return h("div", { ...lineProps(n, ctx, "kbr-page"), role: "separator" }, h("span", null, t("kbDocRender.page", { page: pm[1] })));
       }
       if ((opt.format === "xlsx" || opt.format === "csv") && rowsHeading.test(b.text)) {
         return h("div", lineProps(n, ctx, "kbr-rows"), b.text);
@@ -502,7 +504,7 @@ export function docView(h: H, blocks: DocBlock[], marks: Map<number, LineMarks>,
       if (pm) {
         flush();
         slideKey = `s${b.kind === "heading" ? b.line.n : i}`;
-        slideNo = `第 ${pm[1]} 页`;
+        slideNo = t("kbDocRender.page", { page: pm[1] });
         const n = (b as any).line.n as number;
         slide = [
           h("div", { key: "no", className: "kbr-slide-no" }, slideNo),

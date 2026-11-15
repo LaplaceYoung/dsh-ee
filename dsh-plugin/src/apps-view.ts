@@ -1,4 +1,5 @@
 import type { CatalogApp } from "./skills.js";
+import { t } from "./i18n/index.js";
 import type { AppSessionStatus } from "./session-status.js";
 
 export interface AppsViewState {
@@ -108,7 +109,7 @@ function starterItems(createElement: (...args: any[]) => any, app: CatalogApp, a
   const starters = (app.starters ?? []).filter(Boolean).slice(0, 6);
   if (!starters.length || !actions.startWith) return [];
   return [
-    createElement("div", { key: "starters-title", style: { padding: "7px 7px 3px", fontSize: 11, opacity: 0.6, borderTop: "1px solid color-mix(in srgb, currentColor 12%, transparent)", marginTop: 4 } }, "从示例问题开始"),
+    createElement("div", { key: "starters-title", style: { padding: "7px 7px 3px", fontSize: 11, opacity: 0.6, borderTop: "1px solid color-mix(in srgb, currentColor 12%, transparent)", marginTop: 4 } }, t("appsView.startersTitle")),
     ...starters.map((starter, index) => createElement("button", {
       key: `starter-${index}`, type: "button", title: starter,
       style: { ...buttonStyle, display: "block", width: "100%", padding: 7, maxWidth: 260, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
@@ -123,7 +124,7 @@ function disableItem(createElement: (...args: any[]) => any, app: CatalogApp, ac
     type: "button",
     style: { ...buttonStyle, display: "block", width: "100%", padding: 7, color: confirming ? "#b91c1c" : "inherit" },
     onClick: () => { close(); actions.disable!(app, confirming); },
-  }, confirming ? "确认停用" : "停用");
+  }, confirming ? t("appsView.confirmDisable") : t("appsView.disable"));
 }
 
 /**
@@ -146,17 +147,17 @@ function appMenu(createElement: (...args: any[]) => any, app: CatalogApp, action
         padding: 6, borderRadius: 7, border: "1px solid color-mix(in srgb, currentColor 15%, transparent)", background: "Canvas", color: "CanvasText", boxShadow: "0 5px 20px #0002",
       },
     },
-      item("new-session", "新开一个会话", () => actions.newSession(app)),
-      app.workbench?.panes?.length && actions.openWorkbench ? item("workbench", "打开工作台", () => actions.openWorkbench!(app)) : null,
-      item("fill", "填进输入框", () => actions.fill(app)),
-      item("web", "在网页查看", () => actions.web(app)),
-      item("unbind", "解除绑定", () => actions.unbind(app)),
+      item("new-session", t("appsView.newSession"), () => actions.newSession(app)),
+      app.workbench?.panes?.length && actions.openWorkbench ? item("workbench", t("appsView.openWorkbench"), () => actions.openWorkbench!(app)) : null,
+      item("fill", t("appsView.fillInput"), () => actions.fill(app)),
+      item("web", t("common.viewInWeb"), () => actions.web(app)),
+      item("unbind", t("appsView.unbind"), () => actions.unbind(app)),
       disableItem(createElement, app, actions, confirming, close),
       ...starterItems(createElement, app, actions, close)),
   ] : null;
   return createElement("div", { style: { position: "relative", flex: "0 0 auto" } },
     createElement("button", {
-      type: "button", "aria-label": `${app.title}更多操作`, "aria-expanded": open, "aria-haspopup": "menu",
+      type: "button", "aria-label": t("appsView.moreActions", { title: app.title }), "aria-expanded": open, "aria-haspopup": "menu",
       onClick: (event: any) => { event?.stopPropagation?.(); actions.toggleMenu?.(app.name, event); },
       style: { ...buttonStyle, padding: "4px 6px" },
     }, "⋯"),
@@ -167,16 +168,16 @@ function appMenu(createElement: (...args: any[]) => any, app: CatalogApp, action
 function missingBadge(createElement: (...args: any[]) => any, app: CatalogApp, actions: AppsViewActions) {
   if (!app.missing?.length) return null;
   const style = { fontSize: 11, color: "#d97706", whiteSpace: "nowrap" };
-  const title = `不可用：${app.missing.join("、")}`;
-  if (!actions.details || !app.detail_url) return createElement("span", { title, style }, "部分能力不可用");
+  const title = t("appsView.missingList", { missing: app.missing.join(t("common.listSeparator")) });
+  if (!actions.details || !app.detail_url) return createElement("span", { title, style }, t("appsView.missing"));
   return createElement("button", {
-    type: "button", "data-dsh-ee-missing": app.name, title: `${title}。点击查看并申请`,
+    type: "button", "data-dsh-ee-missing": app.name, title: t("appsView.missingHint", { title }),
     onClick: (event: any) => { event?.stopPropagation?.(); actions.closeLayers?.(); actions.details!(app); },
     style: { ...buttonStyle, ...style, padding: 0, textDecoration: "underline" },
-  }, "部分能力不可用 · 申请");
+  }, t("appsView.missingApply"));
 }
 
-const statusViewOf = (status?: AppSessionStatus) => status === "need" ? { label: "待你决定", color: "#d97706" } : status === "busy" ? { label: "工作中", color: "#2563eb" } : status === "done" ? { label: "本轮结束", color: "#737373" } : undefined;
+const statusViewOf = (status?: AppSessionStatus) => status === "need" ? { label: t("common.pendingDecision"), color: "#d97706" } : status === "busy" ? { label: t("common.working"), color: "#2563eb" } : status === "done" ? { label: t("common.turnEnded"), color: "#737373" } : undefined;
 
 function appRow(createElement: (...args: any[]) => any, app: CatalogApp, actions: AppsViewActions, status?: AppSessionStatus, confirming = false, menuOpen = false, anchor?: MenuAnchor) {
   const statusView = statusViewOf(status);
@@ -207,8 +208,8 @@ function cardBadges(createElement: (...args: any[]) => any, app: CatalogApp, sta
   const todo = (app as any).todo;
   return [
     statusView ? createElement("span", { key: "status", style: badgeStyle(statusView.color) }, statusView.label) : null,
-    todo ? createElement("span", { key: "todo", style: badgeStyle("#2563eb") }, `${todo} 待处理`) : null,
-    (app as any).new ? createElement("span", { key: "new", style: badgeStyle("#d97706") }, "新") : null,
+    todo ? createElement("span", { key: "todo", style: badgeStyle("#2563eb") }, t("appsView.todoBadge", { count: todo })) : null,
+    (app as any).new ? createElement("span", { key: "new", style: badgeStyle("#d97706") }, t("common.newBadge")) : null,
   ].filter(Boolean);
 }
 
@@ -228,7 +229,7 @@ function galleryCard(createElement: (...args: any[]) => any, app: CatalogApp, st
       createElement("div", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
       createElement("div", { style: { marginTop: 4, fontSize: 12, lineHeight: 1.55, opacity: 0.62, minHeight: 37, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, app.description || app.starters?.[0] || "")),
     createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: "auto" }, onClick: (event: any) => event?.stopPropagation?.() },
-      app.missing?.length ? missingBadge(createElement, app, actions) : createElement("button", { type: "button", onClick: open, style: { ...buttonStyle, fontSize: 12, fontWeight: 600, color: "#4d6bfe" } }, "打开 →"),
+      app.missing?.length ? missingBadge(createElement, app, actions) : createElement("button", { type: "button", onClick: open, style: { ...buttonStyle, fontSize: 12, fontWeight: 600, color: "#4d6bfe" } }, t("appsView.openArrow")),
       actions.toggleMenu ? appMenu(createElement, app, actions, state.confirmDisable === app.name, state.menuFor === app.name, state.menuAnchor) : null));
 }
 
@@ -242,7 +243,7 @@ function availableCard(createElement: (...args: any[]) => any, app: CatalogApp, 
     createElement("span", { style: { flex: 1, minWidth: 0 } },
       createElement("span", { style: { display: "block", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
       app.description ? createElement("span", { style: { display: "block", fontSize: 11.5, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: app.description }, app.description) : null),
-    createElement("button", { type: "button", onClick: () => actions.enable!(app), style: { ...buttonStyle, border: "1px solid #4d6bfe", color: "#4d6bfe", borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600, flex: "0 0 auto" } }, "启用"));
+    createElement("button", { type: "button", onClick: () => actions.enable!(app), style: { ...buttonStyle, border: "1px solid #4d6bfe", color: "#4d6bfe", borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600, flex: "0 0 auto" } }, t("appsView.enable")));
 }
 
 /**
@@ -257,32 +258,32 @@ export function appsGallery(createElement: (...args: any[]) => any, state: AppsV
   return createElement("div", { "data-dsh-ee-ui": "apps-gallery", onClick: close, style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10, 37, 64, 0.38)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "dshee-fade .15s ease-out" } },
     createElement("style", null, galleryCss),
     createElement("div", {
-      role: "dialog", "aria-modal": "true", "aria-label": "企业应用", onClick: (event: any) => event?.stopPropagation?.(),
+      role: "dialog", "aria-modal": "true", "aria-label": t("apps.enterpriseApps"), onClick: (event: any) => event?.stopPropagation?.(),
       style: { width: "min(920px, calc(100vw - 32px))", maxHeight: "min(720px, calc(100vh - 40px))", display: "flex", flexDirection: "column", borderRadius: 18, border: "1px solid color-mix(in srgb, currentColor 12%, transparent)", background: "Canvas", color: "CanvasText", boxShadow: "0 30px 60px -12px rgba(50, 50, 93, 0.3), 0 18px 36px -18px rgba(0, 0, 0, 0.35)", fontSize: 13, overflow: "hidden", animation: "dshee-pop .2s ease-out" },
     },
       createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "18px 22px 14px", borderBottom: "1px solid color-mix(in srgb, currentColor 9%, transparent)" } },
         createElement("div", { style: { flex: "1 1 200px", minWidth: 0 } },
-          createElement("div", { style: { fontSize: 17, fontWeight: 650, letterSpacing: "-0.01em" } }, "企业应用"),
-          createElement("div", { style: { fontSize: 12, opacity: 0.6, marginTop: 2 } }, `${state.apps.length} 个应用 · 点一个开始，AI 会带着工作台一起打开`)),
-        createElement("input", { "aria-label": "搜索企业应用", className: "dshee-gsearch", value: state.query ?? "", onChange: (event: any) => actions.search(event.target.value), placeholder: "搜索应用…", style: { flex: "1 1 220px", maxWidth: 300, boxSizing: "border-box", height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid color-mix(in srgb, currentColor 16%, transparent)", background: "transparent", color: "inherit", fontSize: 13 } }),
-        createElement("button", { type: "button", "aria-label": "关闭", onClick: close, style: { ...buttonStyle, fontSize: 16, padding: "4px 8px", opacity: 0.6, borderRadius: 8 } }, "✕")),
+          createElement("div", { style: { fontSize: 17, fontWeight: 650, letterSpacing: "-0.01em" } }, t("apps.enterpriseApps")),
+          createElement("div", { style: { fontSize: 12, opacity: 0.6, marginTop: 2 } }, t("appsView.gallerySubtitle", { count: state.apps.length }))),
+        createElement("input", { "aria-label": t("appsView.searchAppsAria"), className: "dshee-gsearch", value: state.query ?? "", onChange: (event: any) => actions.search(event.target.value), placeholder: t("appsView.searchAppsPlaceholder"), style: { flex: "1 1 220px", maxWidth: 300, boxSizing: "border-box", height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid color-mix(in srgb, currentColor 16%, transparent)", background: "transparent", color: "inherit", fontSize: 13 } }),
+        createElement("button", { type: "button", "aria-label": t("common.close"), onClick: close, style: { ...buttonStyle, fontSize: 16, padding: "4px 8px", opacity: 0.6, borderRadius: 8 } }, "✕")),
       createElement("div", { style: { overflowY: "auto", flex: 1, minHeight: 0, padding: "18px 22px 22px", display: "grid", gap: 20, alignContent: "start" } },
         filtered.length
           ? createElement("div", { style: grid }, ...filtered.map((app) => galleryCard(createElement, app, state, actions)))
-          : createElement("div", { style: { padding: "36px 4px", textAlign: "center", opacity: 0.6 } }, "没有匹配的应用"),
+          : createElement("div", { style: { padding: "36px 4px", textAlign: "center", opacity: 0.6 } }, t("appsView.noMatches")),
         available.length && actions.enable ? createElement("section", { "data-dsh-ee-ui": "available-apps" },
-          createElement("div", { style: { fontSize: 12, fontWeight: 600, opacity: 0.65, margin: "0 0 10px" } }, `可启用（${available.length}）`),
+          createElement("div", { style: { fontSize: 12, fontWeight: 600, opacity: 0.65, margin: "0 0 10px" } }, t("appsView.availableCount", { count: available.length })),
           createElement("div", { style: grid }, ...available.map((app) => availableCard(createElement, app, actions)))) : null),
       actions.setSidebarHidden ? createElement("label", { style: { display: "flex", alignItems: "center", gap: 8, padding: "11px 22px", borderTop: "1px solid color-mix(in srgb, currentColor 9%, transparent)", fontSize: 12, opacity: 0.8, cursor: "pointer" } },
         createElement("input", { type: "checkbox", checked: !state.sidebarHidden, onChange: () => actions.setSidebarHidden!(!state.sidebarHidden), style: { accentColor: "#4d6bfe" } }),
-        "在左侧栏显示企业应用") : null));
+        t("appsView.showInSidebar")) : null));
 }
 
 export function appsSection(createElement: (...args: any[]) => any, state: AppsViewState, actions: AppsViewActions) {
   if (!state.loggedIn) {
     return createElement("section", { "data-dsh-ee-ui": "apps", style: { padding: "10px 12px", fontSize: 13 } },
-      createElement("div", { style: { marginBottom: 8 } }, "登录后查看企业应用"),
-      createElement("button", { type: "button", onClick: actions.login, style: { ...buttonStyle, border: "1px solid currentColor", borderRadius: 6, padding: "5px 10px" } }, "登录"));
+      createElement("div", { style: { marginBottom: 8 } }, t("appsView.loginToSee")),
+      createElement("button", { type: "button", onClick: actions.login, style: { ...buttonStyle, border: "1px solid currentColor", borderRadius: 6, padding: "5px 10px" } }, t("common.login")));
   }
   if (!state.apps.length && !(state.available ?? []).length) return null;
   const query = state.query?.trim().toLowerCase() ?? "";
@@ -294,24 +295,24 @@ export function appsSection(createElement: (...args: any[]) => any, state: AppsV
   const header = createElement("div", { style: { display: "flex", alignItems: "center", gap: 4, margin: "0 0 5px" } },
     createElement("button", {
       type: "button", onClick: () => actions.toggleCollapsed?.(), "aria-expanded": !state.collapsed,
-      title: state.collapsed ? "展开企业应用" : "收起企业应用",
+      title: state.collapsed ? t("appsView.expandApps") : t("appsView.collapseApps"),
       style: { ...buttonStyle, display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, padding: "2px 0", fontSize: 13, fontWeight: 600 },
     },
       createElement("span", { "aria-hidden": true, style: { fontSize: 10, opacity: 0.7 } }, state.collapsed ? "▸" : "▾"),
-      "企业应用",
-      state.collapsed ? createElement("span", { style: { fontSize: 12, fontWeight: 400, opacity: 0.6 } }, `（${state.apps.length}）`) : null),
+      t("apps.enterpriseApps"),
+      state.collapsed ? createElement("span", { style: { fontSize: 12, fontWeight: 400, opacity: 0.6 } }, t("appsView.collapsedCount", { count: state.apps.length })) : null),
     state.hideable && actions.setSidebarHidden ? createElement("button", {
-      type: "button", onClick: () => actions.setSidebarHidden!(true), title: "在左侧栏隐藏企业应用（在「查看更多」或 设置 → dsh-ee 里可以再打开）",
+      type: "button", onClick: () => actions.setSidebarHidden!(true), title: t("appsView.hideSidebar"),
       style: { ...buttonStyle, fontSize: 11.5, opacity: 0.5, padding: "2px 4px" },
-    }, "隐藏") : null);
+    }, t("common.hide")) : null);
   return createElement("section", { "data-dsh-ee-ui": "apps", style: { padding: "10px 12px", fontSize: 13 } },
     header,
     state.collapsed ? null : [
       createElement("div", { key: "list", style: { display: "grid", gap: 2 } }, ...shown.map((app) => appRow(createElement, app, actions, state.statuses?.[app.name], state.confirmDisable === app.name, state.menuFor === app.name && !state.galleryOpen, state.menuAnchor))),
       createElement("button", { key: "all", type: "button", onClick: () => actions.toggleGallery?.(), style: { ...buttonStyle, display: "flex", alignItems: "center", gap: 6, marginTop: 6, padding: "4px 0", opacity: 0.72, fontSize: 12.5 } },
         createElement("span", { "aria-hidden": true, style: { width: 30, textAlign: "center", fontSize: 14 } }, "⊞"),
-        more > 0 ? `查看更多（${state.apps.length}）` : "全部应用"),
-      (state.available ?? []).length && actions.enable ? createElement("button", { key: "available", type: "button", onClick: () => actions.toggleGallery?.(), style: { ...buttonStyle, display: "block", marginTop: 4, fontSize: 12, opacity: 0.65 } }, `＋ 可启用（${state.available!.length}）`) : null,
+        more > 0 ? t("common.viewMoreCount", { n: state.apps.length }) : t("appsView.allApps")),
+      (state.available ?? []).length && actions.enable ? createElement("button", { key: "available", type: "button", onClick: () => actions.toggleGallery?.(), style: { ...buttonStyle, display: "block", marginTop: 4, fontSize: 12, opacity: 0.65 } }, t("appsView.availablePlus", { count: state.available!.length })) : null,
       state.notice ? createElement("p", { key: "notice", role: "status", style: { margin: "7px 0 0", lineHeight: 1.5, overflowWrap: "anywhere" } }, state.notice) : null,
     ],
     appsGallery(createElement, state, actions, filtered));
@@ -322,14 +323,14 @@ export function heroAppsMenu(createElement: (...args: any[]) => any, apps: Catal
   const normalized = query.trim().toLowerCase();
   const shown = apps.filter((app) => matchesQuery(app, normalized)).slice(0, 8);
   return createElement("div", { "data-dsh-ee-ui": "hero-apps", style: { position: "relative", display: "inline-block" } },
-    createElement("button", { type: "button", onClick: onToggle, "aria-expanded": open, "aria-haspopup": "menu", style: { ...buttonStyle, fontSize: 12, padding: "4px 7px", whiteSpace: "nowrap" } }, "企业应用"),
+    createElement("button", { type: "button", onClick: onToggle, "aria-expanded": open, "aria-haspopup": "menu", style: { ...buttonStyle, fontSize: 12, padding: "4px 7px", whiteSpace: "nowrap" } }, t("apps.enterpriseApps")),
     open ? [
       createElement("div", { key: "backdrop", "data-dsh-ee-ui": "hero-apps-backdrop", onClick: onToggle, style: { position: "fixed", inset: 0, zIndex: 70 } }),
       createElement("div", {
         key: "menu", role: "menu",
         style: { position: "absolute", right: 0, top: "calc(100% + 6px)", zIndex: 80, width: 280, maxHeight: "min(420px, calc(100vh - 96px))", overflowY: "auto", padding: 8, borderRadius: 8, border: "1px solid color-mix(in srgb, currentColor 15%, transparent)", background: "Canvas", color: "CanvasText", boxShadow: "0 8px 30px #0003" },
       },
-        apps.length > 8 ? createElement("input", { "aria-label": "搜索企业应用", value: query, onChange: (event: any) => onSearch(event.target.value), placeholder: "搜索…", style: { width: "100%", boxSizing: "border-box", marginBottom: 7, padding: 6, borderRadius: 5, border: "1px solid #8886", background: "transparent", color: "inherit" } }) : null,
+        apps.length > 8 ? createElement("input", { "aria-label": t("appsView.searchAppsAria"), value: query, onChange: (event: any) => onSearch(event.target.value), placeholder: t("appsView.heroSearchPlaceholder"), style: { width: "100%", boxSizing: "border-box", marginBottom: 7, padding: 6, borderRadius: 5, border: "1px solid #8886", background: "transparent", color: "inherit" } }) : null,
         createElement("div", { style: { display: "grid", gap: 4 } }, ...shown.map((app) => createElement("button", {
           key: app.name, type: "button", onClick: () => onOpen(app),
           style: { ...buttonStyle, display: "flex", alignItems: "center", gap: 9, padding: 7, borderRadius: 6, width: "100%" },
@@ -368,12 +369,12 @@ export function inProgressItems(apps: CatalogApp[], bindings: Record<string, { s
 export function inProgressView(createElement: (...args: any[]) => any, items: InProgressItem[], onOpen: (item: InProgressItem) => void) {
   if (!items.length) return null;
   return createElement("section", { "data-dsh-ee-ui": "in-progress", style: { padding: "10px 12px", fontSize: 13 } },
-    createElement("h2", { style: { margin: "0 0 7px", fontSize: 13 } }, "进行中"),
+    createElement("h2", { style: { margin: "0 0 7px", fontSize: 13 } }, t("common.inProgress")),
     createElement("div", { style: { display: "grid", gap: 2 } }, ...items.map((item) => {
-      const label = item.status === "need" ? "待你决定" : "工作中";
+      const label = item.status === "need" ? t("common.pendingDecision") : t("common.working");
       const color = item.status === "need" ? "#d97706" : "#2563eb";
       return createElement("button", {
-        key: item.app.name, type: "button", onClick: () => onOpen(item), title: `${item.app.title}：${label}`,
+        key: item.app.name, type: "button", onClick: () => onOpen(item), title: t("appsView.itemTitle", { title: item.app.title, label }),
         style: { ...buttonStyle, display: "flex", alignItems: "center", gap: 9, padding: "5px 0", width: "100%" },
       },
       createElement("span", { "aria-label": label, style: { width: 8, height: 8, flex: "0 0 8px", borderRadius: "50%", background: color } }),
@@ -417,22 +418,22 @@ export function heroStrip(createElement: (...args: any[]) => any, apps: CatalogA
     createElement("span", { style: { minWidth: 0, flex: 1 } },
       createElement("span", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600 } },
         createElement("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
-        (app as any).todo ? createElement("span", { style: badgeStyle("#2563eb") }, String((app as any).todo)) : (app as any).new ? createElement("span", { style: badgeStyle("#d97706") }, "新") : null),
+        (app as any).todo ? createElement("span", { style: badgeStyle("#2563eb") }, String((app as any).todo)) : (app as any).new ? createElement("span", { style: badgeStyle("#d97706") }, t("common.newBadge")) : null),
       createElement("span", { style: { display: "block", marginTop: 2, fontSize: 11.5, opacity: 0.58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.description || app.starters?.[0] || "")));
   const more = fits ? null : createElement("button", {
     key: "@more", type: "button", className: "dshee-gcard", onClick: onMore, "data-dsh-ee-ui": "hero-more",
     style: { ...tile, justifyContent: "center", borderStyle: "dashed", background: "transparent", boxShadow: "none" },
   },
     createElement("span", { "aria-hidden": true, style: { fontSize: 16, color: "#4d6bfe" } }, "⊞"),
-    createElement("span", { style: { fontSize: 13, fontWeight: 600 } }, `查看更多（${apps.length}）`));
+    createElement("span", { style: { fontSize: 13, fontWeight: 600 } }, t("common.viewMoreCount", { n: apps.length })));
   return createElement("div", {
-    "data-dsh-ee-ui": "hero-apps", role: "region", "aria-label": "企业应用",
+    "data-dsh-ee-ui": "hero-apps", role: "region", "aria-label": t("apps.enterpriseApps"),
     style: { position: "absolute", left: place.left, top: place.top, width: place.width, maxHeight: place.maxHeight, overflow: "hidden", zIndex: 4, animation: "dshee-fade .25s ease-out" },
   },
     createElement("style", null, galleryCss),
     createElement("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, margin: "0 2px 8px", fontSize: 12 } },
-      createElement("span", { style: { fontWeight: 600, opacity: 0.7 } }, "企业应用"),
-      todos ? createElement("span", { style: { color: "#2563eb" } }, `需要你处理：${todos} 项`) : createElement("span", { style: { opacity: 0.5 } }, "点一个开始，工作台会在右侧打开")),
+      createElement("span", { style: { fontWeight: 600, opacity: 0.7 } }, t("apps.enterpriseApps")),
+      todos ? createElement("span", { style: { color: "#2563eb" } }, t("appsView.todosNeed", { count: todos })) : createElement("span", { style: { opacity: 0.5 } }, t("appsView.startHint"))),
     createElement("div", { style: { display: "grid", gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))`, gap: STRIP_GAP } }, ...shown.map(card), more),
     notice ? createElement("p", { role: "status", style: { margin: "8px 2px 0", fontSize: 11.5, lineHeight: 1.5, overflowWrap: "anywhere" } }, notice) : null);
 }

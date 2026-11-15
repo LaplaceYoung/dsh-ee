@@ -3,6 +3,7 @@ import path from "node:path";
 import { dshHome } from "./config.js";
 import type { PluginConfig } from "./dsh.js";
 import type { TokenManager } from "./token.js";
+import { t } from "./i18n/index.js";
 
 // DSH 设置里的「dsh-ee」页：员工自己改接入插件连的 dsh-ee 地址并测试。
 // 插件包里的地址是管理员发布时写进去的；发布时没填对「访问地址」，员工这台电脑就连不上，
@@ -69,11 +70,11 @@ function writeBaseOverride(base: string | undefined): void {
 
 function reason(error: unknown): string {
   const err = error as { name?: string; message?: string; cause?: { code?: string; message?: string } };
-  if (err?.name === "TimeoutError") return "连接超时：这台电脑访问不到这个地址（内网地址、VPN 没连，或者被防火墙挡住）";
+  if (err?.name === "TimeoutError") return t("serverSettings.reasonTimeout");
   const code = err?.cause?.code;
-  if (code === "ECONNREFUSED") return "连接被拒绝：地址能找到，但这个端口上没有服务";
-  if (code === "ENOTFOUND" || code === "EAI_AGAIN") return "找不到这个域名：检查拼写，或者是否需要连 VPN";
-  if (code === "CERT_HAS_EXPIRED" || code?.startsWith?.("ERR_TLS") || code?.includes?.("CERT")) return `HTTPS 证书有问题（${code}）`;
+  if (code === "ECONNREFUSED") return t("serverSettings.reasonRefused");
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") return t("serverSettings.reasonDns");
+  if (code === "CERT_HAS_EXPIRED" || code?.startsWith?.("ERR_TLS") || code?.includes?.("CERT")) return t("serverSettings.reasonTls", { code });
   return code || err?.cause?.message || err?.message || String(error);
 }
 
@@ -96,7 +97,7 @@ export class ServerSettingsService {
     const checks: ServerCheck[] = [];
     const done = (b: string) => ({ base: b, ok: checks.every((c) => c.ok), checks });
     if (!base) {
-      checks.push({ id: "address", ok: false, title: "地址格式不对", detail: "要写完整的 http:// 或 https:// 地址，例如 https://ee.example.com，不要带路径以外的参数" });
+      checks.push({ id: "address", ok: false, title: t("serverSettings.badAddress"), detail: t("serverSettings.badAddressDetail") });
       return done(String(input ?? ""));
     }
     const started = Date.now();
@@ -104,31 +105,31 @@ export class ServerSettingsService {
     try {
       health = await fetch(`${base}/healthz`, { signal: AbortSignal.timeout(this.timeoutMs) });
     } catch (error) {
-      checks.push({ id: "reach", ok: false, title: "连不上", detail: reason(error) });
+      checks.push({ id: "reach", ok: false, title: t("serverSettings.unreachable"), detail: reason(error) });
       return done(base);
     }
-    checks.push({ id: "reach", ok: true, title: `能连上（${Date.now() - started} ms）` });
+    checks.push({ id: "reach", ok: true, title: t("serverSettings.reachable", { ms: Date.now() - started }) });
     const body = await health.json().catch(() => null) as { status?: string; version?: string } | null;
     if (!health.ok || body?.status !== "ok") {
-      checks.push({ id: "server", ok: false, title: "这个地址上不是 dsh-ee", detail: `访问 /healthz 返回 HTTP ${health.status}；确认地址是 dsh-ee 网页的地址` });
+      checks.push({ id: "server", ok: false, title: t("serverSettings.notDshEe"), detail: t("serverSettings.notDshEeDetail", { status: health.status }) });
       return done(base);
     }
-    checks.push({ id: "server", ok: true, title: `是 dsh-ee${body.version ? `（${body.version}）` : ""}` });
+    checks.push({ id: "server", ok: true, title: t("serverSettings.isDshEe", { version: body.version ? t("serverSettings.versionSuffix", { version: body.version }) : "" }) });
     const current = await this.tokens.resolve();
     if (!current?.value) {
-      checks.push({ id: "login", ok: false, title: "这台电脑还没有登录企业账号", detail: "保存地址后，在侧栏企业面板点「登录」，或在对话框输入 /ee-login" });
+      checks.push({ id: "login", ok: false, title: t("serverSettings.noLogin"), detail: t("serverSettings.noLoginDetail") });
       return done(base);
     }
     try {
       const me = await fetch(`${base}/api/dsh/whoami`, { headers: { Authorization: `Bearer ${current.value}` }, signal: AbortSignal.timeout(this.timeoutMs) });
       if (me.ok) {
         const who = await me.json() as { username?: string; department?: string };
-        checks.push({ id: "login", ok: true, title: `已登录 ${who.username ?? ""}${who.department ? `（${who.department}）` : ""}` });
+        checks.push({ id: "login", ok: true, title: t("serverSettings.signedIn", { username: who.username ?? "", department: who.department ? t("serverSettings.departmentSuffix", { department: who.department }) : "" }) });
       } else {
-        checks.push({ id: "login", ok: false, title: "本机的登录在这台 dsh-ee 上无效", detail: "保存地址后重新登录即可（令牌是按 dsh-ee 发的，换了服务器要重新登录）" });
+        checks.push({ id: "login", ok: false, title: t("serverSettings.loginInvalid"), detail: t("serverSettings.loginInvalidDetail") });
       }
     } catch (error) {
-      checks.push({ id: "login", ok: false, title: "检查登录失败", detail: reason(error) });
+      checks.push({ id: "login", ok: false, title: t("serverSettings.loginCheckFailed"), detail: reason(error) });
     }
     return done(base);
   }
@@ -136,7 +137,7 @@ export class ServerSettingsService {
   /** 保存地址并立即生效；传空或与插件包里的一样就恢复默认。 */
   async save(input: unknown): Promise<ServerSettings> {
     const base = input === undefined || input === null || input === "" ? this.packaged : normalizeBase(input);
-    if (!base) throw new Error("地址格式不对：要写完整的 http:// 或 https:// 地址");
+    if (!base) throw new Error(t("serverSettings.saveBadAddress"));
     writeBaseOverride(base === this.packaged ? undefined : base);
     if (base !== this.config.base) {
       this.config.base = base;

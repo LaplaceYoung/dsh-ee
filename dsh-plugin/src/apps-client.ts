@@ -1,4 +1,5 @@
 import { createElement, useEffect, useRef, useState } from "react";
+import { t } from "./i18n/index.js";
 import { appsGallery, appsSection, heroStrip, inProgressItems, inProgressView, type AppsViewActions, type MenuAnchor, type StripPlace } from "./apps-view.js";
 import { readSidebarMode, setSidebarMode, subscribeSidebarMode, type SidebarAppsMode } from "./sidebar-pref.js";
 import { fillInput, openSession } from "./host-session.js";
@@ -82,10 +83,10 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
   const copy = async (app: CatalogApp) => {
     const command = `/${app.name}`;
     await navigator.clipboard?.writeText(command);
-    return `已复制 ${command}，粘贴到输入框发送`;
+    return t("apps.copied", { command });
   };
   const fill = async (app: CatalogApp) => {
-    if (fillInput(ctx, `/${app.name}`)) return "已填进输入框，确认后发送";
+    if (fillInput(ctx, `/${app.name}`)) return t("apps.filled");
     return copy(app);
   };
   const bind = async (app: CatalogApp, id: string) => {
@@ -118,7 +119,7 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
   };
 
   const useActions = (setNotice: (notice: string) => void, launch: (app: CatalogApp) => Promise<void>, setConfirmDisable: (name: string) => void = () => {}): AppsViewActions => ({
-    login: () => { void remote.login().then((result: any) => setNotice(unwrapRemote(result)?.text || "请在浏览器完成企业登录。")).catch(() => setNotice("发起登录失败，请稍后重试。")); },
+    login: () => { void remote.login().then((result: any) => setNotice(unwrapRemote(result)?.text || t("apps.loginInBrowser"))).catch(() => setNotice(t("apps.loginStartFailed"))); },
     open: (app) => { markSeen(app); void openWithFallback(app, launch).then(setNotice); },
     newSession: (app) => { void openWithFallback(app, (target) => launcher.launchNew(target)).then(setNotice); },
     startWith: (app, starter) => { void openWithFallback(app, (target) => launcher.launchNew(target, starter)).then(setNotice); },
@@ -126,30 +127,30 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
       const id = snapshot.bindings[app.name]?.sessionId;
       const current = ctx.sidebarRight?.mounted?.getSnapshot?.();
       if (!id || id !== current) {
-        setNotice("先点应用回到它的会话，再打开工作台");
+        setNotice(t("apps.openWorkbenchFirst"));
         return;
       }
-      void workbenchOpener?.(app, id, true).then((opened) => { if (!opened) setNotice("工作台没有打开，请稍后再试"); });
+      void workbenchOpener?.(app, id, true).then((opened) => { if (!opened) setNotice(t("apps.workbenchNotOpen")); });
     },
     enable: (app) => {
       void remote.enableApp({ name: app.name }).then(async (result: any) => {
         const value = unwrapRemote(result);
-        if (!value?.ok) return setNotice(`启用失败：${value?.error || "请稍后重试"}`);
+        if (!value?.ok) return setNotice(t("apps.enableFailed", { error: value?.error || t("apps.retryLater") }));
         await refresh();
-        setNotice(`已启用「${app.title}」，点一下开始使用`);
-      }).catch(() => setNotice("启用失败，请检查网络后重试。"));
+        setNotice(t("apps.enabled", { title: app.title }));
+      }).catch(() => setNotice(t("apps.enableFailedNetwork")));
     },
     disable: (app, confirmed) => {
       if (!confirmed) return setConfirmDisable(app.name);
       setConfirmDisable("");
       void remote.disableApp({ name: app.name }).then(async (result: any) => {
         const value = unwrapRemote(result);
-        if (!value?.ok) return setNotice(`停用失败：${value?.error || "请稍后重试"}`);
+        if (!value?.ok) return setNotice(t("apps.disableFailed", { error: value?.error || t("apps.retryLater") }));
         await refresh();
-        setNotice(`已停用「${app.title}」`);
-      }).catch(() => setNotice("停用失败，请检查网络后重试。"));
+        setNotice(t("apps.disabled", { title: app.title }));
+      }).catch(() => setNotice(t("apps.disableFailedNetwork")));
     },
-    unbind: (app) => { void remote.unbindApp({ name: app.name }).then((result: any) => { const bindings = unwrapRemote(result); update({ bindings }); setNotice("已解除绑定"); }).catch(() => setNotice("解除绑定失败，请稍后重试。")); },
+    unbind: (app) => { void remote.unbindApp({ name: app.name }).then((result: any) => { const bindings = unwrapRemote(result); update({ bindings }); setNotice(t("apps.unbound")); }).catch(() => setNotice(t("apps.unbindFailed"))); },
     fill: (app) => { void fill(app).then(setNotice); },
     web,
     details: (app) => { if (app.detail_url) void openWeb(app.detail_url); },
@@ -316,7 +317,7 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
     }, filtered);
     if (!state.apps.length) return null;
     // 宿主没有输入框座位（旧版本）时退回一个按钮，点了打开网格浮层
-    const fallback = missing ? createElement("button", { type: "button", onClick: () => layers.setGalleryOpen(true), "data-dsh-ee-ui": "hero-apps", style: { border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: 12, padding: "4px 7px", whiteSpace: "nowrap" } }, "企业应用") : null;
+    const fallback = missing ? createElement("button", { type: "button", onClick: () => layers.setGalleryOpen(true), "data-dsh-ee-ui": "hero-apps", style: { border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: 12, padding: "4px 7px", whiteSpace: "nowrap" } }, t("apps.enterpriseApps")) : null;
     return createElement("span", { ref: anchor, "data-dsh-ee-ui": "hero-anchor", style: { display: "inline-flex", width: fallback ? undefined : 0, height: fallback ? undefined : 0 } },
       fallback,
       createElement("span", { ref: probe, style: { position: "fixed", left: 0, top: 0, width: 0, height: 0, zIndex: 4 } },
@@ -330,8 +331,8 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
   };
   const AppsPanel = () => createElement("div", null, createElement(InProgress), createElement(PanelAppsSection));
 
-  ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({ name: "sidebar.footer.action", id: "dsh-ee-apps", order: 30, label: "企业应用" }, AppsSection));
-  ctx.slots.inject("conversation.hero.options", () => ctx.slots.register({ name: "conversation.hero.options", id: "dsh-ee-apps", order: 100, label: "企业应用" }, HeroApps));
+  ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({ name: "sidebar.footer.action", id: "dsh-ee-apps", order: 30, label: t("apps.enterpriseApps") }, AppsSection));
+  ctx.slots.inject("conversation.hero.options", () => ctx.slots.register({ name: "conversation.hero.options", id: "dsh-ee-apps", order: 100, label: t("apps.enterpriseApps") }, HeroApps));
   return {
     AppsPanel,
     appsNow: () => snapshot.apps,

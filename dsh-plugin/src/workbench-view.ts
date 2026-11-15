@@ -1,6 +1,7 @@
 // 业务工作台的界面：纯函数，createElement 作参数（照 status-view.ts），方便单测。
 // 颜色都从 currentColor 混出来，跟随 DSH 的亮色 / 暗色主题；只有图表序列用固定的几种颜色。
 import { computeMarks, docView, parseBlocks } from "./kb-doc-render.js";
+import { localeTag, t } from "./i18n/index.js";
 import { chartSeries, checkForm, checklistItems, formatDelta, formatValue, getPath, parseDocLines, rowWriteOf, statusTone, tableRows, type Board, type Citation, type KBaseItem, type WorkbenchAction, type WorkbenchPane, type WorkbenchWidget, type WidgetWidth } from "./workbench.js";
 
 type H = (...args: any[]) => any;
@@ -50,7 +51,7 @@ function actionLabel(handlers: PanelHandlers, action: WorkbenchAction): string {
 function actionButton(h: H, handlers: PanelHandlers, key: string, action: WorkbenchAction, onClick: () => void) {
   const write = rowWriteOf(action);
   const armed = write === "delete" && !!handlers.armed?.(key);
-  return button(h, armed ? "确认删除" : actionLabel(handlers, action), onClick, handlers.sending.has(key), key, armed ? "armed" : write === "delete" ? "danger" : "default");
+  return button(h, armed ? t("workbenchView.confirmDelete") : actionLabel(handlers, action), onClick, handlers.sending.has(key), key, armed ? "armed" : write === "delete" ? "danger" : "default");
 }
 
 // 视觉：Stripe 式的仪表盘——白底卡片（宿主可用 --ee-card-bg 指定）、细边框、柔和的双层阴影、品牌蓝点缀。
@@ -67,7 +68,7 @@ const primaryButton = { ...buttonStyle, border: "1px solid var(--ee-accent)", ba
 const warn = "#b45309";
 /** 图表序列的颜色：亮色、暗色背景上都看得清 */
 export const seriesColors = ["#4d6bfe", "#00a3bf", "#f59e0b", "#db2777"];
-const widgetNames: Record<WorkbenchWidget["type"], string> = { metric: "指标", table: "表格", chart: "图表", checklist: "清单", form: "表单", actions: "快捷按钮", markdown: "说明", heading: "", board: "AI 看板", kb_scope: "查哪些库" };
+const widgetNames = (): Record<WorkbenchWidget["type"], string> => ({ metric: t("workbenchView.widgetMetric"), table: t("workbenchView.widgetTable"), chart: t("workbenchView.widgetChart"), checklist: t("workbenchView.widgetChecklist"), form: t("workbenchView.widgetForm"), actions: t("workbenchView.widgetActions"), markdown: t("workbenchView.widgetMarkdown"), heading: "", board: t("workbenchView.widgetBoard"), kb_scope: t("workbenchView.widgetKbScope") });
 const toneColors = { good: "#16a34a", warn: "#d97706", bad: "#dc2626", neutral: "currentColor" };
 
 /**
@@ -99,10 +100,10 @@ function button(h: H, label: string, onClick: () => void, disabled = false, key?
 
 function header(h: H, widget: WorkbenchWidget, refresh?: () => void, aside?: any) {
   return h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, minHeight: 20 } },
-    h("strong", { style: { fontSize: 13, fontWeight: 600, letterSpacing: "0.01em", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, widget.title || widgetNames[widget.type]),
+    h("strong", { style: { fontSize: 13, fontWeight: 600, letterSpacing: "0.01em", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, widget.title || widgetNames()[widget.type]),
     h("span", { style: { display: "flex", alignItems: "center", gap: 6, flex: "0 0 auto" } },
       aside ?? null,
-      refresh ? h("button", { type: "button", onClick: refresh, "aria-label": "刷新", title: "刷新", className: "dshee-btn", style: { ...buttonStyle, border: 0, background: "transparent", padding: "0 4px", fontSize: 13, color: "var(--ee-muted)" } }, "↻") : null));
+      refresh ? h("button", { type: "button", onClick: refresh, "aria-label": t("common.refresh"), title: t("common.refresh"), className: "dshee-btn", style: { ...buttonStyle, border: 0, background: "transparent", padding: "0 4px", fontSize: 13, color: "var(--ee-muted)" } }, "↻") : null));
 }
 
 /** 状态标签：带颜色的小圆点 + 文字，颜色按文字里的关键词选。 */
@@ -127,14 +128,14 @@ export function skeleton(h: H, shape: "metric" | "rows" | "chart" = "rows") {
     : [bar(0, "90%"), bar(1, "75%"), bar(2, "82%")];
   return h("div", { "data-state": "loading", "aria-busy": "true", style: { display: "grid", gap: 7, padding: "2px 0" } },
     ...bars,
-    h("span", { style: { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" } }, "加载中…"));
+    h("span", { style: { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" } }, t("common.loading")));
 }
 
 /** 加载中、出错、无权限三种状态；返回 null 表示数据已就绪。原文窗格等简单场景用。 */
 export function stateNote(h: H, state: WidgetState | undefined) {
   if (!state || state.status === "loading") return skeleton(h);
-  if (state.status === "forbidden") return h("div", { "data-state": "forbidden", style: muted }, "无权限：你没有这个数据源的使用权限");
-  if (state.status === "error") return h("div", { "data-state": "error", style: { ...muted, color: warn, opacity: 1, overflowWrap: "anywhere" } }, `取数失败：${state.error}`);
+  if (state.status === "forbidden") return h("div", { "data-state": "forbidden", style: muted }, t("workbenchView.forbidden"));
+  if (state.status === "error") return h("div", { "data-state": "error", style: { ...muted, color: warn, opacity: 1, overflowWrap: "anywhere" } }, t("workbenchView.fetchFailed", { error: state.error }));
   return null;
 }
 
@@ -148,19 +149,19 @@ export function stateView(h: H, index: number, widget: WorkbenchWidget, state: W
     const connection = widget.source?.connection ?? "";
     const href = connection ? handlers.requestHref?.(connection) : undefined;
     return h("div", { "data-state": "forbidden", style: { fontSize: 12, display: "grid", gap: 4 } },
-      h("span", { style: { opacity: 0.8 } }, `无权限：你还没有「${connection || "这个数据源"}」里「${widget.source?.tool ?? ""}」的使用权限。`),
-      href ? h("a", { href, target: "_blank", rel: "noopener noreferrer", style: { color: "inherit", textDecoration: "underline", width: "fit-content" } }, "去申请权限 ↗") : h("span", { style: muted }, "请联系管理员开通。"));
+      h("span", { style: { opacity: 0.8 } }, t("workbenchView.forbiddenDetail", { connection: connection || t("workbenchView.thisDataSource"), tool: widget.source?.tool ?? "" })),
+      href ? h("a", { href, target: "_blank", rel: "noopener noreferrer", style: { color: "inherit", textDecoration: "underline", width: "fit-content" } }, t("workbenchView.requestAccess")) : h("span", { style: muted }, t("workbenchView.contactAdmin")));
   }
   if (state.status === "error") {
     return h("div", { "data-state": "error", role: "alert", style: { fontSize: 12, display: "grid", gap: 6, justifyItems: "start" } },
-      h("span", { style: { color: warn, overflowWrap: "anywhere" } }, `取数失败：${state.error}`),
-      button(h, "重试", () => handlers.refresh(index), false, "retry"));
+      h("span", { style: { color: warn, overflowWrap: "anywhere" } }, t("workbenchView.fetchFailed", { error: state.error })),
+      button(h, t("common.retry"), () => handlers.refresh(index), false, "retry"));
   }
   return null;
 }
 
 /** 空状态：一句说明 + 一个建议操作（配置里没写时给默认说明）。 */
-export function emptyView(h: H, index: number, widget: WorkbenchWidget, handlers: PanelHandlers, fallback = "暂无数据") {
+export function emptyView(h: H, index: number, widget: WorkbenchWidget, handlers: PanelHandlers, fallback = t("common.noData")) {
   const action = widget.empty?.action;
   const key = `${index}:empty`;
   return h("div", { "data-state": "empty", style: { display: "grid", gap: 10, justifyItems: "center", textAlign: "center", fontSize: 12, padding: "18px 12px", borderRadius: 10, border: "1px dashed var(--ee-border-strong)", background: "var(--ee-soft)" } },
@@ -184,8 +185,8 @@ export function metricView(h: H, widget: WorkbenchWidget, state: WidgetState | u
   }
   return h("section", { className: "dshee-card", style: { ...card, padding: "13px 16px 15px" } },
     h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 } },
-      h("span", { style: { fontSize: 12, fontWeight: 500, color: "var(--ee-muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, widget.title || widgetNames.metric),
-      h("button", { type: "button", onClick: refresh, "aria-label": "刷新", title: "刷新", className: "dshee-btn", style: { ...buttonStyle, border: 0, background: "transparent", padding: "0 2px", fontSize: 12, color: "var(--ee-muted)" } }, "↻")),
+      h("span", { style: { fontSize: 12, fontWeight: 500, color: "var(--ee-muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, widget.title || widgetNames().metric),
+      h("button", { type: "button", onClick: refresh, "aria-label": t("common.refresh"), title: t("common.refresh"), className: "dshee-btn", style: { ...buttonStyle, border: 0, background: "transparent", padding: "0 2px", fontSize: 12, color: "var(--ee-muted)" } }, "↻")),
     body);
 }
 
@@ -203,7 +204,7 @@ export function tableView(h: H, index: number, widget: WorkbenchWidget, state: W
   if (!note) {
     const { rows, total } = tableRows((state as any).value, widget.rows);
     const span = columns.length + (actions.length ? 1 : 0) + (detail.length ? 1 : 0);
-    if (rows.length) count = h("span", { style: { ...muted, fontSize: 11.5, fontVariantNumeric: "tabular-nums" } }, `${total} 条`);
+    if (rows.length) count = h("span", { style: { ...muted, fontSize: 11.5, fontVariantNumeric: "tabular-nums" } }, t("workbenchView.countRows", { total }));
     body = rows.length === 0 ? emptyView(h, index, widget, handlers) : h("div", { style: { overflowX: "auto", margin: "0 -16px", borderTop: "1px solid var(--ee-border)" } },
       h("table", { style: { width: "100%", borderCollapse: "collapse", fontSize: 12.5 } },
         h("thead", null, h("tr", null,
@@ -213,7 +214,7 @@ export function tableView(h: H, index: number, widget: WorkbenchWidget, state: W
         h("tbody", null, ...rows.flatMap((row, r) => {
           const expanded = open === r;
           const line = h("tr", { key: r, className: "dshee-row", style: { cursor: detail.length ? "pointer" : "default", background: expanded ? "var(--ee-soft)" : undefined }, onClick: detail.length ? () => handlers.toggleRow?.(index, r) : undefined },
-            detail.length ? h("td", { key: "toggle", style: { ...td, padding: "9px 0 9px 16px", color: "var(--ee-muted)" } }, h("button", { type: "button", "aria-expanded": expanded, "aria-label": expanded ? "收起详情" : "展开详情", onClick: (event: any) => { event?.stopPropagation?.(); handlers.toggleRow?.(index, r); }, style: { ...buttonStyle, border: 0, background: "transparent", padding: 0, color: "inherit" } }, expanded ? "▾" : "▸")) : null,
+            detail.length ? h("td", { key: "toggle", style: { ...td, padding: "9px 0 9px 16px", color: "var(--ee-muted)" } }, h("button", { type: "button", "aria-expanded": expanded, "aria-label": expanded ? t("workbenchView.collapseDetail") : t("workbenchView.expandDetail"), onClick: (event: any) => { event?.stopPropagation?.(); handlers.toggleRow?.(index, r); }, style: { ...buttonStyle, border: 0, background: "transparent", padding: 0, color: "inherit" } }, expanded ? "▾" : "▸")) : null,
             ...columns.map((column, c) => {
               const value = getPath(row, column.field);
               const numeric = column.format === "money" || column.format === "number" || column.format === "compact";
@@ -233,7 +234,7 @@ export function tableView(h: H, index: number, widget: WorkbenchWidget, state: W
                 h("dd", { key: `d${f}`, style: { margin: 0, overflowWrap: "anywhere" } }, cell(h, getPath(row, field.field), field.format)),
               ]))))];
         }))),
-      total > rows.length ? h("div", { style: { ...muted, padding: "8px 16px 0" } }, `共 ${total} 行，只显示前 ${rows.length} 行`) : null);
+      total > rows.length ? h("div", { style: { ...muted, padding: "8px 16px 0" } }, t("workbenchView.truncatedRows", { total, shown: rows.length })) : null);
   }
   return h("section", { className: "dshee-card", style: { ...card, paddingBottom: note || !count ? 14 : 6 } }, header(h, widget, () => handlers.refresh(index), count), body);
 }
@@ -283,7 +284,7 @@ function xyChart(h: H, kind: "line" | "bar", data: ChartData) {
       const groupW = slot * 0.7;
       const barW = groupW / data.series.length;
       return s.values.map((v, i) => h("rect", { key: `b${si}-${i}`, x: left + slot * i + (slot - groupW) / 2 + barW * si, y: y(v), width: Math.max(barW - 1, 1), height: Math.max(top + plotH - y(v), 0), rx: 3, fill: color, fillOpacity: 0.9 },
-        h("title", null, `${data.labels[i]} · ${s.title}：${formatValue(v, s.format)}`)));
+        h("title", null, t("workbenchView.pointTip", { label: data.labels[i], series: s.title, value: formatValue(v, s.format) }))));
     }
     const points = s.values.map((v, i) => `${xMid(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
     const area = si === 0 && n > 1 ? h("polygon", { key: `a${si}`, points: `${xMid(0).toFixed(1)},${(top + plotH).toFixed(1)} ${points} ${xMid(n - 1).toFixed(1)},${(top + plotH).toFixed(1)}`, fill: color, fillOpacity: 0.08 }) : null;
@@ -291,13 +292,13 @@ function xyChart(h: H, kind: "line" | "bar", data: ChartData) {
       area,
       h("polyline", { key: `l${si}`, points, fill: "none", stroke: color, strokeWidth: 2, strokeLinejoin: "round", strokeLinecap: "round" }),
       ...s.values.map((v, i) => h("circle", { key: `c${si}-${i}`, cx: xMid(i), cy: y(v), r: n > 24 ? 1.5 : 2.5, fill: color },
-        h("title", null, `${data.labels[i]} · ${s.title}：${formatValue(v, s.format)}`))),
+        h("title", null, t("workbenchView.pointTip", { label: data.labels[i], series: s.title, value: formatValue(v, s.format) })))),
     ];
   });
   const ticks = n <= 1 ? [0] : n <= 6 ? data.labels.map((_, i) => i) : [0, Math.floor((n - 1) / 2), n - 1];
   const xLabels = ticks.map((i) => h("text", { key: `x${i}`, x: xMid(i), y: H - 4, textAnchor: "middle", fontSize: 9, fill: "currentColor", fillOpacity: 0.6 }, data.labels[i]));
   return h("div", null,
-    h("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": data.series.map((s) => s.title).join("、"), style: { display: "block", overflow: "visible", maxHeight: 240 } }, ...grid, ...marks, ...xLabels),
+    h("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": data.series.map((s) => s.title).join(t("common.listSeparator")), style: { display: "block", overflow: "visible", maxHeight: 240 } }, ...grid, ...marks, ...xLabels),
     data.series.length > 1 ? legend(h, data.series.map((s, i) => ({ label: s.title, color: seriesColors[i % seriesColors.length] }))) : null);
 }
 
@@ -305,7 +306,7 @@ function pieChart(h: H, data: ChartData) {
   const series = data.series[0];
   const values = series?.values.map((v) => Math.max(0, v)) ?? [];
   const total = values.reduce((a, b) => a + b, 0);
-  if (!total) return h("div", { "data-state": "empty", style: muted }, "暂无数据");
+  if (!total) return h("div", { "data-state": "empty", style: muted }, t("common.noData"));
   const R = 54, C = 60;
   const palette = (i: number) => seriesColors[i % seriesColors.length];
   const shade = (i: number) => (i < seriesColors.length ? palette(i) : `color-mix(in srgb, ${palette(i)} ${100 - 25 * Math.floor(i / seriesColors.length)}%, transparent)`);
@@ -314,7 +315,7 @@ function pieChart(h: H, data: ChartData) {
     const sweep = (v / total) * Math.PI * 2;
     const a0 = angle;
     angle += sweep;
-    const tip = `${data.labels[i]}：${formatValue(v, series.format)}（${Math.round((v / total) * 100)}%）`;
+    const tip = t("workbenchView.pieTip", { label: data.labels[i], value: formatValue(v, series.format), percent: Math.round((v / total) * 100) });
     if (sweep >= Math.PI * 2 - 1e-6) return h("circle", { key: i, cx: C, cy: C, r: R, fill: shade(i) }, h("title", null, tip));
     const p = (a: number) => `${(C + R * Math.cos(a)).toFixed(2)} ${(C + R * Math.sin(a)).toFixed(2)}`;
     return h("path", { key: i, d: `M ${C} ${C} L ${p(a0)} A ${R} ${R} 0 ${sweep > Math.PI ? 1 : 0} 1 ${p(angle)} Z`, fill: shade(i), stroke: "var(--background, transparent)", strokeWidth: 1 }, h("title", null, tip));
@@ -374,7 +375,7 @@ export function formView(h: H, index: number, widget: WorkbenchWidget, handlers:
       style: inputStyle,
     };
     if (field.kind === "select") {
-      return h("select", common, h("option", { value: "" }, "请选择"), ...(field.options ?? []).map((option) => h("option", { key: option, value: option }, option)));
+      return h("select", common, h("option", { value: "" }, t("workbenchView.selectPlaceholder")), ...(field.options ?? []).map((option) => h("option", { key: option, value: option }, option)));
     }
     return h("input", { ...common, type: field.kind === "number" ? "number" : field.kind === "date" ? "date" : "text" });
   };
@@ -385,7 +386,7 @@ export function formView(h: H, index: number, widget: WorkbenchWidget, handlers:
         h("span", null, field.label, field.required ? h("span", { style: { color: "#dc2626" } }, " *") : null),
         input(field)))),
     handlers.formError(index) ? h("div", { role: "alert", style: { color: "#dc2626", fontSize: 12, marginTop: 8 } }, handlers.formError(index)) : null,
-    h("div", { style: { marginTop: 12, display: "flex", justifyContent: "flex-end" } }, button(h, widget.submit ? actionLabel(handlers, widget.submit) || "提交" : "提交", submit, handlers.sending.has(key), undefined, "primary")));
+    h("div", { style: { marginTop: 12, display: "flex", justifyContent: "flex-end" } }, button(h, widget.submit ? actionLabel(handlers, widget.submit) || t("common.submit") : t("common.submit"), submit, handlers.sending.has(key), undefined, "primary")));
 }
 
 export function actionsView(h: H, index: number, widget: WorkbenchWidget, handlers: PanelHandlers) {
@@ -430,12 +431,14 @@ export function markdownView(h: H, widget: WorkbenchWidget) {
   return h("section", { className: "dshee-card", style: card }, widget.title ? header(h, widget) : null, h("div", { style: { display: "grid", gap: 6, fontSize: 12.5, lineHeight: 1.7, color: "color-mix(in srgb, currentColor 85%, transparent)" } }, ...blocks));
 }
 
-const citationBadges: Record<NonNullable<Citation["status"]>, { text: string; color: string }> = {
-  ok: { text: "✔ 已核对原文", color: "#15803d" },
-  stale: { text: "原文已更新", color: "#a16207" },
-  mismatch: { text: "✖ 对不上原文", color: "#b91c1c" },
-  missing: { text: "✖ 找不到这篇文档", color: "#b91c1c" },
-  unchecked: { text: "未核对", color: "inherit" },
+const citationBadge = (status: Citation["status"]): { text: string; color: string } => {
+  switch (status) {
+    case "ok": return { text: t("workbenchView.citationOk"), color: "#15803d" };
+    case "stale": return { text: t("workbenchView.citationStale"), color: "#a16207" };
+    case "mismatch": return { text: t("workbenchView.citationMismatch"), color: "#b91c1c" };
+    case "missing": return { text: t("workbenchView.citationMissing"), color: "#b91c1c" };
+    default: return { text: t("workbenchView.citationUnchecked"), color: "inherit" };
+  }
 };
 
 /** 引用编号的小标签：绿色对得上、红色对不上、灰色原文已更新或没核对。 */
@@ -452,19 +455,20 @@ function citationChip(h: H, n: number, status: Citation["status"]) {
 export function citationsView(h: H, items: Citation[], key: number, open?: (citation: Citation) => void, hrefOf?: (citation: Citation) => string | undefined) {
   return h("ol", { key, style: { margin: 0, padding: 0, listStyle: "none", fontSize: 12, display: "grid", gap: 8 } },
     ...items.map((item, i) => {
-      const badge = citationBadges[item.status ?? "unchecked"];
-      const where = `${item.title || `文档 ${item.doc}`} · 第 ${item.from === item.to ? item.from : `${item.from}–${item.to}`} 行`;
-      const tip = `${where}\n“${item.quote}”`;
+      const badge = citationBadge(item.status);
+      const range = item.from === item.to ? `${item.from}` : `${item.from}–${item.to}`;
+      const where = t("workbenchView.citationWhere", { title: item.title || t("workbenchClient.docLabel", { doc: item.doc }), range });
+      const tip = t("workbenchView.citationTip", { where, quote: item.quote });
       return h("li", { key: i, "data-citation": i + 1, style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 8px", alignItems: "start" } },
         citationChip(h, i + 1, item.status),
         h("div", { style: { minWidth: 0 } },
           h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 } },
-            open ? h("button", { type: "button", onClick: () => open(item), title: tip, "aria-label": `查看原文：${where}`, className: "dshee-btn", style: { ...buttonStyle, padding: "1px 7px" } }, where)
-              : hrefOf?.(item) ? h("a", { href: hrefOf(item), target: "_blank", rel: "noopener noreferrer", title: `${tip}\n在 dsh-ee 网页上看原文`, style: { color: "inherit", textDecoration: "underline" } }, `${where} ↗`)
+            open ? h("button", { type: "button", onClick: () => open(item), title: tip, "aria-label": t("workbenchView.viewSource", { where }), className: "dshee-btn", style: { ...buttonStyle, padding: "1px 7px" } }, where)
+              : hrefOf?.(item) ? h("a", { href: hrefOf(item), target: "_blank", rel: "noopener noreferrer", title: t("workbenchView.webSourceTip", { tip }), style: { color: "inherit", textDecoration: "underline" } }, `${where} ↗`)
               : h("span", { title: tip }, where),
             h("span", { style: { color: badge.color, fontSize: 11, opacity: item.status === "unchecked" || !item.status ? 0.6 : 1 } }, badge.text),
-            item.near_skipped ? h("span", { title: "那一页是扫描页或乱码，没有收录进知识库；答案可能漏了那一页的内容，请看原件", style: { fontSize: 11, color: "#a16207" } }, `⚠ 第 ${item.near_skipped} 页没收录`) : null),
-          h("div", { style: { ...muted, marginTop: 2, whiteSpace: "pre-wrap" } }, `“${item.quote}”`)));
+            item.near_skipped ? h("span", { title: t("workbenchView.nearSkippedTip"), style: { fontSize: 11, color: "#a16207" } }, t("workbenchView.nearSkipped", { page: item.near_skipped })) : null),
+          h("div", { style: { ...muted, marginTop: 2, whiteSpace: "pre-wrap" } }, t("workbenchView.quoteText", { quote: item.quote }))));
     }));
 }
 
@@ -473,22 +477,22 @@ export function kbScopeView(h: H, widget: WorkbenchWidget, state: WidgetState | 
   const note = stateView(h, index, widget, state, handlers);
   const bases: KBaseItem[] = note ? [] : (getPath((state as any).value, "items") ?? []);
   const selected = handlers.selectedKBs ?? [];
-  const body = note ?? (bases.length === 0 ? h("div", { style: muted }, "你还没有可以查的知识库") : h("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
+  const body = note ?? (bases.length === 0 ? h("div", { style: muted }, t("workbenchView.noKbs")) : h("div", { style: { display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
     ...bases.map((item) => h("label", { key: item.kb, style: { display: "flex", alignItems: "center", gap: 4, fontSize: 12, cursor: "pointer" } },
       h("input", { type: "checkbox", checked: selected.includes(item.kb), onChange: () => handlers.toggleKB?.(item.kb) }),
       item.title,
-      item.docs !== undefined ? h("span", { style: muted }, `${item.docs} 篇`) : null))));
+      item.docs !== undefined ? h("span", { style: muted }, t("workbenchView.kbDocs", { count: item.docs })) : null))));
   return h("section", { className: "dshee-card", style: card },
     header(h, widget),
     body,
-    bases.length > 0 ? h("div", { style: { ...muted, marginTop: 6 } }, selected.length ? `只查勾选的 ${selected.length} 个库` : "没有勾选时查全部") : null);
+    bases.length > 0 ? h("div", { style: { ...muted, marginTop: 6 } }, selected.length ? t("workbenchView.scopeOnly", { count: selected.length }) : t("workbenchView.scopeAllHint")) : null);
 }
 
 /** AI 看板：内容只当文字显示。 */
 export function boardView(h: H, widget: WorkbenchWidget, board: Board | null | undefined, openCitation?: (citation: Citation) => void, citationHref?: (citation: Citation) => string | undefined) {
   let body: any;
   if (!board?.blocks?.length) {
-    body = h("div", { style: { ...muted, padding: "16px 12px", borderRadius: 10, border: "1px dashed var(--ee-border-strong)", textAlign: "center", lineHeight: 1.6 } }, "AI 处理完以后会把结果写在这里。");
+    body = h("div", { style: { ...muted, padding: "16px 12px", borderRadius: 10, border: "1px dashed var(--ee-border-strong)", textAlign: "center", lineHeight: 1.6 } }, t("workbenchView.boardEmpty"));
   } else {
     body = h("div", { style: { display: "grid", gap: 10 } },
       ...board.blocks.map((block, b) => {
@@ -500,7 +504,7 @@ export function boardView(h: H, widget: WorkbenchWidget, board: Board | null | u
             h("thead", null, h("tr", null, ...block.columns.map((column, c) => h("th", { key: c, style: th }, column)))),
             h("tbody", null, ...block.rows.map((row, r) => h("tr", { key: r, className: "dshee-row" }, ...row.map((value, c) => h("td", { key: c, style: { ...td, whiteSpace: "normal", maxWidth: "none", borderBottom: r === block.rows.length - 1 ? 0 : td.borderBottom } }, value)))))));
       }),
-      h("div", { style: { ...muted, fontSize: 11 } }, `更新于 ${new Date(board.updatedAt).toLocaleString("zh-CN")}`));
+      h("div", { style: { ...muted, fontSize: 11 } }, t("workbenchView.updatedAt", { time: new Date(board.updatedAt).toLocaleString(localeTag()) })));
   }
   const badge = h("span", { style: { fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", color: "#fff", padding: "1px 7px", borderRadius: 999, background: "linear-gradient(135deg, var(--ee-accent), #8b5cf6)" } }, "AI");
   return h("section", { className: "dshee-card", style: { ...card, borderTop: "2px solid color-mix(in srgb, var(--ee-accent) 55%, transparent)" } }, header(h, widget, undefined, badge), body);
@@ -563,7 +567,7 @@ export function panelView(h: H, pane: WorkbenchPane, state: PanelState, handlers
 
 /** 地址对应的应用或窗格已经不在目录里（被停用、改了配置）。 */
 export function missingPaneView(h: H) {
-  return h("div", { style: { padding: 16, fontSize: 13, opacity: 0.7 } }, "这个工作台已经不可用：应用可能已停用，或者工作台配置改了。可以关掉这个标签页。");
+  return h("div", { style: { padding: 16, fontSize: 13, opacity: 0.7 } }, t("workbenchView.unavailable"));
 }
 
 /** 「原文」窗格要看的那条引用。 */
@@ -606,9 +610,9 @@ function rawDocLines(h: H, lines: { n: number; text: string }[], target: DocTarg
  */
 export function kbDocView(h: H, target: DocTarget | undefined, state: WidgetState | undefined, handlers: DocPaneHandlers) {
   const wrap = (...children: any[]) => h("div", { "data-dsh-ee-ui": "kb-doc", style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10, padding: 12, fontSize: 13, overflowY: "auto", height: "100%", boxSizing: "border-box", alignContent: "start" } }, ...children);
-  if (!target) return wrap(h("div", { style: muted }, "点「答案与出处」里的引用，会在这里打开原文。"));
+  if (!target) return wrap(h("div", { style: muted }, t("workbenchView.openCitationHint")));
   const note = stateNote(h, state);
-  if (note) return wrap(h("strong", null, target.title || `文档 ${target.doc}`), note);
+  if (note) return wrap(h("strong", null, target.title || t("workbenchClient.docLabel", { doc: target.doc })), note);
   const value = (state as any).value ?? {};
   const lines = parseDocLines(value.text);
   const total = Number(value.total_lines) || 0;
@@ -627,14 +631,14 @@ export function kbDocView(h: H, target: DocTarget | undefined, state: WidgetStat
   }
   return wrap(
     h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 } },
-      h("strong", { style: { fontSize: 14 } }, value.title || target.title || `文档 ${target.doc}`),
-      h("span", { style: { ...muted, whiteSpace: "nowrap" } }, `第 ${value.version ?? "?"} 版 · 第 ${from}～${to} 行 / 共 ${total} 行`)),
-    value.stale ? h("div", { role: "status", style: { fontSize: 12, color: "#a16207" } }, `${value.stale}；高亮的是引用时的版本。`) : null,
+      h("strong", { style: { fontSize: 14 } }, value.title || target.title || t("workbenchClient.docLabel", { doc: target.doc })),
+      h("span", { style: { ...muted, whiteSpace: "nowrap" } }, t("workbenchView.versionLine", { version: value.version ?? "?", from, to, total }))),
+    value.stale ? h("div", { role: "status", style: { fontSize: 12, color: "#a16207" } }, t("workbenchView.staleNotice", { stale: value.stale })) : null,
     h("div", { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
-      button(h, "上一页", () => handlers.page(-1), from <= 1, "prev"),
-      button(h, "下一页", () => handlers.page(1), total > 0 && to >= total, "next"),
-      button(h, "在这篇里继续问", handlers.ask, handlers.asking, "ask"),
-      handlers.toggleRaw ? button(h, handlers.raw ? "阅读视图" : "看原文（带行号）", handlers.toggleRaw, false, "raw") : null),
+      button(h, t("workbenchView.prevPage"), () => handlers.page(-1), from <= 1, "prev"),
+      button(h, t("workbenchView.nextPage"), () => handlers.page(1), total > 0 && to >= total, "next"),
+      button(h, t("workbenchClient.ask"), handlers.ask, handlers.asking, "ask"),
+      handlers.toggleRaw ? button(h, handlers.raw ? t("workbenchView.readView") : t("workbenchView.rawView"), handlers.toggleRaw, false, "raw") : null),
     body,
-    target.quote && (handlers.raw || !quoteFound) ? h("div", { style: muted }, `引用的原文：“${target.quote}”`) : null);
+    target.quote && (handlers.raw || !quoteFound) ? h("div", { style: muted }, t("workbenchView.quotedSource", { quote: target.quote })) : null);
 }

@@ -1,4 +1,5 @@
 import type { WriteRecord } from "./write-log.js";
+import { t } from "./i18n/index.js";
 
 export interface TurnWrites {
   /** dsh-ee 网页地址，拼详情链接用 */
@@ -40,8 +41,8 @@ export function groupTurnWrites(data: TurnWrites | undefined): TurnWriteGroup[] 
 function opText(op: TurnWriteGroup["ops"][number]): string {
   const parts: string[] = [];
   if (op.ok) parts.push(op.ok > 1 ? `${op.label} ×${op.ok}` : op.label);
-  if (op.failed) parts.push(`${op.label} 未成功${op.failed > 1 ? ` ×${op.failed}` : ""}`);
-  return parts.join("、");
+  if (op.failed) parts.push(t("turnWrites.failedOp", { label: op.label, count: op.failed > 1 ? t("turnWrites.failedCount", { count: op.failed }) : "" }));
+  return parts.join(t("common.listSeparator"));
 }
 
 /**
@@ -56,9 +57,9 @@ export function turnWritesView(createElement: (...args: any[]) => any, groups: T
     role: "note",
     style: { display: "grid", gap: 3, margin: "6px 0 2px", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(127,127,127,.25)", fontSize: 12, lineHeight: 1.5, opacity: 0.9 },
   },
-  createElement("div", { style: { fontWeight: 600 } }, failed ? "这一轮在企业系统里的写操作（有未成功的），已在 dsh-ee 留痕" : "这一轮改了企业系统里的数据，已在 dsh-ee 留痕"),
+  createElement("div", { style: { fontWeight: 600 } }, failed ? t("turnWrites.failedNotice") : t("turnWrites.okNotice")),
   ...groups.map((group, index) => createElement("div", { key: index, style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 6 } },
-    createElement("span", null, `「${group.system}」`),
+    createElement("span", null, t("turnWrites.systemLabel", { system: group.system })),
     createElement("span", { style: { opacity: 0.8 } }, group.ops.map(opText).join("、")),
     group.url ? createElement("a", {
       href: group.url,
@@ -66,5 +67,5 @@ export function turnWritesView(createElement: (...args: any[]) => any, groups: T
       rel: "noopener noreferrer",
       onClick: (event: any) => { event.preventDefault(); openWeb(group.url!); },
       style: { color: "inherit", textDecoration: "underline" },
-    }, "在网页查看") : null)));
+    }, t("common.viewInWeb")) : null)));
 }

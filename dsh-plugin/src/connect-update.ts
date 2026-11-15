@@ -1,5 +1,6 @@
 import { compareVersions } from "./doctor.js";
 import type { DshContext, PluginConfig } from "./dsh.js";
+import { t } from "./i18n/index.js";
 import type { HttpClient } from "./http.js";
 
 // 「设置 → dsh-ee」里的一键更新：把接入插件升级成企业端已发布的最新版。
@@ -32,24 +33,24 @@ const reason = (error: unknown) => (error instanceof Error ? error.message : Str
 export async function updateConnect(ctx: DshContext, config: PluginConfig, http: HttpClient): Promise<ConnectUpdate> {
   const manager = ctx.get("pluginManager");
   if (!manager || typeof manager.installBundle !== "function") {
-    return { ok: false, version: config.version, message: "这台 DSH 没有插件管理接口，请在插件页手动更新接入插件" };
+    return { ok: false, version: config.version, message: t("connectUpdate.noManager") };
   }
   let info: ConnectInfo;
   try {
     info = await http.json<ConnectInfo>("/api/connect");
   } catch (error) {
     const why = reason(error);
-    return { ok: false, version: config.version, message: `查不到企业端的接入插件版本：${why}${why === "HTTP 401" ? "；先登录企业账号再试" : ""}` };
+    return { ok: false, version: config.version, message: t("connectUpdate.noLatest", { why, hint: why === "HTTP 401" ? t("connectUpdate.signInHint") : "" }) };
   }
   const latest = String(info?.version ?? "");
   const pkg = String(info?.package ?? "");
   if (!info?.ready || !latest || !pkg) {
-    return { ok: false, version: config.version, message: info?.error || "企业端还没有发布接入插件，请管理员先在系统设置里发布" };
+    return { ok: false, version: config.version, message: info?.error || t("connectUpdate.notPublished") };
   }
   if (config.version !== "dev" && compareVersions(latest, config.version) <= 0) {
-    return { ok: true, version: config.version, latest, package: pkg, message: `已是最新（${config.version}）` };
+    return { ok: true, version: config.version, latest, package: pkg, message: t("connectUpdate.upToDate", { version: config.version }) };
   }
-  const done: ConnectUpdate = { ok: true, updated: true, version: config.version, latest, package: pkg, message: `已安装 ${pkg}@${latest}，重启 DSH 后生效` };
+  const done: ConnectUpdate = { ok: true, updated: true, version: config.version, latest, package: pkg, message: t("connectUpdate.installed", { pkg, latest }) };
   try {
     await manager.installBundle(info.tarball_url || `${config.base}/dl/connect/dsh-connect-${latest}.tgz`);
     return done;
@@ -58,7 +59,7 @@ export async function updateConnect(ctx: DshContext, config: PluginConfig, http:
       await manager.installBundle(`${pkg}@${latest}`, { registry: `${config.base}/npm/` });
       return done;
     } catch (registryError) {
-      return { ok: false, version: config.version, latest, package: pkg, message: `安装失败：${reason(registryError) || reason(tarballError)}` };
+      return { ok: false, version: config.version, latest, package: pkg, message: t("connectUpdate.installFailed", { error: reason(registryError) || reason(tarballError) }) };
     }
   }
 }

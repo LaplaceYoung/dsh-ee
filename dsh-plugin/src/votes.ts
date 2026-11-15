@@ -1,5 +1,6 @@
 import { createElement, useState } from "react";
 import type { DshContext } from "./dsh.js";
+import { t } from "./i18n/index.js";
 import { currentSessionOf } from "./host-session.js";
 
 // 反馈（M8）：每条助手消息尾的 👍👎，经 remote 的 dshEE/vote 打到 POST /api/dsh/feedback。
@@ -19,7 +20,7 @@ export function registerVotes(ctx: DshContext, remote: VoteRemote & VoteBindings
       const sessionId = currentSessionOf(ctx.sessions?.list?.getSnapshot?.());
       let note = "";
       if (value < 0 && typeof window !== "undefined" && typeof window.prompt === "function") {
-        note = window.prompt("这次回答哪里没帮上忙？（可留空，会按问题聚合给应用作者）") ?? "";
+        note = window.prompt(t("votes.notePrompt")) ?? "";
       }
       let app = "";
       try {
@@ -35,12 +36,12 @@ export function registerVotes(ctx: DshContext, remote: VoteRemote & VoteBindings
       }
     };
     return createElement("span", { "data-dsh-ee-ui": "votes", style: { display: "inline-flex", gap: 2 } },
-      createElement("button", { type: "button", title: "有帮助", "aria-label": "有帮助", disabled: voted !== 0, style: { ...buttonStyle, opacity: voted === 1 ? 1 : buttonStyle.opacity }, onClick: () => void mark(1) }, "👍"),
-      createElement("button", { type: "button", title: "没帮上忙", "aria-label": "没帮上忙", disabled: voted !== 0, style: { ...buttonStyle, opacity: voted === -1 ? 1 : buttonStyle.opacity }, onClick: () => void mark(-1) }, "👎"));
+      createElement("button", { type: "button", title: t("votes.helpful"), "aria-label": t("votes.helpful"), disabled: voted !== 0, style: { ...buttonStyle, opacity: voted === 1 ? 1 : buttonStyle.opacity }, onClick: () => void mark(1) }, "👍"),
+      createElement("button", { type: "button", title: t("votes.notHelpful"), "aria-label": t("votes.notHelpful"), disabled: voted !== 0, style: { ...buttonStyle, opacity: voted === -1 ? 1 : buttonStyle.opacity }, onClick: () => void mark(-1) }, "👎"));
   };
   try {
     ctx.slots.inject("conversation.chat.assistant-actions", () =>
-      ctx.slots.register({ name: "conversation.chat.assistant-actions", id: "dsh-ee-vote", order: 100, label: "评价这次回答" }, VoteButtons));
+      ctx.slots.register({ name: "conversation.chat.assistant-actions", id: "dsh-ee-vote", order: 100, label: t("votes.label") }, VoteButtons));
   } catch {
     // 旧版宿主没有这个槽位：先不上按钮（计划里的降级方案是看板上的文字反馈，见 docs）
   }
