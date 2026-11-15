@@ -200,7 +200,7 @@ DeepSeek 原生透传路径下，上游返回的错误（DeepSeek 本身就是 A
 
 ## 8. 相关
 
-- OpenAI 兼容网关、令牌与 scope：[Harness 接入](./harness.md)
-- 第三方客户端完整手册与错误表：[l1-client.md](../l1-client.md)
-- 模型网关错误码索引：[errors.md](../errors.md)
+- OpenAI 兼容网关、令牌与 scope：[Harness 接入](https://github.com/hikariming/dsh-ee/blob/main/docs/dev/harness.md)
+- 第三方客户端完整手册与错误表：[l1-client.md](https://github.com/hikariming/dsh-ee/blob/main/docs/l1-client.md)
+- 模型网关错误码索引：[errors.md](https://github.com/hikariming/dsh-ee/blob/main/docs/errors.md)
 - 实现：`server/internal/api/anthropic.go`、`server/internal/api/anthropic_convert.go`、`server/internal/api/anthropic_native.go`、`server/internal/api/file_access.go`

@@ -232,7 +232,7 @@ response.completed          # 完整 response 对象 + usage
 | 502 | `server_error` / `upstream_unreachable`·`upstream_bad_response` | 所有上游线路失败 / 上游返回无法解析的响应 |
 | 上游状态 | 上游 error 的 type/code 尽量原样透传 | 上游 4xx/5xx；状态码保留，便于客户端区分 |
 
-常见原因与修法见 [错误码索引](../errors.md) 与 [错误与 FAQ](./errors-faq.md)。
+常见原因与修法见 [错误码索引](https://github.com/hikariming/dsh-ee/blob/main/docs/errors.md) 与 [错误与 FAQ](https://github.com/hikariming/dsh-ee/blob/main/docs/dev/errors-faq.md)。
 
 ## v0 边界
 
