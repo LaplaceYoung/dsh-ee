@@ -183,7 +183,7 @@ func (s *Server) handlePutPolicy(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cur := s.adminPolicy(ctx)
 	if cur.dual(DualConfig) {
-		writeErr(w, http.StatusConflict, "开了双人批准：管理约束要通过配置变更提交（dsh-ee config apply，或「字段与访问规则 → 变更请求」）")
+		writeErrCode(w, http.StatusConflict, codePolicyDualRequired, nil, "开了双人批准：管理约束要通过配置变更提交（dsh-ee config apply，或「字段与访问规则 → 变更请求」）")
 		return
 	}
 	if msg := s.setPolicy(r, cur, req); msg != "" {
@@ -248,7 +248,7 @@ func (s *Server) handleApplyPreset(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cur := s.adminPolicy(ctx)
 	if cur.dual(DualConfig) {
-		writeErr(w, http.StatusConflict, "开了双人批准：预设要通过配置变更提交")
+		writeErrCode(w, http.StatusConflict, codePolicyPresetDualRequired, nil, "开了双人批准：预设要通过配置变更提交")
 		return
 	}
 	switch req.Name {
@@ -260,7 +260,7 @@ func (s *Server) handleApplyPreset(w http.ResponseWriter, r *http.Request) {
 		}
 	case "separated":
 		if !currentAccess(r).Super && !currentAccess(r).Has(rbac.RolesManage) {
-			writeErr(w, http.StatusForbidden, "没有权限")
+			writeErrCode(w, http.StatusForbidden, codePermDenied, nil, "没有权限")
 			return
 		}
 		var codes []string
@@ -270,7 +270,7 @@ func (s *Server) handleApplyPreset(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if !subset(currentAccess(r), pr.Perms) {
-				writeErr(w, http.StatusForbidden, "建「"+pr.Name+"」要你自己有它的全部权限")
+				writeErrCode(w, http.StatusForbidden, codePolicyPresetOverreach, map[string]any{"role": pr.Name}, "建「"+pr.Name+"」要你自己有它的全部权限")
 				return
 			}
 			role := &store.Role{Code: pr.Code, Name: pr.Name, Description: "分权管理预设", Permissions: pr.Perms}
@@ -286,7 +286,7 @@ func (s *Server) handleApplyPreset(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		writeErr(w, http.StatusBadRequest, "没有这个预设：standard / separated")
+		writeErrCode(w, http.StatusBadRequest, codePolicyInvalidPreset, nil, "没有这个预设：standard / separated")
 		return
 	}
 	s.handleGetPolicy(w, r)

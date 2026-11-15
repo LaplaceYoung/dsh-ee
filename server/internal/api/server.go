@@ -426,7 +426,13 @@ func (r *statusRecorder) Flush() {
 // ---- JSON 工具 ----
 
 type apiError struct {
+	// Error 是给人看的中文默认文案，和加 code 之前逐字一致；老客户端只读这个字段。
 	Error string `json:"error"`
+	// Code 是稳定的机器码（<domain>.<reason>，登记在 errcodes.go），前端据此做多语言映射；
+	// 没有迁移的接口不写这个字段，响应形状与以前完全一样。
+	Code string `json:"code,omitempty"`
+	// Params 是前端文案插值参数（如 {"minutes": 15}），没参数时不出现。
+	Params map[string]any `json:"params,omitempty"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {
@@ -437,6 +443,12 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, apiError{Error: msg})
+}
+
+// writeErrCode 写带机器码的错误：error 仍是原来的中文文案，另附 code 与插值参数。
+// 旧客户端忽略新字段，响应形状向后兼容；没有稳定语义的错误继续用 writeErr。
+func writeErrCode(w http.ResponseWriter, status int, code string, params map[string]any, msg string) {
+	writeJSON(w, status, apiError{Error: msg, Code: code, Params: params})
 }
 
 // httpProblem 是带状态码和给人看的信息的失败：处理函数内部把校验失败返回给外层统一写回，

@@ -154,8 +154,8 @@ func (s *Server) handlePutLDAP(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusForbidden, "修改组与角色的映射需要「管理角色与权限」权限")
 			return
 		}
-		if msg, ok := s.checkGrantable(r, cfg.ManagedRoles()); !ok {
-			writeErr(w, http.StatusForbidden, msg)
+		if e, ok := s.checkGrantable(r, cfg.ManagedRoles()); !ok {
+			writeErrCode(w, http.StatusForbidden, e.code, e.params, e.msg)
 			return
 		}
 	}

@@ -32,7 +32,7 @@ func (s *Server) ownAccessToken(w http.ResponseWriter, r *http.Request) (*store.
 		id, _ = strconv.ParseInt(raw, 10, 64)
 	}
 	if id <= 0 {
-		writeErr(w, http.StatusBadRequest, "令牌 id 格式不正确")
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidID, nil, "令牌 id 格式不正确")
 		return nil, false
 	}
 	tokens, err := s.store.ListUserTokens(r.Context(), currentUser(r).ID)
@@ -46,14 +46,14 @@ func (s *Server) ownAccessToken(w http.ResponseWriter, r *http.Request) (*store.
 		}
 	}
 	// 不是自己的一律按不存在处理
-	writeErr(w, http.StatusNotFound, "令牌不存在")
+	writeErrCode(w, http.StatusNotFound, codeTokenNotFound, nil, "令牌不存在")
 	return nil, false
 }
 
 // POST /api/me/tokens/{id}/elevate：{password, hours: 1|8}。只能由网页会话发起。
 func (s *Server) handleElevate(w http.ResponseWriter, r *http.Request) {
 	if _, ok := agentFrom(r.Context()); ok {
-		writeErr(w, http.StatusForbidden, "管理模式只能由本人在网页上输入密码开启")
+		writeErrCode(w, http.StatusForbidden, codeAdminModeWebOnly, nil, "管理模式只能由本人在网页上输入密码开启")
 		return
 	}
 	var req struct {
@@ -64,12 +64,12 @@ func (s *Server) handleElevate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.Hours != 1 && req.Hours != 8 {
-		writeErr(w, http.StatusBadRequest, "管理模式只能开 1 小时或 8 小时")
+		writeErrCode(w, http.StatusBadRequest, codeAdminModeInvalidDuration, nil, "管理模式只能开 1 小时或 8 小时")
 		return
 	}
 	me := currentUser(r)
 	if !rbac.HasAdminPerms(currentAccess(r)) {
-		writeErr(w, http.StatusForbidden, "你的账号没有管理权限，不能开启管理模式")
+		writeErrCode(w, http.StatusForbidden, codeAdminModePermissionRequired, nil, "你的账号没有管理权限，不能开启管理模式")
 		return
 	}
 	t, ok := s.ownAccessToken(w, r)
@@ -79,7 +79,8 @@ func (s *Server) handleElevate(w http.ResponseWriter, r *http.Request) {
 	// 密码再验一次，与登录共用失败限流（LDAP 账号走一次目录验证）
 	key := "elevate:" + me.Username
 	if s.limiter.locked(key) {
-		writeErr(w, http.StatusTooManyRequests, "失败次数过多，请 15 分钟后再试")
+		writeErrCode(w, http.StatusTooManyRequests, codeAdminModeTooManyAttempts,
+			map[string]any{"minutes": int(lockFor / time.Minute)}, "失败次数过多，请 15 分钟后再试")
 		return
 	}
 	if _, err := s.authenticate(r.Context(), me.Username, req.Password); err != nil {
@@ -87,7 +88,7 @@ func (s *Server) handleElevate(w http.ResponseWriter, r *http.Request) {
 			s.limiter.fail(key)
 			s.auditAs(r, me, auditLoginFailed, me.Username, map[string]any{"via": "elevate"})
 			// 不能用 401：网页把任何 401 都当成会话过期而退出登录
-			writeErr(w, http.StatusForbidden, "密码不对")
+			writeErrCode(w, http.StatusForbidden, codeAdminModeBadPassword, nil, "密码不对")
 			return
 		}
 		s.internalErr(w, r, err)
@@ -132,7 +133,7 @@ func (s *Server) handleAdminLink(w http.ResponseWriter, r *http.Request) {
 		can = info.Principal.CanAdmin
 	}
 	if !can {
-		writeErr(w, http.StatusForbidden, "你的账号没有管理权限")
+		writeErrCode(w, http.StatusForbidden, codeAdminModeForbidden, nil, "你的账号没有管理权限")
 		return
 	}
 	base, err := s.connectBase(r.Context(), r)

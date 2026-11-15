@@ -242,11 +242,11 @@ func (s *Server) handleCreateAccessRequest(w http.ResponseWriter, r *http.Reques
 		reason = "为了使用应用「" + app.Title + "」"
 	}
 	if reason == "" || !limitRunes(reason, 500) {
-		writeErr(w, http.StatusBadRequest, "请写明用途（最多 500 个字符），审批人据此决定是否开放")
+		writeErrCode(w, http.StatusBadRequest, codeRequestPurposeRequired, nil, "请写明用途（最多 500 个字符），审批人据此决定是否开放")
 		return
 	}
 	if t.allows(v) {
-		writeErr(w, http.StatusBadRequest, "你已经可以使用「"+t.title+"」了，不需要申请")
+		writeErrCode(w, http.StatusBadRequest, codeRequestAlreadyGranted, map[string]any{"title": t.title}, "你已经可以使用「"+t.title+"」了，不需要申请")
 		return
 	}
 	var appID int64
@@ -355,7 +355,7 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 		return
 	}
 	if req.Decision != "approve" && req.Decision != "reject" {
-		writeErr(w, http.StatusBadRequest, "decision 只能是 approve 或 reject")
+		writeErrCode(w, http.StatusBadRequest, codeRequestInvalidDecision, nil, "decision 只能是 approve 或 reject")
 		return
 	}
 	v := viewerOf(r)
@@ -365,7 +365,7 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 		err = store.ErrNotFound
 	}
 	if notFound(err) {
-		writeErr(w, http.StatusNotFound, "申请不存在或已经处理过")
+		writeErrCode(w, http.StatusNotFound, codeRequestNotFound, nil, "申请不存在或已经处理过")
 		return
 	}
 	if err != nil {
@@ -376,7 +376,7 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 		s.internalErr(w, r, err)
 		return
 	} else if !ok {
-		writeErr(w, http.StatusForbidden, "你不是这条申请的审批人")
+		writeErrCode(w, http.StatusForbidden, codeRequestNotApprover, nil, "你不是这条申请的审批人")
 		return
 	}
 	// 先 CAS 抢占状态、再授权：两个审批人并发处理同一条申请（网页 approve 与飞书 reject 完全可能同时发生）时，
@@ -387,7 +387,7 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 	}
 	if err := s.store.ResolveAccessRequest(ctx, id, status, v.user.ID, req.Note); err != nil {
 		if notFound(err) {
-			writeErr(w, http.StatusConflict, "这条申请刚被别人处理了")
+			writeErrCode(w, http.StatusConflict, codeRequestNotPending, nil, "这条申请刚被别人处理了")
 			return
 		}
 		s.internalErr(w, r, err)

@@ -1,5 +1,6 @@
 /** 与 server/ 对接的接口层。类型与 server/internal/store 的 JSON 字段一一对应。 */
 import i18n from "../i18n";
+import { resolveApiErrorText } from "./api-error-i18n";
 import { formatDateTime, formatNumber } from "./format";
 import type { DshClient, DshRelease, Plugin, PluginKind, PluginStatus, Settings } from "./types";
 
@@ -1650,9 +1651,13 @@ export async function request<T>(
       if (embedToken) onEmbedUnauthorized?.();
       onUnauthorized?.();
     }
-    const msg =
-      (data as { error?: string } | null)?.error ??
-      (res.status >= 500 ? i18n.t("api.serverError") : i18n.t("api.requestFailed", { status: res.status }));
+    // 老 /api/* 的稳定错误带 code：优先按 code 取多语言文案，没登记译文时回退服务端 error。
+    const msg = resolveApiErrorText(data, res.status, {
+      hasCode: (code) => i18n.exists(`apiErrors.${code}`),
+      // 动态键：键路径由后端 code 决定，与 command-palette.tsx 里 i18n.exists 的写法一致。
+      translateCode: (code, params) => i18n.t(`apiErrors.${code}` as never, params) as unknown as string,
+      statusText: (status) => (status >= 500 ? i18n.t("api.serverError") : i18n.t("api.requestFailed", { status })),
+    });
     throw new ApiError(res.status, msg, data);
   }
   return data as T;
