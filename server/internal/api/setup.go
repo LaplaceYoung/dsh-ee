@@ -63,14 +63,14 @@ write_profile_npmrc() {
   } >> "$file.tmp"
   mv "$file.tmp" "$file"
   chmod 600 "$file"
-  echo "✔ 已写入 ${file}（只对 DSH 生效，不改 ~/.npmrc）"
+  msg_wrote_npmrc "$file"
 }
 check_token() {
   printf 'header = "Authorization: Bearer %s"\n' "$TOKEN" | curl -fsS -K - "$BASE/api/dsh/whoami" >/dev/null
 }
 hint_global_npmrc() {
   if [ "${DSH_EE_GLOBAL_NPMRC:-}" != "1" ] && [ -f "$HOME/.npmrc" ] && grep -qF "$REGISTRY" "$HOME/.npmrc"; then
-    echo "提示：~/.npmrc 里还有旧版接入脚本写的 dsh-ee 配置，DSH 已不再需要；如果它影响你本地开发，可以删掉含 $REGISTRY 的行和 _authToken 那行。"
+    msg_old_global_npmrc "$REGISTRY"
   fi
 }
 `
@@ -79,69 +79,16 @@ func shellQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", `'\''
 
 func psQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
 
-const setupDeviceJS = `
-const fs = require("node:fs");
-const os = require("node:os");
-const path = require("node:path");
-const { spawn, spawnSync } = require("node:child_process");
-const base = process.env.DSH_EE_SETUP_BASE.replace(/\/+$/, "");
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const post = async (url, body) => {
-  const response = await fetch(base + url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-  const data = await response.json().catch(() => ({}));
-  return { status: response.status, data };
-};
-(async () => {
-  const version = spawnSync("dsh", ["--version"], { encoding: "utf8" });
-  const started = await post("/api/device/code", {
-    client_name: os.hostname(),
-    client_os: process.platform + " " + os.release(),
-    client_version: version.status === 0 ? version.stdout.trim() : ""
-  });
-  if (!started.data.device_code) throw new Error(started.data.error || "设备登录发起失败：HTTP " + started.status);
-  const flow = started.data;
-  console.log("请在浏览器中确认登录（已尝试自动打开）：\n  " + flow.verification_uri_complete);
-  console.log("确认码：" + flow.user_code);
-  console.log("等待确认…（Ctrl-C 取消）");
-  const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "cmd" : "xdg-open";
-  const args = process.platform === "win32" ? ["/c", "start", "", flow.verification_uri_complete] : [flow.verification_uri_complete];
-  try { spawn(opener, args, { detached: true, stdio: "ignore" }).unref(); } catch {}
-  let interval = Math.max(1, Number(flow.interval) || 5) * 1000;
-  const deadline = Date.now() + Math.max(1, Number(flow.expires_in) || 600) * 1000;
-  while (Date.now() < deadline) {
-    await sleep(interval);
-    const polled = await post("/api/device/token", { device_code: flow.device_code });
-    if (polled.data.access_token) {
-      const home = process.env.DSH_HOME || path.join(os.homedir(), ".dsh");
-      const dir = path.join(home, "dsh-ee");
-      fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
-      fs.chmodSync(dir, 0o700);
-      const pending = path.join(dir, "token.pending");
-      fs.writeFileSync(pending, polled.data.access_token + "\n", { mode: 0o600 });
-      fs.chmodSync(pending, 0o600);
-      const user = polled.data.user || {};
-      console.log("✔ 已登录 " + (user.username || "") + (user.department ? "（" + user.department + "）" : ""));
-      return;
-    }
-    // slow_down / rate_limited 都是「慢一点再来」，不算失败
-    if (polled.data.error === "slow_down" || polled.data.error === "rate_limited") interval += 5000;
-    else if (polled.data.error !== "authorization_pending") throw new Error(polled.data.error || "设备登录失败：HTTP " + polled.status);
-  }
-  throw new Error("设备登录超时，请重新运行 setup");
-})().catch((error) => { console.error("✘ " + error.message); process.exitCode = 1; });
-`
-
 func (s *Server) handleSetupSh(w http.ResponseWriter, r *http.Request) {
 	base, registry, authKey, scopes, err := s.setupVars(r)
 	if err != nil {
 		s.internalErr(w, r, err)
 		return
 	}
-	script := `#!/bin/sh
-# dsh-ee 接入脚本：默认通过浏览器设备登录；--token 保留 CI 与旧流程。
-set -eu
+	lang := setupLang(r)
+	script := setupShellHeader(lang) + `set -eu
 umask 077
-BASE=` + shellQuote(base) + `
+` + setupShellPrelude(lang) + `BASE=` + shellQuote(base) + `
 REGISTRY=` + shellQuote(registry) + `
 AUTH_KEY=` + shellQuote(authKey) + `
 INDEX=` + shellQuote(base+"/index/dsh-index.json") + `
@@ -149,28 +96,28 @@ SCOPES=` + shellQuote(strings.Join(scopes, " ")) + `
 TOKEN=""
 if [ "${1:-}" = "--token" ]; then
   if [ "$#" -lt 2 ] || [ -z "$2" ]; then
-    echo "用法：sh -s -- --token <令牌>" >&2
+    msg_usage
     exit 1
   fi
   TOKEN="$2"
 elif [ "$#" -gt 0 ]; then
   case "$1" in
     ee_*|sk-ee-*) TOKEN="$1" ;;
-    *) echo "未知参数：$1；设备登录请不要传参数，手动接入请用 --token <令牌>" >&2; exit 1 ;;
+    *) msg_unknown_arg "$1"; exit 1 ;;
   esac
 fi
 if [ -z "$TOKEN" ] && [ -n "${DSH_EE_TOKEN:-}" ]; then TOKEN="$DSH_EE_TOKEN"; fi
 DEVICE_LOGIN=0
 if [ -z "$TOKEN" ]; then
   if [ "${CI:-}" = "1" ] || { [ "${DSH_EE_SETUP_INTERACTIVE:-}" != "1" ] && [ ! -t 0 ] && [ ! -r /dev/tty ]; }; then
-    echo "当前环境不能进行浏览器设备登录，请使用 --token <令牌> 或设置 DSH_EE_TOKEN。" >&2
+    msg_no_device_login
     exit 1
   fi
   DEVICE_LOGIN=1
 fi
-` + profileNpmrcShell + s.desktopShell(r) + `
+` + profileNpmrcShell + s.desktopShell(r, lang) + `
 if ! command -v npm >/dev/null 2>&1 || ! command -v node >/dev/null 2>&1; then
-  echo "没有找到 Node.js / npm：请先安装 Node.js（DSH 自带的 Node 也可以，把它加到 PATH）。" >&2
+  msg_no_node
   exit 1
 fi
 DSH_DIR="${DSH_HOME:-$HOME/.dsh}"
@@ -178,21 +125,22 @@ PENDING_DIR="$DSH_DIR/dsh-ee"
 PENDING_FILE="$PENDING_DIR/token.pending"
 if [ "$DEVICE_LOGIN" -eq 1 ]; then
   DSH_EE_SETUP_BASE="$BASE"
-  export DSH_EE_SETUP_BASE
-  node -e ` + shellQuote(setupDeviceJS) + `
+  DSH_EE_SETUP_LANG="$SETUP_LANG"
+  export DSH_EE_SETUP_BASE DSH_EE_SETUP_LANG
+  node -e ` + shellQuote(setupDeviceJS(lang)) + `
   TOKEN=$(cat "$PENDING_FILE")
 fi
 case "$TOKEN" in
-  *[!A-Za-z0-9._~-]*) echo "令牌格式不对" >&2; exit 1 ;;
+  *[!A-Za-z0-9._~-]*) msg_bad_token_format; exit 1 ;;
 esac
 if ! check_token; then
-  echo "✘ 令牌无效或连不上 dsh-ee，请检查后重试" >&2
+  msg_bad_token
   exit 1
 fi
-echo "✔ 令牌有效"
+msg_token_ok
 PROFILES="${DSH_PROFILES:-` + connectProfile + `}"
 if [ -z "$(printf '%s' "$PROFILES" | tr -d '[:space:]')" ]; then
-  echo "DSH_PROFILES 不能为空" >&2
+  msg_profiles_empty
   exit 1
 fi
 for profile in $PROFILES; do
@@ -204,7 +152,7 @@ if [ "${DSH_EE_GLOBAL_NPMRC:-}" = "1" ]; then
   for scope in $SCOPES; do
     npm config set "$scope:registry" "$REGISTRY"
   done
-  echo "✔ 已按 DSH_EE_GLOBAL_NPMRC=1 同时写入 ~/.npmrc"
+  msg_global_npmrc_written
 else
   hint_global_npmrc
 fi
@@ -212,6 +160,8 @@ fi
 
 	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
+	// 输出随 Accept-Language 变化，避免中间缓存把一种语言的脚本发给另一种语言的员工。
+	w.Header().Add("Vary", "Accept-Language")
 	_, _ = w.Write([]byte(script))
 }
 
@@ -348,15 +298,15 @@ if [ "$DEVICE_LOGIN" -eq 0 ]; then
   echo "` + connectTokenEnv + `=$TOKEN" >> "$ENV_FILE.tmp"
   mv "$ENV_FILE.tmp" "$ENV_FILE"
   chmod 600 "$ENV_FILE"
-  echo "✔ 已把接入令牌写进 ${ENV_FILE}（` + connectTokenEnv + `）"
+  msg_saved_env "$ENV_FILE" '` + connectTokenEnv + `'
 else
   chmod 700 "$PENDING_DIR"
   chmod 600 "$PENDING_FILE"
-  echo "✔ 令牌已保存到 ${PENDING_FILE}，DSH 启动后会导入凭据库并删除此文件"
+  msg_saved_pending "$PENDING_FILE"
   if [ -f "$ENV_FILE" ] && grep -q '^` + connectTokenEnv + `=' "$ENV_FILE"; then
     REMOVE_OLD=0
     if [ "${DSH_EE_SETUP_INTERACTIVE:-}" != "1" ] && [ -r /dev/tty ] && [ -w /dev/tty ]; then
-      printf "检测到 $ENV_FILE 中仍有旧令牌，是否删除？[y/N] "
+      msg_ask_remove_old "$ENV_FILE"
       read -r answer < /dev/tty || answer=""
       case "$answer" in y|Y|yes|YES) REMOVE_OLD=1 ;; esac
     fi
@@ -364,22 +314,21 @@ else
       grep -v '^` + connectTokenEnv + `=' "$ENV_FILE" > "$ENV_FILE.tmp" || true
       mv "$ENV_FILE.tmp" "$ENV_FILE"
       chmod 600 "$ENV_FILE"
-      echo "✔ 已删除 .env 中的旧令牌"
+      msg_old_token_removed
     else
-      echo "提示：已保留 .env 中的旧令牌；凭据库优先，如不再使用请手动删除该行。"
+      msg_old_token_kept
     fi
   fi
 fi
 `
 	if pkg == "" {
 		tail += `echo
-echo "管理员还没有发布 DSH 接入插件；发布后重新运行本脚本即可接入企业技能与系统。"
+msg_no_connect_plugin
 `
 		if !market {
 			return tail
 		}
-		return tail + `echo "现在可以先在 DSH 插件页 → 发现 → 添加索引源，填入"
-echo "  $INDEX"
+		return tail + `msg_index_hint "$INDEX"
 `
 	}
 	return tail + `CONNECT_PKG=` + shellQuote(pkg) + `
@@ -391,26 +340,25 @@ else
   DSH_CMD=""
 fi
 if ! command -v pnpm >/dev/null 2>&1; then
-  echo "✘ 安装 DSH 插件需要 pnpm：先运行 npm install -g pnpm（或 corepack enable），再重新运行本脚本" >&2
+  msg_need_pnpm
   exit 1
 fi
 if [ -z "$DSH_CMD" ]; then
-  echo "没有找到 dsh 命令。安装 DSH 后执行：" >&2
-  echo "  dsh plugin --profile ` + connectProfile + ` add $CONNECT_PKG" >&2
+  msg_no_dsh_cmd '` + connectProfile + `' "$CONNECT_PKG"
   exit 1
 fi
 PROFILES="${DSH_PROFILES:-` + connectProfile + `}"
 if [ -z "$(printf '%s' "$PROFILES" | tr -d '[:space:]')" ]; then
-  echo "DSH_PROFILES 不能为空" >&2
+  msg_profiles_empty
   exit 1
 fi
 for profile in $PROFILES; do
   $DSH_CMD plugin --profile "$profile" add "$CONNECT_PKG@latest"
-  echo "✔ 已在 DSH 的 $profile profile 里装好 $CONNECT_PKG"
+  msg_installed "$profile" "$CONNECT_PKG"
 done
 echo
-echo "完成。重启 DSH（dsh web）后，企业技能、提示词、微应用与企业系统就会出现。"
-echo "以后在 $BASE/hub 启用新的能力，DSH 会自动同步，不用再运行本脚本。"
+msg_done
+msg_hub_hint "$BASE"
 `
 }
 

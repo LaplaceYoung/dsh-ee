@@ -8,6 +8,7 @@ import { api, type Menu } from "./api";
 import { useAuth } from "./auth";
 import { PAGE_META, type PageKey } from "./page-meta";
 import { useTranslation } from "react-i18next";
+import i18n, { LANGUAGES } from "../i18n";
 
 export interface MenuNode extends Menu {
   children: Menu[];
@@ -92,12 +93,24 @@ export function useMenus() {
 }
 
 /**
+ * 页面标题是不是「页面默认名称」：可能是中文默认值（旧数据 / zh 界面新建），
+ * 也可能是当前或其它界面语言的页面名（新建时写的是当时界面语言的名称）。
+ * 显示、编辑时按它判断要不要换成当前语言，避免把某一种语言写死。
+ */
+export function isDefaultPageTitle(pageKey: string, title: string): boolean {
+  const meta = PAGE_META[pageKey];
+  if (!meta) return false;
+  if (title === meta.title) return true;
+  return LANGUAGES.some(({ code }) => i18n.getFixedT(code)(`pages.${pageKey}` as never) === title);
+}
+
+/**
  * 菜单标题：还是默认值的页面与分组按当前语言显示；管理员改过的标题原样显示。
  */
 export function useMenuTitle() {
   const { t } = useTranslation();
   return (m: Pick<Menu, "kind" | "title" | "page_key">) => {
-    if (m.kind === "page" && PAGE_META[m.page_key]?.title === m.title) return t(`pages.${m.page_key as PageKey}`);
+    if (m.kind === "page" && isDefaultPageTitle(m.page_key, m.title)) return t(`pages.${m.page_key as PageKey}`);
     if (m.kind === "group" && m.title in DEFAULT_GROUPS) return t(`menuGroups.${m.title as keyof typeof DEFAULT_GROUPS}`);
     return m.title;
   };

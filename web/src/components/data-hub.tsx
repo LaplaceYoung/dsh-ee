@@ -79,7 +79,7 @@ function UploadForm({ tables, onDone }: { tables: DataTable[]; onDone: () => voi
         )}
       </Field>
       <Field label={t("dataHub.tableTitle")}>
-        <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={mode === "create" ? "客户主数据" : t("dataHub.keepTitle")} required={mode === "create"} />
+        <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={mode === "create" ? t("dataHub.sampleTableTitle") : t("dataHub.keepTitle")} required={mode === "create"} />
       </Field>
       <div className="flex items-center gap-3 sm:col-span-2">
         <Button type="submit" disabled={busy}><Upload size={14} /> {t("dataHub.upload")}</Button>
@@ -96,7 +96,7 @@ function DataSetEditor({ initial, autoParams, onDone, onCancel }: { initial?: Da
   const [slug, setSlug] = useState(initial?.slug ?? "");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
-  const [sql, setSql] = useState(initial?.sql ?? "SELECT 客户 AS name, 年合同额 AS arr\nFROM customers\nWHERE 负责人 = :me_name\nORDER BY arr DESC");
+  const [sql, setSql] = useState(initial?.sql ?? t("dataHub.sampleSql"));
   const [params, setParams] = useState<DataParam[]>(initial?.params ?? []);
   const [values, setValues] = useState<Record<string, string>>({});
   const [scope, setScope] = useState<Scope>(initial?.scope ?? { all: true, departments: [], roles: [], users: [] });
@@ -133,7 +133,7 @@ function DataSetEditor({ initial, autoParams, onDone, onCancel }: { initial?: Da
           <input className={inputCls} value={slug} onChange={(e) => setSlug(e.target.value)} disabled={!!initial} required placeholder="my-customers" />
         </Field>
         <Field label={t("dataHub.dsTitle")}>
-          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="我负责的客户" />
+          <input className={inputCls} value={title} onChange={(e) => setTitle(e.target.value)} required placeholder={t("dataHub.sampleDatasetTitle")} />
         </Field>
       </div>
       <Field label={t("dataHub.dsDescription")} hint={t("dataHub.dsDescriptionHint")}>

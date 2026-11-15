@@ -12,6 +12,8 @@
  *   `dsh-ee:connect` 换取只存内存的 ee_emb_ Bearer（见 use-embed.ts 的握手与 docs/embedding.md）。
  */
 
+import i18n from "../i18n";
+
 export const EMBED_VERSION = 1;
 /** 协议 v2（增量）：hello/supports、navigate、navigate-request、open-external、logout、deeplink。 */
 export const EMBED_PROTOCOL_V2 = 2;
@@ -195,7 +197,7 @@ export async function exchangeEmbedCode(code: string): Promise<EmbedExchangeResu
       body: JSON.stringify({ code }),
     });
   } catch {
-    throw new EmbedExchangeError("network", "无法连接 dsh-ee");
+    throw new EmbedExchangeError("network", i18n.t("embed.exchangeNetwork"));
   }
   const text = await res.text();
   let data: unknown = null;
@@ -206,7 +208,7 @@ export async function exchangeEmbedCode(code: string): Promise<EmbedExchangeResu
   }
   const body = (data ?? {}) as { code?: string; error?: string; stage?: string };
   if (!res.ok) {
-    throw new EmbedExchangeError(body.code || "embed_code_invalid", body.error || "登录码无效", body.stage || "exchange");
+    throw new EmbedExchangeError(body.code || "embed_code_invalid", body.error || i18n.t("embed.exchangeInvalidCode"), body.stage || "exchange");
   }
   return data as EmbedExchangeResult;
 }
