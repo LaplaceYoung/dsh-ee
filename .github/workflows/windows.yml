@@ -8,6 +8,10 @@ concurrency:
   group: windows-${{ github.ref }}
   cancel-in-progress: true
 
+# 只读构建/测试，不需要写仓库；显式声明以收窄默认 token 权限。
+permissions:
+  contents: read
+
 jobs:
   setup-windows:
     runs-on: windows-latest
