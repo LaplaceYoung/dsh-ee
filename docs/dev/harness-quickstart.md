@@ -61,6 +61,45 @@ curl -fsS "$BASE/v1/chat/completions" \
 
 模型名以 `/v1/models` 返回为准；流式、限额与错误码按 OpenAI 兼容约定处理。
 
+需要思考模式（`thinking` / `reasoning_effort`）时，看每个模型在 `/v1/models` 里公布的
+`capabilities.reasoning`；请求参数与响应 `reasoning_content` 都由网关原样转发，工具轮次必须
+回传历史 `reasoning_content`。详见[思考模式](./thinking-mode.md)。
+
+## 模型输入模态（图片 / 文件）
+
+管理端可以给每个对外模型声明接受的输入模态：`text`（始终包含）、`image`、`file`。声明只用于
+**能力公布**与 dsh-connect 生成配置：网关仍按 OpenAI chat completions 原样透传，不按声明校验、
+转换或拒绝请求内容；也不按模型名硬编码能力。
+
+| 看哪里 | 字段 |
+| --- | --- |
+| `GET /v1/models` 每项 | `capabilities.input = ["text", "image"]` |
+| `GET /v1/capabilities` | `input_modalities = ["text", "image", "file"]`（能力矩阵） |
+| `GET /.well-known/dsh-ee` 的 `models` | 同上 `input_modalities` |
+
+dsh-connect 生成的 DSH profile 会把它写进 `llm-pi-ai` 的模型条目：
+
+```yaml
+        models:
+          - id: 'company-vision'
+            input:
+              - text
+              - image
+```
+
+- DSH 0.2.x 的模型模态词表只有 `text` / `image`（`packages/llm/llm-pi-ai` 的 `MODALITY_GATE`），
+  所以 `file` 不会写进 DSH 配置（写入未知模态会让 DSH 配置校验失败）；声明 `file` 的模型在 DSH
+  里仍按 `text` 对待。
+- **图片**：走 OpenAI chat completions 的 `image_url`（URL 或 base64 data URL）或 `file` 图片块，
+  dsh-ee 原样转发，不做尺寸/格式转换。
+- **文件/文档**：先通过 DeepSeek Files API（`POST /files`）上传并解析，再在 chat 请求里用
+  `file_id` 引用；dsh-ee 只透传 chat 请求，不代理 `/files`，也不解析文件内容。
+- 当前 dsh-ee 只有 OpenAI Chat Completions 协议面，没有 Anthropic Messages / Responses 路由，
+  也没有跨协议转换层；这两类协议**原生透传**支持后按同样方式透传输入块（本次不涉及）。
+- DSH 目前把会话里的 file 块投影成带文件名/路径的文本句柄，文件不会作为 provider 原生输入发送；
+  因此 DSH 配置只声明 `text` / `image` 与当前转换层一致。其它 Harness 可自行构造 `file` 内容块
+  并通过 `/v1/chat/completions` 透传（见 SDK 的 `sdk/examples/chatbot-server-tools.md`）。
+
 ## MCP（`/mcp`）
 
 `/mcp` 是 Streamable HTTP + JSON-RPC 2.0：`POST /mcp` 发起请求，`Accept: application/json, text/event-stream`；`initialize` 返回的 `Mcp-Session-Id` 用于后续请求。

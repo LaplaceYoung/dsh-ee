@@ -164,6 +164,12 @@ export interface Model {
   upstream_model: string;
   display_name: string;
   enabled: boolean;
+  /** 支持思考模式（thinking / reasoning_effort）；只用于 /v1/models 的能力声明，网关不据此校验。 */
+  supports_reasoning: boolean;
+  /** 可用的思考强度（对外原样值，如 low/high/max）；空表示按上游默认。 */
+  reasoning_efforts: string[];
+  /** 接受的请求输入模态（text/image/file，text 始终存在）；只用于能力公布与 dsh-connect 配置。 */
+  input_modalities: string[];
 }
 
 export interface GetStarted {
@@ -1891,10 +1897,29 @@ export const api = {
   checkProvider: (id: number) => request<CheckResult>("POST", `/api/admin/providers/${id}/check`),
 
   models: () => request<{ models: Model[] }>("GET", "/api/admin/models").then((r) => r.models),
-  createModels: (provider_id: number, items: { upstream_model: string; name?: string; display_name?: string }[]) =>
-    request<{ created: Model[]; skipped: string[] }>("POST", "/api/admin/models", { provider_id, items }),
-  updateModel: (id: number, patch: Partial<{ name: string; upstream_model: string; display_name: string; enabled: boolean }>) =>
-    request<Model>("PATCH", `/api/admin/models/${id}`, patch),
+  createModels: (
+    provider_id: number,
+    items: {
+      upstream_model: string;
+      name?: string;
+      display_name?: string;
+      supports_reasoning?: boolean;
+      reasoning_efforts?: string[];
+      input_modalities?: string[];
+    }[],
+  ) => request<{ created: Model[]; skipped: string[] }>("POST", "/api/admin/models", { provider_id, items }),
+  updateModel: (
+    id: number,
+    patch: Partial<{
+      name: string;
+      upstream_model: string;
+      display_name: string;
+      enabled: boolean;
+      supports_reasoning: boolean;
+      reasoning_efforts: string[];
+      input_modalities: string[];
+    }>,
+  ) => request<Model>("PATCH", `/api/admin/models/${id}`, patch),
   deleteModel: (id: number) => request<void>("DELETE", `/api/admin/models/${id}`),
 
   keys: () => request<{ keys: ApiKey[] }>("GET", "/api/admin/keys").then((r) => r.keys),

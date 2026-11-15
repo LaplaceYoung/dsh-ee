@@ -71,6 +71,30 @@ func (s *Server) connectBase(ctx context.Context, r *http.Request) (string, erro
 
 func yamlQuote(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
 
+// connectModel 是写进 DSH 模型配置的一个对外模型：名称 + DSH 能声明的输入模态。
+type connectModel struct {
+	Name  string
+	Input []string
+}
+
+// connectInputModalities 把 dsh-ee 的模型输入模态映射成 DSH llm-pi-ai 模型配置的 `input` 取值。
+//
+// DSH 0.2.x 的 PiAiModality 只接受 text / image（见 dsh-ee 同源 DSH 的
+// packages/llm/llm-pi-ai/src/catalog.ts MODALITY_GATE）；file 不在其词表里，写进去会让 DSH
+// 配置校验失败。因此这里始终写 text，声明了 image 才写 image，file 不透传（file 内容块仍可由
+// 其它 Harness 通过 /v1/chat/completions 透传，见 docs/dev/harness-quickstart.md）。
+func connectInputModalities(modalities []string) []string {
+	declared := map[string]bool{}
+	for _, m := range modalities {
+		declared[strings.ToLower(strings.TrimSpace(m))] = true
+	}
+	out := []string{"text"}
+	if declared["image"] {
+		out = append(out, "image")
+	}
+	return out
+}
+
 // buildConnect 生成接入插件的文件内容与内容摘要（摘要不含版本号）。
 func (s *Server) buildConnect(ctx context.Context, base, version string) (string, map[string][]byte, string, error) {
 	set, err := s.appSettings(ctx)
@@ -110,25 +134,32 @@ func (s *Server) buildConnect(ctx context.Context, base, version string) (string
 	if web {
 		p.WriteString("- id: ui-sidebar-browser\n  disabled: false\n")
 	}
-	var models []string
+	var models []connectModel
 	if set.Connect.Model {
 		ms, err := s.store.PublicModels(ctx)
 		if err != nil {
 			return "", nil, "", err
 		}
 		for _, m := range ms {
-			models = append(models, m.Name)
+			models = append(models, connectModel{Name: m.Name, Input: connectInputModalities(m.InputModalities)})
 		}
 	}
 	if len(models) > 0 {
+		names := make([]string, len(models))
+		for i, m := range models {
+			names[i] = m.Name
+		}
 		def := set.Connect.DefaultModel
-		if !slices.Contains(models, def) {
-			def = models[0]
+		if !slices.Contains(names, def) {
+			def = models[0].Name
 		}
 		fmt.Fprintf(&p, "- id: llm-pi-ai\n  config:\n    providers:\n      dsh-ee:\n        apiKeyEnv: %s\n        api: openai-completions\n        baseURL: %s\n        headers:\n          X-DshEE-Client: %s\n          X-DshEE-Host: !!js \"process.versions.electron ? 'desktop/' + (process.env.DSH_DESKTOP_VERSION || process.env.DSH_VERSION || process.versions.electron) : 'cli'\"\n        models:\n",
 			connectTokenEnv, yamlQuote(base+"/v1"), yamlQuote("dsh-connect/"+version))
 		for _, m := range models {
-			fmt.Fprintf(&p, "          - id: %s\n", yamlQuote(m))
+			fmt.Fprintf(&p, "          - id: %s\n            input:\n", yamlQuote(m.Name))
+			for _, modality := range m.Input {
+				fmt.Fprintf(&p, "              - %s\n", modality)
+			}
 		}
 		fmt.Fprintf(&p, "- id: agent-default-model\n  config:\n    provider: dsh-ee\n    model: %s\n", yamlQuote(def))
 	}

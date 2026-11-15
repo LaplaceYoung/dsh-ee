@@ -840,11 +840,11 @@
           "models",
           "mcp",
           "apps",
-          "chatbot",
           "capabilities_endpoint",
           "openapi_url",
           "limits",
-          "errors"
+          "errors",
+          "chatbot"
         ],
         "properties": {
           "name": {
@@ -969,7 +969,9 @@
           "protocol",
           "streaming",
           "endpoint",
-          "chat_completions_endpoint"
+          "chat_completions_endpoint",
+          "reasoning",
+          "input_modalities"
         ],
         "properties": {
           "protocol": {
@@ -1013,6 +1015,21 @@
           "anthropic_messages_conversion_fallback": {
             "type": "string",
             "description": "其它 vendor 的降级方式：转成 OpenAI chat completions 后走现有转换层（openai-chat）"
+          },
+          "reasoning": {
+            "$ref": "#/components/schemas/ReasoningCapability"
+          },
+          "input_modalities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "text",
+                "image",
+                "file"
+              ]
+            },
+            "description": "网关理解的模型输入模态取值（能力矩阵）；每个模型的实际声明见 GET /v1/models 的 capabilities.input"
           }
         }
       },
@@ -1068,110 +1085,6 @@
             "type": "string",
             "format": "uri-template",
             "description": "网页版微应用地址模板，{slug} 换成应用标识"
-          }
-        }
-      },
-      "Chatbot": {
-        "type": "object",
-        "description": "DeepSeek Chatbot 能力的网关侧声明：服务端工具、内容安全、会话标题与拒绝/引用块由上游 DeepSeek 解释；dsh-ee 只注入默认值并原样透传请求与响应，不解析、不改写。",
-        "required": [
-          "upstream_vendor",
-          "passthrough",
-          "server_tools",
-          "safety_check",
-          "title",
-          "refusal",
-          "response_fields",
-          "note"
-        ],
-        "properties": {
-          "upstream_vendor": {
-            "type": "string",
-            "description": "唯一会注入/解释这些字段的上游类型，固定为 deepseek",
-            "examples": [
-              "deepseek"
-            ]
-          },
-          "passthrough": {
-            "type": "boolean",
-            "description": "tools/safety_check/title 与响应里的扩展块原样转发，不解析、不改写"
-          },
-          "server_tools": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "tools[].type 里透传给上游的服务端工具；由上游执行，客户端不执行",
-            "examples": [
-              [
-                "deepseek_web_search",
-                "deepseek_read_url"
-              ]
-            ]
-          },
-          "safety_check": {
-            "$ref": "#/components/schemas/ChatbotSafety"
-          },
-          "title": {
-            "$ref": "#/components/schemas/ChatbotTitle"
-          },
-          "refusal": {
-            "type": "boolean",
-            "description": "响应里的拒绝标记原样透传（Chat Completions 的 finish_reason=content_filter / message.refusal，Messages 的 stop_reason=refusal）"
-          },
-          "response_fields": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "description": "原样保留的响应扩展字段/块名（随协议不同，见 docs/dev/chatbot.md）"
-          },
-          "note": {
-            "type": "string",
-            "description": "这些能力依赖上游 DeepSeek API 支持；dsh-ee 只透传，不实现服务端工具"
-          }
-        }
-      },
-      "ChatbotSafety": {
-        "type": "object",
-        "description": "内容安全审核参数 safety_check 的透传与注入状态。",
-        "required": [
-          "supported",
-          "injected"
-        ],
-        "properties": {
-          "supported": {
-            "type": "boolean",
-            "description": "网关原样透传客户端的 safety_check；上游是否支持取决于上游与模型"
-          },
-          "injected": {
-            "type": "boolean",
-            "description": "本部署是否在客户端未传时注入 safety_check（DSH_EE_SAFETY_CHECK=high）"
-          },
-          "level": {
-            "type": "string",
-            "description": "注入的审核级别，仅在 injected=true 时出现",
-            "examples": [
-              "high"
-            ]
-          }
-        }
-      },
-      "ChatbotTitle": {
-        "type": "object",
-        "description": "会话标题参数 title 的透传与注入状态。",
-        "required": [
-          "supported",
-          "injected"
-        ],
-        "properties": {
-          "supported": {
-            "type": "boolean",
-            "description": "网关原样透传客户端的 title"
-          },
-          "injected": {
-            "type": "boolean",
-            "description": "本部署是否在客户端未传时注入 title（DSH_EE_CHAT_TITLE=on）"
           }
         }
       },
@@ -1235,8 +1148,10 @@
           "tools",
           "apps",
           "skills",
-          "chatbot",
-          "revision"
+          "revision",
+          "reasoning",
+          "input_modalities",
+          "chatbot"
         ],
         "properties": {
           "api_version": {
@@ -1302,6 +1217,16 @@
           "revision": {
             "type": "string",
             "description": "能力目录 revision；需 hub scope"
+          },
+          "reasoning": {
+            "$ref": "#/components/schemas/ReasoningCapability"
+          },
+          "input_modalities": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "网关理解的模型输入模态取值（能力矩阵）；每个模型的实际声明见 GET /v1/models 的 capabilities.input"
           },
           "chatbot": {
             "$ref": "#/components/schemas/Chatbot"
@@ -1439,6 +1364,31 @@
           },
           "owned_by": {
             "type": "string"
+          },
+          "capabilities": {
+            "type": "object",
+            "description": "模型能力声明（additive）；旧客户端可忽略",
+            "required": [
+              "reasoning",
+              "input"
+            ],
+            "properties": {
+              "reasoning": {
+                "$ref": "#/components/schemas/ModelReasoningCapability"
+              },
+              "input": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "text",
+                    "image",
+                    "file"
+                  ]
+                },
+                "description": "该模型接受的请求输入模态；text 始终存在"
+              }
+            }
           }
         }
       },
@@ -1483,6 +1433,14 @@
           "stream": {
             "type": "boolean",
             "description": "true 时返回 text/event-stream"
+          },
+          "thinking": {
+            "type": "object",
+            "description": "思考模式开关，原样转发给上游；DeepSeek 格式为 {\"type\":\"enabled\"|\"disabled\"}"
+          },
+          "reasoning_effort": {
+            "type": "string",
+            "description": "思考强度，原样转发给上游；具体可用值见 /v1/models 的 capabilities.reasoning.efforts"
           }
         },
         "additionalProperties": true,
@@ -1804,6 +1762,161 @@
                 "description": "给人看的说明"
               }
             }
+          }
+        }
+      },
+      "ReasoningCapability": {
+        "type": "object",
+        "required": [
+          "supported",
+          "parameters",
+          "content_field",
+          "per_model"
+        ],
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "description": "网关是否原样转发思考模式相关参数（不拦不改、不做参数强校验）"
+          },
+          "parameters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "请求体里可用的参数名：thinking（{\"type\":\"enabled\"|\"disabled\"}）与 reasoning_effort"
+          },
+          "content_field": {
+            "type": "string",
+            "const": "reasoning_content",
+            "description": "响应里思维链内容的字段名（message 与流式 delta 同级）"
+          },
+          "per_model": {
+            "type": "boolean",
+            "description": "为 true 时每个模型是否支持、可用哪些 effort 见 GET /v1/models 的 capabilities.reasoning"
+          }
+        }
+      },
+      "ModelReasoningCapability": {
+        "type": "object",
+        "required": [
+          "supported",
+          "efforts"
+        ],
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "description": "该模型是否支持思考模式"
+          },
+          "efforts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "可传给 reasoning_effort 的思考强度（对外原样值）；空数组表示按上游/模型默认"
+          }
+        }
+      },
+      "Chatbot": {
+        "type": "object",
+        "description": "DeepSeek Chatbot 能力的网关侧声明：服务端工具、内容安全、会话标题与拒绝/引用块由上游 DeepSeek 解释；dsh-ee 只注入默认值并原样透传请求与响应，不解析、不改写。",
+        "required": [
+          "upstream_vendor",
+          "passthrough",
+          "server_tools",
+          "safety_check",
+          "title",
+          "refusal",
+          "response_fields",
+          "note"
+        ],
+        "properties": {
+          "upstream_vendor": {
+            "type": "string",
+            "description": "唯一会注入/解释这些字段的上游类型，固定为 deepseek",
+            "examples": [
+              "deepseek"
+            ]
+          },
+          "passthrough": {
+            "type": "boolean",
+            "description": "tools/safety_check/title 与响应里的扩展块原样转发，不解析、不改写"
+          },
+          "server_tools": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "tools[].type 里透传给上游的服务端工具；由上游执行，客户端不执行",
+            "examples": [
+              [
+                "deepseek_web_search",
+                "deepseek_read_url"
+              ]
+            ]
+          },
+          "safety_check": {
+            "$ref": "#/components/schemas/ChatbotSafety"
+          },
+          "title": {
+            "$ref": "#/components/schemas/ChatbotTitle"
+          },
+          "refusal": {
+            "type": "boolean",
+            "description": "响应里的拒绝标记原样透传（Chat Completions 的 finish_reason=content_filter / message.refusal，Messages 的 stop_reason=refusal）"
+          },
+          "response_fields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "原样保留的响应扩展字段/块名（随协议不同，见 docs/dev/chatbot.md）"
+          },
+          "note": {
+            "type": "string",
+            "description": "这些能力依赖上游 DeepSeek API 支持；dsh-ee 只透传，不实现服务端工具"
+          }
+        }
+      },
+      "ChatbotSafety": {
+        "type": "object",
+        "description": "内容安全审核参数 safety_check 的透传与注入状态。",
+        "required": [
+          "supported",
+          "injected"
+        ],
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "description": "网关原样透传客户端的 safety_check；上游是否支持取决于上游与模型"
+          },
+          "injected": {
+            "type": "boolean",
+            "description": "本部署是否在客户端未传时注入 safety_check（DSH_EE_SAFETY_CHECK=high）"
+          },
+          "level": {
+            "type": "string",
+            "description": "注入的审核级别，仅在 injected=true 时出现",
+            "examples": [
+              "high"
+            ]
+          }
+        }
+      },
+      "ChatbotTitle": {
+        "type": "object",
+        "description": "会话标题参数 title 的透传与注入状态。",
+        "required": [
+          "supported",
+          "injected"
+        ],
+        "properties": {
+          "supported": {
+            "type": "boolean",
+            "description": "网关原样透传客户端的 title"
+          },
+          "injected": {
+            "type": "boolean",
+            "description": "本部署是否在客户端未传时注入 title（DSH_EE_CHAT_TITLE=on）"
           }
         }
       }

@@ -7,6 +7,7 @@
 - [从哪开始：三条开发路径 / Where to start: three development paths](/docs/overview): 插件作者、扩展作者、非 DSH 客户端三条路径的入口、交付物与本系统里的落点。
 - [接第三方 Harness / 自研客户端 / Connect a third-party Harness or your own client](/docs/harness-quickstart): 五分钟路径：一个 ee_at_ 令牌接 /v1 模型、/mcp 工具与服务端写确认，含发现端点和限制。
 - [Anthropic Messages 兼容（POST /v1/messages） / Anthropic Messages compatibility (POST /v1/messages)](/docs/anthropic-api): Claude Code / Anthropic SDK 用企业令牌直接调 dsh-ee：x-api-key 或 Bearer 鉴权、请求与响应转换、流式 SSE 事件、错误壳与 v0 边界。
+- [思考模式：thinking / reasoning_effort / reasoning_content / Thinking mode: thinking / reasoning_effort / reasoning_content](/docs/thinking-mode): DeepSeek 思考模式在 dsh-ee 网关里是原样透传：开关、思考强度、响应 reasoning_content 与工具轮次的回传要求，以及 /v1/models 的能力声明。
 - [写 DSH 插件并发布到企业源 / Write a DSH plugin and publish it to the company registry](/docs/plugin-quickstart): 从骨架、清单字段、本地自查到三个发布入口；只讲企业侧必看的部分。
 - [写 dsh-ee 扩展：清单、检查与调用 / Write a dsh-ee extension: manifest, checks and calls](/docs/extension-quickstart): 声明式、服务式、本地三种扩展的骨架、CLI 命令与交付前检查。
 - [权限与访问规则速查 / Permissions and access rules: a quick reference](/docs/access-rules): 权限点、字段访问规则、管理约束三层的判断顺序与配置入口。

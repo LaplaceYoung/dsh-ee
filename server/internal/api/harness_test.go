@@ -176,6 +176,17 @@ func TestHarnessDiscovery(t *testing.T) {
 		doc.Models.ConversionFallback != "openai-chat" {
 		t.Fatalf("Anthropic 兼容入口/原生透传说明不对：%+v", doc.Models)
 	}
+
+	// 思考模式是协议面能力：公布参数名、响应字段，并指向 /v1/models 的按模型能力声明。
+	if !doc.Models.Reasoning.Supported ||
+		!slices.Equal(doc.Models.Reasoning.Parameters, []string{"thinking", "reasoning_effort"}) ||
+		doc.Models.Reasoning.ContentField != "reasoning_content" || !doc.Models.Reasoning.PerModel {
+		t.Fatalf("models.reasoning 能力声明不对：%+v", doc.Models.Reasoning)
+	}
+	// 输入模态能力矩阵：网关理解的取值；具体模型声明在 /v1/models 的 capabilities.input。
+	if !slices.Equal(doc.Models.InputModalities, []string{"text", "image", "file"}) {
+		t.Fatalf("models.input_modalities 能力矩阵不对：%v", doc.Models.InputModalities)
+	}
 	if doc.MCP.Transport != "streamable-http" || doc.MCP.Endpoint != ts.URL+"/mcp" || !slices.Contains(doc.MCP.ProtocolVersions, "2025-11-25") {
 		t.Fatalf("mcp 入口不对：%+v", doc.MCP)
 	}
@@ -371,6 +382,13 @@ type harnessDiscoveryView struct {
 		AnthropicAliases   []string `json:"anthropic_messages_aliases"`
 		NativeVendors      []string `json:"anthropic_messages_native_vendors"`
 		ConversionFallback string   `json:"anthropic_messages_conversion_fallback"`
+		Reasoning          struct {
+			Supported    bool     `json:"supported"`
+			Parameters   []string `json:"parameters"`
+			ContentField string   `json:"content_field"`
+			PerModel     bool     `json:"per_model"`
+		} `json:"reasoning"`
+		InputModalities []string `json:"input_modalities"`
 	} `json:"models"`
 	MCP struct {
 		Transport        string   `json:"transport"`
@@ -498,7 +516,7 @@ func TestHarnessOpenAPI(t *testing.T) {
 	if _, ok := spec.Components.SecuritySchemes["bearerAuth"]; !ok {
 		t.Fatal("OpenAPI 缺少 bearerAuth 安全定义")
 	}
-	for _, schema := range []string{"Discovery", "Capabilities", "App", "Error", "ErrorDetail", "SkillSummary"} {
+	for _, schema := range []string{"Discovery", "Capabilities", "App", "Error", "ErrorDetail", "SkillSummary", "ReasoningCapability", "ModelReasoningCapability"} {
 		if _, ok := spec.Components.Schemas[schema]; !ok {
 			t.Fatalf("OpenAPI 缺少 schema %q", schema)
 		}
@@ -599,6 +617,14 @@ func TestHarnessCapabilities(t *testing.T) {
 	if anon.Server.Name != "dsh-ee" || anon.Server.Version != harnessVersion {
 		t.Fatalf("匿名摘要也应带服务标识：%+v", anon.Server)
 	}
+	// 思考模式是协议面能力，匿名摘要也公布参数名与响应字段。
+	if !anon.Reasoning.Supported || !slices.Equal(anon.Reasoning.Parameters, []string{"thinking", "reasoning_effort"}) ||
+		anon.Reasoning.ContentField != "reasoning_content" || !anon.Reasoning.PerModel {
+		t.Fatalf("匿名摘要的 reasoning 能力不对：%+v", anon.Reasoning)
+	}
+	if !slices.Equal(anon.InputModalities, []string{"text", "image", "file"}) {
+		t.Fatalf("匿名摘要的输入模态能力矩阵不对：%v", anon.InputModalities)
+	}
 	// Chatbot 能力是服务端级声明，匿名也可读；默认不注入，注入状态跟启动配置走。
 	if anon.Chatbot.UpstreamVendor != "deepseek" || !anon.Chatbot.Passthrough ||
 		anon.Chatbot.SafetyCheck.Injected || anon.Chatbot.Title.Injected {
@@ -632,6 +658,13 @@ func TestHarnessCapabilities(t *testing.T) {
 	}
 	if !slices.Equal(caps.Models, []string{"harness-chat"}) {
 		t.Fatalf("可用模型不对：%v", caps.Models)
+	}
+	if !caps.Reasoning.Supported || !slices.Equal(caps.Reasoning.Parameters, []string{"thinking", "reasoning_effort"}) ||
+		caps.Reasoning.ContentField != "reasoning_content" || !caps.Reasoning.PerModel {
+		t.Fatalf("带令牌摘要的 reasoning 能力不对：%+v", caps.Reasoning)
+	}
+	if !slices.Equal(caps.InputModalities, []string{"text", "image", "file"}) {
+		t.Fatalf("带令牌摘要的输入模态能力矩阵不对：%v", caps.InputModalities)
 	}
 	if len(caps.Apps) != 1 || caps.Apps[0].Name != "expense" {
 		t.Fatalf("可用微应用不对（不应含系统应用/未启用的自选应用）：%+v", caps.Apps)
@@ -726,7 +759,15 @@ type capabilitiesView struct {
 	} `json:"user"`
 	Scopes []string `json:"scopes"`
 	Models []string `json:"models"`
-	Tools  struct {
+	// reasoning 是协议面的思考模式能力声明：参数名、响应字段与是否按模型细分。
+	Reasoning struct {
+		Supported    bool     `json:"supported"`
+		Parameters   []string `json:"parameters"`
+		ContentField string   `json:"content_field"`
+		PerModel     bool     `json:"per_model"`
+	} `json:"reasoning"`
+	InputModalities []string `json:"input_modalities"`
+	Tools           struct {
 		Count int `json:"count"`
 	} `json:"tools"`
 	Apps     []harnessAppView   `json:"apps"`

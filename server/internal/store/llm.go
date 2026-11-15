@@ -208,26 +208,41 @@ func (s *Store) DeleteProvider(ctx context.Context, id int64) error {
 // ---- 模型 ----
 
 type Model struct {
-	ID            int64     `json:"id"`
-	ProviderID    int64     `json:"provider_id"`
-	ProviderName  string    `json:"provider_name"`
-	Name          string    `json:"name"`
-	UpstreamModel string    `json:"upstream_model"`
-	DisplayName   string    `json:"display_name"`
-	Enabled       bool      `json:"enabled"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            int64  `json:"id"`
+	ProviderID    int64  `json:"provider_id"`
+	ProviderName  string `json:"provider_name"`
+	Name          string `json:"name"`
+	UpstreamModel string `json:"upstream_model"`
+	DisplayName   string `json:"display_name"`
+	Enabled       bool   `json:"enabled"`
+	// SupportsReasoning 表示该模型支持思考模式（thinking / reasoning_effort）。
+	// 网关不据此校验请求，只把它公布在 /v1/models 的能力声明里。
+	SupportsReasoning bool `json:"supports_reasoning"`
+	// ReasoningEfforts 是该模型可用的思考强度（推理侧原样透传的 reasoning_effort 值，按配置顺序去重）。
+	ReasoningEfforts []string `json:"reasoning_efforts"`
+	// InputModalities 是该模型接受的请求输入模态（text / image / file，text 始终存在）。
+	// 只用于能力公布与 dsh-connect 生成配置；网关不据此校验或转换请求内容。
+	InputModalities []string  `json:"input_modalities"`
+	CreatedAt       time.Time `json:"created_at"`
+	UpdatedAt       time.Time `json:"updated_at"`
 }
 
-const modelCols = "m.id, m.provider_id, p.name, m.name, m.upstream_model, m.display_name, m.enabled, m.created_at, m.updated_at"
+const modelCols = "m.id, m.provider_id, p.name, m.name, m.upstream_model, m.display_name, m.enabled, m.supports_reasoning, m.reasoning_efforts, m.input_modalities, m.created_at, m.updated_at"
 
 func scanModel(row interface{ Scan(...any) error }) (*Model, error) {
 	var m Model
-	err := row.Scan(&m.ID, &m.ProviderID, &m.ProviderName, &m.Name, &m.UpstreamModel, &m.DisplayName, &m.Enabled, &m.CreatedAt, &m.UpdatedAt)
+	var efforts, modalities string
+	err := row.Scan(&m.ID, &m.ProviderID, &m.ProviderName, &m.Name, &m.UpstreamModel, &m.DisplayName, &m.Enabled,
+		&m.SupportsReasoning, &efforts, &modalities, &m.CreatedAt, &m.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
-	return &m, err
+	if err != nil {
+		return nil, err
+	}
+	m.ReasoningEfforts = splitCSV(efforts)
+	m.InputModalities = normalizeModalityList(splitCSV(modalities))
+	return &m, nil
 }
 
 func (s *Store) ListModels(ctx context.Context) ([]*Model, error) {
@@ -255,8 +270,8 @@ func (s *Store) GetModel(ctx context.Context, id int64) (*Model, error) {
 func (s *Store) CreateModel(ctx context.Context, m *Model) error {
 	t := now()
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO models (provider_id, name, upstream_model, display_name, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		m.ProviderID, m.Name, m.UpstreamModel, m.DisplayName, m.Enabled, t, t)
+		`INSERT INTO models (provider_id, name, upstream_model, display_name, enabled, supports_reasoning, reasoning_efforts, input_modalities, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		m.ProviderID, m.Name, m.UpstreamModel, m.DisplayName, m.Enabled, m.SupportsReasoning, joinCSV(m.ReasoningEfforts), joinCSV(m.InputModalities), t, t)
 	if isDuplicate(err) {
 		return ErrDuplicate
 	}
@@ -269,10 +284,13 @@ func (s *Store) CreateModel(ctx context.Context, m *Model) error {
 }
 
 type ModelPatch struct {
-	Name          *string
-	UpstreamModel *string
-	DisplayName   *string
-	Enabled       *bool
+	Name              *string
+	UpstreamModel     *string
+	DisplayName       *string
+	Enabled           *bool
+	SupportsReasoning *bool
+	ReasoningEfforts  *[]string
+	InputModalities   *[]string
 }
 
 func (s *Store) UpdateModel(ctx context.Context, id int64, p ModelPatch) error {
@@ -293,6 +311,15 @@ func (s *Store) UpdateModel(ctx context.Context, id int64, p ModelPatch) error {
 	}
 	if p.Enabled != nil {
 		add("enabled", *p.Enabled)
+	}
+	if p.SupportsReasoning != nil {
+		add("supports_reasoning", *p.SupportsReasoning)
+	}
+	if p.ReasoningEfforts != nil {
+		add("reasoning_efforts", joinCSV(*p.ReasoningEfforts))
+	}
+	if p.InputModalities != nil {
+		add("input_modalities", joinCSV(*p.InputModalities))
 	}
 	args = append(args, id)
 	res, err := s.db.ExecContext(ctx, "UPDATE models SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...)
@@ -401,12 +428,17 @@ type PublicModel struct {
 	Name        string
 	DisplayName string
 	OwnedBy     string
+	// SupportsReasoning 与 ReasoningEfforts 用于 /v1/models 的能力声明。
+	SupportsReasoning bool
+	ReasoningEfforts  []string
+	// InputModalities 用于 /v1/models 的能力声明与 dsh-connect 生成配置。
+	InputModalities []string
 }
 
 // PublicModels 列出启用中的对外模型名（去重，取优先级最高的上游作 owned_by）。
 func (s *Store) PublicModels(ctx context.Context) ([]PublicModel, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT m.name, m.display_name, p.name FROM models m JOIN providers p ON p.id = m.provider_id
+		`SELECT m.name, m.display_name, p.name, m.supports_reasoning, m.reasoning_efforts, m.input_modalities FROM models m JOIN providers p ON p.id = m.provider_id
 		 WHERE m.enabled = 1 AND p.enabled = 1 ORDER BY m.name, p.priority, p.id`)
 	if err != nil {
 		return nil, err
@@ -416,15 +448,55 @@ func (s *Store) PublicModels(ctx context.Context) ([]PublicModel, error) {
 	seen := map[string]bool{}
 	for rows.Next() {
 		var m PublicModel
-		if err := rows.Scan(&m.Name, &m.DisplayName, &m.OwnedBy); err != nil {
+		var efforts, modalities string
+		if err := rows.Scan(&m.Name, &m.DisplayName, &m.OwnedBy, &m.SupportsReasoning, &efforts, &modalities); err != nil {
 			return nil, err
 		}
+		m.ReasoningEfforts = splitCSV(efforts)
+		m.InputModalities = normalizeModalityList(splitCSV(modalities))
 		if !seen[m.Name] {
 			seen[m.Name] = true
 			out = append(out, m)
 		}
 	}
 	return out, rows.Err()
+}
+
+// splitCSV 解析数据库里的逗号分隔列表（思考强度 / 输入模态共用）；空值返回空切片。
+func splitCSV(raw string) []string {
+	out := []string{}
+	for _, part := range strings.Split(raw, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+func joinCSV(values []string) string {
+	return strings.Join(values, ",")
+}
+
+// modalityOrder 是输入模态的规范顺序；text 始终在第一位。
+var modalityOrder = []string{"text", "image", "file"}
+
+// normalizeModalityList 按规范顺序整理模态：去重、丢弃未知值、保证 text 存在。
+// 只用于读库与内部构造（API 层会先把非法值拒掉）；空值返回 ["text"]。
+func normalizeModalityList(values []string) []string {
+	seen := map[string]bool{}
+	for _, v := range values {
+		seen[strings.ToLower(strings.TrimSpace(v))] = true
+	}
+	out := make([]string, 0, len(modalityOrder))
+	for _, v := range modalityOrder {
+		if seen[v] {
+			out = append(out, v)
+		}
+	}
+	if !seen["text"] {
+		return append([]string{"text"}, out...)
+	}
+	return out
 }
 
 // ImportLegacyProviderModels 把 0004 之前存在 providers.models（JSON）里的模型导入 models 表；

@@ -318,6 +318,36 @@ type harnessDiscoveredModels struct {
 	AnthropicMessagesNativeVendors []string `json:"anthropic_messages_native_vendors"`
 	// AnthropicMessagesConversionFallback 说明其它 vendor 的降级方式（转 OpenAI chat）。
 	AnthropicMessagesConversionFallback string `json:"anthropic_messages_conversion_fallback"`
+	// Reasoning 是思考模式能力声明；具体模型是否支持、可用哪些 effort 见 /v1/models 的 capabilities.reasoning。
+	Reasoning harnessReasoningCapability `json:"reasoning"`
+	// InputModalities 是网关理解的模型输入模态取值（能力矩阵）；每个模型的实际声明见 /v1/models。
+	InputModalities []string `json:"input_modalities"`
+}
+
+// harnessReasoningCapability 是思考模式能力声明：网关把 thinking / reasoning_effort 原样转发给上游，
+// 响应里的思维链在 reasoning_content 字段（与 content 同级）。
+// 具体某个模型是否支持、可用哪些 effort，见 /v1/models 每项的 capabilities.reasoning。
+type harnessReasoningCapability struct {
+	Supported    bool     `json:"supported"`
+	Parameters   []string `json:"parameters"`
+	ContentField string   `json:"content_field"`
+	PerModel     bool     `json:"per_model"`
+}
+
+// harnessInputModalities 返回网关理解的模型输入模态取值（能力矩阵）。具体模型的声明见
+// /v1/models 每项的 capabilities.input；text 始终存在。
+func harnessInputModalities() []string {
+	return []string{"text", "image", "file"}
+}
+
+// harnessReasoning 返回协议面的思考模式能力声明（与具体模型无关，发现文档与能力摘要共用）。
+func harnessReasoning() harnessReasoningCapability {
+	return harnessReasoningCapability{
+		Supported:    true,
+		Parameters:   []string{"thinking", "reasoning_effort"},
+		ContentField: "reasoning_content",
+		PerModel:     true,
+	}
 }
 
 type harnessDiscoveredMCP struct {
@@ -362,7 +392,7 @@ func (s *Server) handleHarnessDiscovery(w http.ResponseWriter, r *http.Request) 
 			AnthropicMessagesAliases:            []string{base + "/anthropic/v1/messages"},
 			AnthropicMessagesNativeVendors:      []string{anthropicNativeVendor},
 			AnthropicMessagesConversionFallback: "openai-chat",
-		},
+			Reasoning:                           harnessReasoning(), InputModalities: harnessInputModalities()},
 		MCP: harnessDiscoveredMCP{Transport: "streamable-http", Endpoint: base + "/mcp", ProtocolVersions: append([]string(nil), mcp.Versions...)},
 		Apps: harnessDiscoveredApps{
 			Web: true, DataTools: true,
@@ -438,8 +468,12 @@ type harnessCapabilities struct {
 	User          *harnessUserInfo  `json:"user"`
 	Scopes        []string          `json:"scopes"`
 	// models 是当前令牌允许的对外模型名，顺序与 /v1/models 一致。
-	Models []string       `json:"models"`
-	Tools  harnessToolCap `json:"tools"`
+	Models []string `json:"models"`
+	// reasoning 公布思考模式参数名与响应字段（协议面）；每项的可用强度见 /v1/models 的 capabilities.reasoning。
+	Reasoning harnessReasoningCapability `json:"reasoning"`
+	// input_modalities 公布网关理解的输入模态取值（能力矩阵）；每个模型的实际声明见 /v1/models 的 capabilities.input。
+	InputModalities []string       `json:"input_modalities"`
+	Tools           harnessToolCap `json:"tools"`
 	// apps 是当前用户已启用 / 自动生效的中立微应用描述（不含 DSH 专属系统应用）。
 	Apps []harnessApp `json:"apps"`
 	// skills 是当前用户可见的技能 / 提示词摘要（只有元数据，不含正文）；完整技能接口见后续 PR。
@@ -546,13 +580,15 @@ func (s *Server) handleHarnessCapabilities(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	caps := harnessCapabilities{
-		APIVersion: harnessAPIVersion,
-		Server:     harnessServerInfo{Name: harnessServerName, Version: s.opts.Version},
-		Chatbot:    s.chatbotCapability(),
-		Scopes:     []string{},
-		Models:     []string{},
-		Apps:       []harnessApp{},
-		Skills:     []harnessSkill{},
+		APIVersion:      harnessAPIVersion,
+		Server:          harnessServerInfo{Name: harnessServerName, Version: s.opts.Version},
+		Chatbot:         s.chatbotCapability(),
+		Scopes:          []string{},
+		Models:          []string{},
+		Reasoning:       harnessReasoning(),
+		InputModalities: harnessInputModalities(),
+		Apps:            []harnessApp{},
+		Skills:          []harnessSkill{},
 	}
 	if p == nil {
 		// 匿名只返回公开子集：服务标识与契约版本，用户数据为空。

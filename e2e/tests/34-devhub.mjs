@@ -27,8 +27,7 @@ export default async function (t) {
   await page.goto(`${BASE}/docs`);
   await page.getByRole("heading", { level: 1, name: "开发文档" }).waitFor();
   const docCards = page.locator("[data-dev-doc]");
-  assertEq(await docCards.count(), docTotal, "开发文档数量");
-  await page.getByRole("button", { name: "DSH 插件" }).click();
+  assertEq(await docCards.count(), docTotal, "开发文档数量");  await page.getByRole("button", { name: "DSH 插件" }).click();
   assertEq(await page.locator("a[data-dev-doc]").count(), 1, "按分类筛选后的文档数");
   await page.getByRole("button", { name: "全部" }).click();
   // 客户端搜索：标题/摘要/标签/正文全覆盖，中文两字词直接子串；清除后恢复全部
@@ -39,8 +38,7 @@ export default async function (t) {
   await search.fill("TASL"); // overview 与 quality-standards 正文都有
   assertEq(await page.locator("a[data-dev-doc]").count(), 2, "搜索「TASL」后的文档数");
   await page.getByRole("button", { name: "清除搜索" }).click();
-  assertEq(await page.locator("a[data-dev-doc]").count(), docTotal, "清除搜索后恢复全部文档");
-  step("/docs 支持标题+正文搜索（中文两字词）与分类筛选叠加");
+  assertEq(await page.locator("a[data-dev-doc]").count(), docTotal, "清除搜索后恢复全部文档");  step("/docs 支持标题+正文搜索（中文两字词）与分类筛选叠加");
   await shot(page, "devhub-docs-list");
 
   // /llms.txt 的正文断言（状态码/正文在上面已经取过）

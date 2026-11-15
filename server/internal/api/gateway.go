@@ -93,6 +93,19 @@ func modelAllowed(p *Principal, quota *store.UserQuota, model string) bool {
 	return len(p.Models) == 0 || slices.Contains(p.Models, model)
 }
 
+// modelReasoningCapability 是 /v1/models 里每个模型的思考模式能力声明。
+// additive 字段：旧客户端只读 id / object / owned_by，忽略这段不受影响。
+type modelReasoningCapability struct {
+	Supported bool     `json:"supported"`
+	Efforts   []string `json:"efforts"`
+}
+
+type modelCapabilities struct {
+	Reasoning modelReasoningCapability `json:"reasoning"`
+	// Input 是该模型接受的请求输入模态（text/image/file，text 始终存在）；additive 字段。
+	Input []string `json:"input"`
+}
+
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	k, quota, ok := s.authKey(w, r)
 	if !ok {
@@ -105,15 +118,32 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type model struct {
-		ID      string `json:"id"`
-		Object  string `json:"object"`
-		OwnedBy string `json:"owned_by"`
+		ID           string            `json:"id"`
+		Object       string            `json:"object"`
+		OwnedBy      string            `json:"owned_by"`
+		Capabilities modelCapabilities `json:"capabilities"`
 	}
 	data := []model{}
 	for _, m := range ms {
-		if modelAllowed(k, quota, m.Name) {
-			data = append(data, model{ID: m.Name, Object: "model", OwnedBy: m.OwnedBy})
+		if !modelAllowed(k, quota, m.Name) {
+			continue
 		}
+		efforts := m.ReasoningEfforts
+		if !m.SupportsReasoning || efforts == nil {
+			// 不支持思考模式时不公布 effort，避免客户端据此误判；JSON 里保持 [] 而不是 null。
+			efforts = []string{}
+		}
+		modalities := m.InputModalities
+		if modalities == nil {
+			modalities = []string{"text"}
+		}
+		data = append(data, model{
+			ID: m.Name, Object: "model", OwnedBy: m.OwnedBy,
+			Capabilities: modelCapabilities{
+				Reasoning: modelReasoningCapability{Supported: m.SupportsReasoning, Efforts: efforts},
+				Input:     modalities,
+			},
+		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"object": "list", "data": data})
 }

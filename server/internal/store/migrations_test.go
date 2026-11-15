@@ -179,3 +179,46 @@ func TestSharedRateLimitsMigration(t *testing.T) {
 		}
 	}
 }
+
+// 0038：模型能力声明列（思考模式开关与可用强度）。
+func TestModelReasoningMigration(t *testing.T) {
+	body, err := migrationFS.ReadFile("migrations/0038_model_reasoning.sql")
+	if err != nil {
+		t.Fatalf("读 0038 迁移: %v", err)
+	}
+	stmts := splitStatements(string(body))
+	if len(stmts) == 0 {
+		t.Fatal("0038 迁移没有可执行语句")
+	}
+	joined := strings.Join(stmts, "\n")
+	for _, want := range []string{
+		"ALTER TABLE models",
+		"supports_reasoning TINYINT(1) NOT NULL DEFAULT 0",
+		"reasoning_efforts VARCHAR(128) NOT NULL DEFAULT ''",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("0038 迁移缺少 %q：\n%s", want, joined)
+		}
+	}
+}
+
+// 0040：模型输入模态声明列（text / image / file，默认 text）。
+func TestModelInputModalitiesMigration(t *testing.T) {
+	body, err := migrationFS.ReadFile("migrations/0040_model_input_modalities.sql")
+	if err != nil {
+		t.Fatalf("读 0040 迁移: %v", err)
+	}
+	stmts := splitStatements(string(body))
+	if len(stmts) == 0 {
+		t.Fatal("0040 迁移没有可执行语句")
+	}
+	joined := strings.Join(stmts, "\n")
+	for _, want := range []string{
+		"ALTER TABLE models",
+		"input_modalities VARCHAR(128) NOT NULL DEFAULT 'text'",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("0040 迁移缺少 %q：\n%s", want, joined)
+		}
+	}
+}

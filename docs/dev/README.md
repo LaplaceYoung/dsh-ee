@@ -34,7 +34,7 @@ lang: zh-CN
 | [overview.md](./overview.md) | 开始 | 三条开发路径的入口与阅读顺序 |
 | [harness-quickstart.md](./harness-quickstart.md) | Harness 接入 | 一个 `ee_at_` 令牌接 `/v1`、`/mcp` 与写确认 |
 | [anthropic-api.md](./anthropic-api.md) | Harness 接入 | Claude Code / Anthropic SDK 调 `POST /v1/messages`：鉴权、转换、流式与错误壳 |
-| [plugin-quickstart.md](./plugin-quickstart.md) | DSH 插件 | 插件骨架、清单、自查与发布入口 |
+| [thinking-mode.md](./thinking-mode.md) | Harness 接入 | 思考模式：`thinking` / `reasoning_effort` 透传、`reasoning_content` 与工具轮次回传 || [plugin-quickstart.md](./plugin-quickstart.md) | DSH 插件 | 插件骨架、清单、自查与发布入口 |
 | [extension-quickstart.md](./extension-quickstart.md) | dsh-ee 扩展 | 三种扩展形态、CLI 与交付前检查 |
 | [access-rules.md](./access-rules.md) | 权限 | 权限点、字段访问规则、管理约束速查 |
 | [publish-precheck.md](./publish-precheck.md) | 发布 | 发布入口、预检结果语义与自查清单 |
