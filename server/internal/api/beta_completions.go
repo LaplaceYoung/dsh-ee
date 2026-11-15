@@ -84,6 +84,12 @@ func (s *Server) serveBeta(w http.ResponseWriter, r *http.Request, ep betaEndpoi
 		writeOpenAIErr(w, http.StatusBadRequest, "invalid_request_error", code, msg)
 		return
 	}
+	// 上游共享文件（file_id）与 /v1/chat/completions 同一条访问边界（file_access.go）：
+	// Chat Prefix 的 messages 同样会被上游按 file_id 读取，普通员工默认不放行。
+	if !s.fileAccessAllowed(k) && chatRequestReferencesFiles(body) {
+		writeOpenAIFileAccessDenied(w)
+		return
+	}
 	// max_tokens / n 等生成参数沿用网关的收口规则：超额输出会脱离额度约束。
 	if code, msg := completionLimitError(body); code != "" {
 		writeGatewayError(w, r, http.StatusBadRequest, "invalid_request_error", code, msg)

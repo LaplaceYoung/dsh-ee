@@ -10,6 +10,7 @@ export const AUDIT_CATEGORIES = [
   "menu",
   "provider",
   "model",
+  "files",
   "key",
   "settings",
   "ldap",

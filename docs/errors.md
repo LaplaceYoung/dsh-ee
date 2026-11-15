@@ -128,14 +128,19 @@ scope 常量在 `server/internal/rbac/scopes.go`：`models`、`registry:read`、
 （`server/internal/api/anthropic.go`），状态码与 OpenAI 网关相同，`error.type` 按状态码映射：
 401 `authentication_error`、403 `permission_error`、404 `not_found_error`、429 `rate_limit_error`、
 5xx `api_error`、其它 4xx `invalid_request_error`（请求体过大是 `request_too_large`）。
+个别需要客户端区分的错误会额外带 `error.code`（目前只有 `file_access_denied`）。
 `/v1/messages/count_tokens` 鉴权后返回 404 `not_found_error`（v0 不实现）。DeepSeek 原生透传路径的上游错误按原状态码与 body 转发（DeepSeek 本身是 Anthropic 错误壳），dsh-ee 侧错误仍按上表。细节见
 [dev/anthropic-api.md](./dev/anthropic-api.md#6-错误)。
+
+**上游共享文件（DeepSeek `file_id`）**：DeepSeek Files 是上游账号级资源，管理员上传的文件可以被同一上游 key 的请求引用。dsh-ee 在转发前扫描请求里的文件引用：普通员工默认 403 `file_access_denied`；管理员（账号有任一管理权限）与 `account_type=bot` 的机器人账号放行；需要全体员工可用时显式设置 `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true`（默认 `false`，fail closed）。扫描覆盖 `/v1/chat/completions` 的 `messages` 与 `/v1/messages` 的 Anthropic content 块（`file` 的 `file_id`、`document` / `image` 的 `source.file_id`），命中时不请求上游。见 [dev/anthropic-api.md](./dev/anthropic-api.md#2-鉴权与权限)、[dev/harness.md](./dev/harness.md#3-模型网关)。
 
 | HTTP | code | 触发 | 专页 |
 |---|---|---|---|
 | 401 | `token_invalid` / `token_expired` / `token_revoked` | 缺 Bearer 或令牌无效 | [l1-client.md](./l1-client.md#7-常见错误) |
 | 403 | `permission_denied` | 令牌缺 `models` 或账号缺 `llm.use` | 同上 |
+| 403 | `file_access_denied` | 请求引用了上游共享文件（DeepSeek `file_id` / `document.source.file_id`），普通员工默认拒绝；管理员、`account_type=bot` 或开关 `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` 放行 | [dev/anthropic-api.md](./dev/anthropic-api.md#2-鉴权与权限)、[dev/harness.md](./dev/harness.md#3-模型网关) |
 | 403 | `model_not_allowed` | 模型不在账号或令牌的可用范围 | 同上 |
+| 403 | `file_access_denied` | 普通员工在对话 / Responses 原生透传的 `input` 里引用已上传文件的 `file_id`（默认只允许管理员与机器人账号） | [dev/responses-api.md](./dev/responses-api.md#原生透传的文件引用访问边界) |
 | 403 | `quota_expired` | 账号额度过期 | 同上 |
 | 429 | `monthly_quota_exceeded` | 账号或令牌本月额度用完（`0` 表示未分配） | 同上 |
 | 404 | `model_not_found` | 对外模型没有可用上游 | 同上 |
@@ -144,6 +149,19 @@ scope 常量在 `server/internal/rbac/scopes.go`：`models`、`registry:read`、
 | 500 | `provider_misconfigured` | 上游 key 解密失败（主密钥换过等） | 同上 |
 
 DSH 接入插件看到的映射码：`dshee_login_required`、`dshee_forbidden`、`dshee_model_denied`、`dshee_no_allowance`、`dshee_monthly_limit_reached`、`dshee_allowance_expired`（统一以 400 返回）。逐条症状见 [troubleshooting.md](./troubleshooting.md#4-harness第三方-harness--自研客户端接-dsh-ee)、[dev/harness.md](./dev/harness.md#3-模型网关)。
+
+DeepSeek 工具代理（`/v1/files`、`/v1/tools/asr|tts|search|fetch|ocr`、`/anthropic/v1/files`，`server/internal/api/deepseek_tools.go`）沿用同一鉴权与 OpenAI 错误壳，额外的错误码：
+
+| HTTP | code | 触发 |
+|---|---|---|
+| 503 | `deepseek_provider_unavailable` | 没有可用的 DeepSeek 上游：未配置、未启用、`DSH_EE_DEEPSEEK_PROVIDER` 指不到，或上游 key 解不开 |
+| 403 | `deepseek_tools_forbidden` | 普通员工调用 DeepSeek 文件/工具接口，且未开启 `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE`（默认只允许管理员与机器人/服务账号） |
+| 403 | `file_access_denied` | 普通员工在 `/v1/chat/completions` 的 messages 里引用 `file` / `document` 的 `file_id`（防止已知 id 绕过接口） |
+| 413 | `request_too_large` | 请求体超过上限：Files / OCR / Anthropic Files 100 MiB、ASR 8 MiB、TTS / Search / Fetch 64 KiB |
+| 400 | `invalid_file_id` | `file_id` 含字母、数字、`.`、`_`、`-` 以外的字符，或以点开头 |
+| 502 / 504 | `upstream_unreachable` / `upstream_timeout` | 上游不可达 / 超时 |
+
+上游返回的状态码与错误体原样透传（上游 401/403 通常表示企业配置的上游 key 无效，不是调用者的令牌问题）；Anthropic 兼容 Files 的上游错误是 Anthropic 形状、原样透传，缺 `anthropic-beta: files-api-2025-04-14` 时由上游返回 400。OCR 开始识别后的错误放在 `200` 响应体的 `error` 字段里。文件上传/删除/列出会写 `files.upload` / `files.delete` / `files.list` 审计（只记 `file_id`、接口类型与状态码，不记文件名/内容）。接口、访问边界、计费与保留期见 [dev/deepseek-tools.md](./dev/deepseek-tools.md)。
 
 ## 5. MCP / JSON-RPC
 

@@ -24,7 +24,10 @@ type DirectoryEntry struct {
 	// tarball 来源的固定地址
 	SourceURL string `json:"source_url,omitempty"`
 	// 条目声明的 tarball 大小（字节），0 表示没声明
-	Size              int64  `json:"size,omitempty"`
+	Size int64 `json:"size,omitempty"`
+	// 条目声明的 auto_upgrade（format 2 additive，缺省 false）。本期只登记 / 只读展示，
+	// 不执行自动升级；部署总开关是设置 directory.autoUpgrade（默认 false）。
+	AutoUpgrade       bool   `json:"auto_upgrade"`
 	PublisherUserID   *int64 `json:"publisher_user_id,omitempty"`
 	PublisherUsername string `json:"publisher_username,omitempty"`
 	PublisherDept     string `json:"publisher_department,omitempty"`
@@ -42,14 +45,14 @@ type DirectoryEntry struct {
 }
 
 const directoryEntryCols = "id, directory_id, kind, name, version, channel, digest, source_type, " +
-	"source_registry, source_url, size, publisher_user_id, publisher_username, publisher_department, notes, " +
+	"source_registry, source_url, size, auto_upgrade, publisher_user_id, publisher_username, publisher_department, notes, " +
 	"signature_key_id, signature_key_state, signature_json, document_digest, applied_by, applied_at, created_at, updated_at"
 
 func scanDirectoryEntry(row interface{ Scan(...any) error }) (*DirectoryEntry, error) {
 	var e DirectoryEntry
 	var pubBy, appliedBy sql.NullInt64
 	if err := row.Scan(&e.ID, &e.DirectoryID, &e.Kind, &e.Name, &e.Version, &e.Channel, &e.Digest,
-		&e.SourceType, &e.SourceRegistry, &e.SourceURL, &e.Size, &pubBy, &e.PublisherUsername, &e.PublisherDept,
+		&e.SourceType, &e.SourceRegistry, &e.SourceURL, &e.Size, &e.AutoUpgrade, &pubBy, &e.PublisherUsername, &e.PublisherDept,
 		&e.Notes, &e.SignatureKeyID, &e.SignatureKeyState, &e.SignatureJSON, &e.DocumentDigest,
 		&appliedBy, &e.AppliedAt, &e.CreatedAt, &e.UpdatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -194,12 +197,12 @@ func (s *Store) ApplyDirectoryEntries(ctx context.Context, directoryID, document
 			continue
 		}
 		if _, err := tx.ExecContext(ctx, `UPDATE directory_entries SET
-			digest = ?, source_type = ?, source_registry = ?, source_url = ?, size = ?,
+			digest = ?, source_type = ?, source_registry = ?, source_url = ?, size = ?, auto_upgrade = ?,
 			publisher_user_id = ?, publisher_username = ?, publisher_department = ?, notes = ?,
 			signature_key_id = ?, signature_key_state = ?, signature_json = ?,
 			document_digest = ?, applied_by = ?, applied_at = ?, updated_at = ?
 			WHERE id = ?`,
-			e.Digest, e.SourceType, e.SourceRegistry, e.SourceURL, e.Size,
+			e.Digest, e.SourceType, e.SourceRegistry, e.SourceURL, e.Size, e.AutoUpgrade,
 			e.PublisherUserID, e.PublisherUsername, e.PublisherDept, e.Notes,
 			e.SignatureKeyID, e.SignatureKeyState, e.SignatureJSON,
 			e.DocumentDigest, e.AppliedBy, e.AppliedAt, t, old.ID); err != nil {
@@ -235,6 +238,7 @@ func directoryEntryChanged(a, b DirectoryEntry) bool {
 		a.SourceRegistry != b.SourceRegistry ||
 		a.SourceURL != b.SourceURL ||
 		a.Size != b.Size ||
+		a.AutoUpgrade != b.AutoUpgrade ||
 		!int64PtrEqual(a.PublisherUserID, b.PublisherUserID) ||
 		a.PublisherUsername != b.PublisherUsername ||
 		a.PublisherDept != b.PublisherDept ||
@@ -252,11 +256,11 @@ func int64PtrEqual(a, b *int64) bool {
 
 func insertDirectoryEntry(ctx context.Context, tx *sql.Tx, e *DirectoryEntry, t time.Time) (int64, error) {
 	res, err := tx.ExecContext(ctx, `INSERT INTO directory_entries
-		(directory_id, kind, name, version, channel, digest, source_type, source_registry, source_url, size,
+		(directory_id, kind, name, version, channel, digest, source_type, source_registry, source_url, size, auto_upgrade,
 		 publisher_user_id, publisher_username, publisher_department, notes,
 		 signature_key_id, signature_key_state, signature_json, document_digest, applied_by, applied_at, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		e.DirectoryID, e.Kind, e.Name, e.Version, e.Channel, e.Digest, e.SourceType, e.SourceRegistry, e.SourceURL, e.Size,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		e.DirectoryID, e.Kind, e.Name, e.Version, e.Channel, e.Digest, e.SourceType, e.SourceRegistry, e.SourceURL, e.Size, e.AutoUpgrade,
 		e.PublisherUserID, e.PublisherUsername, e.PublisherDept, e.Notes,
 		e.SignatureKeyID, e.SignatureKeyState, e.SignatureJSON, e.DocumentDigest, e.AppliedBy, e.AppliedAt, t, t)
 	if err != nil {

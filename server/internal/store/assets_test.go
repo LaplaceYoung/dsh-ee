@@ -36,3 +36,25 @@ func TestDeleteAssetVersion(t *testing.T) {
 		t.Fatalf("删不存在的版本应返回 ErrNotFound：%v", err)
 	}
 }
+
+// Gate：分类范围不含这个人，或命中禁用策略，都挡住；分类优先报。
+func TestAssetGate(t *testing.T) {
+	cat := Scope{Departments: []string{"财务部"}}
+	a := &Asset{CategoryScope: &cat}
+	if got := a.Gate(1, "财务部", nil); got != "" {
+		t.Fatalf("分类范围内应放行：%q", got)
+	}
+	if got := a.Gate(1, "研发部", nil); got != GateCategory {
+		t.Fatalf("分类范围外应报 category：%q", got)
+	}
+	a.Blocks = []Scope{{Roles: []int64{7}}}
+	if got := a.Gate(1, "财务部", []int64{7}); got != GateBlocked {
+		t.Fatalf("命中禁用策略应报 blocked：%q", got)
+	}
+	if got := a.Gate(1, "研发部", []int64{7}); got != GateCategory {
+		t.Fatalf("两样都不满足时先报分类：%q", got)
+	}
+	if got := (&Asset{}).Gate(1, "", nil); got != "" {
+		t.Fatalf("没有分类和策略时放行：%q", got)
+	}
+}

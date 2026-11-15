@@ -29,6 +29,23 @@ const VENDORS: { id: string; baseUrl: string; note?: boolean; models?: string[] 
 type VendorId = keyof typeof zhLlm.providers.vendors;
 const isVendor = (id: string): id is VendorId => id in zhLlm.providers.vendors;
 
+/** 管理端填写的思考强度是逗号分隔字符串（中英文逗号都行），转成去空的小写数组交给 API。 */
+function parseEfforts(raw: string): string[] {
+  return raw
+    .split(/[,，]/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+/** 输入模态的规范顺序；text 始终包含（服务端也会补齐）。 */
+const INPUT_MODALITIES = ["text", "image", "file"] as const;
+
+/** 把一个模态加入/移出数组；text 始终保留，供表单多选使用。 */
+function toggleModality(current: string[], modality: string): string[] {
+  const next = current.includes(modality) ? current.filter((m) => m !== modality) : [...current, modality];
+  return INPUT_MODALITIES.filter((m) => m === "text" || next.includes(m));
+}
+
 function ProviderForm({ initial, onDone, onCancel }: { initial?: Provider; onDone: () => void; onCancel: () => void }) {
   const { t } = useTranslation();
   const [vendor, setVendor] = useState(initial?.vendor ?? "deepseek");
@@ -180,6 +197,42 @@ function ImportPicker({ result, existing, onImport, onClose, busy }: { result: C
   );
 }
 
+/** 输入模态多选：text 固定勾选，image/file 可切换（服务端也总会补齐 text）。 */
+function ModalityPicker({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      {INPUT_MODALITIES.map((modality) => (
+        <label key={modality} className="flex items-center gap-1.5 text-xs text-neutral-800">
+          <input
+            type="checkbox"
+            className="size-3.5 accent-brand-600"
+            checked={modality === "text" || value.includes(modality)}
+            disabled={modality === "text"}
+            onChange={() => onChange(toggleModality(value, modality))}
+          />
+          {t(`providers.modalities.${modality}`)}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/** 只读的输入模态徽标；text 用中性色，image/file 用品牌/琥珀色。 */
+function ModalityBadges({ value }: { value: string[] }) {
+  const { t } = useTranslation();
+  const shown = INPUT_MODALITIES.filter((m) => value.includes(m));
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      {shown.map((modality) => (
+        <Badge key={modality} tone={modality === "image" ? "brand" : modality === "file" ? "amber" : "slate"}>
+          {t(`providers.modalities.${modality}`)}
+        </Badge>
+      ))}
+    </span>
+  );
+}
+
 function ModelRow({ m, onChanged }: { m: Model; onChanged: () => void }) {
   const { t } = useTranslation();
   const confirm = useConfirm();
@@ -189,9 +242,21 @@ function ModelRow({ m, onChanged }: { m: Model; onChanged: () => void }) {
   const [name, setName] = useState(m.name);
   const [upstream, setUpstream] = useState(m.upstream_model);
   const [display, setDisplay] = useState(m.display_name);
+  const [reasoning, setReasoning] = useState(m.supports_reasoning);
+  const [efforts, setEfforts] = useState(m.reasoning_efforts.join(","));
+  const [modalities, setModalities] = useState<string[]>(m.input_modalities);
 
   const save = async () => {
-    const r = await run(() => api.updateModel(m.id, { name, upstream_model: upstream, display_name: display }));
+    const r = await run(() =>
+      api.updateModel(m.id, {
+        name,
+        upstream_model: upstream,
+        display_name: display,
+        supports_reasoning: reasoning,
+        reasoning_efforts: parseEfforts(efforts),
+        input_modalities: modalities,
+      }),
+    );
     notify(r.ok ? t("providers.modelSaved", { name }) : r.error);
     if (r.ok) {
       setEditing(false);
@@ -222,6 +287,22 @@ function ModelRow({ m, onChanged }: { m: Model; onChanged: () => void }) {
         <td className="px-5 py-2">
           <input aria-label={t("providers.displayName")} className={cx(inputBase, "h-8 w-full")} value={display} onChange={(e) => setDisplay(e.target.value)} />
         </td>
+        <td className="px-5 py-2">
+          <label className="flex items-center gap-2 text-sm text-neutral-800">
+            <input type="checkbox" className="size-4 accent-brand-600" checked={reasoning} onChange={(e) => setReasoning(e.target.checked)} />
+            {t("providers.reasoning")}
+          </label>
+          <input
+            aria-label={t("providers.reasoningEfforts")}
+            className={cx(inputBase, "mt-1 h-8 w-full font-mono")}
+            placeholder={t("providers.reasoningEffortsPlaceholder")}
+            value={efforts}
+            onChange={(e) => setEfforts(e.target.value)}
+          />
+        </td>
+        <td className="px-5 py-2">
+          <ModalityPicker value={modalities} onChange={setModalities} />
+        </td>
         <td className="px-5 py-2" colSpan={2}>
           <div className="flex justify-end gap-2">
             <Button size="sm" disabled={busy} onClick={save}>
@@ -240,6 +321,19 @@ function ModelRow({ m, onChanged }: { m: Model; onChanged: () => void }) {
       <td className="px-5 py-2.5 font-mono">{m.name}</td>
       <td className="px-5 py-2.5 font-mono text-neutral-600">{m.upstream_model === m.name ? t("providers.sameName") : m.upstream_model}</td>
       <td className="px-5 py-2.5">{m.display_name || "—"}</td>
+      <td className="px-5 py-2.5">
+        {m.supports_reasoning ? (
+          <span className="inline-flex flex-wrap items-center gap-1">
+            <Badge tone="green">{t("providers.reasoningOn")}</Badge>
+            {m.reasoning_efforts.length > 0 && <span className="font-mono text-xs text-neutral-600">{m.reasoning_efforts.join("/")}</span>}
+          </span>
+        ) : (
+          <span className="text-neutral-400">—</span>
+        )}
+      </td>
+      <td className="px-5 py-2.5">
+        <ModalityBadges value={m.input_modalities} />
+      </td>
       <td className="px-5 py-2.5">
         <Toggle checked={m.enabled} disabled={busy} onChange={toggle} />
       </td>
@@ -267,6 +361,9 @@ function ProviderCard({ p, models, onChanged }: { p: Provider; models: Model[]; 
   const [importing, setImporting] = useState(false);
   const [newModel, setNewModel] = useState("");
   const [newAlias, setNewAlias] = useState("");
+  const [newReasoning, setNewReasoning] = useState(false);
+  const [newEfforts, setNewEfforts] = useState("");
+  const [newModalities, setNewModalities] = useState<string[]>(["text"]);
 
   const doCheck = async (forImport: boolean) => {
     const r = await run(() => api.checkProvider(p.id));
@@ -287,11 +384,24 @@ function ProviderCard({ p, models, onChanged }: { p: Provider; models: Model[]; 
   };
   const addOne = async (e: FormEvent) => {
     e.preventDefault();
-    const r = await run(() => api.createModels(p.id, [{ upstream_model: newModel.trim(), name: newAlias.trim() || undefined }]));
+    const r = await run(() =>
+      api.createModels(p.id, [
+        {
+          upstream_model: newModel.trim(),
+          name: newAlias.trim() || undefined,
+          supports_reasoning: newReasoning,
+          reasoning_efforts: parseEfforts(newEfforts),
+          input_modalities: newModalities,
+        },
+      ]),
+    );
     if (!r.ok) return notify(r.error);
     if (r.value.skipped.length) notify(t("providers.duplicateModel", { name: r.value.skipped[0] }));
     setNewModel("");
     setNewAlias("");
+    setNewReasoning(false);
+    setNewEfforts("");
+    setNewModalities(["text"]);
     onChanged();
   };
   const toggle = async (enabled: boolean) => {
@@ -372,6 +482,8 @@ function ProviderCard({ p, models, onChanged }: { p: Provider; models: Model[]; 
                   <th className="px-5 py-2">{t("providers.colPublic")}</th>
                   <th className="px-5 py-2">{t("providers.colUpstream")}</th>
                   <th className="px-5 py-2">{t("providers.colDisplay")}</th>
+                  <th className="px-5 py-2">{t("providers.colReasoning")}</th>
+                  <th className="px-5 py-2">{t("providers.colInput")}</th>
                   <th className="px-5 py-2">{t("providers.colEnabled")}</th>
                   <th className="px-5 py-2" />
                 </tr>
@@ -387,6 +499,20 @@ function ProviderCard({ p, models, onChanged }: { p: Provider; models: Model[]; 
         <form onSubmit={addOne} className="flex flex-wrap items-center gap-2 border-t border-neutral-100 px-5 py-3">
           <input aria-label={t("providers.upstreamName")} className={cx(inputBase, "h-8 w-56 font-mono")} placeholder={t("providers.upstreamName")} value={newModel} onChange={(e) => setNewModel(e.target.value)} />
           <input aria-label={t("providers.publicName")} className={cx(inputBase, "h-8 w-56 font-mono")} placeholder={t("providers.publicOptional")} value={newAlias} onChange={(e) => setNewAlias(e.target.value)} />
+          <label className="flex items-center gap-2 text-sm text-neutral-800">
+            <input type="checkbox" className="size-4 accent-brand-600" checked={newReasoning} onChange={(e) => setNewReasoning(e.target.checked)} />
+            {t("providers.reasoning")}
+          </label>
+          <input
+            aria-label={t("providers.reasoningEfforts")}
+            title={t("providers.reasoningEffortsHint")}
+            className={cx(inputBase, "h-8 w-44 font-mono")}
+            placeholder={t("providers.reasoningEffortsPlaceholder")}
+            value={newEfforts}
+            onChange={(e) => setNewEfforts(e.target.value)}
+          />
+          <ModalityPicker value={newModalities} onChange={setNewModalities} />
+          <span className="text-xs text-neutral-500">{t("providers.inputModalitiesHint")}</span>
           <Button size="sm" variant="secondary" type="submit" disabled={busy || !newModel.trim()}>
             {t("providers.addModel")}
           </Button>

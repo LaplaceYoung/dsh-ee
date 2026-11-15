@@ -217,7 +217,7 @@ func (s *Server) handleIntrospect(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, http.StatusUnauthorized, "请先登录，或用 Bearer 令牌调这个接口")
 			return
 		}
-		u, _, err := s.store.SessionInfo(r.Context(), secret.Hash(c.Value))
+		u, limited, err := s.store.SessionInfo(r.Context(), secret.Hash(c.Value))
 		if errors.Is(err, store.ErrNotFound) {
 			writeErr(w, http.StatusUnauthorized, "登录已过期，请重新登录")
 			return
@@ -229,6 +229,11 @@ func (s *Server) handleIntrospect(w http.ResponseWriter, r *http.Request) {
 		if sessionAccess, err = s.store.UserAccess(r.Context(), u.ID); err != nil {
 			s.internalErr(w, r, err)
 			return
+		}
+		// 从 DSH 打开的网页会话只带员工权限（与 handleMe / npmAuth 同口径）：
+		// 账号本身有 keys.manage（含超管）也不能借它查别人的令牌，否则会泄露属主与令牌元数据。
+		if limited {
+			sessionAccess = limitedAccess(sessionAccess)
 		}
 	}
 

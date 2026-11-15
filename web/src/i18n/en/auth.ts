@@ -14,6 +14,7 @@ export default {
     ldapForgot: "Recover your domain password in the company's account system; for a local account, ask an administrator.",
     reauth: "You were signed in automatically from DSH with employee access only. Sign in with your password to use everything.",
     handoffExpired: "The sign-in link from DSH has expired (it works once, within one minute). Please sign in to continue.",
+    handoffOtherSession: "This browser is already signed in with another account, so the sign-in link from DSH won't replace the existing session. Sign out of the current account first, then open the link from DSH again.",
     demo: {
       title: "This is a public demo",
       account: "Username {{username}} · Password {{password}}",
