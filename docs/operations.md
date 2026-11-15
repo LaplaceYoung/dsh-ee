@@ -1,6 +1,6 @@
 # dsh-ee 运维手册
 
-> 状态：按 `origin/main`（20aafbb，2026-11-12）核对代码与 `deploy/` 写成。**已实现**的按命令/配置写；**没有实现**的（备份工具、指标、日志轮转、自动回滚等）标「设计」，见 §12。文中标「PR #N，合并后生效」的能力来自对应独立 PR（#118 微应用嵌入 v0/v1、#122 CLI、#123 Harness 发现、#127 CORS、#128 MCP 分页/写确认结构化），**均未合入基线**；能力以对应 PR 合入为准。多实例后台任务租约（§9.2）随多实例前置 PR 提供，合入后生效。
+> 状态：按 `origin/main`（20aafbb，2026-11-12）核对代码与 `deploy/` 写成。**已实现**的按命令/配置写；**没有实现**的（备份工具、日志轮转、自动回滚等）标「设计」，见 §12。文中标「PR #N，合并后生效」的能力来自对应独立 PR（#118 微应用嵌入 v0/v1、#122 CLI、#123 Harness 发现、#127 CORS、#128 MCP 分页/写确认结构化），**均未合入基线**；能力以对应 PR 合入为准。多实例后台任务租约（§9.2）随多实例前置 PR 提供，合入后生效。
 >
 > 相关文档：[architecture.md](./architecture.md)（组件与数据）、[cli.md](./cli.md)（命令）、[troubleshooting.md](./troubleshooting.md)（错误码与修复）、[deploy/README.md](../deploy/README.md)（官方部署说明）。
 
@@ -243,6 +243,25 @@ cp /path/to/当前目录/.env .
 
 **没有实现的**：日志级别开关、文件轮转、syslog/webhook 外发、慢请求日志、请求 ID（设计）。需要长期保留时用容器日志驱动或 journald 的轮转配置在外部处理。**审计日志在数据库里，不在进程日志里**，见 [architecture.md](./architecture.md) §6。
 
+### 7.1 监控指标（`GET /metrics`）
+
+`DSH_EE_METRICS=true` 时开放 Prometheus 文本格式的 `GET /metrics`，只允许本机 / 内网来源抓取（公网直连返回 404）。指标刻意保持低基数，不含账号、IP、模型或请求内容：
+
+| 指标 | 类型 | 说明 |
+|---|---|---|
+| `dsh_ee_uptime_seconds` | gauge | 进程已运行秒数 |
+| `dsh_ee_goroutines` | gauge | 当前 goroutine 数 |
+| `dsh_ee_build_info{version="…"}` | gauge | 构建版本，值固定为 1 |
+| `dsh_ee_login_failures_total` | counter | 用户名或密码错误的登录次数（含 npm login） |
+| `dsh_ee_login_ip_limited_total` | counter | 因同一 IP 失败次数过多被 429 的登录请求数 |
+| `dsh_ee_login_username_limited_total` | counter | 因用户名锁定被 429 的登录请求数 |
+| `dsh_ee_usage_reasoning_tokens_total` | counter | 记账成功的推理（思考）token 累计数 |
+| `dsh_ee_usage_cached_tokens_total` | counter | 记账成功的命中缓存 prompt token 累计数 |
+
+- 计数都在进程内累计：重启清零，多实例各自独立；看长期趋势请用 Prometheus 的 `rate` / `increase`，不要直接拿 counter 当累计总量。
+- 用量细项计数只在网关记账成功后累加，和 `usage_logs` 的口径一致；没有按用户 / 模型拆分标签，避免高基数。
+- 指标接口不带登录鉴权，只靠来源限制；抓取端应直连服务，服务端不采信 `X-Forwarded-For`。
+
 ## 8. 健康检查
 
 | 端点 | 说明 |
@@ -261,7 +280,7 @@ cp /path/to/当前目录/.env .
 
 | 位置 | 增长来源 | 观察方式 |
 |---|---|---|
-| 数据库 | `usage_logs`（每次模型调用）、`audit_logs`（每个操作）、`npm_downloads`（每次下载）、`connection_calls`、知识库正文、应用数据行；`shared_rate_limits`（每实例每窗口最多约 1 万个 key，后台按窗口清理） | 数据库监控；`SELECT COUNT(*)` / 表大小 |
+| 数据库 | `usage_logs`（每次模型调用，含推理 / 缓存命中细项两列）、`audit_logs`（每个操作）、`npm_downloads`（每次下载）、`connection_calls`、知识库正文、应用数据行；`shared_rate_limits`（每实例每窗口最多约 1 万个 key，后台按窗口清理） | 数据库监控；`SELECT COUNT(*)` / 表大小 |
 | `DSH_EE_DATA_DIR` | 每个已发布/镜像版本的 tarball、上游缓存、DSH 安装包镜像 | `du -sh <data dir>`、`du -sh <data dir>/blobs` |
 | 进程内存 | 上游 packument 缓存、知识库索引、流式连接、MCP 事件流 | 容器/进程 RSS |
 
@@ -380,7 +399,7 @@ frame-ancestors 'self' <仅 /a/*：DSH_EE_EMBED_ORIGINS 与设置里追加的来
 |---|---|
 | 内置备份/恢复命令、定时备份、演练脚本 | 没有；按 §6 用外部工具 |
 | 自动升级、降级迁移、版本回滚工具 | 没有；手工换二进制/安装包 |
-| 指标（Prometheus）、链路追踪、慢请求日志、请求 ID | 没有；只有文本日志与 `/healthz` |
+| 链路追踪、慢请求日志 | 没有；只有文本日志、最小 `/metrics`（§7.1）与 `/healthz` |
 | 日志级别/轮转/syslog/Webhook | 没有；在外部日志设施处理 |
 | 审计导出、保留期、外发 | 没有；只有 `/admin/audit` 页面查询 |
 | 多实例完整水平扩展 | 周期后台任务已用 `background_leases` 租约选主、一次性状态已入数据库 `ephemeral_states`（§9.2）；每令牌/嵌入限流已用数据库共享（`shared_rate_limits`/`embed_rates`），登录限流、缓存、预载任务、MCP 事件流仍在进程内存，tarball 在本地磁盘，迁移要求先起一个，作业级归属未做；共享存储/对象存储没有 |

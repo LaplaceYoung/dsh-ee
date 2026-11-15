@@ -5,11 +5,11 @@ Go 写的 dsh-ee 服务端。目前实现：
 - **用户登录**：本地账号（bcrypt），HttpOnly 会话 cookie，同一用户名连续失败 5 次锁定 15 分钟；管理员可建用户、禁用、重置密码（禁用 / 重置后立即踢下线）。
 - **账号月度额度**：管理员给账号分配每月 token 上限（`NULL` 不限额、`0` 未分配）、允许的模型与有效期；额度按账号共享，账号下所有 key 从同一份里扣，每月 1 日（UTC）重置。
 - **企业 API key 二次分发**：管理员录入企业在上游开通的模型服务（OpenAI 兼容，如 DeepSeek），上游 key 用主密钥 AES-256-GCM 加密存库；`sk-ee-…` 个人 key 由管理员代发或员工自助创建，随时吊销。
-- **OpenAI 兼容网关**：`/v1/chat/completions`（含流式）与 `/v1/models`。员工用个人 key 调用，dsh-ee 换成企业 key 转发，按账号校验额度与模型，并按次记录用量（即调用审计）。
+- **OpenAI 兼容网关**：`/v1/chat/completions`（含流式）与 `/v1/models`。员工用个人 key 调用，dsh-ee 换成企业 key 转发，按账号校验额度与模型，并按次记录用量（prompt / completion / total tokens，以及上游提供时的推理 token 与缓存命中 token，即调用审计）。
 - **Anthropic Messages 兼容端点**：`POST /v1/messages`（含流式 SSE；别名 `POST /anthropic/v1/messages`，兼容 DeepSeek 的 `/anthropic` base URL 习惯），Claude Code / Anthropic SDK 用 `x-api-key` 或 Bearer 带上同一枚统一令牌即可；复用模型权限、额度、限流与用量记账。优先线路 `vendor=deepseek` 时原生透传到 `<base>/anthropic/v1/messages`（响应逐字节转发，`anthropic-version`/`anthropic-beta` 透传），其它 provider 降级转成 OpenAI chat；故障转移只在同协议内进行。不做 `count_tokens` / Batches / Files / 服务端工具，详见 [../docs/dev/anthropic-api.md](../docs/dev/anthropic-api.md)。
 - **内置 npm 源**（`/npm/`）：企业作用域的托管与发布、逐版本审核、上游回源与镜像、上游预载（连同依赖闭包）、离线包导入导出，以及由已上架插件生成的 DSH 插件索引（`/index/dsh-index.json`）。详见下文「npm 源」。
 - **LDAP / AD 登录**：员工用公司域账号登录网页与 `npm login`；首次登录自动开通，每次登录同步显示名、部门、邮箱与组映射的角色；每小时核对目录，离职（被删除或在 AD 里禁用）的账号自动禁用。详见下文「LDAP / AD」。
-- **运营统计与审计日志**：按本地日期统计能力安装、模型调用与 Token，按部门、能力、模型、终端（npm 客户端 User-Agent 里的系统与架构）汇总；登录、账号与权限、模型接入、设置、发布与审核等操作写入审计日志。
+- **运营统计与审计日志**：按本地日期统计能力安装、模型调用与 Token（含推理 / 缓存命中细项），按部门、能力、模型、终端（npm 客户端 User-Agent 里的系统与架构）汇总；登录、账号与权限、模型接入、设置、发布与审核等操作写入审计日志。
 - **能力中心**：技能、提示词、微应用与企业连接的版本、审核、可用范围（部门 / 角色 / 指定人）与下发方式（自动生效 / 自己启用）；插件也可以设范围与「自动安装」。详见下文「能力中心与 DSH 接入」。
 - **单文件部署**：前端在构建时嵌进二进制（`internal/webui`），同一个端口提供界面与全部接口。部署方式见 [../deploy](../deploy/README.md)。
 - **OpenAI Responses API 兼容入口**：`POST /v1/responses`（v0，另有 DeepSeek 习惯的等价别名 `POST /responses`），Codex / OpenAI Agents SDK 等按 Responses 协议写的客户端可用同一枚企业令牌接入。`vendor=deepseek` 的上游走**原生透传**（只改 model 后转发 `<base>/responses`；响应/SSE 逐字节转发，保留 web_search、citations、refusal、title、image/file 等；dsh-ee 只做鉴权/额度/限流/用量记账），其它 vendor 走 **chat completions 转换层（降级）**：只支持 function 工具子集、流式为完整结果回放。故障转移只在同协议/厂商内进行，详见 [../docs/dev/responses-api.md](../docs/dev/responses-api.md)。
@@ -66,6 +66,7 @@ Go 写的 dsh-ee 服务端。目前实现：
 - **DeepSeek Chatbot 能力（只透传）**：联网工具（`deepseek_web_search` / `deepseek_read_url`）、内容安全 `safety_check`、会话标题 `title`，以及响应里的 `title` / `annotations`（引用）/ `refusal` / `server_tool_calls` / `server_tool_event` 等块都原样转发，网关不执行、不解析、不改写这些字段。可用 `DSH_EE_SAFETY_CHECK=high` / `DSH_EE_CHAT_TITLE=on` 给 `vendor=deepseek` 的 Chat Completions 上游请求注入默认值（客户端已传则保留；非 DeepSeek 上游不注入；`/v1/messages` 原生透传只转发客户端自带字段、不注入）；能力在发现文档与 `/v1/capabilities` 的 `chatbot` 里声明。详见 [docs/dev/chatbot.md](../docs/dev/chatbot.md)。
 - 模型单独成表：员工调用时写**对外名称**，转发时换成**上游模型名**。同一个对外名称可以挂在多个上游上，按上游优先级依次尝试，连不上、429、5xx 时自动切到下一条（开始向客户端写响应后不再切换）。
 - 「检查连接」请求上游 `/models`；上游不提供该接口时，用一个已配置的模型发一次 `max_tokens=1` 的对话验证。结果会存下来显示在管理端。
+- 用量细项：网关从上游响应的 `usage` 里解析 `prompt_tokens` / `completion_tokens` / `total_tokens`，并在上游提供时另存两项细项——OpenAI 兼容格式的 `completion_tokens_details.reasoning_tokens` 与 `prompt_tokens_details.cached_tokens`，以及 DeepSeek 顶层的 `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`（命中数优先取嵌套 `cached_tokens`，其次 `prompt_cache_hit_tokens`，只给未命中数时按 `prompt_tokens - miss` 推回）。流式请求看最后一块的 `usage`；上游没给细项、旧响应或客户端中途停止时两项细项按 0 记，估算兜底仍只估 prompt / completion。细项不改变 `total_tokens` 与额度口径，月报、运营统计、个人用量接口在原有字段之外多返回 `reasoning_tokens` / `cached_tokens`。
 
 ## npm 源
 
@@ -265,7 +266,7 @@ curl -fsS http://127.0.0.1:8080/readyz    # 依赖就绪；-f 让 503 以非 0 �
 | GET | `/v1/models` | `Authorization: Bearer sk-ee-…` |
 | POST | `/v1/chat/completions` | 同上，OpenAI 格式，支持 `stream` |
 | POST | `/v1/responses`、`/responses` | OpenAI Responses API 兼容（v0）：`vendor=deepseek` 上游原生透传，其余 vendor 转 chat completions（降级）；`/responses` 是 DeepSeek 习惯的等价别名；见 [../docs/dev/responses-api.md](../docs/dev/responses-api.md) |
-| GET | `/metrics` | 最小监控指标（Prometheus 文本格式）。需 `DSH_EE_METRICS=true`，且只允许本机 / 内网来源抓取；含嵌入指标 `dsh_ee_embed_sessions_active` / `dsh_ee_embed_denied_total` |
+| GET | `/metrics` | 最小监控指标（Prometheus 文本格式）。需 `DSH_EE_METRICS=true`，且只允许本机 / 内网来源抓取；含登录失败 / 限流计数、记账成功的推理 / 缓存命中 token 累计数（进程内累计，重启清零），以及嵌入指标 `dsh_ee_embed_sessions_active` / `dsh_ee_embed_denied_total` |
 
 协议面（`/v1/*` 与 `/mcp`）的限流与 `X-Request-Id` 见上面「能力中心与 DSH 接入」；成功和 429 响应都带 `X-RateLimit-*`，429 另带 `Retry-After`。
 

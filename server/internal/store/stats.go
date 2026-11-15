@@ -29,6 +29,9 @@ type DailyStat struct {
 	CallErrors   int    `json:"call_errors"`
 	CallUsers    int    `json:"call_users"`
 	Tokens       int64  `json:"tokens"`
+	// 用量细项，Tokens 的子集
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+	CachedTokens    int64 `json:"cached_tokens"`
 }
 
 // Daily 按天汇总安装与模型调用；没有数据的日子不返回，由调用方补零。
@@ -66,7 +69,8 @@ func (s *Store) Daily(ctx context.Context, r StatsRange) (map[string]*DailyStat,
 
 	rows, err = s.db.QueryContext(ctx, `SELECT `+r.dayExpr("created_at")+` AS day, COUNT(*),
 		  COALESCE(SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END), 0),
-		  COUNT(DISTINCT user_id), COALESCE(SUM(total_tokens), 0)
+		  COUNT(DISTINCT user_id), COALESCE(SUM(total_tokens), 0),
+		  COALESCE(SUM(reasoning_tokens), 0), COALESCE(SUM(cached_tokens), 0)
 		FROM usage_logs WHERE created_at >= ? GROUP BY day`, r.From)
 	if err != nil {
 		return nil, err
@@ -75,12 +79,13 @@ func (s *Store) Daily(ctx context.Context, r StatsRange) (map[string]*DailyStat,
 	for rows.Next() {
 		var t time.Time
 		var calls, errs, users int
-		var tokens int64
-		if err := rows.Scan(&t, &calls, &errs, &users, &tokens); err != nil {
+		var tokens, reasoning, cached int64
+		if err := rows.Scan(&t, &calls, &errs, &users, &tokens, &reasoning, &cached); err != nil {
 			return nil, err
 		}
 		d := day(t)
 		d.Calls, d.CallErrors, d.CallUsers, d.Tokens = calls, errs, users, tokens
+		d.ReasoningTokens, d.CachedTokens = reasoning, cached
 	}
 	return out, rows.Err()
 }
@@ -122,11 +127,15 @@ type ModelStat struct {
 	Calls  int    `json:"calls"`
 	Users  int    `json:"users"`
 	Tokens int64  `json:"tokens"`
+	// 用量细项，Tokens 的子集
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+	CachedTokens    int64 `json:"cached_tokens"`
 }
 
 // TopModels 是窗口内 token 用得最多的模型（按员工调用时写的对外名称）。
 func (s *Store) TopModels(ctx context.Context, from time.Time, limit int) ([]ModelStat, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT model, COUNT(*), COUNT(DISTINCT user_id), COALESCE(SUM(total_tokens), 0) AS t
+	rows, err := s.db.QueryContext(ctx, `SELECT model, COUNT(*), COUNT(DISTINCT user_id), COALESCE(SUM(total_tokens), 0) AS t,
+		  COALESCE(SUM(reasoning_tokens), 0), COALESCE(SUM(cached_tokens), 0)
 		FROM usage_logs WHERE created_at >= ?
 		GROUP BY model ORDER BY t DESC, model LIMIT ?`, from, limit)
 	if err != nil {
@@ -136,7 +145,7 @@ func (s *Store) TopModels(ctx context.Context, from time.Time, limit int) ([]Mod
 	out := []ModelStat{}
 	for rows.Next() {
 		var m ModelStat
-		if err := rows.Scan(&m.Model, &m.Calls, &m.Users, &m.Tokens); err != nil {
+		if err := rows.Scan(&m.Model, &m.Calls, &m.Users, &m.Tokens, &m.ReasoningTokens, &m.CachedTokens); err != nil {
 			return nil, err
 		}
 		out = append(out, m)
@@ -150,10 +159,14 @@ type TokenStat struct {
 	Username    string `json:"username"`
 	AccountType string `json:"account_type"`
 	Tokens      int64  `json:"tokens"`
+	// 用量细项，Tokens 的子集
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+	CachedTokens    int64 `json:"cached_tokens"`
 }
 
 func (s *Store) TokenStats(ctx context.Context, from time.Time, limit int) ([]TokenStat, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT t.id, t.name, u.username, u.account_type, COALESCE(SUM(l.total_tokens), 0) AS tokens
+	rows, err := s.db.QueryContext(ctx, `SELECT t.id, t.name, u.username, u.account_type, COALESCE(SUM(l.total_tokens), 0) AS tokens,
+		  COALESCE(SUM(l.reasoning_tokens), 0), COALESCE(SUM(l.cached_tokens), 0)
 		FROM usage_logs l JOIN access_tokens t ON t.id = l.token_id JOIN users u ON u.id = t.user_id
 		WHERE l.created_at >= ? GROUP BY t.id, t.name, u.username, u.account_type ORDER BY tokens DESC, t.id LIMIT ?`, from, limit)
 	if err != nil {
@@ -163,7 +176,7 @@ func (s *Store) TokenStats(ctx context.Context, from time.Time, limit int) ([]To
 	out := []TokenStat{}
 	for rows.Next() {
 		var stat TokenStat
-		if err := rows.Scan(&stat.ID, &stat.Name, &stat.Username, &stat.AccountType, &stat.Tokens); err != nil {
+		if err := rows.Scan(&stat.ID, &stat.Name, &stat.Username, &stat.AccountType, &stat.Tokens, &stat.ReasoningTokens, &stat.CachedTokens); err != nil {
 			return nil, err
 		}
 		out = append(out, stat)
@@ -178,6 +191,9 @@ type DepartmentStat struct {
 	Installs    int    `json:"installs"`
 	Calls       int    `json:"calls"`
 	Tokens      int64  `json:"tokens"`
+	// 用量细项，Tokens 的子集
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+	CachedTokens    int64 `json:"cached_tokens"`
 }
 
 // Departments 按部门汇总：启用中的账号数、窗口内活跃账号（装过插件或调用过模型）、安装与模型用量。
@@ -233,6 +249,28 @@ func (s *Store) Departments(ctx context.Context, from time.Time) ([]*DepartmentS
 			return nil, err
 		}
 	}
+	// 用量细项单独查一次，不必为两个可选列改写上面的通用扫描循环。
+	rows, err := s.db.QueryContext(ctx, `SELECT u.department, COALESCE(SUM(l.reasoning_tokens), 0), COALESCE(SUM(l.cached_tokens), 0)
+		FROM usage_logs l JOIN users u ON u.id = l.user_id
+		WHERE l.created_at >= ? GROUP BY u.department`, from)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var d string
+		var reasoning, cached int64
+		if err := rows.Scan(&d, &reasoning, &cached); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		x := get(d)
+		x.ReasoningTokens, x.CachedTokens = reasoning, cached
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
 	out := make([]*DepartmentStat, 0, len(order))
 	for _, d := range order {
 		out = append(out, byDept[d])

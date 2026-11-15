@@ -148,10 +148,52 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"object": "list", "data": data})
 }
 
+// tokenUsage 是上游返回的 usage。普通字段各厂商都一样；细项的位置不统一：
+// OpenAI 放在 *_tokens_details 里，DeepSeek 的缓存命中 / 未命中在 usage 顶层。
+// 这里都收集起来，记账前用 reasoningTokens / cachedTokens 归一。
 type tokenUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+
+	CompletionTokensDetails *usageCompletionDetails `json:"completion_tokens_details"`
+	PromptTokensDetails     *usagePromptDetails     `json:"prompt_tokens_details"`
+
+	// DeepSeek：命中和未命中分开给，两者之和等于 prompt_tokens
+	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens"`
+	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens"`
+}
+
+type usageCompletionDetails struct {
+	ReasoningTokens int `json:"reasoning_tokens"`
+}
+
+type usagePromptDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
+// reasoningTokens 返回推理（思考）token 数；上游没给细项时为 0。
+func (u *tokenUsage) reasoningTokens() int {
+	if u.CompletionTokensDetails != nil && u.CompletionTokensDetails.ReasoningTokens > 0 {
+		return u.CompletionTokensDetails.ReasoningTokens
+	}
+	return 0
+}
+
+// cachedTokens 返回命中前缀缓存的 prompt token 数。OpenAI 兼容上游给
+// prompt_tokens_details.cached_tokens，DeepSeek 另给顶层 prompt_cache_hit_tokens；
+// 只给了 miss 时按 prompt_tokens - miss 推回命中数。都没给时为 0。
+func (u *tokenUsage) cachedTokens() int {
+	if u.PromptTokensDetails != nil && u.PromptTokensDetails.CachedTokens > 0 {
+		return u.PromptTokensDetails.CachedTokens
+	}
+	if u.PromptCacheHitTokens > 0 {
+		return u.PromptCacheHitTokens
+	}
+	if u.PromptCacheMissTokens > 0 && u.PromptTokens >= u.PromptCacheMissTokens {
+		return u.PromptTokens - u.PromptCacheMissTokens
+	}
+	return 0
 }
 
 // llmErrWriter 写一条模型网关错误。同一套校验/故障转移逻辑供 OpenAI 与 Anthropic
@@ -508,6 +550,7 @@ func (s *Server) recordUsage(ctx context.Context, k *Principal, p *store.Provide
 	if u.TotalTokens == 0 {
 		u.TotalTokens = u.PromptTokens + u.CompletionTokens
 	}
+	reasoning, cached := u.reasoningTokens(), u.cachedTokens()
 	err := s.store.RecordUsage(ctx, store.Usage{
 		APIKeyID:         k.LegacyID,
 		UserID:           k.User.ID,
@@ -519,7 +562,18 @@ func (s *Server) recordUsage(ctx context.Context, k *Principal, p *store.Provide
 		TotalTokens:      u.TotalTokens,
 		StatusCode:       status,
 		LatencyMS:        int(time.Since(start).Milliseconds()),
+		ReasoningTokens:  reasoning,
+		CachedTokens:     cached,
 	})
+	if err == nil {
+		// 指标只累计真正写进库的调用，和 usage_logs 的累计口径一致。
+		if reasoning > 0 {
+			s.usageReasoningTokens.Add(int64(reasoning))
+		}
+		if cached > 0 {
+			s.usageCachedTokens.Add(int64(cached))
+		}
+	}
 	if err == nil && k.LegacyID > 0 {
 		err = s.store.TouchAPIKey(ctx, k.LegacyID)
 	}

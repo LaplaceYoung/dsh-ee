@@ -160,6 +160,9 @@ type Server struct {
 	loginUsernameLimited atomic.Uint64
 	// 被拒绝的嵌入请求数（embed.deny 审计）：进程内累计，重启清零、多实例各自独立
 	embedDenied atomic.Uint64
+	// 网关记账成功后的累计细项，只给 /metrics 用（没有用户 / 模型标签，低基数）
+	usageReasoningTokens atomic.Int64
+	usageCachedTokens    atomic.Int64
 	// 可信反向代理网段；只有这些对端的 X-Forwarded-* 会被采信（见 proxy.go）
 	trustedProxies []netip.Prefix
 	upstream       *http.Client
