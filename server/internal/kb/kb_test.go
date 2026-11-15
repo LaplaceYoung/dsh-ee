@@ -197,7 +197,7 @@ func TestConvertDocx(t *testing.T) {
 		`<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/></w:numPr></w:pPr><w:r><w:t>发票要真实</w:t></w:r></w:p>` +
 		`<w:tbl><w:tr><w:tc><w:p><w:r><w:t>城市</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>标准</w:t></w:r></w:p></w:tc></w:tr>` +
 		`<w:tr><w:tc><w:p><w:r><w:t>北京</w:t></w:r></w:p></w:tc><w:tc><w:p><w:r><w:t>600|元</w:t></w:r></w:p></w:tc></w:tr></w:tbl>`
-	out, err := Convert("报销.docx", makeDocx(t, body), Options{})
+	out, err := Convert(context.Background(), "报销.docx", makeDocx(t, body), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestConvertDocx(t *testing.T) {
 	if out.Title != "报销制度" {
 		t.Fatalf("标题 = %q", out.Title)
 	}
-	if _, err := Convert("x.docx", []byte("not zip"), Options{}); err == nil {
+	if _, err := Convert(context.Background(), "x.docx", []byte("not zip"), Options{}); err == nil {
 		t.Fatal("坏文件应报错")
 	}
 }
@@ -253,7 +253,7 @@ func makePDF(lines ...string) []byte {
 }
 
 func TestConvertPDF(t *testing.T) {
-	out, err := Convert("handbook.pdf", makePDF("Travel policy", "Hotel limit is 600 per night.", "Flights need approval."), Options{})
+	out, err := Convert(context.Background(), "handbook.pdf", makePDF("Travel policy", "Hotel limit is 600 per night.", "Flights need approval."), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -264,23 +264,23 @@ func TestConvertPDF(t *testing.T) {
 	if out.Title != "handbook" {
 		t.Fatalf("标题 = %q", out.Title)
 	}
-	if _, err := Convert("scan.pdf", makePDF(), Options{}); err != ErrNoText {
+	if _, err := Convert(context.Background(), "scan.pdf", makePDF(), Options{}); err != ErrNoText {
 		t.Fatalf("没有文字的 PDF 应提示扫描件：%v", err)
 	}
-	if _, err := Convert("bad.pdf", []byte("%PDF-1.4 broken"), Options{}); err == nil {
+	if _, err := Convert(context.Background(), "bad.pdf", []byte("%PDF-1.4 broken"), Options{}); err == nil {
 		t.Fatal("坏 PDF 应报错")
 	}
 }
 
 func TestConvertText(t *testing.T) {
-	out, err := Convert("说明.md", []byte("\xef\xbb\xbf# 说明\r\n\r\n\r\n\r\n正文  \r\n"), Options{})
+	out, err := Convert(context.Background(), "说明.md", []byte("\xef\xbb\xbf# 说明\r\n\r\n\r\n\r\n正文  \r\n"), Options{})
 	if err != nil || out.Markdown != "# 说明\n\n正文\n" || out.Title != "说明" {
 		t.Fatalf("md = %+v %v", out, err)
 	}
-	if _, err := Convert("a.exe", []byte("x"), Options{}); err != ErrUnsupported {
+	if _, err := Convert(context.Background(), "a.exe", []byte("x"), Options{}); err != ErrUnsupported {
 		t.Fatalf("不支持的格式：%v", err)
 	}
-	if _, err := Convert("a.txt", []byte{0xff, 0xfe}, Options{}); err == nil {
+	if _, err := Convert(context.Background(), "a.txt", []byte{0xff, 0xfe}, Options{}); err == nil {
 		t.Fatal("非 UTF-8 应报错")
 	}
 }
