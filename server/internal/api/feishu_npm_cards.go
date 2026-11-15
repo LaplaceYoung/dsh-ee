@@ -63,6 +63,11 @@ func (s *Server) applyFeishuNpmDecision(ctx context.Context, v viewer, action *s
 	if !v.access.Has(rbac.PluginsManage) {
 		return "", nil, fmt.Errorf("%w：你没有审核 NPM 插件版本的权限", errFeishuForbidden)
 	}
+	// 数据目录不可写时 newRegistry 返回 nil：不能解引用 s.registry 去 Review。
+	// 返回可读原因，调用方会把这条飞书审批记成失败终态（FeishuActionFailed）并 toast 给点按钮的人。
+	if s.registry == nil {
+		return "", nil, errors.New("npm 源不可用：服务端数据目录未初始化或不可写，请检查服务端日志后重试")
+	}
 	name, version, err := npmCardObjectParts(action.ObjectKey)
 	if err != nil {
 		return "", nil, err

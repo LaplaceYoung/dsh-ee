@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/hikariming/dsh-ee/server/internal/api"
@@ -191,6 +192,7 @@ func TestDataHub(t *testing.T) {
 	// ---- 数据集：参数、自动参数、范围 ----
 	code, body = admin.do("POST", "/api/admin/data/datasets", ds("my-customers", "SELECT 客户 AS name, 年金额 AS arr, 续约日期 AS renew_at FROM customers WHERE 负责人 = :me_name ORDER BY renew_at", map[string]any{"title": "我负责的客户"}), nil)
 	expect(t, "建「我负责的客户」", code, 201, body)
+	myDS := decodeAs[store.DataSet](t, body)
 	if !strings.Contains(string(body), `"auto":true`) {
 		t.Fatalf("me_name 应标为自动参数：%s", body)
 	}
@@ -205,6 +207,26 @@ func TestDataHub(t *testing.T) {
 	expect(t, "周航能用的数据集", code, 200, body)
 	if !strings.Contains(string(body), "my-customers") || strings.Contains(string(body), "dept-staff") {
 		t.Fatalf("范围：%s", body)
+	}
+
+	// 数据集覆盖保存：范围与 SQL 都是整段覆盖的，PUT 必须带来 updated_at，旧快照 409
+	putDS := func(token string) (int, []byte) {
+		m := ds("my-customers", "SELECT 客户 AS name, 年金额 AS arr, 续约日期 AS renew_at FROM customers WHERE 负责人 = :me_name ORDER BY renew_at",
+			map[string]any{"title": "我负责的客户"})
+		if token != "" {
+			m["updated_at"] = token
+		}
+		return admin.do("PUT", "/api/admin/data/datasets/my-customers", m, nil)
+	}
+	code, body = putDS("")
+	expect(t, "缺 updated_at 改数据集", code, 400, body)
+	time.Sleep(2 * time.Millisecond) // updated_at 是毫秒精度，隔开两次写保证版本不同
+	code, body = putDS(myDS.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	expect(t, "更新数据集", code, 200, body)
+	code, body = putDS(myDS.UpdatedAt.UTC().Format(time.RFC3339Nano))
+	expect(t, "旧快照改数据集", code, 409, body)
+	if !strings.Contains(string(body), "数据集已被其他人修改，请刷新后重试") {
+		t.Fatalf("数据集 409 文案不对：%s", body)
 	}
 
 	// ---- DSH 里：data__dataset ----

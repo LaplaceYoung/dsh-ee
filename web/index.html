@@ -27,6 +27,22 @@
           /* localStorage 被禁用时按浅色起步 */
         }
       })();
+      // 首屏语言与标题：与 src/i18n/langs.ts 的检测规则一致（localStorage → navigator，
+      // zh*→zh-CN，其它→en），只改 DOM、不写 localStorage；路由切换后的标题交给 P2。
+      // 加新语言时这里要补「语言码 + 英文/母语标题」的映射（见 web/src/i18n/README.md）。
+      (function () {
+        try {
+          var stored = localStorage.getItem("dsh-ee:lang");
+          var nav = (navigator.languages && navigator.languages[0]) || navigator.language || "en";
+          var tag = String(stored || nav).toLowerCase();
+          var lang = tag.indexOf("zh") === 0 ? "zh-CN" : "en";
+          document.documentElement.lang = lang;
+          // 中文标题就是上面静态 <title> 里的原文；非中文先显示英文标题，避免首屏闪中文。
+          if (lang !== "zh-CN") document.title = "dsh-ee · Enterprise DSH plugin hub";
+        } catch (e) {
+          /* 读不到 localStorage / navigator 时保持静态中文标题 */
+        }
+      })();
     </script>
   </head>
   <body>

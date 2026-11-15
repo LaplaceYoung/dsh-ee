@@ -1,14 +1,50 @@
 /** 可搜索的下拉选择与日期选择，替代原生 <select> / <input type="date">。 */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CalendarIcon, Check, ChevronsUpDown, X } from "lucide-react";
 import { enUS, zhCN } from "react-day-picker/locale";
+import type { Locale } from "react-day-picker";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/shadcn/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/shadcn/command";
 import { Calendar } from "@/components/shadcn/calendar";
-import { isZh } from "@/i18n";
+import { formatDateOnly, resolveLang, type FormatLang } from "@/lib/format";
 import { cx, inputBase } from "./ui";
 import { cn } from "@/lib/utils";
+
+/**
+ * 日历 locale：en / zh-CN 在首包里（静态 import），es / pt / hi 按需动态 import，
+ * 不把另外三种语言的 date-fns locale 塞进首屏 bundle。
+ * 动态 chunk 加载失败时回退 enUS（离线部署下最多日历是英文，不影响选择行为）。
+ */
+const BASE_LOCALES: Partial<Record<FormatLang, Locale>> = { en: enUS, "zh-CN": zhCN };
+const EXTRA_LOCALE_LOADERS: Partial<Record<FormatLang, () => Promise<Locale>>> = {
+  es: () => import("react-day-picker/locale/es").then((m) => m.es),
+  pt: () => import("react-day-picker/locale/pt").then((m) => m.pt),
+  hi: () => import("react-day-picker/locale/hi").then((m) => m.hi),
+};
+
+function useCalendarLocale(): Locale {
+  const { i18n } = useTranslation();
+  const lang = resolveLang(i18n.resolvedLanguage);
+  const [loaded, setLoaded] = useState<{ lang: FormatLang; locale: Locale } | null>(null);
+  useEffect(() => {
+    const load = EXTRA_LOCALE_LOADERS[lang];
+    if (!load) return;
+    let alive = true;
+    load()
+      .then((locale) => {
+        if (alive) setLoaded({ lang, locale });
+      })
+      .catch(() => {
+        // 保持 enUS 兜底
+      });
+    return () => {
+      alive = false;
+    };
+  }, [lang]);
+  if (BASE_LOCALES[lang]) return BASE_LOCALES[lang];
+  return loaded?.lang === lang ? loaded.locale : enUS;
+}
 
 export interface ComboOption {
   value: string;
@@ -146,11 +182,12 @@ export function DatePicker({
   "aria-label"?: string;
 }) {
   const { t } = useTranslation();
+  const calendarLocale = useCalendarLocale();
   const [open, setOpen] = useState(false);
   const selected = value ? fromYmd(value) : undefined;
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const label = selected ? selected.toLocaleDateString(isZh() ? "zh-CN" : "en-US", { year: "numeric", month: "long", day: "numeric" }) : null;
+  const label = selected ? formatDateOnly(selected, undefined, { year: "numeric", month: "long", day: "numeric" }) : null;
 
   return (
     <div className="flex items-center gap-1">
@@ -169,7 +206,7 @@ export function DatePicker({
         <PopoverContent className="w-auto p-0" align="start">
           <Calendar
             mode="single"
-            locale={isZh() ? zhCN : enUS}
+            locale={calendarLocale}
             selected={selected}
             defaultMonth={selected}
             disabled={futureOnly ? { before: today } : undefined}

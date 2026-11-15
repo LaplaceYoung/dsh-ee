@@ -47,6 +47,9 @@ type statsTotals struct {
 	Tokens      int64 `json:"tokens"`
 	Users       int   `json:"users"`
 	ActiveUsers int   `json:"active_users"`
+	// 用量细项，Tokens 的子集
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+	CachedTokens    int64 `json:"cached_tokens"`
 }
 
 // GET /api/admin/stats?days=14&tz=480：管理总览与运营数据。
@@ -75,6 +78,8 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		totals.Calls += v.Calls
 		totals.CallErrors += v.CallErrors
 		totals.Tokens += v.Tokens
+		totals.ReasoningTokens += v.ReasoningTokens
+		totals.CachedTokens += v.CachedTokens
 	}
 	ut, err := s.store.UserTotals(ctx, rg.From)
 	if err != nil {

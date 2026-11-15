@@ -185,7 +185,8 @@ H3 是 DSH 客户端和 dsh-ee 之间的深接，包括：
 - 已实现（默认可直接用，或用配置打开）：
   - MCP `tools/list` 分页（默认 100/页、单页上限 500、`limit: 0` 取全量；不跟 `nextCursor` 的旧客户端只拿第一页）和写确认的结构化 `_meta`（`dsh-ee/confirmation`，旧客户端可忽略，不影响文本结果）。
   - CORS 白名单（默认关闭；设 `DSH_EE_CORS_ORIGINS` 为逗号分隔的完整 origin 才打开，只对 `/v1/*` 和 `/mcp` 生效；Bearer 令牌、不使用 credentials，允许来源精确回显、不是 `*`；`/api/*` 跨域仍不开放）。
-- 还没有的（后续版本，不要依赖）：每令牌限流头 / `Retry-After`、`client_kind` 令牌属性、SDK、跨站嵌入（一次性 code + 内存 Bearer）。
+  - 每令牌限流（`DSH_EE_RATE_LIMIT`，默认 60 次/分钟）与 `X-RateLimit-*` / `Retry-After`；计数在数据库 `shared_rate_limits` 里，多实例部署时是合计额度。
+- 还没有的（后续版本，不要依赖）：`client_kind` 令牌属性、SDK、跨站嵌入（一次性 code + 内存 Bearer）。
 
 更一般的 Harness 接入说明（令牌、模型、MCP、DSH 插件）见 [docs/dev/harness.md](./dev/harness.md)；本文只写 H1/H2/H3 的分层和边界，两篇不重复。
 

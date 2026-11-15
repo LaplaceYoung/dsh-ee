@@ -54,6 +54,8 @@ func TestMetricsContent(t *testing.T) {
 	s.loginIPLimited.Add(2)
 	s.loginUsernameLimited.Add(1)
 	s.embedDenied.Add(2)
+	s.usageReasoningTokens.Add(62)
+	s.usageCachedTokens.Add(448)
 	rec := getMetrics(t, s, "127.0.0.1:5555")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("抓取失败：%d %s", rec.Code, rec.Body.String())
@@ -72,6 +74,10 @@ func TestMetricsContent(t *testing.T) {
 		"# TYPE dsh_ee_login_failures_total counter",
 		"# TYPE dsh_ee_embed_denied_total counter",
 		"dsh_ee_embed_denied_total 2",
+		"dsh_ee_usage_reasoning_tokens_total 62",
+		"# TYPE dsh_ee_usage_reasoning_tokens_total counter",
+		"dsh_ee_usage_cached_tokens_total 448",
+		"# TYPE dsh_ee_usage_cached_tokens_total counter",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("指标里缺少 %q：\n%s", want, body)

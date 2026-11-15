@@ -177,7 +177,7 @@ export default function Build() {
           selfId={user?.id}
           labels={{ auto: t("asset.deliveryAuto"), optional: t("asset.deliveryOptional"), autoHint: t("editor.deliveryAutoHint"), optionalHint: t("editor.deliveryOptionalHint") }}
           onSave={async (scope, delivery) => {
-            const res = await api.patchAsset(sharing.id, sharing.can_manage ? { scope, delivery } : { scope });
+            const res = await api.patchAsset(sharing.id, sharing.can_manage ? { scope, delivery, updated_at: sharing.updated_at } : { scope, updated_at: sharing.updated_at });
             notify(res.pending_scope ? t("build.shareSubmitted") : t("build.shareSaved"));
             hub.reload();
           }}

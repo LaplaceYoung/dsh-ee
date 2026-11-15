@@ -1,6 +1,7 @@
 import { KeyRound } from "lucide-react";
 import { useState } from "react";
 import { useStore } from "../../lib/store";
+import { formatNumber } from "../../lib/format";
 import type { Settings } from "../../lib/types";
 import { api, formatBytes, formatTime } from "../../lib/api";
 import { useApi, useAction } from "../../lib/use-api";
@@ -85,9 +86,9 @@ export default function AdminRegistry() {
       <LoadState loading={overview.loading && !overview.data} error={overview.error} onRetry={overview.reload}>
         <StatStrip cols={4}>
           <Stat label={t("registryAdmin.hostedPackages")} value={st?.hosted_packages ?? 0} hint={scopes.join(", ")} />
-          <Stat label={t("registryAdmin.cachedPackages")} value={(st?.upstream_packages ?? 0).toLocaleString()} hint={t("registry.admin.upstreamPlugins", { count: st?.upstream_plugins ?? 0 })} />
+          <Stat label={t("registryAdmin.cachedPackages")} value={formatNumber(st?.upstream_packages ?? 0)} hint={t("registry.admin.upstreamPlugins", { count: st?.upstream_plugins ?? 0 })} />
           <Stat label={t("registryAdmin.storage")} value={formatBytes(st?.storage_bytes ?? 0)} hint={t("registry.admin.versions", { count: st?.versions ?? 0 })} />
-          <Stat label={t("registry.admin.downloads30d")} value={(st?.downloads_30d ?? 0).toLocaleString()} hint={t("registry.admin.pending", { count: st?.pending ?? 0 })} />
+          <Stat label={t("registry.admin.downloads30d")} value={formatNumber(st?.downloads_30d ?? 0)} hint={t("registry.admin.pending", { count: st?.pending ?? 0 })} />
         </StatStrip>
       </LoadState>
 

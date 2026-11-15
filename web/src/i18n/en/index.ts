@@ -32,6 +32,7 @@ import signingKeys from "./signing-keys";
 import directory from "./directory";
 import devdocs from "./devdocs";
 import embed from "./embed";
+import expertCenter from "./expert-center";
 
 export default {
   ...common,
@@ -66,4 +67,5 @@ export default {
   ...directory,
   ...devdocs,
   ...embed,
+  ...expertCenter,
 } satisfies Messages<typeof zh>;

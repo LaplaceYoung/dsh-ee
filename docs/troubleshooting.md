@@ -147,7 +147,7 @@
 | 500 `provider_misconfigured` | 上游 key 解密失败（主密钥换过/数据损坏） | 重新录入上游 key（主密钥不能随便换） |
 | DSH 里显示 `dshee_login_required` 等 | 接入插件收到 400 映射文案 | 按文案：重新 `/ee-login`、找管理员开权限/额度 |
 
-注意：`/v1/chat/completions` 是 OpenAI chat-completions 子集；Claude Code / Anthropic SDK 走 **Anthropic Messages 兼容端点** `POST /v1/messages`（用同一个企业令牌，模型名填 `/v1/models` 的对外名，见 [dev/anthropic-api.md](./dev/anthropic-api.md)）。Codex（Responses）、`/v1/embeddings`、`/v1/responses` 仍没有。
+注意：`/v1/chat/completions` 是 OpenAI chat-completions 子集；Claude Code / Anthropic SDK 走 **Anthropic Messages 兼容端点** `POST /v1/messages`（同一个企业令牌，模型名填 `/v1/models` 的对外名，见 [dev/anthropic-api.md](./dev/anthropic-api.md)）；Codex / OpenAI Agents SDK 等 Responses 客户端走 `POST /v1/responses`（v0：DeepSeek vendor 原生透传、其它 vendor 转 chat 层，见 [dev/responses-api.md](./dev/responses-api.md)）。`/v1/embeddings`、`/v1/completions` 没有。
 
 ### 4.2 `/mcp`
 
@@ -293,7 +293,7 @@
 ## 8. 独立 PR（尚未合入）与还没有实现
 
 - 备份/恢复命令、日志轮转/级别、指标/追踪、审计导出（设计，见 [operations.md](./operations.md) §12）。
-- 多实例部署的一致性、对象存储、每令牌限流（设计）。
+- 多实例部署的一致性、对象存储（设计）；每令牌限流已改为数据库共享计数（`shared_rate_limits`，多实例合计），登录限流仍在进程内存。
 - 有独立 PR、尚未合入基线（能力以对应 PR 合入为准）：`/.well-known/dsh-ee`、`/v1/capabilities`、`/v1/apps`、`Dsh-EE-API-Version`（#123）；`dsh-ee package check`/`doctor`（#122）；微应用嵌入 v0/v1（#118；跨站默认关闭，需 `DSH_EE_EMBED_CROSS_SITE` + `DSH_EE_EMBED_ORIGINS`，接入见 [embedding.md](./embedding.md)、设计与未做项见 [cross-site-embedding.md](./cross-site-embedding.md)）；浏览器内 CORS 白名单 `DSH_EE_CORS_ORIGINS`（#127）；MCP `tools/list` 分页与写确认 `_meta`（#128）。
 - #118 范围之外（未做）：管理端「嵌入」设置页、完整扩展消息（`navigate`/`navigate-request`/`open-external`/`logout`、深链 tab 同步）、`fit=auto` sticky 头处理、移动端策略、多实例共享 code/会话存储。
 - 扩展签名、版本回滚、Git 安装、作者自助发布；`extension check` 不接受 URL。
