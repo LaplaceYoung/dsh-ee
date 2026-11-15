@@ -14,6 +14,9 @@ type AppSettings struct {
 	OrgName string `json:"orgName"`
 	// 员工访问 dsh-ee 的地址；为空时前端用当前页面地址。
 	BaseURL string `json:"baseUrl"`
+	// 组织默认语言：规范短码 zh / en / es / pt / hi（默认 zh）。
+	// 用户没设置语言偏好、或飞书消息无法定位接收者时用它。
+	DefaultLanguage string `json:"defaultLanguage"`
 	// 企业主作用域，如 @acme：只能在这里发布，永不回源上游。
 	Scope string `json:"scope"`
 	// allowlist：插件要审核后才上架 / open：发布即上架，靠下架处理问题
@@ -127,9 +130,10 @@ type BrandColor struct {
 // 社区插件和内部发布的插件都要管理员放行。
 func DefaultSettings() *AppSettings {
 	s := &AppSettings{
-		Scope:         "@company",
-		AdmissionMode: "allowlist",
-		Auth:          "local",
+		Scope:           "@company",
+		AdmissionMode:   "allowlist",
+		Auth:            "local",
+		DefaultLanguage: "zh",
 	}
 	s.Scoring.Enabled = true
 	s.Scoring.ShowUpstreamScore = true

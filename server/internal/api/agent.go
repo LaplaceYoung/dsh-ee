@@ -97,6 +97,7 @@ var agentExcluded = map[string]string{
 	"GET /api/admin/demo":                       "管理员在网页上导入示例内容",
 	"POST /api/admin/demo":                      "导入示例会建账号并把应用推给全员，由管理员在网页上操作，演示账号的密码不进模型上下文",
 	"GET /api/auth/methods":                     "登录页用",
+	"PUT /api/me/preferences":                   "语言偏好是员工个人的界面设置，由本人在网页上改",
 	"GET /api/auth/oidc/start":                  "企业统一登录由人在浏览器完成",
 	"GET /api/auth/oidc/callback":               "企业统一登录由人在浏览器完成",
 	"GET /api/auth/handoff":                     "浏览器打开一次性登录链接用，链接只经接入插件交给浏览器",

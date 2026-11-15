@@ -3,11 +3,11 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/hikariming/dsh-ee/server/internal/feishu"
 	"github.com/hikariming/dsh-ee/server/internal/rbac"
 	"github.com/hikariming/dsh-ee/server/internal/registry"
 	"github.com/hikariming/dsh-ee/server/internal/store"
@@ -36,13 +36,27 @@ func (s *Server) feishuNpmPublish(r *http.Request, result *registry.PublishResul
 		return
 	}
 	ctx := context.WithoutCancel(r.Context())
-	publisher := "未知发布者"
+	publisher := ""
+	knownPublisher := false
 	if u, err := s.store.GetUser(ctx, publisherID); err == nil {
 		publisher = u.Username
+		knownPublisher = true
 	}
 	nameAndVersion := npmCardObject(result.Name, result.Version)
-	detail := "包名：" + result.Name + "\n版本：" + result.Version + "\n发布者：" + publisher + "\n访问：" + s.publicBase(r) + "/plugins/" + url.PathEscape(result.Name)
-	s.sendFeishuApproval(ctx, store.FeishuActionNpmVersion, nameAndVersion, 0, 0, ownerPtr(publisherID), nameAndVersion+" · 插件待审核", detail, s.feishuReviewers(ctx))
+	detailKey := feishu.MsgCardNpmDetail
+	if !knownPublisher {
+		detailKey = feishu.MsgCardNpmDetailUnknownPub
+	}
+	card := feishuCardCopy{
+		TitleKey:    feishu.MsgCardNpmTitle,
+		TitleParams: map[string]string{"object": nameAndVersion},
+		DetailKey:   detailKey,
+		DetailParams: map[string]string{
+			"name": result.Name, "version": result.Version, "publisher": publisher,
+			"url": s.publicBase(r) + "/plugins/" + url.PathEscape(result.Name),
+		},
+	}
+	s.sendFeishuApproval(ctx, store.FeishuActionNpmVersion, nameAndVersion, 0, 0, ownerPtr(publisherID), card, s.feishuReviewers(ctx))
 }
 
 // feishuNpmResultFromWeb 补齐网页审核后的发布者通知；卡片审核的 owner 会在 applyFeishuDecision 返回。
@@ -61,7 +75,7 @@ func (s *Server) feishuNpmResultFromWeb(ctx context.Context, name, version, deci
 // 不能拿一张很久以前发的卡片绕过被收回的权限，也不能把网页上已经审过的版本再处理一遍。
 func (s *Server) applyFeishuNpmDecision(ctx context.Context, v viewer, action *store.FeishuCardAction, decision string) (string, *int64, error) {
 	if !v.access.Has(rbac.PluginsManage) {
-		return "", nil, fmt.Errorf("%w：你没有审核 NPM 插件版本的权限", errFeishuForbidden)
+		return "", nil, feishuForbidden(feishu.MsgToastNoReviewPermNpm)
 	}
 	// 数据目录不可写时 newRegistry 返回 nil：不能解引用 s.registry 去 Review。
 	// 返回可读原因，调用方会把这条飞书审批记成失败终态（FeishuActionFailed）并 toast 给点按钮的人。
@@ -74,10 +88,10 @@ func (s *Server) applyFeishuNpmDecision(ctx context.Context, v viewer, action *s
 	}
 	pending, err := s.store.GetVersion(ctx, name, version)
 	if err != nil {
-		return "", nil, errors.New("插件版本不存在")
+		return "", nil, feishuErr(feishu.MsgToastNpmVersionMissing, nil)
 	}
 	if pending.Status != store.StatusPending {
-		return "", nil, errors.New("这个插件版本已被处理或不是待审核状态")
+		return "", nil, feishuErr(feishu.MsgToastNpmTaken, nil)
 	}
 	// registry.Review 规定驳回必须有备注。飞书本批是即时按钮，没有伪造文本框填写的原因，
 	// 所以只记录继承自既有资产卡片的来源，来源和实际操作者也单独写审计。
@@ -87,7 +101,7 @@ func (s *Server) applyFeishuNpmDecision(ctx context.Context, v viewer, action *s
 	}
 	n, err := s.registry.Review(ctx, v.user.ID, name, version, decision, note)
 	if err != nil || n != 1 {
-		return "", nil, errors.New("这个插件版本已被处理或不是待审核状态")
+		return "", nil, feishuErr(feishu.MsgToastNpmTaken, nil)
 	}
 	return npmCardObject(name, version), pending.PublisherID, nil
 }

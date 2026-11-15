@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hikariming/dsh-ee/server/internal/embed"
+	"github.com/hikariming/dsh-ee/server/internal/i18n"
 	"github.com/hikariming/dsh-ee/server/internal/rbac"
 	"github.com/hikariming/dsh-ee/server/internal/registry"
 	"github.com/hikariming/dsh-ee/server/internal/store"
@@ -188,6 +189,17 @@ func validateSettings(v *store.AppSettings) string {
 		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 			return "访问地址必须是 http(s):// 开头的完整地址"
 		}
+	}
+	// 组织默认语言统一存规范短码（zh/en/es/pt/hi）。空值按 zh 处理；非法值明确拒绝，
+	// 避免把 zh-CN 这类写法写进库、再被别的实例当成非法配置。
+	rawLang := strings.TrimSpace(v.DefaultLanguage)
+	switch {
+	case rawLang == "":
+		v.DefaultLanguage = i18n.Zh
+	case i18n.Normalize(rawLang) == "":
+		return "默认语言取值不对：" + rawLang + "（可选 zh、en、es、pt、hi）"
+	default:
+		v.DefaultLanguage = i18n.Normalize(rawLang)
 	}
 	if !registry.ValidScope(v.Scope) {
 		return "企业作用域格式不对，例如 @acme"

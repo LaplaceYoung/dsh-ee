@@ -46,7 +46,6 @@ export default {
     roles: "Roles",
     preferences: "Preferences",
     preferencesHint: "Language and theme are saved on this device only.",
-    language: "Language",
     theme: "Theme",
     changePassword: "Change password",
     currentPassword: "Current password",
@@ -59,5 +58,8 @@ export default {
     email: "Email",
     ldapManaged: "Your account is managed by the enterprise directory. Change your password in the company's account system; display name and department sync from the directory at each sign-in.",
     mismatch: "The new passwords don't match",
+    language: "Language",
+    languageHint: "Used for the web interface and messages such as Feishu notifications. Changes apply immediately and sync to your account.",
+    followOrg: "Follow organization default",
   },
 } satisfies Messages<typeof zh>;

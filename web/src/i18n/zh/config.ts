@@ -184,6 +184,8 @@ export default {
     basics: "基本信息",
     orgName: "企业名称",
     baseUrl: "访问地址",
+    defaultLanguage: "默认语言",
+    defaultLanguageHint: "员工没设置语言偏好、或飞书消息无法确定收件人时使用。网页目前支持简体中文和英文，其它语言先回退英文。",
     mainScope: "内部主作用域",
     mainScopeHint: "内部发布必须使用此作用域，且永不回源公网 npm。更多作用域与路由规则见「npm 源」。",
     scoring: "评分",

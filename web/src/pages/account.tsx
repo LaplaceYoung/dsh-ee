@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import { api } from "../lib/api";
 import { useAuth } from "../lib/auth";
@@ -9,6 +9,7 @@ import { LangSwitch } from "../components/lang-switch";
 import { ThemeToggle } from "../components/theme-toggle";
 import { useTranslation } from "react-i18next";
 import { useLabels } from "../lib/labels";
+import { LANGUAGE_OPTIONS, isLanguageCode, setUiLanguage, type LanguageCode } from "../lib/languages";
 
 export default function Account() {
   const { t } = useTranslation();
@@ -20,8 +21,48 @@ export default function Account() {
   const [newPw, setNewPw] = useState("");
   const [confirmPw, setConfirmPw] = useState("");
   const [error, setError] = useState<string | null>(null);
+  // 空 = 跟随组织默认语言；有值 = 个人的规范语言短码。
+  const [languagePref, setLanguagePref] = useState<"follow" | LanguageCode>(
+    user && isLanguageCode(user.language) ? user.language : "follow",
+  );
+  const [orgLanguage, setOrgLanguage] = useState<LanguageCode>("zh");
+  useEffect(() => {
+    let alive = true;
+    api
+      .settings()
+      .then((s) => {
+        if (alive && isLanguageCode(s.defaultLanguage)) setOrgLanguage(s.defaultLanguage);
+      })
+      .catch(() => {
+        // 组织默认语言读不到不影响个人选择：切换语言仍会尽量保存。
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    setLanguagePref(user && isLanguageCode(user.language) ? user.language : "follow");
+  }, [user?.language]);
 
   if (!user) return null;
+
+  // 界面立即切换；保存服务端是尽力而为，失败不阻塞切换（下次登录可能回到旧偏好）。
+  const changeLanguage = async (value: string) => {
+    if (value === "follow") {
+      setLanguagePref("follow");
+      setUiLanguage(orgLanguage);
+    } else if (isLanguageCode(value)) {
+      setLanguagePref(value);
+      setUiLanguage(value);
+    } else {
+      return;
+    }
+    try {
+      await api.updatePreferences({ language: value === "follow" ? "" : value });
+    } catch {
+      // 忽略：语言偏好属于界面设置，不应因为网络失败打断用户。
+    }
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -48,6 +89,23 @@ export default function Account() {
           </Button>
         }
       />
+      <Card className="mt-4 p-5">
+        <h2 className="text-neutral-900 text-[15px] leading-6 font-semibold">{t("account.language")}</h2>
+        <p className="mt-1 text-sm text-neutral-600">{t("account.languageHint")}</p>
+        <div className="mt-4">
+          <Field label={t("account.language")}>
+            <select className={inputCls} value={languagePref} onChange={(e) => void changeLanguage(e.target.value)}>
+              <option value="follow">{t("account.followOrg")}</option>
+              {LANGUAGE_OPTIONS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+      </Card>
+
       <Card className="p-5">
         <dl className="grid grid-cols-[6rem_1fr] gap-y-2 text-sm">
           <dt className="text-neutral-600">{t("account.username")}</dt>

@@ -222,3 +222,25 @@ func TestModelInputModalitiesMigration(t *testing.T) {
 		}
 	}
 }
+
+// 0037：users 表加语言偏好列。空串 = 跟随组织默认语言，老账号不用回填；
+// 迁移是可重复执行的加法 DDL（旧二进制不读这列也能继续跑）。
+func TestUserLanguageMigration(t *testing.T) {
+	body, err := migrationFS.ReadFile("migrations/0037_user_language.sql")
+	if err != nil {
+		t.Fatalf("读 0037 迁移: %v", err)
+	}
+	stmts := splitStatements(string(body))
+	if len(stmts) != 1 {
+		t.Fatalf("0037 迁移应只有一条 ALTER，实际 %d 条", len(stmts))
+	}
+	stmt := strings.Join(strings.Fields(stmts[0]), " ")
+	for _, want := range []string{
+		"ALTER TABLE users",
+		"ADD COLUMN language VARCHAR(8) NOT NULL DEFAULT ''",
+	} {
+		if !strings.Contains(stmt, want) {
+			t.Fatalf("0037 迁移缺少 %q：%s", want, stmt)
+		}
+	}
+}

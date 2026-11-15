@@ -44,7 +44,6 @@ export default {
     roles: "角色",
     preferences: "偏好设置",
     preferencesHint: "语言与主题只保存在这台设备上。",
-    language: "语言",
     theme: "主题",
     changePassword: "修改密码",
     currentPassword: "当前密码",
@@ -57,5 +56,8 @@ export default {
     sourceLdap: "企业目录（LDAP）",
     email: "邮箱",
     ldapManaged: "你的账号由企业目录管理，密码请在公司的账号系统里修改；显示名与部门会在每次登录时从目录同步。",
+    language: "语言",
+    languageHint: "用于网页界面和飞书通知等消息；切换后立即生效，并同步到你的账号。",
+    followOrg: "跟随组织默认",
   },
 };

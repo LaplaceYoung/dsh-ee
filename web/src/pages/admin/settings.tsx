@@ -11,6 +11,7 @@ import { PageLink, useMenus } from "../../lib/menus";
 import { useConfirm } from "../../lib/confirm";
 import { useAuth } from "../../lib/auth";
 import { Trans, useTranslation } from "react-i18next";
+import { LANGUAGE_OPTIONS } from "../../lib/languages";
 
 /** 设置页的一节。id 用于页内目录与全局搜索定位（lib/search-index.ts）。 */
 export function Section({ id, title, desc, children }: { id?: string; title: string; desc?: string; children: ReactNode }) {
@@ -66,6 +67,19 @@ export default function AdminSettings() {
               <input className={cx(inputCls, "font-mono")} value={s.baseUrl} onChange={(e) => set("baseUrl", e.target.value)} />
             </Field>
           </div>
+          <Field label={t("settingsAdmin.defaultLanguage")} hint={t("settingsAdmin.defaultLanguageHint")}>
+            <select
+              className={cx(inputCls, "w-56")}
+              value={s.defaultLanguage}
+              onChange={(e) => set("defaultLanguage", e.target.value as Settings["defaultLanguage"])}
+            >
+              {LANGUAGE_OPTIONS.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label}
+                </option>
+              ))}
+            </select>
+          </Field>
           <Field label={t("settingsAdmin.mainScope")} hint={t("settingsAdmin.mainScopeHint")}>
             <input className={cx(inputBase, "w-48 font-mono")} value={s.scope} onChange={(e) => set("scope", e.target.value)} />
           </Field>

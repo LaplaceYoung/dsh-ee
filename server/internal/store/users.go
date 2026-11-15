@@ -30,13 +30,16 @@ type User struct {
 	// 角色摘要，列表与 me 接口填充。
 	Roles []RoleRef `json:"roles"`
 	// local：本地密码 / ldap：由企业目录认证（本地不存密码，资料在每次登录时同步）
-	AuthSource   string     `json:"auth_source"`
-	Email        string     `json:"email"`
-	ExternalDN   string     `json:"external_dn,omitempty"`
-	LastLoginAt  *time.Time `json:"last_login_at"`
-	AccountType  string     `json:"account_type"`
-	OwnerID      *int64     `json:"owner_id"`
-	PasswordHash string     `json:"-"`
+	AuthSource  string     `json:"auth_source"`
+	Email       string     `json:"email"`
+	ExternalDN  string     `json:"external_dn,omitempty"`
+	LastLoginAt *time.Time `json:"last_login_at"`
+	AccountType string     `json:"account_type"`
+	OwnerID     *int64     `json:"owner_id"`
+	// 语言偏好：规范短码 zh / en / es / pt / hi；空表示跟随组织默认语言。
+	// 飞书通知按「用户语言 → 组织默认 → zh」渲染，见 internal/i18n.Resolve。
+	Language     string `json:"language"`
+	PasswordHash string `json:"-"`
 }
 
 const (
@@ -53,7 +56,7 @@ func userColumns(alias string) string {
 	cols := []string{
 		"id", "username", "display_name", "department", "disabled", "created_at",
 		"password_hash", "monthly_token_limit", "allowed_models", "quota_expires_at",
-		"auth_source", "email", "external_dn", "last_login_at", "account_type", "owner_id",
+		"auth_source", "email", "external_dn", "last_login_at", "account_type", "owner_id", "language",
 	}
 	if alias != "" {
 		for i := range cols {
@@ -72,7 +75,7 @@ func scanUser(row interface{ Scan(...any) error }, extra ...any) (*User, error) 
 	dest := []any{
 		&u.ID, &u.Username, &u.DisplayName, &u.Department, &u.Disabled, &u.CreatedAt,
 		&u.PasswordHash, &limit, &models, &expires,
-		&u.AuthSource, &u.Email, &dn, &lastLogin, &u.AccountType, &owner,
+		&u.AuthSource, &u.Email, &dn, &lastLogin, &u.AccountType, &owner, &u.Language,
 	}
 	err := row.Scan(append(dest, extra...)...)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -126,10 +129,10 @@ func (s *Store) CreateUser(ctx context.Context, u *User) error {
 	}
 	res, err := s.db.ExecContext(ctx,
 		`INSERT INTO users (username, display_name, department, password_hash, disabled, created_at, updated_at, monthly_token_limit,
-		                    auth_source, email, external_dn, account_type, owner_id)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		                    auth_source, email, external_dn, account_type, owner_id, language)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		u.Username, u.DisplayName, u.Department, u.PasswordHash, u.Disabled, t, t, u.MonthlyTokenLimit,
-		u.AuthSource, u.Email, nullStr(u.ExternalDN), u.AccountType, u.OwnerID)
+		u.AuthSource, u.Email, nullStr(u.ExternalDN), u.AccountType, u.OwnerID, u.Language)
 	if isDuplicate(err) {
 		return ErrDuplicate
 	}
@@ -189,6 +192,8 @@ type UserPatch struct {
 	PasswordHash *string
 	Email        *string
 	ExternalDN   *string
+	// 语言偏好，规范短码；空串表示跟随组织默认语言。
+	Language *string
 }
 
 func (s *Store) UpdateUser(ctx context.Context, id int64, p UserPatch) error {
@@ -215,6 +220,9 @@ func (s *Store) UpdateUser(ctx context.Context, id int64, p UserPatch) error {
 	}
 	if p.ExternalDN != nil {
 		add("external_dn", nullStr(*p.ExternalDN))
+	}
+	if p.Language != nil {
+		add("language", *p.Language)
 	}
 	args = append(args, id)
 	res, err := s.db.ExecContext(ctx, "UPDATE users SET "+strings.Join(sets, ", ")+" WHERE id = ?", args...)

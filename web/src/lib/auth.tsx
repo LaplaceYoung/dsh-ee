@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 import { Navigate, useLocation } from "react-router";
 import { api, ApiError, setUnauthorizedHandler, type Me } from "./api";
+import { applyLanguagePreference } from "./languages";
 import { useTranslation } from "react-i18next";
 import { isEmbedSearch } from "./embed";
 import { EmbedGate } from "../components/embed";
@@ -35,7 +36,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUnauthorizedHandler(() => setUser(null));
     api
       .me()
-      .then(setUser)
+      .then((u) => {
+        setUser(u);
+        // 账号上的语言偏好优先于浏览器语言检测；没设置过则保留浏览器检测结果。
+        applyLanguagePreference(u.language);
+      })
       .catch((e: unknown) => {
         if (!(e instanceof ApiError && e.status === 401)) setError(e instanceof Error ? e.message : String(e));
       })
@@ -47,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await api.login(username, password);
     const u = await api.me();
     setUser(u);
+    applyLanguagePreference(u.language);
     setError(null);
     setLoggedOut(false);
     return u;
@@ -69,7 +75,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const refresh = useCallback(async () => {
-    setUser(await api.me());
+    const u = await api.me();
+    setUser(u);
+    applyLanguagePreference(u.language);
   }, []);
 
   return (

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/hikariming/dsh-ee/server/internal/feishu"
+	"github.com/hikariming/dsh-ee/server/internal/i18n"
 	"github.com/hikariming/dsh-ee/server/internal/oidc"
 	"github.com/hikariming/dsh-ee/server/internal/rbac"
 	"github.com/hikariming/dsh-ee/server/internal/secret"
@@ -43,31 +44,35 @@ func (s *Server) feishuNotificationClient(ctx context.Context) (*feishu.Client, 
 
 func feishuOpenID(u *store.User) string { return strings.TrimPrefix(u.ExternalDN, "feishu:") }
 
-// feishuNotifyText 异步发结果；消息失败只写日志，不改变已经落库的审批/申请结果。
-func (s *Server) feishuNotifyText(userID int64, markdown string) {
-	client, cfg, err := s.feishuNotificationClient(context.WithoutCancel(context.Background()))
+// feishuNotifyText 异步给一名接收者发消息；消息失败只写日志，不改变已经落库的审批/申请结果。
+// 文案按「接收者用户语言 → 组织默认语言 → zh」渲染（见 userLanguage）。
+func (s *Server) feishuNotifyText(userID int64, key string, params map[string]string) {
+	ctx := context.WithoutCancel(context.Background())
+	client, _, err := s.feishuNotificationClient(ctx)
 	if err != nil || client == nil {
 		return
 	}
-	u, err := s.store.GetUser(context.WithoutCancel(context.Background()), userID)
+	u, err := s.store.GetUser(ctx, userID)
 	if err != nil || u.ExternalDN == "" || u.AccountType != store.AccountHuman || u.Disabled {
 		return
 	}
-	_ = cfg
-	if _, err := client.SendText(context.WithoutCancel(context.Background()), feishuOpenID(u), markdown); err != nil {
+	if _, err := client.SendText(ctx, feishuOpenID(u), feishu.Text(s.userLanguage(ctx, u), key, params)); err != nil {
 		s.log.Warn("发送飞书结果通知失败", "user_id", userID, "err", err)
 	}
 }
 
+// notifyFeishuResult 把审批结果发给申请人/作者，语言取接收者自己的偏好。
 func (s *Server) notifyFeishuResult(ownerID *int64, title, action string) {
 	if ownerID == nil || *ownerID <= 0 {
 		return
 	}
-	text := map[string]string{"approve": "已通过", "reject": "已驳回"}[action]
-	if text == "" {
-		text = action
+	key := map[string]string{"approve": feishu.MsgResultApproved, "reject": feishu.MsgResultRejected}[action]
+	params := map[string]string{"title": title}
+	if key == "" {
+		key = feishu.MsgResultOther
+		params["status"] = action
 	}
-	s.feishuNotifyText(*ownerID, "审批结果："+title+" · "+text)
+	s.feishuNotifyText(*ownerID, key, params)
 }
 
 // feishuNotifyKBGaps 在组织同步节奏上通知真正待补的检索词。通知位置与 g.LastAt 绑定，重启后不重复轰炸维护者。
@@ -107,8 +112,11 @@ func (s *Server) feishuNotifyKBGaps(ctx context.Context) {
 				if !maintains || u.Disabled || u.ExternalDN == "" {
 					continue
 				}
-				text := "知识库「" + b.Title + "」有待补文档：员工检索「" + g.Query + "」没有找到答案（" + strconv.Itoa(g.Count) + " 次）。请到 /knowledge/" + strconv.FormatInt(b.ID, 10) + " 处理。"
-				if _, err := client.SendText(ctx, feishuOpenID(u), text); err != nil {
+				params := map[string]string{
+					"title": b.Title, "query": g.Query, "count": strconv.Itoa(g.Count),
+					"id": strconv.FormatInt(b.ID, 10),
+				}
+				if _, err := client.SendText(ctx, feishuOpenID(u), feishu.Text(s.userLanguage(ctx, u), feishu.MsgKBGap, params)); err != nil {
 					s.log.Warn("发送飞书待补文档提醒失败", "kb", b.Slug, "err", err)
 					continue
 				}
@@ -151,7 +159,16 @@ func feishuButton(label, kind, decision, actionID string) map[string]any {
 	}
 }
 
-func (s *Server) sendFeishuApproval(ctx context.Context, kind, objectKey string, assetID, subID int64, ownerID *int64, title, detail string, operators []int64) {
+// feishuCardCopy 是一张审批卡的文案键与参数：标题和正文里混着对象数据（技能标题、版本号、网页路径），
+// 所以要等确定了收件人语言再替换参数。卡片 JSON 结构不变，只换文本值。
+type feishuCardCopy struct {
+	TitleKey     string
+	TitleParams  map[string]string
+	DetailKey    string
+	DetailParams map[string]string
+}
+
+func (s *Server) sendFeishuApproval(ctx context.Context, kind, objectKey string, assetID, subID int64, ownerID *int64, copy feishuCardCopy, operators []int64) {
 	client, _, err := s.feishuNotificationClient(ctx)
 	if err != nil || client == nil {
 		return
@@ -167,18 +184,20 @@ func (s *Server) sendFeishuApproval(ctx context.Context, kind, objectKey string,
 		if operator <= 0 {
 			continue
 		}
-		actionID := secret.Token()
-		doc := feishuCardDocument(title, detail)
-		actions := doc["body"].(map[string]any)["components"].([]any)
-		actions[1] = map[string]any{"tag": "action", "actions": []any{
-			feishuButton("通过", kind, "approve", actionID),
-			feishuButton("驳回", kind, "reject", actionID),
-		}}
-		doc["body"].(map[string]any)["components"] = actions
 		u, err := s.store.GetUser(ctx, operator)
 		if err != nil || u.ExternalDN == "" || u.Disabled {
 			continue
 		}
+		// 每张卡片按收件人自己的语言渲染：审批人设了语言就用它的，否则跟组织默认。
+		lang := s.userLanguage(ctx, u)
+		actionID := secret.Token()
+		doc := feishuCardDocument(feishu.Text(lang, copy.TitleKey, copy.TitleParams), feishu.Text(lang, copy.DetailKey, copy.DetailParams))
+		actions := doc["body"].(map[string]any)["components"].([]any)
+		actions[1] = map[string]any{"tag": "action", "actions": []any{
+			feishuButton(feishu.Text(lang, feishu.MsgCardButtonApprove, nil), kind, "approve", actionID),
+			feishuButton(feishu.Text(lang, feishu.MsgCardButtonReject, nil), kind, "reject", actionID),
+		}}
+		doc["body"].(map[string]any)["components"] = actions
 		messageID, err := client.SendInteractive(ctx, feishuOpenID(u), doc)
 		if err != nil {
 			s.log.Warn("发送飞书审批卡失败", "kind", kind, "object", objectKey, "err", err)
@@ -213,17 +232,29 @@ func (s *Server) feishuReviewAsset(a *store.Asset, version int) {
 	if a.Kind != store.KindSkill && a.Kind != store.KindPrompt && a.Kind != store.KindApp {
 		return // 本批先覆盖资产与范围；npm 插件审核留到下一批。
 	}
-	title := a.Title + " · 待审核"
-	detail := "类型：" + a.Kind + "\n版本：v" + strconv.Itoa(version) + "\n请核对改动后决定。网页：" + "/assets/" + strconv.FormatInt(a.ID, 10)
-	s.sendFeishuApproval(context.WithoutCancel(context.Background()), store.FeishuActionHubVersion, strconv.FormatInt(a.ID, 10)+":"+strconv.Itoa(version), a.ID, int64(version), a.OwnerID, title, detail, s.feishuReviewers(context.WithoutCancel(context.Background())))
+	copy := feishuCardCopy{
+		TitleKey:    feishu.MsgCardHubTitle,
+		TitleParams: map[string]string{"title": a.Title},
+		DetailKey:   feishu.MsgCardHubDetail,
+		DetailParams: map[string]string{
+			"kind": a.Kind, "version": strconv.Itoa(version),
+			"path": "/assets/" + strconv.FormatInt(a.ID, 10),
+		},
+	}
+	s.sendFeishuApproval(context.WithoutCancel(context.Background()), store.FeishuActionHubVersion, strconv.FormatInt(a.ID, 10)+":"+strconv.Itoa(version), a.ID, int64(version), a.OwnerID, copy, s.feishuReviewers(context.WithoutCancel(context.Background())))
 }
 
 func (s *Server) feishuReviewScope(a *store.Asset) {
 	if a.PendingScope == nil {
 		return
 	}
-	detail := "申请扩大「" + a.Title + "」的可用范围。网页：" + "/assets/" + strconv.FormatInt(a.ID, 10)
-	s.sendFeishuApproval(context.WithoutCancel(context.Background()), store.FeishuActionScope, strconv.FormatInt(a.ID, 10)+":scope", a.ID, 0, a.OwnerID, a.Title+" · 范围分享申请", detail, s.feishuReviewers(context.WithoutCancel(context.Background())))
+	copy := feishuCardCopy{
+		TitleKey:     feishu.MsgCardScopeTitle,
+		TitleParams:  map[string]string{"title": a.Title},
+		DetailKey:    feishu.MsgCardScopeDetail,
+		DetailParams: map[string]string{"title": a.Title, "path": "/assets/" + strconv.FormatInt(a.ID, 10)},
+	}
+	s.sendFeishuApproval(context.WithoutCancel(context.Background()), store.FeishuActionScope, strconv.FormatInt(a.ID, 10)+":scope", a.ID, 0, a.OwnerID, copy, s.feishuReviewers(context.WithoutCancel(context.Background())))
 }
 
 func (s *Server) feishuAccessRequest(ctx context.Context, q *store.AccessRequest) {
@@ -246,8 +277,15 @@ func (s *Server) feishuAccessRequest(ctx context.Context, q *store.AccessRequest
 	for _, r := range reviewers {
 		ids = append(ids, r)
 	}
-	detail := "申请人：" + q.Username + "\n用途：" + q.Reason + "\n请确认是否开放「" + q.Title + "」的必要权限。"
-	s.sendFeishuApproval(ctx, store.FeishuActionAccess, strconv.FormatInt(q.ID, 10), q.AssetID, q.ID, ownerPtr(q.UserID), q.Title+" · 权限申请", detail, ids)
+	copy := feishuCardCopy{
+		TitleKey:    feishu.MsgCardAccessTitle,
+		TitleParams: map[string]string{"title": q.Title},
+		DetailKey:   feishu.MsgCardAccessDetail,
+		DetailParams: map[string]string{
+			"applicant": q.Username, "reason": q.Reason, "title": q.Title,
+		},
+	}
+	s.sendFeishuApproval(ctx, store.FeishuActionAccess, strconv.FormatInt(q.ID, 10), q.AssetID, q.ID, ownerPtr(q.UserID), copy, ids)
 }
 
 func ownerPtr(id int64) *int64 { return &id }
@@ -339,10 +377,10 @@ func feishuEventAction(raw json.RawMessage) (actionID, decision string, err erro
 func (s *Server) feishuOperator(ctx context.Context, event feishuCardEvent) (viewer, error) {
 	u, err := s.store.GetUserByExternalDN(ctx, store.AuthOIDC, feishu.ExternalSubject(event.OperatorID))
 	if err != nil {
-		return viewer{}, errors.New("飞书回调操作人未在 dsh-ee 开通账号")
+		return viewer{}, feishuErr(feishu.MsgToastOperatorNotProvisioned, nil)
 	}
 	if u.Disabled || u.AccountType != store.AccountHuman {
-		return viewer{}, errors.New("飞书回调操作人已被禁用")
+		return viewer{}, feishuErr(feishu.MsgToastOperatorDisabled, nil)
 	}
 	access, err := s.store.UserAccess(ctx, u.ID)
 	if err != nil {
@@ -354,6 +392,46 @@ func (s *Server) feishuOperator(ctx context.Context, event feishuCardEvent) (vie
 // errFeishuForbidden：点按钮的人没有这条审批的权限。卡片留给有权限的人，不作废。
 var errFeishuForbidden = errors.New("没有权限")
 
+// feishuMessageError 是带五语消息键的错误：Error() 给日志渲染中文，
+// 回给点按钮的人的 toast 按操作者语言渲染（见 feishuErrorText）。
+type feishuMessageError struct {
+	key    string
+	params map[string]string
+	// forbidden：这个人没权限，卡片要留着给有权限的人，不能作废。
+	forbidden bool
+}
+
+func (e *feishuMessageError) Error() string {
+	return feishu.Text(i18n.Zh, e.key, e.params)
+}
+
+func (e *feishuMessageError) Unwrap() error {
+	if e.forbidden {
+		return errFeishuForbidden
+	}
+	return nil
+}
+
+// feishuErr 构造一条按语言渲染的用户可见错误。
+func feishuErr(key string, params map[string]string) error {
+	return &feishuMessageError{key: key, params: params}
+}
+
+// feishuForbidden 构造一条「没权限」错误；errors.Is(err, errFeishuForbidden) 仍然成立。
+func feishuForbidden(key string) error {
+	return &feishuMessageError{key: key, forbidden: true}
+}
+
+// feishuErrorText 把错误按语言渲染成 toast 文本；不是五语错误的（数据库、第三方错误）
+// 原样返回，保持和原来一样能把原因带给操作人。
+func feishuErrorText(lang string, err error) string {
+	var msg *feishuMessageError
+	if errors.As(err, &msg) {
+		return feishu.Text(lang, msg.key, msg.params)
+	}
+	return err.Error()
+}
+
 func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *store.FeishuCardAction, decision string) (string, *int64, error) {
 	var owner *int64
 	switch action.Kind {
@@ -363,7 +441,7 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 			return "", owner, err
 		}
 		if !v.manages(a.Kind) {
-			return "", owner, fmt.Errorf("%w：你没有审核这个版本的权限", errFeishuForbidden)
+			return "", owner, feishuForbidden(feishu.MsgToastNoReviewPermAsset)
 		}
 		to := store.StatusRejected
 		if decision == "approve" {
@@ -371,7 +449,7 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 		}
 		ok, err := s.store.SetAssetVersionStatus(ctx, a.ID, int(action.SubID), []string{store.StatusPending}, to, v.user.ID, "from_feishu")
 		if err != nil || !ok {
-			return "", owner, errors.New("这个版本已被其他人处理或不是待审核状态")
+			return "", owner, feishuErr(feishu.MsgToastVersionTaken, nil)
 		}
 		return a.Title, a.OwnerID, nil
 	case store.FeishuActionScope:
@@ -380,11 +458,11 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 			return "", owner, err
 		}
 		if !v.manages(a.Kind) {
-			return "", owner, fmt.Errorf("%w：你没有处理范围分享的权限", errFeishuForbidden)
+			return "", owner, feishuForbidden(feishu.MsgToastNoScopePerm)
 		}
 		ok, err := s.store.ResolveAssetScope(ctx, a.ID, decision == "approve", "from_feishu")
 		if err != nil || !ok {
-			return "", owner, errors.New("范围分享已被其他人处理")
+			return "", owner, feishuErr(feishu.MsgToastScopeTaken, nil)
 		}
 		return a.Title, a.OwnerID, nil
 	case store.FeishuActionNpmVersion:
@@ -392,14 +470,14 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 	case store.FeishuActionAccess:
 		q, err := s.store.GetPendingAccessRequest(ctx, action.SubID)
 		if err != nil {
-			return "", owner, errors.New("这条申请已被其他人处理")
+			return "", owner, feishuErr(feishu.MsgToastRequestTaken, nil)
 		}
 		allowed, err := s.canApprove(ctx, v, q)
 		if err != nil {
 			return "", owner, err
 		}
 		if !allowed {
-			return "", owner, fmt.Errorf("%w：你不是这条申请的审批人", errFeishuForbidden)
+			return "", owner, feishuForbidden(feishu.MsgToastNotApprover)
 		}
 		// 和网页审批同一条规则：先用 CAS 把 pending 改成终态抢占，抢到了才去授权。
 		// 每个审批人各有一张卡片，所以「飞书 reject + 网页 approve」同时到是真实场景，不能先授权后改状态。
@@ -424,7 +502,7 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 		}
 		return q.Title, ownerPtr(q.UserID), nil
 	default:
-		return "", owner, errors.New("未知的审批动作")
+		return "", owner, feishuErr(feishu.MsgToastUnknownAction, nil)
 	}
 }
 
@@ -541,11 +619,13 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "这不是 dsh-ee 发出的审批按钮")
 		return
 	}
-	// 从这里开始请求确实来自飞书：办不成的原因回给点按钮的人
+	// 从这里开始请求确实来自飞书：办不成的原因回给点按钮的人。
+	// 还没定位到操作人时（卡片失效/对不上）按组织默认语言回 toast；定位到之后用操作者自己的语言。
+	orgLang := s.orgLanguage(r.Context())
 	hash := secret.Hash(actionID)
 	action, err := s.store.FeishuCardAction(r.Context(), hash)
 	if notFound(err) {
-		feishuToast(w, "error", "这张卡片已经失效，请到 dsh-ee 网页上处理")
+		feishuToast(w, "error", feishu.Text(orgLang, feishu.MsgToastCardInvalid, nil))
 		return
 	}
 	if err != nil {
@@ -553,24 +633,26 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if action.MessageID != event.MessageID {
-		feishuToast(w, "error", "卡片和审批对不上，请到 dsh-ee 网页上处理")
+		feishuToast(w, "error", feishu.Text(orgLang, feishu.MsgToastCardMismatch, nil))
 		return
 	}
 	if action.Status != store.FeishuActionPending {
-		feishuToast(w, "info", "这条审批已经处理过了")
+		feishuToast(w, "info", feishu.Text(orgLang, feishu.MsgToastAlreadyHandled, nil))
 		return
 	}
 	if time.Now().After(action.ExpiresAt) {
-		feishuToast(w, "error", "这张卡片已经过期，请到 dsh-ee 网页上处理")
+		feishuToast(w, "error", feishu.Text(orgLang, feishu.MsgToastCardExpired, nil))
 		return
 	}
 	operator, err := s.feishuOperator(r.Context(), event)
 	if err != nil {
-		feishuToast(w, "error", err.Error())
+		feishuToast(w, "error", feishuErrorText(orgLang, err))
 		return
 	}
+	// 到这个人的语言已经能确定了：后面的 toast 都用它。
+	lang := s.userLanguage(r.Context(), operator.user)
 	if err := s.store.BeginFeishuCardAction(r.Context(), hash, event.EventID); err != nil {
-		feishuToast(w, "info", "这条审批已经处理过了")
+		feishuToast(w, "info", feishu.Text(lang, feishu.MsgToastAlreadyHandled, nil))
 		return
 	}
 	title, ownerID, err := s.applyFeishuDecision(r.Context(), operator, action, decision)
@@ -580,7 +662,7 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 		if rerr := s.store.ReleaseFeishuCardAction(r.Context(), hash); rerr != nil {
 			s.log.Warn("记录飞书卡片动作状态失败", "kind", action.Kind, "object", action.ObjectKey, "status", store.FeishuActionPending, "err", rerr)
 		}
-		feishuToast(w, "error", err.Error())
+		feishuToast(w, "error", feishuErrorText(lang, err))
 		return
 	}
 	if err != nil {
@@ -589,7 +671,7 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 			s.log.Warn("记录飞书卡片动作状态失败", "kind", action.Kind, "object", action.ObjectKey, "status", store.FeishuActionFailed, "err", ferr)
 		}
 		s.log.Warn("飞书审批失败", "kind", action.Kind, "err", err)
-		feishuToast(w, "error", err.Error())
+		feishuToast(w, "error", feishuErrorText(lang, err))
 		return
 	}
 	if err := s.store.FinishFeishuCardAction(r.Context(), hash, store.FeishuActionDone, decision); err != nil {
@@ -602,5 +684,9 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 		s.auditAs(r, operator.user, "review."+decision, title, map[string]any{"via": "feishu"})
 	}
 	s.notifyFeishuResult(ownerID, title, decision)
-	feishuToast(w, "success", map[string]string{"approve": "已通过", "reject": "已驳回"}[decision]+"："+title)
+	success := feishu.MsgToastDecisionRejected
+	if decision == "approve" {
+		success = feishu.MsgToastDecisionApproved
+	}
+	feishuToast(w, "success", feishu.Text(lang, success, map[string]string{"title": title}))
 }

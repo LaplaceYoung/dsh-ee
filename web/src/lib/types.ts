@@ -81,6 +81,8 @@ export interface DshClient {
 export interface Settings {
   orgName: string;
   baseUrl: string;
+  /** 组织默认语言（规范短码 zh/en/es/pt/hi）；员工没设置语言偏好时用它。 */
+  defaultLanguage: "zh" | "en" | "es" | "pt" | "hi";
   scope: string;
   admissionMode: "allowlist" | "open";
   scoring: {

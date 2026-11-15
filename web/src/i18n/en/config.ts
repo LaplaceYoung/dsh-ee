@@ -186,6 +186,8 @@ export default {
     basics: "Basics",
     orgName: "Organization name",
     baseUrl: "Base URL",
+    defaultLanguage: "Default language",
+    defaultLanguageHint: "Used when an employee has no language preference, or when a Feishu message has no identifiable recipient. The web UI supports Simplified Chinese and English for now; other languages fall back to English.",
     mainScope: "Main internal scope",
     mainScopeHint: "Internal publishes must use this scope, which never resolves from the public npm registry. More scopes and routing rules are under npm registry.",
     scoring: "Scores",

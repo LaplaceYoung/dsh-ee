@@ -81,7 +81,7 @@ export default async function (t) {
   // 撤销过的公钥不能重新加回来（服务端拒绝，页面显示错误）
   await page.getByTestId("signing-key-pem").fill(pem);
   await page.getByTestId("signing-key-add").click();
-  await page.getByText(/撤销过的公钥不能重新加/).waitFor();
+  await page.getByText(/撤销过的公钥不能重新加/).first().waitFor();
   assertEq((await api(page, "GET", "/api/admin/signing-keys")).data.count, 1, "不能重新加回来");
   step("撤销过的公钥不能重新加回来");
   await shot(page, "signing-keys");

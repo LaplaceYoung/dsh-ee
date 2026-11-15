@@ -127,6 +127,8 @@ func (s *Server) routes() []route {
 		pub("POST /api/auth/logout", s.handleLogout),
 		usr("GET /api/auth/me", s.handleMe),
 		usr("POST /api/auth/password", s.handleChangePassword),
+		// 个人界面偏好（语言）：员工本人在网页上切换，见 preferences.go
+		usr("PUT /api/me/preferences", s.handlePutMyPreferences),
 		pub("POST /api/device/code", s.handleDeviceCode),
 		pub("POST /api/device/token", s.handleDeviceToken),
 		usr("GET /api/device/{user_code}", s.handleDeviceInfo),

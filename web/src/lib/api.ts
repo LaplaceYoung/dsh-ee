@@ -32,6 +32,8 @@ export interface User {
   email: string;
   external_dn?: string;
   last_login_at: string | null;
+  /** 语言偏好（规范短码 zh/en/es/pt/hi）；空串表示跟随组织默认语言。 */
+  language: string;
 }
 
 /** 当前登录用户：带有效权限。前端据此决定显示什么，后端每个接口仍会自行校验。 */
@@ -1834,6 +1836,8 @@ export const api = {
     request<User>("POST", "/api/auth/login", { username, password }, { silent401: true }),
   logout: () => request<void>("POST", "/api/auth/logout"),
   me: () => request<Me>("GET", "/api/auth/me", undefined, { silent401: true }),
+  /** 保存个人界面偏好（目前只有语言）；language 空串表示跟随组织默认。 */
+  updatePreferences: (input: { language: string }) => request<{ language: string }>("PUT", "/api/me/preferences", input),
   myMenus: () => request<{ menus: Menu[] }>("GET", "/api/me/menus").then((r) => r.menus),
   changePassword: (old_password: string, new_password: string) =>
     request<void>("POST", "/api/auth/password", { old_password, new_password }),
