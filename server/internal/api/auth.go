@@ -306,7 +306,8 @@ type meResponse struct {
 	// Limited：从 DSH 直接打开的网页会话，只带员工权限；Reauth：账号本身有管理权限，输入密码登录后可用
 	Limited bool `json:"limited,omitempty"`
 	Reauth  bool `json:"reauth,omitempty"`
-	// Embed 非空表示这次请求用的是跨站嵌入的 ee_emb_ 会话（只能看被嵌入的那个应用）
+	// Embed 非空表示这次请求用的是跨站嵌入的 ee_emb_ 会话（只能访问 mint 时绑定的那个应用：
+	// 路径里的 {slug} 必须与之一致，见 requireEmbedUser）
 	Embed *meEmbed `json:"embed,omitempty"`
 }
 

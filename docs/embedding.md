@@ -138,7 +138,7 @@ DSH_EE_EMBED_ORIGINS='https://harness.acme.internal,http://localhost:5173'
 | `load_failed` | 网络不可达、5xx 等 | true | 显示重试；页面内也有「重试」按钮 |
 | `embed_code_invalid` / `embed_code_expired` | 跨站握手的 code 无效/过期/已用 | 过期可重试一次 | 重新 mint 后发新的 connect；仍失败则顶层打开 |
 | `embed_disabled` / `origin_not_allowed` | 服务端没开跨站嵌入，或宿主来源不在白名单 | false | 检查 `DSH_EE_EMBED_CROSS_SITE` / `DSH_EE_EMBED_ORIGINS`（mint 阶段返回，通常先于 iframe） |
-| `embed_scope` | 嵌入会话访问了白名单外的接口 | false | 宿主/前端问题；嵌入会话只能看被嵌入应用的数据 |
+| `embed_scope` | 嵌入会话访问了白名单外的接口，或访问的不是 mint 时绑定的应用 | false | 宿主/前端问题；嵌入会话只能访问被嵌入的那个应用 |
 | `app_not_allowed` | 应用不在管理端配置的嵌入白名单里 | false | 管理员在系统设置里加白名单 |
 | `not_embed_session` | 对非嵌入会话调用 `/api/auth/embed/logout` | false | 只在 iframe 内调用 |
 
@@ -279,7 +279,7 @@ SPA ◄──⑧ {token:"ee_emb_…", limited:true, expires_in}（不 Set-Cookie
 
 - code 60 秒、一次性，只存 sha256 在数据库 `embed_codes` 表（明文只在 mint 响应里出现一次）；一次性由 `UPDATE … SET consumed_at=now() WHERE consumed_at IS NULL AND expires_at>now()` 的 affected rows 保证，**跨实例只有一个 exchange 能成功**。
 - `ee_emb_` 会话默认 2 小时（`DSH_EE_EMBED_SESSION_TTL`，1m–8h），不提供 refresh；过期/被吊销后 iframe 发 `dsh-ee:auth-required {reason:"expired"}`，宿主重新 mint 一次。每个用户同时有效的嵌入会话默认**最多 5 个**，超过时撤销最旧的；logout 用 `revoked_at` 软删除，所有实例立刻看到 401。
-- 嵌入会话 = **limited 会话**（员工权限、无 `keys.self`、无管理权限），并且只能访问路由白名单：`GET /api/auth/me`、`GET /api/auth/methods`、`GET /api/settings`、`GET /api/me/menus`、`GET /api/me/apps/{slug}/web`、`POST /api/me/apps/{slug}/source`、`/api/apps/{slug}/data…`（表读写/导出）、`POST /api/auth/embed/logout`；其余接口 403 `{"code":"embed_scope"}`。
+- 嵌入会话 = **limited 会话**（员工权限、无 `keys.self`、无管理权限），并且只能访问路由白名单：`GET /api/auth/me`、`GET /api/auth/methods`、`GET /api/settings`、`GET /api/me/menus`、`GET /api/me/apps/{slug}/web`、`POST /api/me/apps/{slug}/source`、`/api/apps/{slug}/data…`（表读写/导出）、`POST /api/auth/embed/logout`；带 `{slug}` 的接口还要求 `slug` 等于 mint 时绑定的应用，其余接口 403 `{"code":"embed_scope"}`。
 - 审计：mint 记 `embed.session_create`；exchange 成功记 `auth.login`（`via=embed`，含 app/host_origin、limited）；logout 记 `embed.revoke`；拒绝记 `embed.deny`。不记 code/令牌明文。
 - 改密码、禁用账号、解绑身份会同时删除该用户的网页会话与嵌入会话。
 
