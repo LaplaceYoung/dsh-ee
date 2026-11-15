@@ -1,6 +1,14 @@
 // 开发文档 / 开发样例（PR-B）：固定路由 /docs、/examples，工作台「开发」双卡，侧栏「开发」组。
 // 页面内容全部是前端静态数据，不需要额外接口；这里同时验证表格、标题锚点、移动端单列与中英切换。
+import { readFileSync } from "node:fs";
+
 import { ADMIN_PW, BASE, assert, assertEq, login, newPage, shot, step } from "../lib.mjs";
+
+// 站内文档数量以发布白名单为准（docs/dev 新增一篇只改 manifest，e2e 不用再改死数字）。
+const DOCS_MANIFEST = JSON.parse(
+  readFileSync(new URL("../../scripts/docs/manifest.json", import.meta.url), "utf8"),
+);
+const DOC_COUNT = DOCS_MANIFEST.docs.length;
 
 export default async function (t) {
   const page = await newPage(t);
@@ -43,9 +51,14 @@ export default async function (t) {
 
   // /llms.txt 的正文断言（状态码/正文在上面已经取过）
   assert(llmsText.startsWith("# dsh-ee 开发文档"), "llms.txt 应以 H1 标题开头");
-  for (const needle of ["/docs/overview", "/docs/harness-quickstart", "/docs/chatbot", "/v1/messages", "/anthropic/v1/messages", "/.well-known/dsh-ee", "/v1/models", "/mcp", "docs/errors.md", "docs/extension-protocol.md"]) {
+  for (const needle of ["/docs/overview", "/docs/harness-quickstart", "/docs/chatbot", "/docs/deepseek-tools", "/v1/messages", "/anthropic/v1/messages", "/.well-known/dsh-ee", "/v1/models", "/mcp", "docs/errors.md", "docs/extension-protocol.md"]) {
     assert(llmsText.includes(needle), `/llms.txt 缺少「${needle}」`);
   }
+  for (const doc of DOCS_MANIFEST.docs) {
+    const slug = doc.replace(/^dev\//, "").replace(/\.md$/, "");
+    assert(llmsText.includes(`/docs/${slug}`), `/llms.txt 缺少发布白名单里的 /docs/${slug}`);
+  }
+  assert((llmsText.match(/\/docs\/[a-z-]+\)/g) || []).length >= DOC_COUNT, "llms.txt 应列出全部站内文档");
   step("/llms.txt 可匿名读取，含文档清单与发现/模型/MCP/错误码入口");
 
   await page.locator('a[data-dev-doc="overview"]').click();
@@ -72,6 +85,14 @@ export default async function (t) {
   await shot(page, "devhub-doc-detail");
   step("/docs 列表可分类筛选，详情页支持表格与 /docs/:slug#标题锚点 深链");
 
+  // DeepSeek 工具代理文档：新增站内页要有正文（配置、端点、计费边界），且 llms.txt 已收录
+  await page.goto(`${BASE}/docs/deepseek-tools`);
+  await page.getByRole("heading", { level: 1, name: /DeepSeek 工具代理/ }).waitFor();
+  const toolsText = await page.locator('[data-dev-page="docs"]').innerText();
+  for (const needle of ["DSH_EE_DEEPSEEK_PROVIDER", "DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", "deepseek_provider_unavailable", "deepseek_tools_forbidden", "file_access_denied", "/v1/files", "/v1/tools/asr", "/v1/tools/tts", "/v1/tools/search", "/v1/tools/fetch", "/v1/tools/ocr", "anthropic-beta", "files.upload", "file_id", "token 统计"]) {
+    assert(toolsText.includes(needle), `DeepSeek 工具代理文档缺少「${needle}」`);
+  }
+  step("/docs/deepseek-tools 渲染成功：上游选择、文件/语音/搜索抓取/OCR/Anthropic Files 端点与 token 计费边界可读");
   // Chatbot 文档：新增站内页要有正文（配置、服务端工具与能力声明字段），且 llms.txt 已收录
   await page.goto(`${BASE}/docs/chatbot`);
   await page.getByRole("heading", { level: 1, name: "Chatbot 网关选项与透传" }).waitFor();

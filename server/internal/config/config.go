@@ -43,11 +43,6 @@ type Config struct {
 	// true 时它们只保留原始用途的 scope：npm 令牌只剩 registry，key 只剩模型网关；
 	// 默认 false 不改变旧行为，避免现有客户端突然失效。
 	RestrictLegacyTokenScopes bool
-	// DeepSeek 工具代理的访问边界（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）：默认 false 时
-	// 普通员工不能在对话里引用已上传文件的 file_id（Responses 原生透传同样拦截），
-	// 只有管理员与机器人/服务账号放行；开启后放开普通员工。与 #160（DeepSeek 工具代理）
-	// 使用同一环境变量与语义，待其合入后统一实现。
-	DeepSeekToolsAllowEmployee bool
 	// 刷新令牌（OAuth 风格，docs/token-lifecycle.md §3）。默认关闭：关闭时
 	// POST /api/auth/refresh 返回 404，设备/手工签发的响应也不带 refresh_token。
 	RefreshTokens bool
@@ -60,6 +55,15 @@ type Config struct {
 	// 轮换宽限（DSH_EE_REFRESH_GRACE）：>0 时旧 refresh 在轮换后这段时间内重试会原样
 	// 返回上次响应（客户端没收到响应时的幂等重试）；0 表示严格，再次出现即按复用吊销整族。
 	RefreshGrace time.Duration
+	// DeepSeek 工具代理（docs/dev/deepseek-tools.md）：Files / ASR / TTS 转发到哪个模型上游。
+	// 取值是「模型接入」里 provider 的 name 或数字 id；为空时用第一个启用且 vendor=deepseek
+	// 的上游。只影响这些工具端点，不参与模型网关的故障切换。
+	DeepSeekProvider string
+	// DeepSeek 工具代理的访问边界（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）：默认 false 时
+	// /v1/files、/anthropic/v1/files 与 /v1/tools/* 只允许管理员与机器人/服务账号调用，
+	// 普通员工 403（并拦截聊天 / Responses 里引用 file_id，防止已知 id 被读取）。文件属于上游共享账号、
+	// 员工之间不隔离，开启前要评估租户风险。
+	DeepSeekToolsAllowEmployee bool
 	// 首次启动、用户表为空时创建的管理员。
 	BootstrapAdmin         string
 	BootstrapAdminPassword string
@@ -223,15 +227,6 @@ func Load() (*Config, error) {
 		}
 		c.RestrictLegacyTokenScopes = b
 	}
-	// DeepSeek 文件/工具访问边界（与 #160 同一环境变量）：默认 false，只允许管理员与
-	// 机器人/服务账号引用已上传文件；非法值让启动失败（fail closed）。
-	if v := os.Getenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE"); v != "" {
-		b, err := strconv.ParseBool(strings.TrimSpace(v))
-		if err != nil {
-			return nil, fmt.Errorf("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE: %w", err)
-		}
-		c.DeepSeekToolsAllowEmployee = b
-	}
 	// 刷新令牌（docs/token-lifecycle.md §3）；开关默认关，参数只在开启后生效。
 	if v := os.Getenv("DSH_EE_REFRESH_TOKENS"); v != "" {
 		b, err := strconv.ParseBool(strings.TrimSpace(v))
@@ -270,6 +265,20 @@ func Load() (*Config, error) {
 			return nil, errors.New("DSH_EE_REFRESH_GRACE 要在 0 到 5m 之间；0 表示严格轮换（重试按复用吊销整族）")
 		}
 		c.RefreshGrace = d
+	}
+	// DeepSeek 工具代理选用的上游：provider 的 name 或数字 id。写错不阻止启动（请求时按
+	// 503 deepseek_provider_unavailable 处理），只挡明显不可能是合法值的超长输入。
+	c.DeepSeekProvider = strings.TrimSpace(os.Getenv("DSH_EE_DEEPSEEK_PROVIDER"))
+	if len([]rune(c.DeepSeekProvider)) > 128 {
+		return nil, errors.New("DSH_EE_DEEPSEEK_PROVIDER 太长：只能是 provider 的 name 或数字 id")
+	}
+	// 工具代理的访问边界：默认只允许管理员与机器人/服务账号；写错让启动失败（fail closed）。
+	if v := os.Getenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE"); v != "" {
+		b, err := strconv.ParseBool(strings.TrimSpace(v))
+		if err != nil {
+			return nil, fmt.Errorf("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE: %w", err)
+		}
+		c.DeepSeekToolsAllowEmployee = b
 	}
 	if v := os.Getenv("DSH_EE_DEMO_MODE"); v != "" {
 		b, err := strconv.ParseBool(v)

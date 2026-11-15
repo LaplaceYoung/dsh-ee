@@ -151,8 +151,6 @@ func run(log *slog.Logger) error {
 		AdminModeUnit:  cfg.AdminModeUnit,
 		// 旧令牌 scope 收敛（DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES）；默认关闭，不破坏现有客户端
 		RestrictLegacyTokenScopes: cfg.RestrictLegacyTokenScopes,
-		// 文件引用访问边界（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）；默认只允许管理员与机器人
-		DeepSeekToolsAllowEmployee: cfg.DeepSeekToolsAllowEmployee,
 		// 刷新令牌（DSH_EE_REFRESH_TOKENS，docs/token-lifecycle.md §3）；默认关闭
 		RefreshTokens:    cfg.RefreshTokens,
 		RefreshAccessTTL: cfg.RefreshAccessTTL,
@@ -174,6 +172,10 @@ func run(log *slog.Logger) error {
 		CSP:                   cfg.CSP,
 		CSPReportURI:          cfg.CSPReportURI,
 		CSPInlineScriptHashes: inlineScriptHashes,
+		// DeepSeek 工具代理（DSH_EE_DEEPSEEK_PROVIDER）：Files / ASR / TTS 用哪个模型上游
+		DeepSeekProvider: cfg.DeepSeekProvider,
+		// 是否放开普通员工调用 DeepSeek 文件/工具接口（默认只允许管理员与机器人）
+		DeepSeekToolsAllowEmployee: cfg.DeepSeekToolsAllowEmployee,
 		// 每令牌的 /v1 与 /mcp 请求数；默认 60，可用 DSH_EE_RATE_LIMIT 调整或关闭
 		RateLimitPerMinute: cfg.RateLimitPerMinute,
 		// API 客户端 client_credentials 每 IP 每分钟签发次数；默认 120，可用 DSH_EE_CLIENT_TOKEN_PER_MINUTE 调整或关闭

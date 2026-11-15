@@ -475,6 +475,23 @@ func (s *Server) routes() []route {
 		// count_tokens 不在 v0 范围内：给 Anthropic 客户端一个明确的错误壳，而不是落到 /v1/ 的 OpenAI 404
 		pub("POST /v1/messages/count_tokens", s.handleAnthropicCountTokens),
 		pub("POST /anthropic/v1/messages/count_tokens", s.handleAnthropicCountTokens),
+		// DeepSeek 工具代理（deepseek_tools.go）：同一个 Bearer 令牌转发 Files / ASR / TTS
+		// 到配置的 DeepSeek 上游；文件与音频不落盘、不缓存，也不计入 token 用量。
+		pub("POST /v1/files", s.handleDeepSeekFilesUpload),
+		pub("GET /v1/files", s.handleDeepSeekFilesList),
+		pub("GET /v1/files/{id}", s.handleDeepSeekFilesGet),
+		pub("DELETE /v1/files/{id}", s.handleDeepSeekFilesDelete),
+		pub("POST /v1/tools/asr", s.handleDeepSeekASR),
+		pub("POST /v1/tools/tts", s.handleDeepSeekTTS),
+		pub("POST /v1/tools/search", s.handleDeepSeekSearch),
+		pub("POST /v1/tools/fetch", s.handleDeepSeekFetch),
+		pub("POST /v1/tools/ocr", s.handleDeepSeekOCR),
+		// Anthropic 兼容 Files：base_url 为 <上游>/anthropic，必须带
+		// anthropic-beta: files-api-2025-04-14（dsh-ee 只转发，不补也不校验）。
+		pub("POST /anthropic/v1/files", s.handleDeepSeekAnthropicFilesUpload),
+		pub("GET /anthropic/v1/files", s.handleDeepSeekAnthropicFilesList),
+		pub("GET /anthropic/v1/files/{id}", s.handleDeepSeekAnthropicFilesGet),
+		pub("DELETE /anthropic/v1/files/{id}", s.handleDeepSeekAnthropicFilesDelete),
 
 		// 第三方 Harness 的中立 v1 契约（harness.go）：发现文档、能力摘要、只读微应用描述、机器可读契约
 		pub("GET /.well-known/dsh-ee", s.handleHarnessDiscovery),

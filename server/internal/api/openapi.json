@@ -4,7 +4,7 @@
     "title": "dsh-ee Harness API",
     "version": "1.0.0",
     "summary": "第三方 Harness 接入 dsh-ee 的中立 v1 契约（只读部分）",
-    "description": "dsh-ee 面向第三方 Harness 的中立契约 v1 静态描述。运行时的实际入口、scope、模型与应用以 GET /.well-known/dsh-ee 与 /v1/capabilities 为准；本文件描述这些只读端点的形状、统一错误壳与响应头。MCP（JSON-RPC）与 npm registry 协议不在本文件内。所有 /.well-known/dsh-ee、/v1/* 与 /responses（Responses API 别名）响应都带 Dsh-EE-API-Version: 1。",
+    "description": "dsh-ee 面向第三方 Harness 的中立契约 v1 静态描述。运行时的实际入口、scope、模型与应用以 GET /.well-known/dsh-ee 与 /v1/capabilities 为准；本文件描述这些只读端点的形状、统一错误壳与响应头。MCP（JSON-RPC）与 npm registry 协议不在本文件内。所有 /.well-known/dsh-ee、/v1/* 与 /responses（Responses API 别名）响应都带 Dsh-EE-API-Version: 1。 模型网关的扩展工具面还包括 DeepSeek Files / ASR / TTS / Search / Fetch / OCR 代理（见 tools tag）与 Anthropic 兼容 Files API（见 anthropic tag）：请求与响应按上游原样转发，文件/音频/识别文本不在 dsh-ee 落盘或缓存，这些调用也不写 token 用量统计。 文件/工具接口默认只允许管理员与机器人/服务账号调用（`DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` 才放开普通员工，文件属于上游共享账号）；普通员工在 Chat Completions 里引用 `file_id` 返回 403 `file_access_denied`，文件上传/删除/列出写 `files.*` 审计（只记 `file_id`，不记文件名/内容）。",
     "license": {
       "name": "Apache-2.0",
       "identifier": "Apache-2.0"
@@ -27,12 +27,20 @@
       "description": "公开发现、能力摘要与机器可读契约"
     },
     {
-      "name": "models",
-      "description": "模型网关：OpenAI chat completions、Anthropic Messages 与 Responses API 兼容"
-    },
-    {
       "name": "apps",
       "description": "只读中立微应用"
+    },
+    {
+      "name": "tools",
+      "description": "DeepSeek 工具代理：Files / ASR / TTS / Search / Fetch / OCR（multipart / JSON / 音频 / 识别文本原样转发）"
+    },
+    {
+      "name": "anthropic",
+      "description": "Anthropic 兼容 Files API（转发到上游 <base>/anthropic/v1/files）"
+    },
+    {
+      "name": "models",
+      "description": "模型网关：OpenAI chat completions、Anthropic Messages 与 Responses API 兼容"
     }
   ],
   "paths": {
@@ -356,7 +364,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。普通员工在 messages 里引用 file/document 的 file_id 时返回 403 + file_access_denied（默认只允许管理员与机器人引用，见 docs/dev/deepseek-tools.md）。也可能是 model_not_allowed / permission_denied。"
           },
           "404": {
             "type": "object",
@@ -741,6 +749,1424 @@
     },
     "/anthropic/v1/messages": {
       "$ref": "#/paths/~1v1~1messages"
+    },
+    "/v1/files": {
+      "post": {
+        "operationId": "uploadDeepSeekFile",
+        "summary": "上传文件到 DeepSeek 上游（multipart 原样转发）",
+        "tags": [
+          "tools"
+        ],
+        "description": "把 multipart/form-data 请求体逐字节转发到所选 DeepSeek 上游的 POST <base>/files；dsh-ee 不解析字段、不落盘、不缓存。需要 Bearer 令牌的 models scope + 账号 llm.use 权限；默认只允许管理员与机器人/服务账号（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工，文件属于上游共享账号、员工之间不隔离）。请求体上限 100 MiB，超限 413 request_too_large。表单字段以 DeepSeek Files API 为准（file、purpose、expires_after[*]）；上传文档时 purpose 需要排在 file 字段前面，原样转发保证顺序不变。上游状态码与错误体原样返回；dsh-ee 自己产生的错误用 OpenAI 错误壳。文件属于配置的上游账号（同一账号的 key 共享），file_id 与选中的上游绑定。工具调用按上游文档计费，不进入 dsh-ee 的 token 用量统计。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepSeekFileUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "上游返回的文件对象（OpenAI Files 形状）",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "上游拒绝（例如 purpose 缺失 / 字段顺序不对）或 dsh-ee 错误壳",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 100 MiB；错误码 request_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listDeepSeekFiles",
+        "summary": "列出 DeepSeek 上游账号里的文件",
+        "tags": [
+          "tools"
+        ],
+        "description": "查询串（after / limit / order / purpose）原样转发到 <base>/files，返回上游文件列表。文件属于配置的上游账号，dsh-ee 不按员工隔离：能调用本接口的令牌都能看到该上游账号里的文件。 默认只允许管理员与机器人/服务账号调用（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工）。",
+        "parameters": [
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "description": "分页游标：返回这个 file_id 之后的文件",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "返回数量，1–1000",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "required": false,
+            "description": "按创建时间排序",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "asc",
+                "desc"
+              ]
+            }
+          },
+          {
+            "name": "purpose",
+            "in": "query",
+            "required": false,
+            "description": "按用途过滤",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "user_data",
+                "text_recognition",
+                "rich_layout_recognition"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "上游文件列表",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekFileList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/files/{id}": {
+      "get": {
+        "operationId": "getDeepSeekFile",
+        "summary": "查询 DeepSeek 上游的单个文件",
+        "tags": [
+          "tools"
+        ],
+        "description": "把 GET <base>/files/{id} 的响应原样返回；file_id 只允许字母、数字、点、下划线与短横线，防止路径注入。 默认只允许管理员与机器人/服务账号调用（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工）。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "上游文件 id，形如 file-api-xxxxxxxx",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "上游文件对象",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "file_id 不合法；错误码 invalid_file_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDeepSeekFile",
+        "summary": "删除 DeepSeek 上游的单个文件",
+        "tags": [
+          "tools"
+        ],
+        "description": "把 DELETE <base>/files/{id} 的响应原样返回。删除作用于配置的上游账号，影响该上游账号下的所有使用者。 默认只允许管理员与机器人/服务账号调用（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工）。",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "上游文件 id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "上游删除结果",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekFileDeleted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "file_id 不合法；错误码 invalid_file_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/asr": {
+      "post": {
+        "operationId": "transcribeDeepSeekAudio",
+        "summary": "语音识别（ASR）：整段音频转写为文字",
+        "tags": [
+          "tools"
+        ],
+        "description": "把 multipart/form-data 里的音频转发到所选 DeepSeek 上游的 POST <base>/v1/tools/asr；dsh-ee 不解析音频、不落盘、不缓存。需要 Bearer 令牌的 models scope + 账号 llm.use 权限；默认只允许管理员与机器人/服务账号（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工，文件属于上游共享账号、员工之间不隔离）。请求体上限 8 MiB，超限 413 request_too_large；上游限制 16 位 PCM WAV / Ogg Opus、≤120 秒。上游转写 JSON 与状态码原样返回；按音频时长在上游计费，不进入 dsh-ee 的 token 用量统计。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepSeekASRRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "上游转写结果（request_id / text / duration_ms）",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekASRTranscript"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求体不合法，或上游拒绝（音频格式不支持 / 缺少 file 字段）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 8 MiB；错误码 request_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "上游识别超时；错误码 upstream_timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/tts": {
+      "post": {
+        "operationId": "synthesizeDeepSeekSpeech",
+        "summary": "语音合成（TTS）：文本转音频",
+        "tags": [
+          "tools"
+        ],
+        "description": "把 JSON 请求体转发到所选 DeepSeek 上游的 POST <base>/v1/tools/tts，音频在响应体里流式回传（Content-Type 为 audio/wav 或 audio/pcm）。需要 Bearer 令牌的 models scope + 账号 llm.use 权限；默认只允许管理员与机器人/服务账号（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工，文件属于上游共享账号、员工之间不隔离）。请求体上限 64 KiB，超限 413 request_too_large。dsh-ee 不解析、不缓存、不落盘音频，响应带 Cache-Control: no-store。上游错误状态码与错误体原样返回；按计费字符数在上游计费，不进入 dsh-ee 的 token 用量统计。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepSeekTTSRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "合成音频；上游边合成边在响应体返回，dsh-ee 逐块转发并 flush（不缓冲完整音频）",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "audio/wav": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "audio/pcm": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                },
+                "description": "format=pcm 时为 24 kHz、16 位、单声道原始 PCM"
+              }
+            }
+          },
+          "400": {
+            "description": "请求体不合法，或上游拒绝（没有可朗读文本 / 内容审核不通过）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 64 KiB；错误码 request_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "上游合成超时；错误码 upstream_timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/search": {
+      "post": {
+        "operationId": "searchDeepSeekWeb",
+        "summary": "网页搜索（DeepSeek Search API）",
+        "tags": [
+          "tools"
+        ],
+        "description": "把 JSON 请求体原样转发到所选 DeepSeek 上游的 POST <base>/v1/tools/search，返回上游搜索结果。需要 Bearer 令牌的 models scope + 账号 llm.use 权限；默认只允许管理员与机器人/服务账号（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工，文件属于上游共享账号、员工之间不隔离）。请求体上限 64 KiB，超限 413 request_too_large；超时 30 秒。上游错误体（OpenAI 形状）与状态码原样透传；dsh-ee 自己产生的错误用 OpenAI 错误壳。Search 按成功请求次数在上游计费，不进入 dsh-ee 的 token 用量统计。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepSeekSearchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "上游搜索结果（results 数组；无匹配时为空数组）",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekSearchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求头或请求体不合法，或上游返回的字段校验错误",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "402": {
+            "description": "上游账号余额不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "上游读取请求体超时",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 64 KiB；错误码 request_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "500": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "上游超时；错误码 upstream_timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/fetch": {
+      "post": {
+        "operationId": "fetchDeepSeekWebPage",
+        "summary": "网页抓取（DeepSeek Fetch API）",
+        "tags": [
+          "tools"
+        ],
+        "description": "把 JSON 请求体原样转发到所选 DeepSeek 上游的 POST <base>/v1/tools/fetch，返回网页 Markdown 正文。需要 Bearer 令牌的 models scope + 账号 llm.use 权限；默认只允许管理员与机器人/服务账号（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工，文件属于上游共享账号、员工之间不隔离）。请求体上限 64 KiB，超限 413 request_too_large；超时 60 秒。上游 403（被安全策略拒绝）/404（抓不到可提取正文）等状态与错误体原样透传；Fetch 按成功请求次数在上游计费，不进入 dsh-ee 的 token 用量统计。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepSeekFetchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "上游抓取结果（title / content）",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekFetchResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "请求头或请求体不合法",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "402": {
+            "description": "上游账号余额不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "访问边界：普通员工调用返回 403 deepseek_tools_forbidden（需要 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）；或上游返回 403（例如 Fetch 被目标站点的安全策略拒绝）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "上游未能获取可用网页内容",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "上游读取请求体超时",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 64 KiB；错误码 request_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "500": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "上游超时；错误码 upstream_timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tools/ocr": {
+      "post": {
+        "operationId": "recognizeDeepSeekDocument",
+        "summary": "文档 / 图片 OCR（DeepSeek OCR API）",
+        "tags": [
+          "tools"
+        ],
+        "description": "把 multipart/form-data 原样流式转发到所选 DeepSeek 上游的 POST <base>/v1/tools/ocr。需要 Bearer 令牌的 models scope + 账号 llm.use 权限；默认只允许管理员与机器人/服务账号（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工，文件属于上游共享账号、员工之间不隔离）。请求体上限 100 MiB（上游允许 PDF/Office/图片，≤1000 页，总时长 180 秒），超限 413 request_too_large；代理超时 5 分钟。上游识别期间持续发送换行符保活，完成后才返回 JSON；dsh-ee 逐块透传原始字节与 Content-Type（客户端收到的响应体仍是「前导换行 + JSON」）。注意：识别开始后 HTTP 状态码已经是 200，失败时响应体是错误对象（含 error 字段），客户端需要检查响应体。OCR 按成功识别的页数在上游计费，不进入 dsh-ee 的 token 用量统计。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/DeepSeekOCRRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "上游 OCR 结果；识别失败时响应体可能是错误对象",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeepSeekOCRResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "表单或 purpose 不合法，或文件无法处理",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "402": {
+            "description": "上游账号余额不足",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "408": {
+            "description": "上游上传过慢",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 100 MiB；错误码 request_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "500": {
+            "$ref": "#/components/responses/OpenAIError"
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "504": {
+            "description": "上游上传/识别超时；错误码 upstream_timeout",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/anthropic/v1/files": {
+      "post": {
+        "operationId": "uploadAnthropicFile",
+        "summary": "上传文件（Anthropic 兼容 Files API）",
+        "tags": [
+          "anthropic"
+        ],
+        "description": "把 multipart/form-data 原样流式转发到所选 DeepSeek 上游的 POST <base>/anthropic/v1/files。鉴权接受 Authorization: Bearer，也接受 Anthropic SDK 默认的 x-api-key（等价 Bearer；不会转发给上游）。必须携带 anthropic-beta: files-api-2025-04-14，但 dsh-ee 不校验也不补，缺失时由上游返回 400。请求体上限 100 MiB，超限 413 request_too_large；超时 10 分钟。上游 Anthropic 形状的状态码与错误体原样透传；dsh-ee 自己产生的错误用 OpenAI 错误壳。文件属于上游账号，file_id 绑定所选上游；文档解析计费在上游按页计费，不进入 dsh-ee token 统计。 默认只允许管理员与机器人/服务账号调用（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工）。",
+        "parameters": [
+          {
+            "name": "anthropic-beta",
+            "in": "header",
+            "required": false,
+            "description": "Anthropic 兼容 Files 端点必须携带 files-api-2025-04-14。dsh-ee 只原样转发，不补默认值、不本地校验；缺失时由上游返回 400。",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "files-api-2025-04-14"
+              ]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/AnthropicFileUpload"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "上游返回的 Anthropic 文件对象",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "缺少 anthropic-beta / 表单不合法等，由上游返回",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "上游 key 无效或调用者鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 100 MiB；错误码 request_too_large（dsh-ee 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listAnthropicFiles",
+        "summary": "列出文件（Anthropic 兼容 Files API）",
+        "tags": [
+          "anthropic"
+        ],
+        "description": "查询串（after_id / before_id / limit）原样转发到 <base>/anthropic/v1/files，返回上游 Anthropic 兼容文件列表。必须携带 anthropic-beta: files-api-2025-04-14（dsh-ee 只转发，缺失由上游 400）。文件属于配置的上游账号，dsh-ee 不按员工隔离。 默认只允许管理员与机器人/服务账号调用（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工）。",
+        "parameters": [
+          {
+            "name": "anthropic-beta",
+            "in": "header",
+            "required": false,
+            "description": "Anthropic 兼容 Files 端点必须携带 files-api-2025-04-14。dsh-ee 只原样转发，不补默认值、不本地校验；缺失时由上游返回 400。",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "files-api-2025-04-14"
+              ]
+            }
+          },
+          {
+            "name": "after_id",
+            "in": "query",
+            "required": false,
+            "description": "游标：返回这个 file_id 之后的文件",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "description": "游标：返回这个 file_id 之前的文件（与 after_id 互斥）",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "返回数量，1–1000（上游默认 20）",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "上游文件列表",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicFileList"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "缺少 anthropic-beta 等，由上游返回",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/anthropic/v1/files/{id}": {
+      "get": {
+        "operationId": "getAnthropicFile",
+        "summary": "查询单个文件（Anthropic 兼容 Files API）",
+        "tags": [
+          "anthropic"
+        ],
+        "description": "把 GET <base>/anthropic/v1/files/{id} 的响应原样返回。必须携带 anthropic-beta: files-api-2025-04-14；file_id 只允许字母、数字、点、下划线与短横线，防止路径注入。 默认只允许管理员与机器人/服务账号调用（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工）。",
+        "parameters": [
+          {
+            "name": "anthropic-beta",
+            "in": "header",
+            "required": false,
+            "description": "Anthropic 兼容 Files 端点必须携带 files-api-2025-04-14。dsh-ee 只原样转发，不补默认值、不本地校验；缺失时由上游返回 400。",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "files-api-2025-04-14"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "上游文件 id，形如 file-api-xxxxxxxx",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "上游 Anthropic 文件对象",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicFile"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "file_id 不合法；错误码 invalid_file_id（dsh-ee 错误壳）或上游缺少 beta 头",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "上游文件不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAnthropicFile",
+        "summary": "删除单个文件（Anthropic 兼容 Files API）",
+        "tags": [
+          "anthropic"
+        ],
+        "description": "把 DELETE <base>/anthropic/v1/files/{id} 的响应原样返回。必须携带 anthropic-beta: files-api-2025-04-14；删除作用于配置的上游账号，影响该上游账号下的所有使用者。 默认只允许管理员与机器人/服务账号调用（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开普通员工）。",
+        "parameters": [
+          {
+            "name": "anthropic-beta",
+            "in": "header",
+            "required": false,
+            "description": "Anthropic 兼容 Files 端点必须携带 files-api-2025-04-14。dsh-ee 只原样转发，不补默认值、不本地校验；缺失时由上游返回 400。",
+            "schema": {
+              "type": "string",
+              "examples": [
+                "files-api-2025-04-14"
+              ]
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "上游文件 id",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "上游删除结果",
+            "headers": {
+              "Dsh-EE-API-Version": {
+                "$ref": "#/components/headers/DshEEAPIVersion"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicFileDeleted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "file_id 不合法；错误码 invalid_file_id（dsh-ee 错误壳）或上游缺少 beta 头",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "鉴权失败",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "访问边界：普通员工调用 DeepSeek 文件/工具接口时返回 403（错误码 deepseek_tools_forbidden，OpenAI 错误壳），需要管理员开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE；也可能是上游返回的 403。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "上游文件不存在",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnthropicError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "上游不可达；错误码 upstream_unreachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有可用的 DeepSeek 上游；错误码 deepseek_provider_unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
     },
     "/v1/responses": {
       "post": {
@@ -1959,6 +3385,560 @@
             }
           }
         }
+      },
+      "DeepSeekFileUpload": {
+        "type": "object",
+        "description": "DeepSeek Files API 的上传表单。dsh-ee 不解析 multipart，按原样转发；字段含义与取值以 DeepSeek Files API 文档为准，这里只描述常用字段，允许上游新增字段。",
+        "required": [
+          "file",
+          "purpose"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "要上传的文件。大小上限取决于 purpose：图片 64 MiB，PDF / Word / PowerPoint 等文档 100 MiB，纯文本 / 表格 / 电子书 32 MiB。"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "user_data",
+              "text_recognition",
+              "rich_layout_recognition"
+            ],
+            "description": "文件用途。上传文档时该字段必须排在 file 字段前面。"
+          },
+          "expires_after[anchor]": {
+            "type": "string",
+            "enum": [
+              "created_at"
+            ],
+            "description": "可选。若提供必须是 created_at，且要与 expires_after[seconds] 一起用。"
+          },
+          "expires_after[seconds]": {
+            "type": "integer",
+            "minimum": 3600,
+            "maximum": 2592000,
+            "description": "可选。文件有效期（秒），1 小时到 30 天；不传则永久有效。"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekFile": {
+        "type": "object",
+        "description": "DeepSeek Files API 的文件对象（OpenAI Files 形状），由上游原样返回。",
+        "required": [
+          "id",
+          "object"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "examples": [
+              "file-api-abcdefgh"
+            ],
+            "description": "文件 id；在对话请求的 file 内容块里通过 file_id 引用"
+          },
+          "object": {
+            "type": "string",
+            "examples": [
+              "file"
+            ]
+          },
+          "bytes": {
+            "type": "integer",
+            "description": "文件字节数"
+          },
+          "created_at": {
+            "type": "integer",
+            "description": "创建时间（Unix 秒）"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "integer",
+            "description": "仅上传时设置了有效期才出现（Unix 秒）"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekFileList": {
+        "type": "object",
+        "description": "DeepSeek Files API 的分页文件列表，由上游原样返回。",
+        "required": [
+          "object",
+          "data"
+        ],
+        "properties": {
+          "object": {
+            "type": "string",
+            "examples": [
+              "list"
+            ]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeepSeekFile"
+            }
+          },
+          "first_id": {
+            "type": "string"
+          },
+          "last_id": {
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekFileDeleted": {
+        "type": "object",
+        "description": "删除文件的结果，由上游原样返回。",
+        "required": [
+          "id",
+          "object",
+          "deleted"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "examples": [
+              "file"
+            ]
+          },
+          "deleted": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekASRRequest": {
+        "type": "object",
+        "description": "DeepSeek ASR 的上传表单。dsh-ee 不解析 multipart，按原样转发。",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "16 位 PCM WAV 或 Ogg Opus 音频；≤8 MiB、≤120 秒。"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekASRTranscript": {
+        "type": "object",
+        "description": "DeepSeek ASR 的转写结果，由上游原样返回。",
+        "required": [
+          "request_id",
+          "text",
+          "duration_ms"
+        ],
+        "properties": {
+          "request_id": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "description": "转写文本"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "description": "音频时长（毫秒）"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekTTSRequest": {
+        "type": "object",
+        "description": "DeepSeek TTS 的整段合成请求。dsh-ee 原样转发到上游，字段含义以 DeepSeek TTS 文档为准。",
+        "required": [
+          "text"
+        ],
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "要朗读的文本，不能为空，最多 10,000 个计费字符"
+          },
+          "voice_id": {
+            "type": "string",
+            "enum": [
+              "stella",
+              "tide"
+            ],
+            "default": "stella",
+            "description": "音色：stella 女声（默认）、tide 男声"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "wav",
+              "pcm"
+            ],
+            "default": "wav",
+            "description": "wav 返回 audio/wav；pcm 返回 24 kHz、16 位、单声道原始 PCM"
+          },
+          "filter_markdown": {
+            "type": "boolean",
+            "default": true,
+            "description": "朗读前是否去掉 Markdown 格式"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekSearchRequest": {
+        "type": "object",
+        "description": "DeepSeek Search 请求。dsh-ee 原样转发，字段含义以 DeepSeek 文档为准。请求体上限 64 KiB。",
+        "required": [
+          "query"
+        ],
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "搜索词，1–128 个 Unicode 字符，不能全为空白；支持 site: / -site: / lang: / after: / before: 等搜索语法"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50,
+            "default": 10,
+            "description": "返回条数，1–50"
+          },
+          "ori_question": {
+            "type": "string",
+            "description": "触发搜索的用户原始问题，1–128 字符，帮助理解搜索意图"
+          },
+          "localization": {
+            "type": "string",
+            "description": "用于优先返回本地化搜索结果的 IP 地址"
+          },
+          "need_content": {
+            "type": "boolean",
+            "default": false,
+            "description": "是否在 content 中返回网页正文"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekSearchResult": {
+        "type": "object",
+        "description": "单条搜索结果。",
+        "properties": {
+          "rerank_score": {
+            "type": "number",
+            "description": "排序分数 0–3，≥1.5 为优质结果"
+          },
+          "title": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "snippet": {
+            "type": "string",
+            "description": "短摘要（约 100–200 字符）"
+          },
+          "summary": {
+            "type": "string",
+            "description": "长摘要（约 600–800 字符）"
+          },
+          "content": {
+            "type": "string",
+            "description": "网页正文；need_content=false 或正文缺失时为空字符串"
+          },
+          "site_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "site_icon": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "UTC RFC 3339 发布时间；未知时为 null"
+          },
+          "authority": {
+            "type": "integer",
+            "description": "权威性 0–4（-1 未知）"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekSearchResponse": {
+        "type": "object",
+        "description": "DeepSeek Search 响应，由上游原样返回。搜索正常结束但没有匹配时 results 为空数组。",
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeepSeekSearchResult"
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekFetchRequest": {
+        "type": "object",
+        "description": "DeepSeek Fetch 请求。dsh-ee 原样转发；请求体上限 64 KiB。",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "要抓取的网页地址，长度 ≤8192，必须为含 host 的 HTTP/HTTPS URL，且不能携带用户名或密码"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekFetchResponse": {
+        "type": "object",
+        "description": "DeepSeek Fetch 响应，由上游原样返回。",
+        "required": [
+          "title",
+          "content"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "页面标题；缺失时为空字符串"
+          },
+          "content": {
+            "type": "string",
+            "description": "抓取后的 Markdown 正文"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekOCRRequest": {
+        "type": "object",
+        "description": "DeepSeek OCR 的 multipart 表单：只允许 file 与 purpose 两个字段，传其他字段上游会返回 400。dsh-ee 不解析，按原样转发。",
+        "required": [
+          "file",
+          "purpose"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "要识别的文件，需带文件名；PDF/Office/图片，≤100 MiB、≤1000 页"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "text_recognition",
+              "rich_layout_recognition"
+            ],
+            "description": "text_recognition：不含图的 Word/PowerPoint 直接提取文字，其他文件逐页识别；rich_layout_recognition：所有文件逐页识别"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeepSeekOCRPage": {
+        "type": "object",
+        "description": "OCR 单页结果。",
+        "properties": {
+          "index": {
+            "type": "integer",
+            "description": "页码，从 0 开始"
+          },
+          "text": {
+            "type": "string",
+            "description": "该页模型原始输出，保留 <｜ref｜>/<｜box｜> 等标记"
+          },
+          "finish_reason": {
+            "type": "string",
+            "enum": [
+              "stop",
+              "length"
+            ],
+            "description": "length 表示该页文本因输出上限不完整"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekOCRUsage": {
+        "type": "object",
+        "description": "OCR 的输入/输出 token，仅供参考，不用于计费。",
+        "properties": {
+          "input_tokens": {
+            "type": "integer"
+          },
+          "output_tokens": {
+            "type": "integer"
+          },
+          "total_tokens": {
+            "type": "integer"
+          }
+        },
+        "additionalProperties": true
+      },
+      "DeepSeekOCRResponse": {
+        "type": "object",
+        "description": "DeepSeek OCR 结果。识别开始后 HTTP 状态码已经是 200，失败时响应体可能是 error 对象（见文档）。响应体在 JSON 前可能带换行保活（属于 JSON 前导空白），dsh-ee 逐字节透传。",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "examples": [
+              "ocr.result"
+            ]
+          },
+          "created": {
+            "type": "integer",
+            "description": "创建时间（Unix 秒）"
+          },
+          "purpose": {
+            "type": "string"
+          },
+          "page_count": {
+            "type": "integer",
+            "description": "页数，等于 pages 长度"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeepSeekOCRPage"
+            }
+          },
+          "usage": {
+            "$ref": "#/components/schemas/DeepSeekOCRUsage"
+          },
+          "error": {
+            "type": "object",
+            "description": "识别失败/超时时出现，形状与上游错误体一致；客户端需要检查"
+          }
+        },
+        "additionalProperties": true
+      },
+      "AnthropicFileUpload": {
+        "type": "object",
+        "description": "Anthropic 兼容 Files 的上传表单。dsh-ee 不解析 multipart，按原样转发；purpose 可选（不传按 user_data），上传文档时需排在 file 前。",
+        "required": [
+          "file"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "format": "binary",
+            "description": "要上传的文件；不超过 100 MiB（上游按类型再校验）"
+          },
+          "purpose": {
+            "type": "string",
+            "enum": [
+              "user_data",
+              "text_recognition",
+              "rich_layout_recognition"
+            ],
+            "description": "可选；不传按 user_data"
+          }
+        },
+        "additionalProperties": true
+      },
+      "AnthropicFile": {
+        "type": "object",
+        "description": "Anthropic 兼容文件对象，由上游原样返回。",
+        "required": [
+          "id",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "examples": [
+              "file-api-abcdefgh"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "examples": [
+              "file"
+            ]
+          },
+          "size_bytes": {
+            "type": "integer"
+          },
+          "created_at": {
+            "type": "string",
+            "description": "RFC 3339 时间字符串（与 OpenAI 兼容 Files 的 Unix 秒不同）"
+          },
+          "filename": {
+            "type": "string"
+          },
+          "mime_type": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "AnthropicFileList": {
+        "type": "object",
+        "description": "Anthropic 兼容文件列表；与 OpenAI 兼容列表不同，没有顶层 object。",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnthropicFile"
+            }
+          },
+          "first_id": {
+            "type": "string"
+          },
+          "last_id": {
+            "type": "string"
+          },
+          "has_more": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": true
+      },
+      "AnthropicFileDeleted": {
+        "type": "object",
+        "description": "Anthropic 兼容删除结果，由上游原样返回。",
+        "required": [
+          "id",
+          "type"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "examples": [
+              "file_deleted"
+            ]
+          }
+        },
+        "additionalProperties": true
       },
       "ResponsesRequest": {
         "type": "object",

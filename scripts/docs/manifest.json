@@ -6,6 +6,7 @@
     "dev/overview.md",
     "dev/harness-quickstart.md",
     "dev/anthropic-api.md",
+    "dev/deepseek-tools.md",
     "dev/thinking-mode.md",
     "dev/plugin-quickstart.md",
     "dev/extension-quickstart.md",
@@ -38,6 +39,11 @@
         "title": "Chatbot 能力与透传",
         "docs": "dev/chatbot.md",
         "description": "DeepSeek Chatbot 网关选项：联网/读网页工具、safety_check、会话标题与拒绝/引用块的原样透传。"
+      },
+      {
+        "title": "DeepSeek 工具代理（文件 / 语音 / 搜索抓取 / OCR）",
+        "docs": "dev/deepseek-tools.md",
+        "description": "用同一个企业 Bearer 令牌上传文件、转写/合成语音、搜索抓取网页、OCR，以及 Anthropic 兼容 Files：默认只允许管理员与机器人账号，可显式放开员工；代理只转发到配置的 DeepSeek 上游，不落盘、不计 token、文件操作写审计。"
       },
       {
         "title": "MCP 工具面",

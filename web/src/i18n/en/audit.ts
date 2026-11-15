@@ -15,6 +15,7 @@ export default {
       menu: "Menus",
       provider: "Providers",
       model: "Models",
+      files: "DeepSeek files",
       key: "API keys",
       settings: "Settings",
       ldap: "LDAP",
@@ -87,6 +88,7 @@ export default {
       embed: { session_create: "Issued embed code", revoke: "Revoked embed session", deny: "Denied embed request" },
       directory: { apply: "Registered enterprise directory" },
       client: { create: "Created API client", revoke: "Disabled API client" },
+      files: { upload: "Uploaded file", delete: "Deleted file", list: "Listed files" },
     },
   },
 } satisfies Messages<typeof zh>;

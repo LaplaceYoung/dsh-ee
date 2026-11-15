@@ -405,3 +405,63 @@ func TestChatbotOptionsInvalid(t *testing.T) {
 		})
 	}
 }
+
+// TestDeepSeekProviderConfig 覆盖 DeepSeek 工具代理选上游的配置：默认自动选、
+// 允许 name/id、去空格、超长让启动失败（避免明显写错的配置被静默忽略）。
+func TestDeepSeekProviderConfig(t *testing.T) {
+	setRequiredEnv(t)
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.DeepSeekProvider != "" {
+		t.Fatalf("默认应为空（自动选 vendor=deepseek），得到 %q", c.DeepSeekProvider)
+	}
+
+	setRequiredEnv(t)
+	t.Setenv("DSH_EE_DEEPSEEK_PROVIDER", "  deepseek-main  ")
+	c, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.DeepSeekProvider != "deepseek-main" {
+		t.Fatalf("DSH_EE_DEEPSEEK_PROVIDER 没生效：%q", c.DeepSeekProvider)
+	}
+
+	setRequiredEnv(t)
+	t.Setenv("DSH_EE_DEEPSEEK_PROVIDER", strings.Repeat("x", 129))
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "DSH_EE_DEEPSEEK_PROVIDER") {
+		t.Fatalf("超长值应报错，得到 %v", err)
+	}
+}
+
+// TestDeepSeekToolsAllowEmployeeConfig 覆盖文件/工具代理的访问边界开关：
+// 默认 false（只允许管理员与机器人/服务账号）；写错让启动失败（fail closed）。
+func TestDeepSeekToolsAllowEmployeeConfig(t *testing.T) {
+	setRequiredEnv(t)
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.DeepSeekToolsAllowEmployee {
+		t.Fatal("默认应只允许管理员与机器人/服务账号（false）")
+	}
+
+	for _, v := range []string{"true", "1", "TRUE"} {
+		setRequiredEnv(t)
+		t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", v)
+		c, err = Load()
+		if err != nil {
+			t.Fatalf("%q: %v", v, err)
+		}
+		if !c.DeepSeekToolsAllowEmployee {
+			t.Fatalf("%q 应打开员工开关", v)
+		}
+	}
+
+	setRequiredEnv(t)
+	t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", "maybe")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE") {
+		t.Fatalf("非法值应报错，得到 %v", err)
+	}
+}

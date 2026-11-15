@@ -185,6 +185,21 @@ var agentExcluded = map[string]string{
 	"POST /anthropic/v1/messages":               "Anthropic 兼容的模型网关协议入口（DeepSeek 风格 base URL 别名）",
 	"POST /v1/messages/count_tokens":            "Anthropic 兼容端点（v0 明确不支持，返回 404）",
 	"POST /anthropic/v1/messages/count_tokens":  "Anthropic 兼容端点（v0 明确不支持，返回 404）",
+	// DeepSeek 工具代理（deepseek_tools.go）：给 Chatbot / 第三方 Harness 传文件与语音，
+	// 请求体是文件/音频二进制，不适合走模型工具的参数与审计形状。
+	"POST /v1/files":                  "DeepSeek Files 工具代理入口，传文件二进制给上游",
+	"GET /v1/files":                   "DeepSeek Files 工具代理入口，列上游账号里的文件",
+	"GET /v1/files/{id}":              "DeepSeek Files 工具代理入口，按 file_id 查上游文件",
+	"DELETE /v1/files/{id}":           "DeepSeek Files 工具代理入口，删上游账号里的文件",
+	"POST /v1/tools/asr":              "DeepSeek ASR 工具代理入口，传音频二进制给上游",
+	"POST /v1/tools/tts":              "DeepSeek TTS 工具代理入口，返回音频二进制",
+	"POST /v1/tools/search":           "DeepSeek Search 工具代理入口，给第三方 Harness 搜网页",
+	"POST /v1/tools/fetch":            "DeepSeek Fetch 工具代理入口，给第三方 Harness 抓网页正文",
+	"POST /v1/tools/ocr":              "DeepSeek OCR 工具代理入口，传文档/图片二进制给上游",
+	"POST /anthropic/v1/files":        "Anthropic 兼容 Files 代理入口，传文件二进制给上游",
+	"GET /anthropic/v1/files":         "Anthropic 兼容 Files 代理入口，列上游账号里的文件",
+	"GET /anthropic/v1/files/{id}":    "Anthropic 兼容 Files 代理入口，按 file_id 查上游文件",
+	"DELETE /anthropic/v1/files/{id}": "Anthropic 兼容 Files 代理入口，删上游账号里的文件",
 	// 第三方 Harness 契约（harness.go）：发现与只读能力摘要，不是模型工具
 	"GET /.well-known/dsh-ee":     "中立发现文档，给第三方 Harness 读取服务能力",
 	"GET /v1/capabilities":        "中立能力摘要，给第三方 Harness 生成自己的配置与系统提示",

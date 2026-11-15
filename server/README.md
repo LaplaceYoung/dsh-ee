@@ -66,6 +66,7 @@ Go 写的 dsh-ee 服务端。目前实现：
 - **DeepSeek Chatbot 能力（只透传）**：联网工具（`deepseek_web_search` / `deepseek_read_url`）、内容安全 `safety_check`、会话标题 `title`，以及响应里的 `title` / `annotations`（引用）/ `refusal` / `server_tool_calls` / `server_tool_event` 等块都原样转发，网关不执行、不解析、不改写这些字段。可用 `DSH_EE_SAFETY_CHECK=high` / `DSH_EE_CHAT_TITLE=on` 给 `vendor=deepseek` 的 Chat Completions 上游请求注入默认值（客户端已传则保留；非 DeepSeek 上游不注入；`/v1/messages` 原生透传只转发客户端自带字段、不注入）；能力在发现文档与 `/v1/capabilities` 的 `chatbot` 里声明。详见 [docs/dev/chatbot.md](../docs/dev/chatbot.md)。
 - 模型单独成表：员工调用时写**对外名称**，转发时换成**上游模型名**。同一个对外名称可以挂在多个上游上，按上游优先级依次尝试，连不上、429、5xx 时自动切到下一条（开始向客户端写响应后不再切换）。
 - 「检查连接」请求上游 `/models`；上游不提供该接口时，用一个已配置的模型发一次 `max_tokens=1` 的对话验证。结果会存下来显示在管理端。
+- **DeepSeek 工具代理**：`/v1/files`、`/v1/tools/asr|tts|search|fetch|ocr` 与 Anthropic 兼容 `/anthropic/v1/files` 复用同一套 Bearer 鉴权（`models` scope + `llm.use`），按 `DSH_EE_DEEPSEEK_PROVIDER` 选一个上游（默认第一个启用且 `vendor=deepseek` 的线路），把 multipart / 查询串 / JSON 原样转发，不解析、不落盘、不缓存。Files/OCR/ASR/TTS/Search/Fetch 与 Anthropic 兼容 Files 都按上游工具计费，**不写 token 用量统计**、不占月度 token 额度；`file_id` 与所选上游绑定，Anthropic 兼容 Files 需带 `anthropic-beta: files-api-2025-04-14`。这些接口默认只允许管理员与机器人/服务账号（普通员工 403），普通员工在聊天里引用 `file_id` 也会被拦下；上传/删除/列文件写 `files.*` 审计（只记 `file_id`，不记文件名/内容）。详见 [../docs/dev/deepseek-tools.md](../docs/dev/deepseek-tools.md)。
 - 用量细项：网关从上游响应的 `usage` 里解析 `prompt_tokens` / `completion_tokens` / `total_tokens`，并在上游提供时另存两项细项——OpenAI 兼容格式的 `completion_tokens_details.reasoning_tokens` 与 `prompt_tokens_details.cached_tokens`，以及 DeepSeek 顶层的 `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`（命中数优先取嵌套 `cached_tokens`，其次 `prompt_cache_hit_tokens`，只给未命中数时按 `prompt_tokens - miss` 推回）。流式请求看最后一块的 `usage`；上游没给细项、旧响应或客户端中途停止时两项细项按 0 记，估算兜底仍只估 prompt / completion。细项不改变 `total_tokens` 与额度口径，月报、运营统计、个人用量接口在原有字段之外多返回 `reasoning_tokens` / `cached_tokens`。
 
 ## npm 源
@@ -153,6 +154,8 @@ OceanBase 单机最低也要几 GB 内存，本地机器紧张时先用 TiDB 调
 | `DSH_EE_METRICS` | 设为 `true` 时开放 `GET /metrics`（Prometheus 文本格式，只允许本机 / 内网抓取）；默认关闭 |
 | `DSH_EE_RATE_LIMIT` | `/v1/*` 与 `/mcp` 的每令牌限流，单位「次/分钟」，默认 `60`；`0` 或 `off` 关闭。计数在数据库 `shared_rate_limits` 里，多实例部署时是合计额度（窗口按分钟对齐，依赖各实例时钟同步）；数据库不可用时退回单实例内存限流 |
 | `DSH_EE_CLIENT_TOKEN_PER_MINUTE` | `POST /api/auth/client-token`（API 客户端 client_credentials）每 IP 每分钟最多换几次 token，默认 `120`；`0` 或 `off` 关闭。只防用错误 secret 撞库 / 刷库 |
+| `DSH_EE_DEEPSEEK_PROVIDER` | DeepSeek Files / ASR / TTS / Search / Fetch / OCR 工具代理使用的模型上游：provider 的 `name` 或数字 `id`（Web「模型接入」里配的，BaseURL 填 `https://api.deepseek.com` 这类地址、不要带 `/v1`）。不设置时用第一个启用且 `vendor=deepseek` 的上游；找不到时接口返回 `503 deepseek_provider_unavailable`。见 [../docs/dev/deepseek-tools.md](../docs/dev/deepseek-tools.md) |
+| `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | 设为 `true` 才允许普通员工调用 DeepSeek 文件/工具接口（`/v1/files`、`/anthropic/v1/files`、`/v1/tools/*`）并在聊天里引用 `file_id`；默认 `false`：只有管理员与机器人/服务账号可用，普通员工 403 `deepseek_tools_forbidden`（聊天引用 `file_access_denied`）。文件属于上游共享账号、员工之间不隔离，打开前评估租户风险；非法值让启动失败 |
 | `DSH_EE_SAFETY_CHECK` | `off`（默认）/ `high`。`high` 时向 `vendor=deepseek` 的 Chat Completions 上游请求注入 `safety_check:{"level":"high"}`；客户端已传 `safety_check` 时保留客户端值，非 DeepSeek 上游与 `/v1/messages` 原生透传不注入。见 [docs/dev/chatbot.md](../docs/dev/chatbot.md) |
 | `DSH_EE_CHAT_TITLE` | `off`（默认）/ `on`。`on` 时向 `vendor=deepseek` 的上游请求注入 `title:{"enabled":true}`；客户端已传 `title` 时保留客户端值。建议只在会话第一轮打开（上游可能为等标题多等约 5 秒）。 |
 | `DSH_EE_TRUSTED_PROXIES` | 可信反向代理的地址 / CIDR（逗号分隔）。只有来自这些对端的 `X-Forwarded-For`、`X-Forwarded-Host`、`X-Forwarded-Proto` 才会被采信；默认只有 `127.0.0.1/32` 与 `::1/128`。代理在别的机器、容器网络或云负载均衡后面时必须配置 |
@@ -265,6 +268,15 @@ curl -fsS http://127.0.0.1:8080/readyz    # 依赖就绪；-f 让 503 以非 0 �
 | GET | `/setup.sh`、`/setup.ps1` | 员工电脑的一键接入脚本 |
 | GET | `/v1/models` | `Authorization: Bearer sk-ee-…` |
 | POST | `/v1/chat/completions` | 同上，OpenAI 格式，支持 `stream` |
+| POST / GET | `/v1/files` | DeepSeek Files 代理：multipart 上传（上限 100 MiB）/ 列表（查询串原样转发）；Bearer 令牌 + `models` scope |
+| GET / DELETE | `/v1/files/{id}` | DeepSeek Files 代理：查 / 删单个文件；`file_id` 只允许字母、数字、`.`、`_`、`-` |
+| POST | `/v1/tools/asr` | DeepSeek ASR 代理：multipart 音频（≤8 MiB）原样转发，返回转写 JSON |
+| POST | `/v1/tools/tts` | DeepSeek TTS 代理：JSON（≤64 KiB）合成音频，音频流式回传 |
+| POST | `/v1/tools/search` | DeepSeek Search 代理：JSON（≤64 KiB）搜索网页，结果数组原样返回 |
+| POST | `/v1/tools/fetch` | DeepSeek Fetch 代理：JSON（≤64 KiB）抓取网页 Markdown |
+| POST | `/v1/tools/ocr` | DeepSeek OCR 代理：multipart（≤100 MiB）识别文档/图片，换行保活后返回 JSON |
+| POST / GET | `/anthropic/v1/files` | Anthropic 兼容 Files 代理：上传（≤100 MiB）/ 列表，需 `anthropic-beta: files-api-2025-04-14` |
+| GET / DELETE | `/anthropic/v1/files/{id}` | Anthropic 兼容 Files 代理：查 / 删单个文件；鉴权可用 Bearer 或 `x-api-key` |
 | POST | `/v1/responses`、`/responses` | OpenAI Responses API 兼容（v0）：`vendor=deepseek` 上游原生透传，其余 vendor 转 chat completions（降级）；`/responses` 是 DeepSeek 习惯的等价别名；见 [../docs/dev/responses-api.md](../docs/dev/responses-api.md) |
 | GET | `/metrics` | 最小监控指标（Prometheus 文本格式）。需 `DSH_EE_METRICS=true`，且只允许本机 / 内网来源抓取；含登录失败 / 限流计数、记账成功的推理 / 缓存命中 token 累计数（进程内累计，重启清零），以及嵌入指标 `dsh_ee_embed_sessions_active` / `dsh_ee_embed_denied_total` |
 

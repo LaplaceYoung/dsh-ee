@@ -13,6 +13,7 @@ export default {
       menu: "菜单",
       provider: "模型上游",
       model: "模型",
+      files: "DeepSeek 文件",
       key: "API key",
       settings: "系统设置",
       ldap: "LDAP",
@@ -85,6 +86,7 @@ export default {
       embed: { session_create: "签发嵌入登录码", revoke: "撤销嵌入会话", deny: "拒绝嵌入请求" },
       directory: { apply: "登记企业目录" },
       client: { create: "创建 API 客户端", revoke: "禁用 API 客户端" },
+      files: { upload: "上传文件", delete: "删除文件", list: "列出文件" },
     },
   },
 };

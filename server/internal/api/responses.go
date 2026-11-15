@@ -1266,21 +1266,9 @@ func relayNativeResponsesSSE(w http.ResponseWriter, body io.Reader) (tokenUsage,
 // 避免两套判断漂移。
 const responsesFileAccessDeniedCode = "file_access_denied"
 
-// responsesFileAccessAllowed 与 #160 的 deepseekToolsAllowed 语义保持一致：默认只允许
-// 管理员（账号带任一管理权限点）与机器人/服务账号（account_type=bot）引用已上传文件；
-// 部署开启 DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE 后对所有登录账号开放。
-func (s *Server) responsesFileAccessAllowed(p *Principal) bool {
-	if s.opts.DeepSeekToolsAllowEmployee {
-		return true
-	}
-	if p == nil {
-		return false
-	}
-	if p.CanAdmin {
-		return true
-	}
-	return p.User != nil && p.User.AccountType == store.AccountBot
-}
+// responsesFileAccessAllowed 与 DeepSeek 工具代理共用同一条访问边界（deepseekToolsAllowed）：
+// 默认只允许管理员与机器人/服务账号引用上游共享文件。
+func (s *Server) responsesFileAccessAllowed(p *Principal) bool { return s.deepseekToolsAllowed(p) }
 
 // responsesReferencesFileID 报告 Responses 请求的 input 里是否引用了已上传文件的
 // file_id（input_file / input_image 等任何带非空 file_id 的内容块；递归查找）。

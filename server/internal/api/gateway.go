@@ -393,6 +393,16 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeGatewayError(w, r, http.StatusForbidden, "permission_error", "model_not_allowed", "你的账号不能使用模型 "+model+"，可在 /ee-status 查看可用模型")
 		return
 	}
+	// 文件属于上游共享账号，默认不对普通员工开放。即使员工不从文件接口拿 file_id，
+	// 聊天请求里引用已知 file_id 也会让上游读取该账号的文件，所以在入口一并拦截。
+	// 管理员/机器人（或部署显式放开员工）不受影响。Anthropic Messages（anthropic.go）已在
+	// main 上，但它的原生透传会原样转发 file 块，本 PR 不改变该行为、也不在它的入口加此判断；
+	// Responses 尚未落地，两者以后需要统一边界时都应在各自入口复用同一个判断。
+	if !s.deepseekToolsAllowed(k) && chatReferencesFileID(body) {
+		writeOpenAIErr(w, http.StatusForbidden, "permission_error", fileAccessDeniedCode,
+			"当前账号不能引用已上传的文件（file_id）；DeepSeek 文件默认只允许管理员与机器人账号使用")
+		return
+	}
 	// 生成参数在转发前收口：超额输出、多候选会让单次请求的用量脱离额度约束。
 	if code, msg := completionLimitError(body); code != "" {
 		writeGatewayError(w, r, http.StatusBadRequest, "invalid_request_error", code, msg)
@@ -524,6 +534,48 @@ func (c *streamChunk) deltaTokens() int {
 		}
 	}
 	return n
+}
+
+// chatReferencesFileID 报告 Chat Completions 请求的 messages 里是否引用了已上传文件的
+// file_id（DeepSeek 的 file 内容块、Anthropic 风格 document 块，统一按递归查找 file_id
+// 字段处理；只看 messages 里的内容，避免把工具声明里的属性名当成引用）。
+func chatReferencesFileID(body map[string]any) bool {
+	raw, ok := body["messages"].([]any)
+	if !ok {
+		return false
+	}
+	for _, item := range raw {
+		msg, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if hasNonEmptyFileID(msg["content"]) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasNonEmptyFileID 递归查找 map/slice 里值为非空字符串的 file_id 字段。
+func hasNonEmptyFileID(v any) bool {
+	switch x := v.(type) {
+	case map[string]any:
+		if id, ok := x["file_id"].(string); ok && strings.TrimSpace(id) != "" {
+			return true
+		}
+		for _, vv := range x {
+			if hasNonEmptyFileID(vv) {
+				return true
+			}
+		}
+	case []any:
+		for _, vv := range x {
+			if hasNonEmptyFileID(vv) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // estimateTokens 粗估 token 数，只在上游没给 usage 时兜底用：
