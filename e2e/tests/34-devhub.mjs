@@ -45,7 +45,7 @@ export default async function (t) {
 
   // /llms.txt 的正文断言（状态码/正文在上面已经取过）
   assert(llmsText.startsWith("# dsh-ee 开发文档"), "llms.txt 应以 H1 标题开头");
-  for (const needle of ["/docs/overview", "/docs/harness-quickstart", "/v1/messages", "/anthropic/v1/messages", "/.well-known/dsh-ee", "/v1/models", "/mcp", "docs/errors.md", "docs/extension-protocol.md"]) {
+  for (const needle of ["/docs/overview", "/docs/harness-quickstart", "/docs/chatbot", "/v1/messages", "/anthropic/v1/messages", "/.well-known/dsh-ee", "/v1/models", "/mcp", "docs/errors.md", "docs/extension-protocol.md"]) {
     assert(llmsText.includes(needle), `/llms.txt 缺少「${needle}」`);
   }
   step("/llms.txt 可匿名读取，含文档清单与发现/模型/MCP/错误码入口");
@@ -73,6 +73,15 @@ export default async function (t) {
   assert(page.url().endsWith(`#${encodeURI(hid)}`) || page.url().endsWith(`#${hid}`), `点标题锚点后地址应带 #${hid}，实际 ${page.url()}`);
   await shot(page, "devhub-doc-detail");
   step("/docs 列表可分类筛选，详情页支持表格与 /docs/:slug#标题锚点 深链");
+
+  // Chatbot 文档：新增站内页要有正文（配置、服务端工具与能力声明字段），且 llms.txt 已收录
+  await page.goto(`${BASE}/docs/chatbot`);
+  await page.getByRole("heading", { level: 1, name: "Chatbot 网关选项与透传" }).waitFor();
+  const chatbotText = await page.locator('[data-dev-page="docs"]').innerText();
+  for (const needle of ["DSH_EE_SAFETY_CHECK", "DSH_EE_CHAT_TITLE", "deepseek_web_search", "deepseek_read_url", "safety_check", "server_tool_calls", "chatbot"]) {
+    assert(chatbotText.includes(needle), `Chatbot 文档缺少「${needle}」`);
+  }
+  step("/docs/chatbot 渲染成功：Chatbot 配置、服务端工具与能力声明字段可读");
 
   // ---- 内容事实（review）：清单示例、命令、Node/primer 与预检语义必须和代码一致 ----
   await page.goto(`${BASE}/docs/extension-quickstart`);

@@ -179,6 +179,7 @@ Confirm the device code in the browser, and DSH is connected to the company's ca
 | `DSH_EE_TRUSTED_PROXIES` | Reverse-proxy IPs/CIDRs (comma-separated) whose `X-Forwarded-*` headers are trusted; defaults to loopback only. Set it when the proxy runs in another container/host or behind a cloud LB |
 | `DSH_EE_REFRESH_TOKENS` | Opt-in OAuth-style refresh tokens (one-time rotation + reuse detection); default off, so no client behavior changes. When enabled, device/manual issuance also returns an `ee_rt_` refresh token and `POST /api/auth/refresh` is available (404 while off). See [docs/token-lifecycle.md](./docs/token-lifecycle.md) §3 |
 | `DSH_EE_REFRESH_ACCESS_TTL` / `_TOKEN_TTL` / `_FAMILY_TTL` / `_GRACE` | Refresh token TTLs and rotation grace: access `1h`, refresh idle `720h`, family cap `4320h`, grace `0` (strict) by default |
+| `DSH_EE_SAFETY_CHECK` / `DSH_EE_CHAT_TITLE` | DeepSeek Chatbot options for `vendor=deepseek` Chat Completions upstreams: inject `safety_check` (`off`/`high`) and conversation `title` (`off`/`on`) when the client did not send them; client values are kept; both off by default; `/v1/messages` native passthrough is never injected. See [docs/dev/chatbot.md](./docs/dev/chatbot.md) |
 
 The full list is in [server/README.md](./server/README.md).
 

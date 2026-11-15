@@ -12,11 +12,13 @@
 - [权限与访问规则速查 / Permissions and access rules: a quick reference](/docs/access-rules): 权限点、字段访问规则、管理约束三层的判断顺序与配置入口。
 - [发布入口与预检结果怎么读 / Publish entries and how to read the precheck](/docs/publish-precheck): 三个发布入口、预检的扫描键、结果语义与提交前自查清单。
 - [规范与检查：ENTRY / FLOW / BOOST / Standards and checks: ENTRY / FLOW / BOOST](/docs/quality-standards): 上游规范三层与 dsh-ee 预检的边界：哪些是作者自证，哪些是企业准入。
+- [Chatbot 网关选项与透传 / Chatbot gateway options and passthrough](/docs/chatbot): DeepSeek Chatbot 的联网工具、内容安全与会话标题：网关只透传，可按部署注入 safety_check / title，能力在发现文档声明。
 
 ## 契约与错误入口
 
 - [能力发现文档](/.well-known/dsh-ee): 匿名的版本与能力发现：api_version、设备码端点、scopes、模型/MCP/应用能力与限制。
 - [模型网关](/v1/models): OpenAI 兼容的模型列表与 /v1/chat/completions；Bearer 令牌。
+- [Chatbot 能力与透传](https://github.com/hikariming/dsh-ee/blob/main/docs/dev/chatbot.md): DeepSeek Chatbot 网关选项：联网/读网页工具、safety_check、会话标题与拒绝/引用块的原样透传。
 - [MCP 工具面](/mcp): Streamable HTTP + JSON-RPC：initialize、tools/list、tools/call；写工具走服务端确认。
 - [错误码索引](https://github.com/hikariming/dsh-ee/blob/main/docs/errors.md): 发布预检、审核、令牌、网关、MCP、扩展与嵌入的错误码与修法。
 - [扩展协议](https://github.com/hikariming/dsh-ee/blob/main/docs/extension-protocol.md): 服务扩展与端侧扩展和 dsh-ee 之间的协议、清单与调用约定。

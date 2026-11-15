@@ -314,3 +314,70 @@ func TestLoadRefreshConfig(t *testing.T) {
 		t.Fatal("超过 5m 的宽限期应该失败")
 	}
 }
+
+// DeepSeek Chatbot 的两个选项：默认都不注入，取值写错应让 Load 失败（fail closed）。
+func TestChatbotOptionsDefaults(t *testing.T) {
+	setRequiredEnv(t)
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.SafetyCheck != "" {
+		t.Fatalf("DSH_EE_SAFETY_CHECK 默认应关闭，得到 %q", c.SafetyCheck)
+	}
+	if c.ChatTitle {
+		t.Fatal("DSH_EE_CHAT_TITLE 默认应关闭")
+	}
+}
+
+func TestChatbotOptionsEnv(t *testing.T) {
+	cases := []struct {
+		name      string
+		safety    string
+		title     string
+		wantSafe  string
+		wantTitle bool
+	}{
+		{name: "显式 off", safety: "off", title: "off"},
+		{name: "开启 high / on", safety: "high", title: "on", wantSafe: "high", wantTitle: true},
+		{name: "大小写与空白", safety: " HIGH ", title: " On ", wantSafe: "high", wantTitle: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setRequiredEnv(t)
+			t.Setenv("DSH_EE_SAFETY_CHECK", tc.safety)
+			t.Setenv("DSH_EE_CHAT_TITLE", tc.title)
+			c, err := Load()
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if c.SafetyCheck != tc.wantSafe {
+				t.Fatalf("SafetyCheck = %q，期望 %q", c.SafetyCheck, tc.wantSafe)
+			}
+			if c.ChatTitle != tc.wantTitle {
+				t.Fatalf("ChatTitle = %v，期望 %v", c.ChatTitle, tc.wantTitle)
+			}
+		})
+	}
+}
+
+func TestChatbotOptionsInvalid(t *testing.T) {
+	cases := []struct{ key, value string }{
+		{"DSH_EE_SAFETY_CHECK", "low"},
+		{"DSH_EE_SAFETY_CHECK", "true"},
+		{"DSH_EE_SAFETY_CHECK", "on"},
+		{"DSH_EE_CHAT_TITLE", "true"},
+		{"DSH_EE_CHAT_TITLE", "high"},
+		{"DSH_EE_CHAT_TITLE", "maybe"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
+			setRequiredEnv(t)
+			t.Setenv(tc.key, tc.value)
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("%s=%q 应报错，得到 %v", tc.key, tc.value, err)
+			}
+		})
+	}
+}

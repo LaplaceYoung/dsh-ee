@@ -287,10 +287,13 @@ type harnessDiscoveryDoc struct {
 	Models                      harnessDiscoveredModels `json:"models"`
 	MCP                         harnessDiscoveredMCP    `json:"mcp"`
 	Apps                        harnessDiscoveredApps   `json:"apps"`
-	CapabilitiesEndpoint        string                  `json:"capabilities_endpoint"`
-	OpenAPIURL                  string                  `json:"openapi_url"`
-	Limits                      harnessLimits           `json:"limits"`
-	Errors                      harnessDiscoveredErrors `json:"errors"`
+	// Chatbot 声明 DeepSeek Chatbot 能力的透传与注入状态（docs/dev/chatbot.md）：
+	// 服务端工具、内容安全、会话标题与拒绝/引用块都依赖上游 DeepSeek，dsh-ee 只透传。
+	Chatbot              harnessChatbot          `json:"chatbot"`
+	CapabilitiesEndpoint string                  `json:"capabilities_endpoint"`
+	OpenAPIURL           string                  `json:"openapi_url"`
+	Limits               harnessLimits           `json:"limits"`
+	Errors               harnessDiscoveredErrors `json:"errors"`
 }
 
 type harnessDiscoveredAuth struct {
@@ -365,6 +368,7 @@ func (s *Server) handleHarnessDiscovery(w http.ResponseWriter, r *http.Request) 
 			Web: true, DataTools: true,
 			Endpoint: base + "/v1/apps", WebURL: base + "/a/{slug}",
 		},
+		Chatbot:              s.chatbotCapability(),
 		CapabilitiesEndpoint: base + "/v1/capabilities",
 		OpenAPIURL:           base + harnessOpenAPIPath,
 		Limits:               harnessLimits{MaxRequestBytes: maxRequestBody, MaxResponseBytes: maxResponseBody, MaxMCPRequestBytes: maxMCPRequestBody},
@@ -439,7 +443,10 @@ type harnessCapabilities struct {
 	// apps 是当前用户已启用 / 自动生效的中立微应用描述（不含 DSH 专属系统应用）。
 	Apps []harnessApp `json:"apps"`
 	// skills 是当前用户可见的技能 / 提示词摘要（只有元数据，不含正文）；完整技能接口见后续 PR。
-	Skills   []harnessSkill `json:"skills"`
+	Skills []harnessSkill `json:"skills"`
+	// chatbot 是服务端级的 Chatbot 能力声明（不随令牌变化）：服务端工具、safety_check、
+	// title 与拒绝/引用块由上游 DeepSeek 实现，dsh-ee 只注入默认值并原样透传。
+	Chatbot  harnessChatbot `json:"chatbot"`
 	Revision string         `json:"revision"`
 }
 
@@ -541,6 +548,7 @@ func (s *Server) handleHarnessCapabilities(w http.ResponseWriter, r *http.Reques
 	caps := harnessCapabilities{
 		APIVersion: harnessAPIVersion,
 		Server:     harnessServerInfo{Name: harnessServerName, Version: s.opts.Version},
+		Chatbot:    s.chatbotCapability(),
 		Scopes:     []string{},
 		Models:     []string{},
 		Apps:       []harnessApp{},

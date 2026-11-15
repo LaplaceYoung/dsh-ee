@@ -152,11 +152,14 @@ func run(log *slog.Logger) error {
 		// 旧令牌 scope 收敛（DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES）；默认关闭，不破坏现有客户端
 		RestrictLegacyTokenScopes: cfg.RestrictLegacyTokenScopes,
 		// 刷新令牌（DSH_EE_REFRESH_TOKENS，docs/token-lifecycle.md §3）；默认关闭
-		RefreshTokens:             cfg.RefreshTokens,
-		RefreshAccessTTL:          cfg.RefreshAccessTTL,
-		RefreshTokenTTL:           cfg.RefreshTokenTTL,
-		RefreshFamilyTTL:          cfg.RefreshFamilyTTL,
-		RefreshGrace:              cfg.RefreshGrace,
+		RefreshTokens:    cfg.RefreshTokens,
+		RefreshAccessTTL: cfg.RefreshAccessTTL,
+		RefreshTokenTTL:  cfg.RefreshTokenTTL,
+		RefreshFamilyTTL: cfg.RefreshFamilyTTL,
+		RefreshGrace:     cfg.RefreshGrace,
+		// DeepSeek Chatbot 选项（DSH_EE_SAFETY_CHECK / DSH_EE_CHAT_TITLE）；默认都不注入
+		SafetyCheckLevel:          cfg.SafetyCheck,
+		ChatTitle:                 cfg.ChatTitle,
 		DataHub:                   dataHub,
 		DataHubErr:                dataErr,
 		DemoSite:                  demoSite(cfg),

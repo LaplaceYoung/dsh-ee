@@ -26,6 +26,12 @@ const harnessVersion = "test-1.0.0"
 // harnessFixture 起一个初始化好管理员、版本号固定的测试服务（数据库用例）。
 func harnessFixture(t *testing.T) (*httptest.Server, *client) {
 	t.Helper()
+	return harnessFixtureWith(t, nil)
+}
+
+// harnessFixtureWith 允许测试调整 api.Options（例如 Chatbot 注入开关、版本号）。
+func harnessFixtureWith(t *testing.T, mutate func(*api.Options)) (*httptest.Server, *client) {
+	t.Helper()
 	st := openTestStore(t)
 	if _, err := api.Bootstrap(context.Background(), st, "admin", "admin-password-123"); err != nil {
 		t.Fatal(err)
@@ -33,8 +39,11 @@ func harnessFixture(t *testing.T) (*httptest.Server, *client) {
 	key := make([]byte, 32)
 	_, _ = rand.Read(key)
 	box, _ := secret.NewBox(key)
-	srv := api.New(st, box, api.Options{DataDir: t.TempDir(), Version: harnessVersion},
-		slog.New(slog.NewTextHandler(io.Discard, nil)))
+	opts := api.Options{DataDir: t.TempDir(), Version: harnessVersion}
+	if mutate != nil {
+		mutate(&opts)
+	}
+	srv := api.New(st, box, opts, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
 	admin := newClient(t, ts.URL)
@@ -173,6 +182,26 @@ func TestHarnessDiscovery(t *testing.T) {
 	if !doc.Apps.Web || !doc.Apps.DataTools || doc.Apps.Endpoint != ts.URL+"/v1/apps" || doc.Apps.WebURL != ts.URL+"/a/{slug}" {
 		t.Fatalf("apps 入口不对：%+v", doc.Apps)
 	}
+	// Chatbot 能力：默认不注入，但声明透传服务端工具/安全/标题/拒绝与响应字段。
+	// 能力依赖上游 DeepSeek，dsh-ee 不实现服务端工具，用 upstream_vendor + note 说清楚。
+	cb := doc.Chatbot
+	if cb.UpstreamVendor != "deepseek" || !cb.Passthrough || !cb.Refusal {
+		t.Fatalf("chatbot 能力声明不对：%+v", cb)
+	}
+	if !slices.Equal(cb.ServerTools, []string{"deepseek_web_search", "deepseek_read_url"}) {
+		t.Fatalf("chatbot server_tools 不对：%v", cb.ServerTools)
+	}
+	if !cb.SafetyCheck.Supported || cb.SafetyCheck.Injected || cb.SafetyCheck.Level != "" || !cb.Title.Supported || cb.Title.Injected {
+		t.Fatalf("chatbot 默认不应注入 safety_check/title：%+v", cb)
+	}
+	for _, field := range []string{"title", "citations", "refusal", "server_tool_use", "server_tool_calls"} {
+		if !slices.Contains(cb.ResponseFields, field) {
+			t.Fatalf("chatbot response_fields 缺少 %q：%v", field, cb.ResponseFields)
+		}
+	}
+	if !strings.Contains(cb.Note, "DeepSeek") {
+		t.Fatalf("chatbot note 应说明依赖上游 DeepSeek：%q", cb.Note)
+	}
 	if doc.CapabilitiesEndpoint != ts.URL+"/v1/capabilities" || doc.OpenAPIURL != ts.URL+"/v1/openapi.json" {
 		t.Fatalf("能力/契约入口不对：capabilities=%q openapi=%q", doc.CapabilitiesEndpoint, doc.OpenAPIURL)
 	}
@@ -274,6 +303,51 @@ func TestHarnessDiscovery(t *testing.T) {
 	}
 }
 
+// TestHarnessChatbotInjection 覆盖开启注入后的能力声明：发现文档与能力摘要都要如实
+// 报告本部署会注入的 safety_check / title，客户端才能判断上游请求里会不会多出字段。
+func TestHarnessChatbotInjection(t *testing.T) {
+	ts, _ := harnessFixtureWith(t, func(o *api.Options) {
+		o.SafetyCheckLevel = "high"
+		o.ChatTitle = true
+	})
+
+	code, _, body := harnessGet(t, ts.URL+"/.well-known/dsh-ee", nil)
+	expect(t, "读发现文档", code, 200, body)
+	disc := decode[harnessDiscoveryView](t, body)
+	if !disc.Chatbot.SafetyCheck.Injected || disc.Chatbot.SafetyCheck.Level != "high" {
+		t.Fatalf("safety_check 注入声明不对：%+v", disc.Chatbot.SafetyCheck)
+	}
+	if !disc.Chatbot.Title.Injected {
+		t.Fatalf("title 注入声明不对：%+v", disc.Chatbot.Title)
+	}
+
+	code, _, body = harnessGet(t, ts.URL+"/v1/capabilities", nil)
+	expect(t, "匿名能力摘要", code, 200, body)
+	caps := decode[capabilitiesView](t, body)
+	if !caps.Chatbot.SafetyCheck.Injected || caps.Chatbot.SafetyCheck.Level != "high" || !caps.Chatbot.Title.Injected {
+		t.Fatalf("能力摘要里的注入声明应与发现文档一致：%+v", caps.Chatbot)
+	}
+}
+
+// chatbotCapView 是发现文档与 /v1/capabilities 里 chatbot 能力声明的形状（测试用）。
+type chatbotCapView struct {
+	UpstreamVendor string   `json:"upstream_vendor"`
+	Passthrough    bool     `json:"passthrough"`
+	ServerTools    []string `json:"server_tools"`
+	SafetyCheck    struct {
+		Supported bool   `json:"supported"`
+		Injected  bool   `json:"injected"`
+		Level     string `json:"level"`
+	} `json:"safety_check"`
+	Title struct {
+		Supported bool `json:"supported"`
+		Injected  bool `json:"injected"`
+	} `json:"title"`
+	Refusal        bool     `json:"refusal"`
+	ResponseFields []string `json:"response_fields"`
+	Note           string   `json:"note"`
+}
+
 // harnessDiscoveryView 是发现文档的响应形状（测试用）。
 type harnessDiscoveryView struct {
 	Name       string `json:"name"`
@@ -309,8 +383,9 @@ type harnessDiscoveryView struct {
 		Endpoint  string `json:"endpoint"`
 		WebURL    string `json:"web_url"`
 	} `json:"apps"`
-	CapabilitiesEndpoint string `json:"capabilities_endpoint"`
-	OpenAPIURL           string `json:"openapi_url"`
+	Chatbot              chatbotCapView `json:"chatbot"`
+	CapabilitiesEndpoint string         `json:"capabilities_endpoint"`
+	OpenAPIURL           string         `json:"openapi_url"`
 	Limits               struct {
 		MaxRequestBytes    int64 `json:"max_request_bytes"`
 		MaxResponseBytes   int64 `json:"max_response_bytes"`
@@ -524,6 +599,11 @@ func TestHarnessCapabilities(t *testing.T) {
 	if anon.Server.Name != "dsh-ee" || anon.Server.Version != harnessVersion {
 		t.Fatalf("匿名摘要也应带服务标识：%+v", anon.Server)
 	}
+	// Chatbot 能力是服务端级声明，匿名也可读；默认不注入，注入状态跟启动配置走。
+	if anon.Chatbot.UpstreamVendor != "deepseek" || !anon.Chatbot.Passthrough ||
+		anon.Chatbot.SafetyCheck.Injected || anon.Chatbot.Title.Injected {
+		t.Fatalf("匿名能力摘要的 chatbot 声明不对：%+v", anon.Chatbot)
+	}
 
 	// 令牌不合法：401 + 中立错误壳；带错凭证不会静默退化成匿名。
 	code, header, body = harnessGet(t, ts.URL+"/v1/capabilities", bearer("nope"))
@@ -651,6 +731,7 @@ type capabilitiesView struct {
 	} `json:"tools"`
 	Apps     []harnessAppView   `json:"apps"`
 	Skills   []harnessSkillView `json:"skills"`
+	Chatbot  chatbotCapView     `json:"chatbot"`
 	Revision string             `json:"revision"`
 }
 

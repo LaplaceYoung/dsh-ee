@@ -62,6 +62,7 @@ Go 写的 dsh-ee 服务端。目前实现：
 ## 大模型接入
 
 - 上游一律走 OpenAI 兼容接口（DeepSeek、通义千问、智谱、豆包、Kimi、硅基流动、OpenAI、Ollama、vLLM 等都提供），网关按原始 JSON 透传，不经 SDK 二次序列化，厂商扩展字段（如 `reasoning_content`）原样保留。
+- **DeepSeek Chatbot 能力（只透传）**：联网工具（`deepseek_web_search` / `deepseek_read_url`）、内容安全 `safety_check`、会话标题 `title`，以及响应里的 `title` / `annotations`（引用）/ `refusal` / `server_tool_calls` / `server_tool_event` 等块都原样转发，网关不执行、不解析、不改写这些字段。可用 `DSH_EE_SAFETY_CHECK=high` / `DSH_EE_CHAT_TITLE=on` 给 `vendor=deepseek` 的 Chat Completions 上游请求注入默认值（客户端已传则保留；非 DeepSeek 上游不注入；`/v1/messages` 原生透传只转发客户端自带字段、不注入）；能力在发现文档与 `/v1/capabilities` 的 `chatbot` 里声明。详见 [docs/dev/chatbot.md](../docs/dev/chatbot.md)。
 - 模型单独成表：员工调用时写**对外名称**，转发时换成**上游模型名**。同一个对外名称可以挂在多个上游上，按上游优先级依次尝试，连不上、429、5xx 时自动切到下一条（开始向客户端写响应后不再切换）。
 - 「检查连接」请求上游 `/models`；上游不提供该接口时，用一个已配置的模型发一次 `max_tokens=1` 的对话验证。结果会存下来显示在管理端。
 
@@ -149,6 +150,8 @@ OceanBase 单机最低也要几 GB 内存，本地机器紧张时先用 TiDB 调
 | `DSH_EE_METRICS` | 设为 `true` 时开放 `GET /metrics`（Prometheus 文本格式，只允许本机 / 内网抓取）；默认关闭 |
 | `DSH_EE_RATE_LIMIT` | `/v1/*` 与 `/mcp` 的每令牌限流，单位「次/分钟」，默认 `60`；`0` 或 `off` 关闭。计数在数据库 `shared_rate_limits` 里，多实例部署时是合计额度（窗口按分钟对齐，依赖各实例时钟同步）；数据库不可用时退回单实例内存限流 |
 | `DSH_EE_CLIENT_TOKEN_PER_MINUTE` | `POST /api/auth/client-token`（API 客户端 client_credentials）每 IP 每分钟最多换几次 token，默认 `120`；`0` 或 `off` 关闭。只防用错误 secret 撞库 / 刷库 |
+| `DSH_EE_SAFETY_CHECK` | `off`（默认）/ `high`。`high` 时向 `vendor=deepseek` 的 Chat Completions 上游请求注入 `safety_check:{"level":"high"}`；客户端已传 `safety_check` 时保留客户端值，非 DeepSeek 上游与 `/v1/messages` 原生透传不注入。见 [docs/dev/chatbot.md](../docs/dev/chatbot.md) |
+| `DSH_EE_CHAT_TITLE` | `off`（默认）/ `on`。`on` 时向 `vendor=deepseek` 的上游请求注入 `title:{"enabled":true}`；客户端已传 `title` 时保留客户端值。建议只在会话第一轮打开（上游可能为等标题多等约 5 秒）。 |
 | `DSH_EE_TRUSTED_PROXIES` | 可信反向代理的地址 / CIDR（逗号分隔）。只有来自这些对端的 `X-Forwarded-For`、`X-Forwarded-Host`、`X-Forwarded-Proto` 才会被采信；默认只有 `127.0.0.1/32` 与 `::1/128`。代理在别的机器、容器网络或云负载均衡后面时必须配置 |
 | `DSH_EE_EMBED_ORIGINS` | 允许用 iframe 嵌入微应用网页（`/a/*`）的宿主来源，逗号分隔的完整 origin，如 `https://harness.acme.internal,http://localhost:5173`；只接受 https（`http://localhost` 等回环地址例外），非法值启动失败；不设时只允许同站嵌入（`frame-ancestors 'self'`）。接入方式、embed 参数与 postMessage 协议见 [docs/embedding.md](../docs/embedding.md) |
 | `DSH_EE_EMBED_CROSS_SITE` | 跨站 iframe 嵌入 v1 总开关，默认关闭。开启后 `POST /api/embed/sessions`、`POST /api/auth/embed/exchange` 才可用，且必须同时设置 `DSH_EE_EMBED_ORIGINS`（否则启动失败）。管理端「系统设置 → 跨站嵌入」可显式覆盖（数据库值优先） |

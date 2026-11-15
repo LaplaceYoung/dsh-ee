@@ -10,7 +10,8 @@
     "dev/extension-quickstart.md",
     "dev/access-rules.md",
     "dev/publish-precheck.md",
-    "dev/quality-standards.md"
+    "dev/quality-standards.md",
+    "dev/chatbot.md"
   ],
   "llms": {
     "title": "dsh-ee 开发文档",
@@ -25,6 +26,11 @@
         "title": "模型网关",
         "url": "/v1/models",
         "description": "OpenAI 兼容的模型列表与 /v1/chat/completions；Bearer 令牌。"
+      },
+      {
+        "title": "Chatbot 能力与透传",
+        "docs": "dev/chatbot.md",
+        "description": "DeepSeek Chatbot 网关选项：联网/读网页工具、safety_check、会话标题与拒绝/引用块的原样透传。"
       },
       {
         "title": "MCP 工具面",

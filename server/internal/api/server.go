@@ -93,6 +93,13 @@ type Options struct {
 	ExtensionRequireSignature bool
 	// 旧版 npm 令牌 / API key 的 scope 收敛（docs/token-lifecycle.md）；默认 false 保持旧行为。
 	RestrictLegacyTokenScopes bool
+	// DeepSeek Chatbot 的网关注入选项（docs/dev/chatbot.md）：
+	// SafetyCheckLevel 为空表示不注入，high 时向 vendor=deepseek 的上游请求注入
+	// safety_check:{level:"high"}；ChatTitle 为 true 时注入 title:{enabled:true}。
+	// 只影响发往 DeepSeek 上游的那次请求，客户端已经带了对应字段时保留客户端值；
+	// 非 DeepSeek 上游不注入，也不改变模型/额度/记账或响应内容。
+	SafetyCheckLevel string
+	ChatTitle        bool
 	// mint 的共享（数据库）固定窗口限流：每 IP 每分钟次数；0 用默认 30（DSH_EE_EMBED_MINT_PER_MINUTE）。
 	// 多实例部署时是合计额度，不是每实例一份。
 	EmbedMintPerMinute int
