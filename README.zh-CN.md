@@ -7,7 +7,7 @@
 把 ERP、CRM、数仓和制度文档接进来，组装成 AI 微应用，审核授权后送到每位员工的 [DeepSeek Harness（DSH）](https://github.com/deepseek-ai/deepseek-harness)。<br>
 数据和凭据都留在你自己的服务器上，每一次调用都可以审计。
 
-[English](./README.md) · 简体中文
+[English](./README.md) · 简体中文 · [Español](./README.es.md) · [Português](./README.pt.md) · [हिन्दी](./README.hi.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
@@ -178,6 +178,9 @@ irm https://<dsh-ee>/setup.ps1 | iex          # Windows
 | `DSH_EE_CSP` | 内容安全策略模式：`off`（默认，只加现有的 `frame-ancestors` 嵌入收口）/ `report`（`Content-Security-Policy-Report-Only`，只报告不阻断）/ `enforce`（`Content-Security-Policy`，阻断违规）。内联脚本哈希在启动时从嵌入的 `index.html` 计算，`frame-ancestors` 与 `DSH_EE_EMBED_ORIGINS` 合并；非法值启动失败。见 [docs/operations.md](./docs/operations.md) §10.1 |
 | `DSH_EE_CSP_REPORT_URI` | 可选的 CSP 违规报告地址（`http(s)://…`）；`DSH_EE_CSP` 不是 `off` 时写进 `report-uri`。dsh-ee 不自带收集端点 |
 | `DSH_EE_TRUSTED_PROXIES` | 可信反向代理的地址 / CIDR（逗号分隔），只有它们传来的 `X-Forwarded-*` 会被采信；默认只有本机回环地址。代理在别的机器、容器网络或云负载均衡后面时必填 |
+| `DSH_EE_DEEPSEEK_PROVIDER` | DeepSeek 工具代理（Files / ASR / TTS / Search / Fetch / OCR 与 Anthropic 兼容 Files）使用的模型上游：provider 的 `name` 或数字 `id`；不设置时用第一个启用且 `vendor=deepseek` 的上游。这些调用在上游账号按工具计费，不占 dsh-ee 的 token 额度；见 [docs/dev/deepseek-tools.md](./docs/dev/deepseek-tools.md) |
+| `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | 是否允许**普通员工**（默认只有管理员与机器人/服务账号）调用 DeepSeek 文件/工具接口、在聊天里引用 `file_id`；默认 `false`（普通员工 403）。文件在上游是共享账号空间、员工之间不隔离，开启前请评估租户风险 |
+| `DSH_EE_SAFETY_CHECK` / `DSH_EE_CHAT_TITLE` | DeepSeek Chatbot 选项：对 `vendor=deepseek` 的 Chat Completions 上游请求注入安全审核 `safety_check`（`off`/`high`）与会话标题 `title`（`off`/`on`），客户端已传对应字段时保留；默认都关闭；`/v1/messages` 原生透传不做注入。见 [docs/dev/chatbot.md](./docs/dev/chatbot.md) |
 
 完整列表、权限模型与接口说明见 [server/README.md](./server/README.md)。
 

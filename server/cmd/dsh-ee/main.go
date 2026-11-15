@@ -151,15 +151,15 @@ func run(log *slog.Logger) error {
 		AdminModeUnit:  cfg.AdminModeUnit,
 		// 旧令牌 scope 收敛（DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES）；默认关闭，不破坏现有客户端
 		RestrictLegacyTokenScopes: cfg.RestrictLegacyTokenScopes,
-		// DeepSeek Files 的 file_id 访问拦截（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）；
-		// 默认 false，只放行管理员与机器人账号（fail closed）
-		DeepSeekToolsAllowEmployee: cfg.DeepSeekToolsAllowEmployee,
 		// 刷新令牌（DSH_EE_REFRESH_TOKENS，docs/token-lifecycle.md §3）；默认关闭
-		RefreshTokens:             cfg.RefreshTokens,
-		RefreshAccessTTL:          cfg.RefreshAccessTTL,
-		RefreshTokenTTL:           cfg.RefreshTokenTTL,
-		RefreshFamilyTTL:          cfg.RefreshFamilyTTL,
-		RefreshGrace:              cfg.RefreshGrace,
+		RefreshTokens:    cfg.RefreshTokens,
+		RefreshAccessTTL: cfg.RefreshAccessTTL,
+		RefreshTokenTTL:  cfg.RefreshTokenTTL,
+		RefreshFamilyTTL: cfg.RefreshFamilyTTL,
+		RefreshGrace:     cfg.RefreshGrace,
+		// DeepSeek Chatbot 选项（DSH_EE_SAFETY_CHECK / DSH_EE_CHAT_TITLE）；默认都不注入
+		SafetyCheckLevel:          cfg.SafetyCheck,
+		ChatTitle:                 cfg.ChatTitle,
 		DataHub:                   dataHub,
 		DataHubErr:                dataErr,
 		DemoSite:                  demoSite(cfg),
@@ -172,6 +172,10 @@ func run(log *slog.Logger) error {
 		CSP:                   cfg.CSP,
 		CSPReportURI:          cfg.CSPReportURI,
 		CSPInlineScriptHashes: inlineScriptHashes,
+		// DeepSeek 工具代理（DSH_EE_DEEPSEEK_PROVIDER）：Files / ASR / TTS 用哪个模型上游
+		DeepSeekProvider: cfg.DeepSeekProvider,
+		// 是否放开普通员工调用 DeepSeek 文件/工具接口（默认只允许管理员与机器人）
+		DeepSeekToolsAllowEmployee: cfg.DeepSeekToolsAllowEmployee,
 		// 每令牌的 /v1 与 /mcp 请求数；默认 60，可用 DSH_EE_RATE_LIMIT 调整或关闭
 		RateLimitPerMinute: cfg.RateLimitPerMinute,
 		// API 客户端 client_credentials 每 IP 每分钟签发次数；默认 120，可用 DSH_EE_CLIENT_TOKEN_PER_MINUTE 调整或关闭
@@ -197,7 +201,7 @@ func run(log *slog.Logger) error {
 		log.Warn("设置了 DSH_EE_CSP_REPORT_URI 但 DSH_EE_CSP=off：报告地址不会生效")
 	}
 	if cfg.RateLimitPerMinute > 0 {
-		log.Info("已启用公开协议面限流", "per_minute_per_token", cfg.RateLimitPerMinute)
+		log.Info("已启用公开协议面限流", "per_minute_per_token", cfg.RateLimitPerMinute, "count_store", "database")
 	} else {
 		log.Warn("公开协议面限流已关闭", "reason", "DSH_EE_RATE_LIMIT=0/off")
 	}
@@ -288,6 +292,10 @@ func sweepSessions(ctx context.Context, st *store.Store, log *slog.Logger, lease
 				} else if n > 0 {
 					log.Info("已清理过期设备码", "count", n)
 				}
+				// MCP 写确认记录（docs/plugins.md §7.5）：过期一天后回收，决定本身已经记在审计里。
+				if err := st.PurgeWriteConfirmations(ctx); err != nil {
+					log.Warn("清理过期写确认记录失败", "err", err)
+				}
 				// 刷新令牌（docs/token-lifecycle.md）：清掉宽限已过的重放密文（明文窗口尽量短）；
 				// 过期且已轮换/吊销的 refresh 记录保留 30 天后删除，access token 的记录不受影响。
 				if n, err := st.ClearRefreshSuccessors(ctx, time.Now().Add(-time.Hour)); err != nil {
@@ -327,6 +335,13 @@ func sweepEmbed(ctx context.Context, st *store.Store, log *slog.Logger, leases *
 			log.Warn("清理嵌入限流窗口失败", "err", err)
 		} else if n > 0 {
 			log.Info("已清理嵌入限流窗口", "count", n)
+		}
+		// 公开协议面（/v1 与 /mcp）的共享限流窗口同样是每分钟一行，只保留当前窗口。
+		// 线上窗口固定 1 分钟；判定不依赖清理任务，清理只回收空间。
+		if n, err := st.DeleteOldSharedRateLimits(ctx, time.Now().UTC().Truncate(time.Minute)); err != nil {
+			log.Warn("清理共享限流窗口失败", "err", err)
+		} else if n > 0 {
+			log.Info("已清理共享限流窗口", "count", n)
 		}
 	}
 	leases.Run(ctx, leaseSweepEmbed, clean)

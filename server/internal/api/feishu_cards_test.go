@@ -440,3 +440,135 @@ func feishuMustJSON(t *testing.T, value any) []byte {
 	}
 	return raw
 }
+
+// 飞书卡片审批与网页审批是同一张 pending 申请上的两条入口：每个审批人各有一张卡片，
+// 所以「A 在网页通过、B 在飞书驳回」完全可能并发。卡片回调也必须先 CAS 抢占、抢到才授权；
+// 抢不到时留失败终态并说明原因，不能出现「申请已被驳回、员工却有了权限」。
+func TestFeishuApplyAccessCardCAS(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	if _, err := api.Bootstrap(ctx, st, "admin", "admin-password-123"); err != nil {
+		t.Fatal(err)
+	}
+	idp := newFakeIdP(t)
+	fake := &fakeFeishuMessages{base: idp.Config.Handler}
+	idp.Config.Handler = fake
+	key := make([]byte, 32)
+	_, _ = rand.Read(key)
+	box, _ := secret.NewBox(key)
+	srv := api.New(st, box, api.Options{DataDir: t.TempDir(), OIDCClient: idp.Client()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	admin := newClient(t, ts.URL)
+	code, body := admin.do("POST", "/api/auth/login", map[string]string{"username": "admin", "password": "admin-password-123"}, nil)
+	expect(t, "管理员登录", code, 200, body)
+	adminUser, err := st.GetUserByUsername(ctx, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	super, err := st.GetRoleByCode(ctx, rbac.RoleSuper)
+	if err != nil {
+		t.Fatal(err)
+	}
+	member, err := st.GetRoleByCode(ctx, rbac.RoleMember)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reviewer := &store.User{Username: "reviewer", DisplayName: "飞书审批人", Department: "研发部", AuthSource: store.AuthOIDC, ExternalDN: "feishu:ou-reviewer"}
+	if err := st.CreateUser(ctx, reviewer); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetUserRoles(ctx, reviewer.ID, []int64{super.ID}); err != nil {
+		t.Fatal(err)
+	}
+	hash, err := api.HashPassword("applicant-password-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	applicant := &store.User{Username: "applicant", DisplayName: "申请人", Department: "研发部", AuthSource: store.AuthLocal, PasswordHash: hash}
+	if err := st.CreateUser(ctx, applicant); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.SetUserRoles(ctx, applicant.ID, []int64{member.ID}); err != nil {
+		t.Fatal(err)
+	}
+	applicantClient := newClient(t, ts.URL)
+	code, body = applicantClient.do("POST", "/api/auth/login", map[string]string{"username": "applicant", "password": "applicant-password-1"}, nil)
+	expect(t, "申请人登录", code, 200, body)
+
+	code, body = admin.do("PUT", "/api/admin/auth/oidc", map[string]any{
+		"enabled": true, "preset": "feishu", "issuer": idp.URL, "clientId": "dsh-ee", "clientSecret": "idp-secret",
+		"feishuApiBase": idp.URL, "feishuNotify": true, "feishuNotifyActions": true,
+		"feishuVerificationToken": feishuTestToken, "autoCreate": true,
+	}, nil)
+	expect(t, "开启飞书通知与卡片", code, 200, body)
+
+	// 管理员建一个只给财务部的技能：管理员提交直接上架，不会额外发审批卡。
+	code, body = admin.do("POST", "/api/hub", map[string]any{
+		"kind": "skill", "slug": "feishu-cas-skill", "delivery": "auto",
+		"scope": map[string]any{"departments": []string{"财务部"}},
+		"spec":  map[string]any{"title": "卡片回归技能", "description": "回归", "body": "审批顺序"},
+	}, nil)
+	expect(t, "建技能", code, 201, body)
+	assetID := decodeAs[struct {
+		Asset struct{ ID int64 } `json:"asset"`
+	}](t, body).Asset.ID
+
+	apply := func() int64 {
+		t.Helper()
+		code, body := applicantClient.do("POST", "/api/me/access-requests", map[string]any{"kind": "skill", "slug": "feishu-cas-skill", "reason": "需要查阅"}, nil)
+		expect(t, "员工申请权限", code, 201, body)
+		return decodeAs[struct {
+			ID int64 `json:"id"`
+		}](t, body).ID
+	}
+	granted := func() bool {
+		t.Helper()
+		a, err := st.GetAsset(ctx, assetID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return slices.Contains(a.Scope.Users, applicant.ID)
+	}
+
+	// 1) 另一位审批人先在网页驳回；后到的飞书卡片必须留失败终态，不授权。
+	id := apply()
+	actionID, messageID := fake.interactiveAction(t, 0)
+	if err := st.ResolveAccessRequest(ctx, id, "rejected", adminUser.ID, "网页先驳回"); err != nil {
+		t.Fatal(err)
+	}
+	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-reviewer", "approve"), nil)
+	expectToast(t, "已被别人处理的卡片", code, body, "error", "已被其他人处理")
+	if granted() {
+		t.Fatal("申请已被驳回，后到的飞书卡片不能授权")
+	}
+	q, err := st.GetAccessRequest(ctx, id)
+	if err != nil || q.Status != "rejected" {
+		t.Fatalf("申请应保持网页驳回的终态：%+v err=%v", q, err)
+	}
+	action, err := st.FeishuCardAction(ctx, secret.Hash(actionID))
+	if err != nil || action.Status != store.FeishuActionFailed {
+		t.Fatalf("失败的卡片应留 failed 终态：%+v err=%v", action, err)
+	}
+
+	// 2) 卡片抢到 CAS 后授权失败：申请退回待处理，卡片留可重试的失败说明，不静默停在 approved。
+	id = apply()
+	actionID, messageID = fake.interactiveAction(t, 1)
+	if _, err := st.DB().ExecContext(ctx, "UPDATE connection_requests SET asset_id = ? WHERE id = ?", int64(1)<<40, id); err != nil {
+		t.Fatalf("把申请目标改成不存在的能力（制造授权失败）：%v", err)
+	}
+	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionID, messageID, "ou-reviewer", "approve"), nil)
+	expectToast(t, "授权失败的卡片", code, body, "error", "退回待处理")
+	if granted() {
+		t.Fatal("授权失败时不该留下权限")
+	}
+	q, err = st.GetAccessRequest(ctx, id)
+	if err != nil || q.Status != "pending" || q.HandledBy != nil {
+		t.Fatalf("授权失败应退回干净的待处理状态：%+v err=%v", q, err)
+	}
+	action, err = st.FeishuCardAction(ctx, secret.Hash(actionID))
+	if err != nil || action.Status != store.FeishuActionFailed {
+		t.Fatalf("授权失败的卡片应留 failed 终态：%+v err=%v", action, err)
+	}
+}

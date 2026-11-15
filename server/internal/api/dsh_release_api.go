@@ -107,7 +107,11 @@ func (s *Server) handleMirrorDshRelease(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	go func() {
-		if err := s.downloadDshRelease(context.WithoutCancel(r.Context()), id); err != nil {
+		// 不跟随请求取消（关掉管理页面不该中止镜像），但必须有自己的总时长上限，
+		// 否则上游挂起会永久占着 goroutine，DB 状态一直卡在 downloading。
+		ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), dshReleaseTimeout)
+		defer cancel()
+		if err := s.downloadDshRelease(ctx, id); err != nil {
 			s.log.Warn("下载 Desktop 安装包失败", "id", id, "err", err)
 		}
 	}()

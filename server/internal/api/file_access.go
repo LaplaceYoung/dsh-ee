@@ -21,8 +21,6 @@ package api
 import (
 	"net/http"
 	"strings"
-
-	"github.com/hikariming/dsh-ee/server/internal/store"
 )
 
 // fileAccessDeniedMessage 是员工引用上游共享文件时的统一说明。
@@ -33,19 +31,9 @@ const fileAccessDeniedMessage = "请求引用了上游共享文件（file_id）�
 // 旧版 sk-ee / ee_npm_ 令牌的 Principal 不带账号管理标记，这里按员工处理（fail closed）；
 // 管理员引用共享文件请用 ee_at_ 令牌，机器人流程用 account_type=bot 账号。
 func (s *Server) fileAccessAllowed(p *Principal) bool {
-	if p == nil {
-		return false
-	}
-	// 管理员（账号本身有任一管理权限；超级管理员也算）。
-	if p.CanAdmin {
-		return true
-	}
-	// 机器人账号（account_type=bot）用于自动化流程，允许引用管理员上传的共享文件。
-	if p.User != nil && p.User.AccountType == store.AccountBot {
-		return true
-	}
-	// 普通员工：只有显式打开开关才放行，默认 fail closed。
-	return s.opts.DeepSeekToolsAllowEmployee
+	// 与 DeepSeek 工具代理共用同一条边界：管理员、机器人账号，或部署显式放开员工
+	// （DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）。默认 fail closed。
+	return s.deepseekToolsAllowed(p)
 }
 
 // containsUpstreamFileRef 递归判断一个已解析的 JSON 值里有没有引用上游文件：对象里出现

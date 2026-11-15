@@ -102,6 +102,30 @@ func TestLoadEmbedConfig(t *testing.T) {
 	}
 }
 
+// DeepSeek 文件/工具访问边界：默认关闭（只允许管理员与机器人），可显式开启，非法值启动失败。
+func TestLoadDeepSeekToolsAllowEmployee(t *testing.T) {
+	setRequiredEnv(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DeepSeekToolsAllowEmployee {
+		t.Fatal("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE 默认应关闭")
+	}
+	t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", "true")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.DeepSeekToolsAllowEmployee {
+		t.Fatal("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 应开启")
+	}
+	t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", "maybe")
+	if _, err := Load(); err == nil {
+		t.Fatal("非法值应让启动失败（fail closed）")
+	}
+}
+
 // 多实例共享限流的额度可配；非法值启动失败（fail closed）。
 func TestLoadEmbedRateLimits(t *testing.T) {
 	setRequiredEnv(t)
@@ -315,36 +339,129 @@ func TestLoadRefreshConfig(t *testing.T) {
 	}
 }
 
-// DeepSeek Files 的 file_id 访问拦截开关：默认 false（fail closed），非法值让启动失败。
-func TestLoadDeepSeekToolsAllowEmployee(t *testing.T) {
+// DeepSeek Chatbot 的两个选项：默认都不注入，取值写错应让 Load 失败（fail closed）。
+func TestChatbotOptionsDefaults(t *testing.T) {
 	setRequiredEnv(t)
-	cfg, err := Load()
+	c, err := Load()
 	if err != nil {
-		t.Fatalf("Load 报错：%v", err)
+		t.Fatal(err)
 	}
-	if cfg.DeepSeekToolsAllowEmployee {
-		t.Fatal("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE 默认应为 false（员工默认拒绝引用 file_id）")
+	if c.SafetyCheck != "" {
+		t.Fatalf("DSH_EE_SAFETY_CHECK 默认应关闭，得到 %q", c.SafetyCheck)
 	}
-	for _, v := range []string{"1", "true", "TRUE"} {
+	if c.ChatTitle {
+		t.Fatal("DSH_EE_CHAT_TITLE 默认应关闭")
+	}
+}
+
+func TestChatbotOptionsEnv(t *testing.T) {
+	cases := []struct {
+		name      string
+		safety    string
+		title     string
+		wantSafe  string
+		wantTitle bool
+	}{
+		{name: "显式 off", safety: "off", title: "off"},
+		{name: "开启 high / on", safety: "high", title: "on", wantSafe: "high", wantTitle: true},
+		{name: "大小写与空白", safety: " HIGH ", title: " On ", wantSafe: "high", wantTitle: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setRequiredEnv(t)
+			t.Setenv("DSH_EE_SAFETY_CHECK", tc.safety)
+			t.Setenv("DSH_EE_CHAT_TITLE", tc.title)
+			c, err := Load()
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if c.SafetyCheck != tc.wantSafe {
+				t.Fatalf("SafetyCheck = %q，期望 %q", c.SafetyCheck, tc.wantSafe)
+			}
+			if c.ChatTitle != tc.wantTitle {
+				t.Fatalf("ChatTitle = %v，期望 %v", c.ChatTitle, tc.wantTitle)
+			}
+		})
+	}
+}
+
+func TestChatbotOptionsInvalid(t *testing.T) {
+	cases := []struct{ key, value string }{
+		{"DSH_EE_SAFETY_CHECK", "low"},
+		{"DSH_EE_SAFETY_CHECK", "true"},
+		{"DSH_EE_SAFETY_CHECK", "on"},
+		{"DSH_EE_CHAT_TITLE", "true"},
+		{"DSH_EE_CHAT_TITLE", "high"},
+		{"DSH_EE_CHAT_TITLE", "maybe"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
+			setRequiredEnv(t)
+			t.Setenv(tc.key, tc.value)
+			_, err := Load()
+			if err == nil || !strings.Contains(err.Error(), tc.key) {
+				t.Fatalf("%s=%q 应报错，得到 %v", tc.key, tc.value, err)
+			}
+		})
+	}
+}
+
+// TestDeepSeekProviderConfig 覆盖 DeepSeek 工具代理选上游的配置：默认自动选、
+// 允许 name/id、去空格、超长让启动失败（避免明显写错的配置被静默忽略）。
+func TestDeepSeekProviderConfig(t *testing.T) {
+	setRequiredEnv(t)
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.DeepSeekProvider != "" {
+		t.Fatalf("默认应为空（自动选 vendor=deepseek），得到 %q", c.DeepSeekProvider)
+	}
+
+	setRequiredEnv(t)
+	t.Setenv("DSH_EE_DEEPSEEK_PROVIDER", "  deepseek-main  ")
+	c, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.DeepSeekProvider != "deepseek-main" {
+		t.Fatalf("DSH_EE_DEEPSEEK_PROVIDER 没生效：%q", c.DeepSeekProvider)
+	}
+
+	setRequiredEnv(t)
+	t.Setenv("DSH_EE_DEEPSEEK_PROVIDER", strings.Repeat("x", 129))
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "DSH_EE_DEEPSEEK_PROVIDER") {
+		t.Fatalf("超长值应报错，得到 %v", err)
+	}
+}
+
+// TestDeepSeekToolsAllowEmployeeConfig 覆盖文件/工具代理的访问边界开关：
+// 默认 false（只允许管理员与机器人/服务账号）；写错让启动失败（fail closed）。
+func TestDeepSeekToolsAllowEmployeeConfig(t *testing.T) {
+	setRequiredEnv(t)
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.DeepSeekToolsAllowEmployee {
+		t.Fatal("默认应只允许管理员与机器人/服务账号（false）")
+	}
+
+	for _, v := range []string{"true", "1", "TRUE"} {
+		setRequiredEnv(t)
 		t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", v)
-		cfg, err = Load()
+		c, err = Load()
 		if err != nil {
-			t.Fatalf("%q: Load 报错：%v", v, err)
+			t.Fatalf("%q: %v", v, err)
 		}
-		if !cfg.DeepSeekToolsAllowEmployee {
-			t.Fatalf("%q 应打开员工放行开关", v)
-		}
-	}
-	for _, v := range []string{"false", "0"} {
-		t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", v)
-		if cfg, err = Load(); err != nil || cfg.DeepSeekToolsAllowEmployee {
-			t.Fatalf("%q 不应打开开关：cfg=%+v err=%v", v, cfg, err)
+		if !c.DeepSeekToolsAllowEmployee {
+			t.Fatalf("%q 应打开员工开关", v)
 		}
 	}
-	for _, v := range []string{"maybe", "2", "on"} {
-		t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", v)
-		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE") {
-			t.Fatalf("%q 应让启动失败并要求检查环境变量，实际 err=%v", v, err)
-		}
+
+	setRequiredEnv(t)
+	t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", "maybe")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE") {
+		t.Fatalf("非法值应报错，得到 %v", err)
 	}
 }

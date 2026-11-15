@@ -19,8 +19,8 @@ const metricsContentType = "text/plain; version=0.0.4; charset=utf-8"
 // 用户数据，但调用量、失败次数这类信息不适合暴露给公网。反向代理/负载均衡在另一台
 // 内网机器上时仍算内网来源；公网直连因为对端地址是公网，会返回 404。
 //
-// 输出只有进程运行信息和登录计数，没有按 IP、用户名的高基数标签；登录限流本身也
-// 只统计密码错误，不记录具体账号。
+// 输出只有进程运行信息、登录计数与网关用量细项的累计值，没有按 IP、用户名、模型的高基数标签；
+// 登录限流本身也只统计密码错误，不记录具体账号。
 func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	if !s.opts.Metrics || !internalPeer(r) {
 		writeErr(w, http.StatusNotFound, "接口不存在")
@@ -56,6 +56,13 @@ func (s *Server) handleMetrics(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(&b, "# TYPE dsh_ee_embed_sessions_active gauge\n")
 		fmt.Fprintf(&b, "dsh_ee_embed_sessions_active %d\n", active)
 	}
+	// 用量细项只在记账成功后累加，和 usage_logs 的累计口径一致；进程内累计，重启清零。
+	fmt.Fprintf(&b, "# HELP dsh_ee_usage_reasoning_tokens_total 记账成功的推理（思考）token 累计数\n")
+	fmt.Fprintf(&b, "# TYPE dsh_ee_usage_reasoning_tokens_total counter\n")
+	fmt.Fprintf(&b, "dsh_ee_usage_reasoning_tokens_total %d\n", s.usageReasoningTokens.Load())
+	fmt.Fprintf(&b, "# HELP dsh_ee_usage_cached_tokens_total 记账成功的命中缓存 prompt token 累计数\n")
+	fmt.Fprintf(&b, "# TYPE dsh_ee_usage_cached_tokens_total counter\n")
+	fmt.Fprintf(&b, "dsh_ee_usage_cached_tokens_total %d\n", s.usageCachedTokens.Load())
 
 	w.Header().Set("Content-Type", metricsContentType)
 	w.Header().Set("Cache-Control", "no-store")

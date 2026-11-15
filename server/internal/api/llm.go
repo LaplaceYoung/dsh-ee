@@ -447,12 +447,80 @@ func (s *Server) handleListModels(w http.ResponseWriter, r *http.Request) {
 
 type createModelsReq struct {
 	ProviderID int64 `json:"provider_id"`
-	// 批量添加：每项的对外名为空时与上游名相同
+	// 批量添加：每项的对外名为空时与上游名相同；能力声明可省略，之后在模型编辑里补。
 	Items []struct {
-		UpstreamModel string `json:"upstream_model"`
-		Name          string `json:"name"`
-		DisplayName   string `json:"display_name"`
+		UpstreamModel     string   `json:"upstream_model"`
+		Name              string   `json:"name"`
+		DisplayName       string   `json:"display_name"`
+		SupportsReasoning bool     `json:"supports_reasoning"`
+		ReasoningEfforts  []string `json:"reasoning_efforts"`
+		InputModalities   []string `json:"input_modalities"`
 	} `json:"items"`
+}
+
+// reasoningEffortRe 只做结构校验：具体有没有某个强度由上游模型决定，不在这里枚举值。
+var reasoningEffortRe = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
+
+// maxReasoningEffortsLen 与 models.reasoning_efforts 列宽一致（逗号分隔后的总长度）。
+const maxReasoningEffortsLen = 128
+
+// normalizeReasoningEfforts 规范管理端填写的思考强度：去空白、转小写、去重并保持顺序。
+func normalizeReasoningEfforts(raw []string) ([]string, error) {
+	out := make([]string, 0, len(raw))
+	seen := map[string]bool{}
+	for _, item := range raw {
+		item = strings.ToLower(strings.TrimSpace(item))
+		if item == "" {
+			continue
+		}
+		if !reasoningEffortRe.MatchString(item) {
+			return nil, errors.New("思考强度格式不合法：" + item + "（小写字母开头，只含小写字母、数字、下划线或连字符）")
+		}
+		if seen[item] {
+			continue
+		}
+		seen[item] = true
+		out = append(out, item)
+	}
+	if len(strings.Join(out, ",")) > maxReasoningEffortsLen {
+		return nil, errors.New("思考强度列表过长，逗号分隔后不能超过 128 个字符")
+	}
+	return out, nil
+}
+
+// inputModalityOrder 是输入模态的规范顺序；text 是默认值且始终保留。
+var inputModalityOrder = []string{"text", "image", "file"}
+
+var inputModalitySet = map[string]bool{"text": true, "image": true, "file": true}
+
+// maxInputModalitiesLen 与 models.input_modalities 列宽一致（逗号分隔后的总长度）。
+const maxInputModalitiesLen = 128
+
+// normalizeInputModalities 规范管理端填写的输入模态：小写、去重、按 text/image/file 排序，
+// text 始终存在；空表示只接受文本。只做结构校验，不按模型名校验/硬编码模态。
+func normalizeInputModalities(raw []string) ([]string, error) {
+	seen := map[string]bool{}
+	for _, item := range raw {
+		item = strings.ToLower(strings.TrimSpace(item))
+		if item == "" {
+			continue
+		}
+		if !inputModalitySet[item] {
+			return nil, errors.New("输入模态只支持 text / image / file：" + item)
+		}
+		seen[item] = true
+	}
+	seen["text"] = true
+	out := make([]string, 0, len(inputModalityOrder))
+	for _, item := range inputModalityOrder {
+		if seen[item] {
+			out = append(out, item)
+		}
+	}
+	if len(strings.Join(out, ",")) > maxInputModalitiesLen {
+		return nil, errors.New("输入模态列表过长")
+	}
+	return out, nil
 }
 
 func (s *Server) handleCreateModels(w http.ResponseWriter, r *http.Request) {
@@ -475,12 +543,25 @@ func (s *Server) handleCreateModels(w http.ResponseWriter, r *http.Request) {
 	var created []*store.Model
 	var skipped []string
 	for _, it := range req.Items {
+		efforts, err := normalizeReasoningEfforts(it.ReasoningEfforts)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		modalities, err := normalizeInputModalities(it.InputModalities)
+		if err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
 		m := &store.Model{
-			ProviderID:    req.ProviderID,
-			UpstreamModel: strings.TrimSpace(it.UpstreamModel),
-			Name:          strings.TrimSpace(it.Name),
-			DisplayName:   strings.TrimSpace(it.DisplayName),
-			Enabled:       true,
+			ProviderID:        req.ProviderID,
+			UpstreamModel:     strings.TrimSpace(it.UpstreamModel),
+			Name:              strings.TrimSpace(it.Name),
+			DisplayName:       strings.TrimSpace(it.DisplayName),
+			Enabled:           true,
+			SupportsReasoning: it.SupportsReasoning,
+			ReasoningEfforts:  efforts,
+			InputModalities:   modalities,
 		}
 		if m.Name == "" {
 			m.Name = m.UpstreamModel
@@ -511,10 +592,13 @@ func (s *Server) handleCreateModels(w http.ResponseWriter, r *http.Request) {
 }
 
 type updateModelReq struct {
-	Name          *string `json:"name"`
-	UpstreamModel *string `json:"upstream_model"`
-	DisplayName   *string `json:"display_name"`
-	Enabled       *bool   `json:"enabled"`
+	Name              *string   `json:"name"`
+	UpstreamModel     *string   `json:"upstream_model"`
+	DisplayName       *string   `json:"display_name"`
+	Enabled           *bool     `json:"enabled"`
+	SupportsReasoning *bool     `json:"supports_reasoning"`
+	ReasoningEfforts  *[]string `json:"reasoning_efforts"`
+	InputModalities   *[]string `json:"input_modalities"`
 }
 
 func (s *Server) handleUpdateModel(w http.ResponseWriter, r *http.Request) {
@@ -539,7 +623,33 @@ func (s *Server) handleUpdateModel(w http.ResponseWriter, r *http.Request) {
 		d := strings.TrimSpace(*req.DisplayName)
 		req.DisplayName = &d
 	}
-	err := s.store.UpdateModel(r.Context(), id, store.ModelPatch{Name: req.Name, UpstreamModel: req.UpstreamModel, DisplayName: req.DisplayName, Enabled: req.Enabled})
+	var efforts []string
+	if req.ReasoningEfforts != nil {
+		var err error
+		if efforts, err = normalizeReasoningEfforts(*req.ReasoningEfforts); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	var modalities []string
+	if req.InputModalities != nil {
+		var err error
+		if modalities, err = normalizeInputModalities(*req.InputModalities); err != nil {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
+	patch := store.ModelPatch{
+		Name: req.Name, UpstreamModel: req.UpstreamModel, DisplayName: req.DisplayName, Enabled: req.Enabled,
+		SupportsReasoning: req.SupportsReasoning,
+	}
+	if req.ReasoningEfforts != nil {
+		patch.ReasoningEfforts = &efforts
+	}
+	if req.InputModalities != nil {
+		patch.InputModalities = &modalities
+	}
+	err := s.store.UpdateModel(r.Context(), id, patch)
 	switch {
 	case notFound(err):
 		writeErr(w, http.StatusNotFound, "模型不存在")
@@ -556,7 +666,11 @@ func (s *Server) handleUpdateModel(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
-	s.audit(r, auditModelChange, m.Name, map[string]any{"op": "update", "id": id, "upstream_model": m.UpstreamModel, "enabled": m.Enabled})
+	s.audit(r, auditModelChange, m.Name, map[string]any{
+		"op": "update", "id": id, "upstream_model": m.UpstreamModel, "enabled": m.Enabled,
+		"supports_reasoning": m.SupportsReasoning, "reasoning_efforts": m.ReasoningEfforts,
+		"input_modalities": m.InputModalities,
+	})
 	s.kickConnect()
 	writeJSON(w, http.StatusOK, m)
 }

@@ -10,8 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/crypto/bcrypt"
-
 	"github.com/hikariming/dsh-ee/server/internal/ldapauth"
 	"github.com/hikariming/dsh-ee/server/internal/rbac"
 	"github.com/hikariming/dsh-ee/server/internal/store"
@@ -330,6 +328,12 @@ var (
 // 本地账号始终用本地密码验证，即使开了 LDAP：管理员在目录故障时仍能登录；
 // 目录里与本地账号同名的用户也不能借此冒用本地账号。其余用户在开启 LDAP 时交给目录验证，
 // 首次登录按配置自动建号，每次登录同步资料与组映射的角色。
+//
+// 拒绝分支的等时化（避免靠响应时间枚举账号）：
+//   - 可本地判定的（bot 账号、LDAP 未启用）先跑一次 dummyHash 的完整 bcrypt 再拒绝；
+//   - 本地人类账号走 verifyLocalPassword，密码错误或被禁用都恰好一次 bcrypt；
+//   - 目录返回凭据错误、目录同名本地账号冲突、目录用户被禁用都在一次真实目录往返之后，
+//     耗时由网络与目录决定，本地无法也不需补齐。
 func (s *Server) authenticate(ctx context.Context, username, password string) (*store.User, error) {
 	name := strings.ToLower(strings.TrimSpace(username))
 	u, err := s.store.GetUserByUsername(ctx, name)
@@ -337,10 +341,14 @@ func (s *Server) authenticate(ctx context.Context, username, password string) (*
 		return nil, err
 	}
 	if u != nil && u.AccountType != store.AccountHuman {
+		// bot 账号不能登录，但「账号存在」不能比「账号不存在」快：后者会跑一次 dummyHash
+		// 比对，这里同样跑一次再拒绝（bot 账号按建号约定没有本地密码）。
+		equalizePasswordCompare(password)
 		return nil, errBadCredentials
 	}
 	if u != nil && u.AuthSource != store.AuthLDAP {
-		if bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) != nil || u.Disabled {
+		// 没有本地密码的账号（OIDC / 设备码建号）也走一次完整 bcrypt 再拒绝，见 verifyLocalPassword。
+		if !verifyLocalPassword(u, password) || u.Disabled {
 			return nil, errBadCredentials
 		}
 		return u, nil
@@ -351,7 +359,7 @@ func (s *Server) authenticate(ctx context.Context, username, password string) (*
 	}
 	if !cfg.Enabled || cfg.URL == "" {
 		// 和存在的用户比对一样耗时，免得靠响应时间判断用户名是否存在
-		_ = bcrypt.CompareHashAndPassword(dummyHash, []byte(password))
+		equalizePasswordCompare(password)
 		return nil, errBadCredentials
 	}
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
