@@ -681,32 +681,42 @@ func ownedBy(pkg *store.NpmPackage, p Publisher) bool {
 }
 
 // SetDistTag 设置或删除（version 为空）一个 dist-tag。
+// 读改写必须和 PublishHosted 抢同一把 npm_packages 行锁（store.UpdatePackageDistTags）：
+// 先 GetPackage 读旧 map 再整表写回的话，会和并发的发布事务交错——发布刚把 latest 指向
+// 新版本，这边又在锁外用旧 map 覆盖回去；反过来用户刚设的标签也会被发布丢掉。
 func (s *Service) SetDistTag(ctx context.Context, p Publisher, name, tag, version string) (map[string]string, error) {
-	pkg, err := s.hostedForWrite(ctx, p, name)
-	if err != nil {
+	if _, err := s.hostedForWrite(ctx, p, name); err != nil {
 		return nil, err
 	}
 	if !validTag(tag) {
 		return nil, errf(400, "Invalid tag %q", tag)
 	}
-	if version == "" {
-		if tag == "latest" {
-			return nil, errf(400, "The latest tag cannot be removed")
-		}
-		delete(pkg.DistTags, tag)
-	} else {
+	if version == "" && tag == "latest" {
+		return nil, errf(400, "The latest tag cannot be removed")
+	}
+	if version != "" {
 		if _, err := s.store.GetVersion(ctx, name, version); err != nil {
 			if errors.Is(err, store.ErrNotFound) {
 				return nil, errf(404, "%s@%s does not exist", name, version)
 			}
 			return nil, err
 		}
-		pkg.DistTags[tag] = version
 	}
-	if err := s.store.SetPackageDistTags(ctx, name, pkg.DistTags); err != nil {
+	tags, err := s.store.UpdatePackageDistTags(ctx, name, func(tags map[string]string) (map[string]string, error) {
+		if version == "" {
+			delete(tags, tag)
+		} else {
+			tags[tag] = version
+		}
+		return tags, nil
+	})
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
 		return nil, err
 	}
-	return pkg.DistTags, nil
+	return tags, nil
 }
 
 // Deprecate 按 npm deprecate 发来的文档更新各版本的弃用说明。
