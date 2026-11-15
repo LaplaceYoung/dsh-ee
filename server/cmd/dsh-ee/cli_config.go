@@ -24,25 +24,6 @@ import (
 // dsh-ee config …：权限配置即代码（docs/agent-dev.md §6.2）。命令只是 /api/admin/config、/api/admin/access 的客户端，
 // 判断和试算都在服务端做；apply 只是提交变更请求，批准永远在网页上由人做。
 
-const configUsage = `用法：dsh-ee config <命令> [参数]
-
-  export [--json]                         导出现在的权限配置（角色、管理约束、字段、规则）
-  plan <文件>                              看这份配置生效后会变什么、影响谁（不生效）
-  test [<文件>] --tests <测试文件>          跑访问测试；不给配置文件就用现在的配置
-  apply <文件> [--note 说明]                提交成变更请求，等管理员在网页上批准
-  changes（或 status）                     最近的变更请求和它们的状态
-  explain --user 用户 --doc 文档id [--config 文件]
-                                          某人能不能看某篇文档、经过了哪些判断
-  simulate --users a,b (--kb 知识库 | --docs 1,2) [--config 文件]
-                                          一张「谁能看什么」的表
-
-连接参数（也可以用环境变量）：
-  --server 地址   或 DSH_EE_URL     dsh-ee 的地址，例如 https://ee.acme.com
-  --token 令牌    或 DSH_EE_TOKEN   带 config 范围的令牌（网页「我的令牌」里建）
-
-所有命令都可以加 --json 输出原始结果。plan 有问题、test 有不通过的用例时退出码为 1。
-`
-
 type cliOpts struct {
 	pos    []string
 	vals   map[string]string
@@ -68,11 +49,11 @@ func parseOpts(args []string, valued ...string) (*cliOpts, error) {
 		}
 		k, v, has := strings.Cut(strings.TrimPrefix(a, "--"), "=")
 		if !takes[k] {
-			return nil, fmt.Errorf("不认识的参数 --%s", k)
+			return nil, fmt.Errorf(tr("不认识的参数 --%s", "unknown option --%s"), k)
 		}
 		if !has {
 			if i+1 >= len(args) {
-				return nil, fmt.Errorf("--%s 后面要跟一个值", k)
+				return nil, fmt.Errorf(tr("--%s 后面要跟一个值", "--%s requires a value"), k)
 			}
 			i++
 			v = args[i]
@@ -91,13 +72,13 @@ func newEEClient(o *cliOpts) (*eeClient, error) {
 	base := strings.TrimRight(firstNonEmpty(o.vals["server"], os.Getenv("DSH_EE_URL")), "/")
 	token := firstNonEmpty(o.vals["token"], os.Getenv("DSH_EE_TOKEN"))
 	if base == "" {
-		return nil, errors.New("不知道 dsh-ee 的地址：加 --server https://… 或设置环境变量 DSH_EE_URL")
+		return nil, errors.New(tr("不知道 dsh-ee 的地址：加 --server https://… 或设置环境变量 DSH_EE_URL", "dsh-ee address unknown: add --server https://… or set the DSH_EE_URL environment variable"))
 	}
 	if u, err := url.Parse(base); err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return nil, fmt.Errorf("dsh-ee 的地址 %q 不对，要像 https://ee.acme.com 这样", base)
+		return nil, fmt.Errorf(tr("dsh-ee 的地址 %q 不对，要像 https://ee.acme.com 这样", "the dsh-ee address %q is invalid; it should look like https://ee.acme.com"), base)
 	}
 	if token == "" {
-		return nil, errors.New("没有令牌：在网页「我的令牌」里建一个带 config 范围的令牌，用 --token 或环境变量 DSH_EE_TOKEN 传进来")
+		return nil, errors.New(tr("没有令牌：在网页「我的令牌」里建一个带 config 范围的令牌，用 --token 或环境变量 DSH_EE_TOKEN 传进来", "no token: create one with the config scope under \"My tokens\" on the web page, then pass it with --token or the DSH_EE_TOKEN environment variable"))
 	}
 	return &eeClient{base: base, token: token, hc: &http.Client{Timeout: 2 * time.Minute}}, nil
 }
@@ -132,7 +113,7 @@ func (c *eeClient) do(method, path string, body any) ([]byte, int, error) {
 	}
 	resp, err := c.hc.Do(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("连不上 %s：%w", c.base, err)
+		return nil, 0, fmt.Errorf(tr("连不上 %s：%w", "cannot reach %s: %w"), c.base, err)
 	}
 	defer resp.Body.Close()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
@@ -144,9 +125,9 @@ func (c *eeClient) do(method, path string, body any) ([]byte, int, error) {
 			Error string `json:"error"`
 		}
 		if json.Unmarshal(raw, &e) == nil && e.Error != "" {
-			return raw, resp.StatusCode, fmt.Errorf("dsh-ee 返回 HTTP %d：%s", resp.StatusCode, e.Error)
+			return raw, resp.StatusCode, fmt.Errorf(tr("dsh-ee 返回 HTTP %d：%s", "dsh-ee returned HTTP %d: %s"), resp.StatusCode, e.Error)
 		}
-		return raw, resp.StatusCode, fmt.Errorf("dsh-ee 返回 HTTP %d：%s", resp.StatusCode, strings.TrimSpace(string(raw)))
+		return raw, resp.StatusCode, fmt.Errorf(tr("dsh-ee 返回 HTTP %d：%s", "dsh-ee returned HTTP %d: %s"), resp.StatusCode, strings.TrimSpace(string(raw)))
 	}
 	return raw, resp.StatusCode, nil
 }
@@ -158,7 +139,7 @@ func readInput(path string) (string, error) {
 	}
 	raw, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("读不了 %s：%w", path, err)
+		return "", fmt.Errorf(tr("读不了 %s：%w", "cannot read %s: %w"), path, err)
 	}
 	return string(raw), nil
 }
@@ -170,7 +151,7 @@ func accessPart(text string) (map[string]any, error) {
 		Rules  []map[string]any `yaml:"rules"`
 	}
 	if err := yaml.Unmarshal([]byte(text), &doc); err != nil {
-		return nil, fmt.Errorf("配置文件不是合法的 YAML：%w", err)
+		return nil, fmt.Errorf(tr("配置文件不是合法的 YAML：%w", "the config file is not valid YAML: %w"), err)
 	}
 	if doc.Fields == nil {
 		doc.Fields = []map[string]any{}
@@ -217,7 +198,7 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 		valued = append(valued, "users", "kb", "docs", "config")
 	case "export", "plan", "changes":
 	default:
-		fmt.Fprintf(stderr, "不认识的命令 config %s\n\n", cmd)
+		fmt.Fprintf(stderr, tr("不认识的命令 config %s\n\n", "unknown command config %s\n\n"), cmd)
 		fmt.Fprint(stderr, configUsage)
 		return 2
 	}
@@ -250,7 +231,7 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 
 	case "plan":
 		if len(o.pos) != 1 {
-			fmt.Fprintln(stderr, "用法：dsh-ee config plan <文件>")
+			fmt.Fprintln(stderr, tr("用法：dsh-ee config plan <文件>", "Usage: dsh-ee config plan <file>"))
 			return 2
 		}
 		text, err := readInput(o.pos[0])
@@ -275,7 +256,7 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 
 	case "test":
 		if o.vals["tests"] == "" || len(o.pos) > 1 {
-			fmt.Fprintln(stderr, "用法：dsh-ee config test [<配置文件>] --tests <测试文件>")
+			fmt.Fprintln(stderr, tr("用法：dsh-ee config test [<配置文件>] --tests <测试文件>", "Usage: dsh-ee config test [<config-file>] --tests <test-file>"))
 			return 2
 		}
 		tests, err := readInput(o.vals["tests"])
@@ -307,21 +288,21 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 			printRawJSON(stdout, raw)
 		} else {
 			for _, p := range res.Problems {
-				fmt.Fprintf(stdout, "✗ 配置有问题：%s\n", p)
+				fmt.Fprintf(stdout, tr("✗ 配置有问题：%s\n", "✗ config problem: %s\n"), p)
 			}
 			pass := 0
 			for _, r := range res.Results {
 				if r.OK {
 					pass++
-					fmt.Fprintf(stdout, "✓ 第 %d 条（%s）\n", r.Case, r.As)
+					fmt.Fprintf(stdout, tr("✓ 第 %d 条（%s）\n", "✓ case %d (%s)\n"), r.Case, r.As)
 					continue
 				}
-				fmt.Fprintf(stdout, "✗ 第 %d 条（%s）\n", r.Case, r.As)
+				fmt.Fprintf(stdout, tr("✗ 第 %d 条（%s）\n", "✗ case %d (%s)\n"), r.Case, r.As)
 				for _, e := range r.Errors {
 					fmt.Fprintf(stdout, "    %s\n", e)
 				}
 			}
-			fmt.Fprintf(stdout, "\n%d 条里通过 %d 条\n", len(res.Results), pass)
+			fmt.Fprintf(stdout, tr("\n%d 条里通过 %d 条\n", "\n%d cases, %d passed\n"), len(res.Results), pass)
 		}
 		if !res.OK {
 			return 1
@@ -330,7 +311,7 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 
 	case "apply":
 		if len(o.pos) != 1 {
-			fmt.Fprintln(stderr, "用法：dsh-ee config apply <文件> [--note 说明]")
+			fmt.Fprintln(stderr, tr("用法：dsh-ee config apply <文件> [--note 说明]", "Usage: dsh-ee config apply <file> [--note note]"))
 			return 2
 		}
 		text, err := readInput(o.pos[0])
@@ -362,7 +343,7 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 		}
 		_ = json.Unmarshal(raw, &res)
 		printPlan(stdout, &res.Plan)
-		fmt.Fprintf(stdout, "\n已提交变更请求 #%d：%s\n网页查看：%s/admin/fields?tab=changes\n", res.Change.ID, res.Message, c.base)
+		fmt.Fprintf(stdout, tr("\n已提交变更请求 #%d：%s\n网页查看：%s/admin/fields?tab=changes\n", "\nChange request #%d submitted: %s\nView on the web: %s/admin/fields?tab=changes\n"), res.Change.ID, res.Message, c.base)
 		return 0
 
 	case "changes":
@@ -384,7 +365,7 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 		}
 		_ = json.Unmarshal(raw, &res)
 		if len(res.Items) == 0 {
-			fmt.Fprintln(stdout, "还没有变更请求")
+			fmt.Fprintln(stdout, tr("还没有变更请求", "no change requests yet"))
 		}
 		for _, it := range res.Items {
 			fmt.Fprintf(stdout, "#%-5d %-10s %s  %s\n", it.ID, it.Status, it.CreatedAt.Local().Format("2006-01-02 15:04"), it.Title)
@@ -394,7 +375,7 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 	case "explain":
 		doc, err := strconv.ParseInt(o.vals["doc"], 10, 64)
 		if o.vals["user"] == "" || err != nil {
-			fmt.Fprintln(stderr, "用法：dsh-ee config explain --user 用户 --doc 文档id [--config 文件]")
+			fmt.Fprintln(stderr, tr("用法：dsh-ee config explain --user 用户 --doc 文档id [--config 文件]", "Usage: dsh-ee config explain --user USER --doc DOC-ID [--config FILE]"))
 			return 2
 		}
 		body := map[string]any{"user": o.vals["user"], "doc": doc}
@@ -426,20 +407,20 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 			} `json:"steps"`
 		}
 		_ = json.Unmarshal(raw, &res)
-		verdict := "看不到"
+		verdict := tr("看不到", "cannot see")
 		if res.Allowed {
-			verdict = "能看到"
+			verdict = tr("能看到", "can see")
 		}
-		fmt.Fprintf(stdout, "%s %s《%s》\n", res.User, verdict, res.Title)
+		fmt.Fprintf(stdout, tr("%s %s《%s》\n", "%s %s \"%s\"\n"), res.User, verdict, res.Title)
 		for i, st := range res.Steps {
-			fmt.Fprintf(stdout, "  %d. [%s] %s：%s\n", i+1, st.Result, st.Stage, st.Reason)
+			fmt.Fprintf(stdout, tr("  %d. [%s] %s：%s\n", "  %d. [%s] %s: %s\n"), i+1, st.Result, st.Stage, st.Reason)
 		}
 		return 0
 
 	case "simulate":
 		users := splitList(o.vals["users"])
 		if len(users) == 0 || (o.vals["kb"] == "" && o.vals["docs"] == "") {
-			fmt.Fprintln(stderr, "用法：dsh-ee config simulate --users a,b (--kb 知识库 | --docs 1,2) [--config 文件]")
+			fmt.Fprintln(stderr, tr("用法：dsh-ee config simulate --users a,b (--kb 知识库 | --docs 1,2) [--config 文件]", "Usage: dsh-ee config simulate --users a,b (--kb KB | --docs 1,2) [--config FILE]"))
 			return 2
 		}
 		body := map[string]any{"users": users, "kb": o.vals["kb"]}
@@ -447,7 +428,7 @@ func cliConfig(args []string, stdout, stderr io.Writer) int {
 		for _, d := range splitList(o.vals["docs"]) {
 			id, err := strconv.ParseInt(d, 10, 64)
 			if err != nil {
-				fmt.Fprintf(stderr, "文档 id %q 不是数字\n", d)
+				fmt.Fprintf(stderr, tr("文档 id %q 不是数字\n", "document id %q is not a number\n"), d)
 				return 2
 			}
 			docs = append(docs, id)
@@ -513,53 +494,47 @@ func printPlan(w io.Writer, p *planOut) {
 		fmt.Fprintf(w, "✗ %s\n", s)
 	}
 	if len(p.Changes) > 0 {
-		fmt.Fprintln(w, "\n会变的：")
+		fmt.Fprintln(w, tr("\n会变的：", "\nWill change:"))
 		for _, s := range p.Changes {
 			fmt.Fprintf(w, "  · %s\n", s)
 		}
 	}
 	if len(p.PermImpact) > 0 {
-		fmt.Fprintln(w, "\n权限变化：")
+		fmt.Fprintln(w, tr("\n权限变化：", "\nPermission changes:"))
 		for _, im := range p.PermImpact {
 			if len(im.Gain) > 0 {
-				fmt.Fprintf(w, "  %s 多了：%s\n", im.User, strings.Join(im.Gain, "、"))
+				fmt.Fprintf(w, tr("  %s 多了：%s\n", "  %s gains: %s\n"), im.User, joinText(im.Gain))
 			}
 			if len(im.Lose) > 0 {
-				fmt.Fprintf(w, "  %s 少了：%s\n", im.User, strings.Join(im.Lose, "、"))
+				fmt.Fprintf(w, tr("  %s 少了：%s\n", "  %s loses: %s\n"), im.User, joinText(im.Lose))
 			}
 		}
 	}
 	if len(p.Impact) > 0 {
-		fmt.Fprintln(w, "\n能看的文档变化：")
+		fmt.Fprintln(w, tr("\n能看的文档变化：", "\nDocument visibility changes:"))
 		for _, im := range p.Impact {
 			if len(im.Lose) > 0 {
-				fmt.Fprintf(w, "  %s 在「%s」里将看不到 %d 篇：%s\n", im.User, im.KB, len(im.Lose), clip(im.Lose, 5))
+				fmt.Fprintf(w, tr("  %s 在「%s」里将看不到 %d 篇：%s\n", "  %s in \"%s\" will no longer see %d documents: %s\n"), im.User, im.KB, len(im.Lose), clip(im.Lose, 5))
 			}
 			if len(im.Recent) > 0 {
-				fmt.Fprintf(w, "    其中最近看过的：%s\n", clip(im.Recent, 5))
+				fmt.Fprintf(w, tr("    其中最近看过的：%s\n", "    recently read: %s\n"), clip(im.Recent, 5))
 			}
 			if len(im.Gain) > 0 {
-				fmt.Fprintf(w, "  %s 在「%s」里将多看到 %d 篇：%s\n", im.User, im.KB, len(im.Gain), clip(im.Gain, 5))
+				fmt.Fprintf(w, tr("  %s 在「%s」里将多看到 %d 篇：%s\n", "  %s in \"%s\" will see %d more documents: %s\n"), im.User, im.KB, len(im.Gain), clip(im.Gain, 5))
 			}
 		}
 	}
 	for _, s := range p.Notes {
-		fmt.Fprintf(w, "注：%s\n", s)
+		fmt.Fprintf(w, tr("注：%s\n", "note: %s\n"), s)
 	}
 }
 
 func clip(xs []string, n int) string {
 	if len(xs) <= n {
-		return strings.Join(xs, "、")
+		return joinText(xs)
 	}
-	return strings.Join(xs[:n], "、") + fmt.Sprintf(" 等 %d 篇", len(xs))
+	return joinText(xs[:n]) + fmt.Sprintf(tr(" 等 %d 篇", " and %d more"), len(xs))
 }
-
-const adminUsage = `用法：dsh-ee admin recover
-
-  recover   在服务器上生成一个 1 小时有效的恢复账号（有全部管理权限点，不靠超级管理员）。
-            把自己锁在外面时用；要在能连到数据库的服务器上执行，读和服务一样的环境变量。审计里留记录。
-`
 
 func cliAdmin(args []string, stdout, stderr io.Writer) int {
 	if len(args) != 1 || args[0] != "recover" {
@@ -572,19 +547,19 @@ func cliAdmin(args []string, stdout, stderr io.Writer) int {
 	}
 	cfg, err := config.Load()
 	if err != nil {
-		fmt.Fprintln(stderr, "读不了配置：", err)
+		fmt.Fprintln(stderr, tr("读不了配置：", "cannot read config: "), err)
 		return 1
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	st, err := openStore(ctx, cfg, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	if err != nil {
-		fmt.Fprintln(stderr, "连不上数据库：", err)
+		fmt.Fprintln(stderr, tr("连不上数据库：", "cannot connect to the database: "), err)
 		return 1
 	}
 	defer st.Close()
 	if err := st.Migrate(ctx); err != nil {
-		fmt.Fprintln(stderr, "数据库迁移失败：", err)
+		fmt.Fprintln(stderr, tr("数据库迁移失败：", "database migration failed: "), err)
 		return 1
 	}
 	user, pass, expires, err := api.Recover(ctx, st)
@@ -592,13 +567,13 @@ func cliAdmin(args []string, stdout, stderr io.Writer) int {
 		// 审计失败时账号已经建好了，凭据还在返回值里：必须照常打出来，同时显式告警并非零退出，
 		// 不能只报「生成失败」把事情糊过去（否则库里会多出一个没人知道凭据的无审计全权账号）。
 		if user == "" || pass == "" || expires.IsZero() {
-			fmt.Fprintln(stderr, "生成恢复账号失败：", err)
+			fmt.Fprintln(stderr, tr("生成恢复账号失败：", "creating the recovery account failed: "), err)
 			return 1
 		}
-		fmt.Fprintln(stderr, "⚠️  严重警告：恢复账号已创建，但审计记录没有写入（audit_logs）。")
-		fmt.Fprintln(stderr, "请立即人工记录下面的凭据与到期时间，并排查审计表。原因：", err)
+		fmt.Fprintln(stderr, tr("⚠️  严重警告：恢复账号已创建，但审计记录没有写入（audit_logs）。", "⚠️  WARNING: the recovery account was created, but its audit record was not written (audit_logs)."))
+		fmt.Fprintln(stderr, tr("请立即人工记录下面的凭据与到期时间，并排查审计表。原因：", "Record the credentials and expiry below by hand right now, and check the audit table. Cause: "), err)
 	}
-	fmt.Fprintf(stdout, "已生成恢复账号（%s 前有效，到期自动停用）：\n  用户名：%s\n  密码：  %s\n用它登录网页，把管理角色重新分好后就不要再用。\n", expires.Local().Format("2006-01-02 15:04"), user, pass)
+	fmt.Fprintf(stdout, tr("已生成恢复账号（%s 前有效，到期自动停用）：\n  用户名：%s\n  密码：  %s\n用它登录网页，把管理角色重新分好后就不要再用。\n", "recovery account created (valid until %s; disabled automatically at expiry):\n  username: %s\n  password:  %s\nUse it to log in to the web page, reassign admin roles, and then stop using it.\n"), expires.Local().Format("2006-01-02 15:04"), user, pass)
 	if err != nil {
 		return 1
 	}

@@ -27,10 +27,7 @@ import (
 var version = "dev"
 
 func main() {
-	if len(os.Args) > 1 && (os.Args[1] == "version" || os.Args[1] == "--version") {
-		fmt.Println(version)
-		return
-	}
+	// version / help / 其他子命令都交给 runCLI；它同时负责解析全局 --lang（见 cli_i18n.go）。
 	if handled, code := runCLI(os.Args[1:], os.Stdout, os.Stderr); handled {
 		os.Exit(code)
 	}

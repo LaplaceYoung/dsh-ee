@@ -118,6 +118,11 @@ go run ./cmd/seed
 
 前端开发时用 Vite（见仓库根目录 README）；要一个嵌好前端的单文件，在仓库根目录 `make build`，产物是 `dist/dsh-ee`。
 
+### 命令行（CLI）
+
+`dsh-ee` 二进制里也带写扩展、发布预检、只读诊断等子命令（`dsh-ee help`；完整清单见 [docs/cli.md](../docs/cli.md)）。
+输出语言可用 `--lang en` 或 `DSH_EE_LANG`/`LANG` 切换，默认中文。
+
 ### 接 OceanBase
 
 用 OceanBase 社区版的 MySQL 模式租户，DSN 形如：
