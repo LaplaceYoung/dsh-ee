@@ -416,7 +416,11 @@ func (s *Server) expireRecovery(ctx context.Context) {
 			s.log.Warn("停用恢复账号失败", "user", id, "err", err)
 			continue
 		}
-		_ = s.store.DeleteUserSessions(ctx, id)
+		// 会话查询本身会过滤 disabled 账号（SessionUser/SessionInfo），停用已即时生效；
+		// 删除只是清掉残留会话行，失败不影响安全，后台任务也没有调用方可以返回错误。
+		if err := s.store.DeleteUserSessions(ctx, id); err != nil {
+			s.log.Warn("删除用户会话失败", "user", id, "err", err)
+		}
 		s.log.Info("恢复账号已到期停用", "user", id)
 	}
 }

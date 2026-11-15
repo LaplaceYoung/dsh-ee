@@ -306,11 +306,17 @@ func (s *Server) ensureConnect(ctx context.Context, r *http.Request, force bool,
 	}{registry.TarballFile(pkg, version): {ContentType: "application/octet-stream", Data: base64.StdEncoding.EncodeToString(tgz), Length: int64(len(tgz))}}
 	if _, err := s.registry.Publish(ctx, registry.Publisher{UserID: by, Username: "dsh-ee", Manager: true, AutoPublish: true}, doc); err != nil {
 		st.Error = err.Error()
-		_ = s.store.PutSettingJSON(ctx, connectStateKey, st, by)
+		// 发布错误要落库，管理页读这份状态；后台检查路径不展示返回值，写不进去就只能靠日志发现。
+		if serr := s.store.PutSettingJSON(ctx, connectStateKey, st, by); serr != nil {
+			s.log.Warn("记录 DSH 接入插件发布错误失败", "package", pkg, "err", serr)
+		}
 		return &st, nil
 	}
 	featured := true
-	_ = s.store.UpdatePackageCatalog(ctx, pkg, store.CatalogPatch{Featured: &featured})
+	// 精选标记只影响包目录展示，不影响接入插件发布与安装，失败记录后继续。
+	if err := s.store.UpdatePackageCatalog(ctx, pkg, store.CatalogPatch{Featured: &featured}); err != nil {
+		s.log.Warn("同步 DSH 接入插件精选标记失败", "package", pkg, "err", err)
+	}
 	st = connectState{Package: pkg, Version: version, Hash: hash, BaseURL: base, PublishedAt: time.Now().UTC()}
 	if err := s.store.PutSettingJSON(ctx, connectStateKey, st, by); err != nil {
 		return nil, err

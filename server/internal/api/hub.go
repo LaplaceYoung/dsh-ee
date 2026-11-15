@@ -836,8 +836,11 @@ func (s *Server) handleHubCreate(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
-	// 自己做的能力默认在自己的 DSH 里启用，方便试用
-	_ = s.store.Subscribe(r.Context(), v.user.ID, a.ID)
+	// 自己做的能力默认在自己的 DSH 里启用，方便试用；
+	// 订阅失败只影响这一项是否自动启用，不阻塞创建，记录待查。
+	if err := s.store.Subscribe(r.Context(), v.user.ID, a.ID); err != nil {
+		s.log.Warn("自动订阅能力失败", "user", v.user.ID, "asset", a.ID, "err", err)
+	}
 	resp := map[string]any{"asset": a, "status": status}
 	if req.Kind == store.KindConnection {
 		if req.Secret != nil {
@@ -1377,7 +1380,10 @@ func (s *Server) handleHubReview(w http.ResponseWriter, r *http.Request) {
 	if to == store.StatusPublished && req.Version > a.LiveVersion {
 		if pv, err := s.store.GetAssetVersion(r.Context(), a.ID, req.Version); err == nil {
 			sp := parseSpec(pv.Spec)
-			_ = s.store.UpdateAsset(r.Context(), a.ID, store.AssetPatch{Title: &sp.Title, Description: &sp.Description})
+			// 审核已成功落库，标题/描述同步失败只影响列表展示，不回滚审核结果，记录待查。
+			if uerr := s.store.UpdateAsset(r.Context(), a.ID, store.AssetPatch{Title: &sp.Title, Description: &sp.Description}); uerr != nil {
+				s.log.Warn("同步资产标题/描述失败", "asset", a.ID, "version", req.Version, "err", uerr)
+			}
 		}
 	}
 	action := auditReviewApprove

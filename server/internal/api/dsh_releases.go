@@ -300,7 +300,11 @@ func (s *Server) downloadDshRelease(ctx context.Context, id int64) error {
 	}
 	size, sum, localPath, err := s.downloadDshReleaseFile(ctx, r)
 	if err != nil {
-		_ = s.store.UpdateDshReleaseState(context.WithoutCancel(ctx), r.ID, store.ReleaseFailed, "", err.Error())
+		// 下载失败是主错误，写 failed 状态只影响管理页展示（不写会一直停在 downloading）；
+		// 状态写失败不能盖住原始错误，记日志后照常返回原始错误。
+		if serr := s.store.UpdateDshReleaseState(context.WithoutCancel(ctx), r.ID, store.ReleaseFailed, "", err.Error()); serr != nil {
+			s.log.Warn("记录 Desktop 安装包下载失败状态失败", "id", r.ID, "err", serr)
+		}
 		s.auditSystem(ctx, auditDshReleaseMirrorFailed, r.Target+"/"+r.File, map[string]any{"version": r.Version, "error": err.Error()})
 		return err
 	}

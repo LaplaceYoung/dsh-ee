@@ -575,12 +575,19 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 	}
 	title, ownerID, err := s.applyFeishuDecision(r.Context(), operator, action, decision)
 	if errors.Is(err, errFeishuForbidden) {
-		_ = s.store.ReleaseFeishuCardAction(r.Context(), hash)
+		// 回调按飞书要求一律回 200（见 feishuToast），失败只记日志让动作留在 processing 可查；
+		// 不改返回码去换飞书重试，避免破坏既有幂等语义和给点按钮的人看的原因。
+		if rerr := s.store.ReleaseFeishuCardAction(r.Context(), hash); rerr != nil {
+			s.log.Warn("记录飞书卡片动作状态失败", "kind", action.Kind, "object", action.ObjectKey, "status", store.FeishuActionPending, "err", rerr)
+		}
 		feishuToast(w, "error", err.Error())
 		return
 	}
 	if err != nil {
-		_ = s.store.FinishFeishuCardAction(r.Context(), hash, store.FeishuActionFailed, err.Error())
+		// 终态写不进去只影响这张卡片后续不能再点（停在 processing），审批本身已经失败，记录后继续告诉用户原因。
+		if ferr := s.store.FinishFeishuCardAction(r.Context(), hash, store.FeishuActionFailed, err.Error()); ferr != nil {
+			s.log.Warn("记录飞书卡片动作状态失败", "kind", action.Kind, "object", action.ObjectKey, "status", store.FeishuActionFailed, "err", ferr)
+		}
 		s.log.Warn("飞书审批失败", "kind", action.Kind, "err", err)
 		feishuToast(w, "error", err.Error())
 		return
