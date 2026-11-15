@@ -70,6 +70,7 @@ export default {
       token: { create: "Created token", issue: "Issued token", revoke: "Revoked token", revoke_bulk: "Revoked tokens in bulk", elevate: "Started admin mode", elevate_end: "Ended admin mode", elevate_expire: "Admin mode expired", refresh: "Refreshed token", refresh_reuse: "Detected refresh token reuse (revoked family)" },
       device: { approve: "Authorized device", deny: "Denied device" },
       asset: { create: "Created capability", version: "Submitted version", edit: "Changed availability", delete: "Deleted capability", scope_request: "Requested wider availability" },
+      hub: { category: "Changed a capability category", block: "Changed a block policy" },
       connection: { tool: "Configured connection tool", request: "Requested a connection", credential_set: "Saved a connection credential", credential_delete: "Deleted a connection credential", credential_revoke: "Revoked an employee's connection credential", ee_jwt_rotate: "Rotated the ee_jwt signing key", shared_credential_set: "Saved a named shared credential", shared_credential_delete: "Deleted a named shared credential" },
       extension: { install: "Installed or upgraded an extension", rollback: "Rolled back an extension version" },
       connect: { publish: "Published connect plugin" },

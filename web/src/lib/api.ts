@@ -825,6 +825,14 @@ export interface AssetSpec {
   highlights?: string[];
   /** 微应用：样板，出现在「造 → 从样板复制」里（管理员设）。 */
   template?: boolean;
+  /** 微应用的形态：空是普通微应用，expert 是专家（docs/expert-center.md） */
+  form?: "" | "app" | "expert";
+  /** 专家：擅长领域标签，最多 6 个 */
+  expertise?: string[];
+  /** 专家：工作方法（Markdown） */
+  method?: string;
+  /** 专家团队：成员专家的标识，最多 5 个 */
+  members?: string[];
   knowledge?: string[];
   skills?: string[];
   connections?: string[];
@@ -874,6 +882,50 @@ export interface HubAsset {
   scope_requested_at: string | null;
   /** 上一次范围申请被驳回的原因。 */
   scope_note: string;
+  /** 受管分类；null 表示没归类 */
+  category_id: number | null;
+  /** 精选：DSH 面板里排在最前 */
+  featured: boolean;
+}
+
+export type CategoryGroup = "app" | "skill" | "connection";
+
+export interface Category {
+  id: number;
+  group: CategoryGroup;
+  name: string;
+  sort: number;
+  scope: Scope;
+  created_at: string;
+  updated_at: string;
+  /** 归在这个分类下的能力数 */
+  assets: number;
+}
+
+export interface AssetBlock {
+  id: number;
+  scope: Scope;
+  asset_ids: number[];
+  note: string;
+  updated_by: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EffectiveItem {
+  id: number;
+  kind: AssetKind;
+  form?: string;
+  slug: string;
+  title: string;
+  result: "enabled" | "available" | "hidden";
+  reason?: "unpublished" | "not_live" | "out_of_scope" | "category" | "blocked";
+  block_ids?: number[];
+}
+
+/** 由 kind 与 form 得出的展示类型：专家是 form=expert 的微应用。 */
+export function isExpert(a: { kind: AssetKind; spec?: AssetSpec }): boolean {
+  return a.kind === "app" && a.spec?.form === "expert";
 }
 
 export interface AssetVersion {
@@ -1390,6 +1442,7 @@ export interface AssetCreate {
   kind: AssetKind;
   slug: string;
   category?: string;
+  category_id?: number;
   spec: AssetSpec;
   scope?: Scope;
   delivery?: Delivery;
@@ -1971,8 +2024,21 @@ export const api = {
       spec,
       ...(secret !== undefined ? { secret } : {}),
     }),
-  patchAsset: (id: number, p: Partial<{ category: string; scope: Scope; delivery: Delivery; status: "active" | "unpublished"; note: string }>) =>
+  patchAsset: (id: number, p: Partial<{ category: string; category_id: number; featured: boolean; scope: Scope; delivery: Delivery; status: "active" | "unpublished"; note: string }>) =>
     request<HubAsset>("PATCH", `/api/hub/${id}`, p),
+  /** 解析技能包（.zip，含 SKILL.md），返回编辑器用的草稿；不写库 */
+  parseSkillPackage: (filename: string, data: string) =>
+    request<{ slug: string; spec: AssetSpec; included: string[]; skipped: { path: string; reason: "binary" | "too_large" | "over_limit" | "unsafe_path" }[] }>("POST", "/api/hub/skill-package", { filename, data }),
+  categories: () => request<{ categories: Category[] }>("GET", "/api/admin/hub/categories").then((r) => r.categories),
+  createCategory: (c: { group: CategoryGroup; name: string; sort?: number; scope?: Scope }) => request<Category>("POST", "/api/admin/hub/categories", c),
+  patchCategory: (id: number, c: Partial<{ name: string; sort: number; scope: Scope }>) => request<Category>("PATCH", `/api/admin/hub/categories/${id}`, c),
+  deleteCategory: (id: number) => request<void>("DELETE", `/api/admin/hub/categories/${id}`),
+  blocks: () => request<{ blocks: AssetBlock[] }>("GET", "/api/admin/hub/blocks").then((r) => r.blocks),
+  createBlock: (b: { scope: Scope; asset_ids: number[]; note: string }) => request<AssetBlock>("POST", "/api/admin/hub/blocks", b),
+  putBlock: (id: number, b: { scope: Scope; asset_ids: number[]; note: string }) => request<AssetBlock>("PUT", `/api/admin/hub/blocks/${id}`, b),
+  deleteBlock: (id: number) => request<void>("DELETE", `/api/admin/hub/blocks/${id}`),
+  effective: (user: number) =>
+    request<{ user: { id: number; username: string; display_name: string; department: string }; items: EffectiveItem[] }>("GET", `/api/admin/hub/effective?user=${user}`),
   deleteAsset: (id: number) => request<void>("DELETE", `/api/hub/${id}`),
   workbenchPreview: (app: string, source: unknown) =>
     request<{ value?: unknown; forbidden?: boolean; error?: string; note?: string }>("POST", "/api/me/workbench-preview", { app, source }),
