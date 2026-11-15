@@ -22,7 +22,9 @@ import {
   type EmbedOptions,
   type EmbedErrorStage,
 } from "./embed";
+import { applyEmbedLang } from "./embed-lang";
 import { useEmbedResize, useEmbedTheme } from "./use-embed";
+import { detectLanguage, fallbackLng } from "../i18n/langs";
 
 /**
  * 微应用嵌入的握手与状态（跨站 v1 + 协议 v2；同站 v0 继续用现有 cookie 会话）。
@@ -49,7 +51,7 @@ export interface EmbedBridge {
   error: EmbedError | null;
 }
 
-const EMPTY_OPTIONS: EmbedOptions = { embed: false, host: null, fit: "fill", theme: null };
+const EMPTY_OPTIONS: EmbedOptions = { embed: false, host: null, fit: "fill", theme: null, lang: null };
 const Ctx = createContext<EmbedBridge>({ options: EMPTY_OPTIONS, active: false, phase: "inactive", error: null });
 
 export function useEmbedBridge() {
@@ -64,12 +66,12 @@ function embedFailure(stage: EmbedErrorStage, code: EmbedError["code"], message:
 }
 
 /** v2 hello：iframe 声明支持的消息（老宿主按未知消息忽略；不降级授权）。 */
-const SUPPORTS_V2 = ["connect-v1", "navigate", "navigate-request", "open-external", "logout", "deeplink", "theme", "resize"];
+const SUPPORTS_V2 = ["connect-v1", "navigate", "navigate-request", "open-external", "logout", "deeplink", "theme", "resize", "lang"];
 
 export function EmbedProvider({ children }: { children: ReactNode }) {
   const { search, pathname } = useLocation();
   const navigate = useNavigate();
-  const { t } = useTranslation();
+  const { t, i18n, ready } = useTranslation();
   const options = useMemo(() => parseEmbedOptions(search), [search]);
   const active = options.embed && pathname.startsWith("/a/");
   const slug = pathname.split("/")[2] ?? "";
@@ -84,10 +86,37 @@ export function EmbedProvider({ children }: { children: ReactNode }) {
   const expiresAt = useRef<number | null>(null);
   const timer = useRef<number | null>(null);
   const errorSent = useRef("");
+  /** ?lang= 已实际生效的语言；用于避免「URL 刚带 lang」那一次渲染先发旧 locale 的 hello/ready。 */
+  const appliedLang = useRef<string | null>(null);
+
+  // hello/ready 里的 locale 用归一化后的已注册语言码；i18n 尚未初始化完成时按落盘/浏览器语言判断。
+  const locale = detectLanguage(i18n.resolvedLanguage ?? i18n.language ?? fallbackLng);
 
   // 主题与尺寸（v0 起的行为）：嵌入页统一在 provider 处理，覆盖登录前的等待/失败态。
   useEmbedTheme(options);
   useEmbedResize(options);
+
+  // ?lang=：只改本次 iframe 的界面语言、不写 localStorage（与 ?theme= 语义一致）。
+  // 切换完成前不发 hello/ready，否则宿主收到的 locale 是旧值。
+  const [localeReady, setLocaleReady] = useState(!active || !options.lang);
+  useEffect(() => {
+    if (!active || !options.lang) {
+      appliedLang.current = null;
+      setLocaleReady(true);
+      return;
+    }
+    let cancelled = false;
+    appliedLang.current = null;
+    setLocaleReady(false);
+    void applyEmbedLang(options.lang).finally(() => {
+      if (cancelled) return;
+      appliedLang.current = options.lang;
+      setLocaleReady(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [active, options.lang]);
 
   // 1) hello（protocol v2，带 supports）与 ready：嵌入页一挂载就发，宿主据此安排握手。
   useEffect(() => {
@@ -96,6 +125,9 @@ export function EmbedProvider({ children }: { children: ReactNode }) {
       helloKey.current = "";
       return;
     }
+    // i18n 初始化完成、且 ?lang= 已实际生效后再发，避免 hello/ready 里的 locale 报旧值。
+    if (!localeReady || !ready) return;
+    if (options.lang && appliedLang.current !== options.lang) return;
     if (helloKey.current !== slug) {
       helloKey.current = slug;
       postToHostV2(options, "dsh-ee:hello", {
@@ -103,6 +135,7 @@ export function EmbedProvider({ children }: { children: ReactNode }) {
         app: { slug },
         supports: SUPPORTS_V2,
         theme: resolvedDocumentTheme(),
+        locale,
         viewport: embedViewport(),
         // 宿主按这两个时间对齐兜底：8 秒没有 ready/error 先显示手动「在浏览器打开」（不自动顶层打开），
         // iframe 自己在 10 秒进入失败态并发 dsh-ee:error。见 docs/embedding.md §5。
@@ -114,11 +147,12 @@ export function EmbedProvider({ children }: { children: ReactNode }) {
       postToHost(options, "dsh-ee:ready", {
         app: { slug },
         theme: resolvedDocumentTheme(),
-        supports: ["connect-v1"],
+        locale,
+        supports: ["connect-v1", "lang"],
         viewport: embedViewport(),
       });
     }
-  }, [active, options, slug]);
+  }, [active, locale, localeReady, options, ready, slug]);
 
   // 离开嵌入页时清掉内存 Bearer（不写 localStorage / cookie）。
   useEffect(() => {
@@ -148,14 +182,14 @@ export function EmbedProvider({ children }: { children: ReactNode }) {
   };
 
   /**
-   * 站内导航必须保留 URL 上的嵌入参数（embed/host/fit/theme）：否则路由一跳就退出嵌入模式，
+   * 站内导航必须保留 URL 上的嵌入参数（embed/host/fit/theme/lang）：否则路由一跳就退出嵌入模式，
    * 内存 Bearer 虽然还在，页面却会回到普通登录流程。
    */
   const navigateInEmbed = useCallback(
     (path: string) => {
       const target = new URL(path, window.location.origin);
       const current = new URL(window.location.href);
-      for (const key of ["embed", "host", "fit", "theme"]) {
+      for (const key of ["embed", "host", "fit", "theme", "lang"]) {
         const value = current.searchParams.get(key);
         if (value !== null) target.searchParams.set(key, value);
       }

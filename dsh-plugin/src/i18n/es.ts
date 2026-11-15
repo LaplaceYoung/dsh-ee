@@ -261,6 +261,9 @@ const es: DeepPartial<Messages<typeof zh>> = {
   // app-subscription.ts：启用/停用自选微应用
   appSubscription: {
     invalidAppName: "El nombre de la microaplicación no es válido",
+    invalidSkillName: "El nombre de la habilidad no es válido",
+    invalidConnectionName: "El nombre del conector no es válido",
+    invalidKind: "El tipo de capacidad no es válido",
   },
   // apps-view.ts：企业应用侧栏/首屏横排/「查看更多」浮层/进行中
   appsView: {

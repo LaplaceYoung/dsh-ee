@@ -253,6 +253,9 @@ const zh = {
   // app-subscription.ts：启用/停用自选微应用
   appSubscription: {
     invalidAppName: "微应用名不合法",
+    invalidSkillName: "技能名不合法",
+    invalidConnectionName: "连接名不合法",
+    invalidKind: "能力类型不合法",
   },
   // apps-view.ts：企业应用侧栏/首屏横排/「查看更多」浮层/进行中
   appsView: {

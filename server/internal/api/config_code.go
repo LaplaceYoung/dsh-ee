@@ -962,8 +962,8 @@ func (s *Server) applyChange(r *http.Request, cr *store.ChangeRequest) (string, 
 		if !outranks(currentAccess(r), target) {
 			return "", errors.New("不能修改权限比自己大的用户")
 		}
-		if msg, ok := s.checkGrantable(r, p.RoleIDs); !ok {
-			return "", errors.New(msg)
+		if e, ok := s.checkGrantable(r, p.RoleIDs); !ok {
+			return "", errors.New(e.msg)
 		}
 		if msg, _, err := s.roleChangeProblem(ctx, s.adminPolicy(ctx), cr.CreatedBy, p.UserID, target, p.RoleIDs); err != nil || msg != "" {
 			if err != nil {

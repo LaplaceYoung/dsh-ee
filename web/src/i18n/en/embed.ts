@@ -8,5 +8,7 @@ export default {
     openInBrowser: "Open in browser",
     failureHint: "Embed mode never redirects to the sign-in page inside the iframe. The host can listen for dsh-ee:error, sign the user in at the top level and reopen the app.",
     mobileHint: "You are viewing this app in a mobile embed. Content still works; open it at the top level in a browser for the full experience.",
+    exchangeNetwork: "Can't reach dsh-ee",
+    exchangeInvalidCode: "Invalid sign-in code",
   },
 };

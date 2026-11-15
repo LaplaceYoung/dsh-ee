@@ -262,6 +262,9 @@ const hi: DeepPartial<Messages<typeof zh>> = {
   // app-subscription.ts: enabling / disabling self-selected micro-apps
   appSubscription: {
     invalidAppName: "अमान्य माइक्रो-ऐप नाम",
+    invalidSkillName: "अमान्य स्किल नाम",
+    invalidConnectionName: "अमान्य कनेक्टर नाम",
+    invalidKind: "अमान्य क्षमता प्रकार",
   },
   // apps-view.ts: enterprise app sidebar / home row / "view more" flyout / in-progress
   appsView: {

@@ -122,12 +122,12 @@ export async function fetchPending(
   } catch (cause) {
     cleanup();
     if (timedOut) {
-      throw new DshNetworkError(`请求超时（${timeoutMs}ms）：${url}`, 'timeout', { cause });
+      throw new DshNetworkError(`Request timed out (${timeoutMs}ms): ${url}`, 'timeout', { cause });
     }
     if (controller.signal.aborted) {
-      throw new DshNetworkError(`请求已取消：${url}`, 'aborted', { cause });
+      throw new DshNetworkError(`Request aborted: ${url}`, 'aborted', { cause });
     }
-    throw new DshNetworkError(`网络请求失败：${url}`, 'network', { cause });
+    throw new DshNetworkError(`Network request failed: ${url}`, 'network', { cause });
   }
   return { response, meta: readMeta(response), cleanup };
 }
@@ -195,7 +195,7 @@ export function errorFromResponse(meta: HttpResponseMeta, body: ReadBodyResult):
 
     if (payload.jsonrpc === '2.0' && isRecord(error) && typeof error.code === 'number') {
       return new DshJsonRpcError(
-        asString(error.message) ?? `JSON-RPC 错误 ${String(error.code)}`,
+        asString(error.message) ?? `JSON-RPC error ${String(error.code)}`,
         error.code,
         { ...base, rpcData: error.data },
       );
@@ -311,12 +311,12 @@ export function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   if (ms <= 0) return Promise.resolve();
   return new Promise<void>((resolve, reject) => {
     if (signal?.aborted) {
-      reject(new DshNetworkError('等待已取消', 'aborted'));
+      reject(new DshNetworkError('Wait aborted', 'aborted'));
       return;
     }
     const onAbort = () => {
       cleanup();
-      reject(new DshNetworkError('等待已取消', 'aborted'));
+      reject(new DshNetworkError('Wait aborted', 'aborted'));
     };
     const cleanup = () => {
       clearTimeout(timer);

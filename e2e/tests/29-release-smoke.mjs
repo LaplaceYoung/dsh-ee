@@ -9,16 +9,25 @@ export default async function (t) {
   assertEq(healthBody.status, "ok", "/healthz 状态");
   step(`/healthz：${healthBody.version ? healthBody.version : "ok"}`);
 
-  for (const [path, marker] of [
-    ["/setup.sh", "dsh-ee 接入脚本"],
-    ["/setup.ps1", "dsh-ee 接入脚本"],
+  for (const [path, markers] of [
+    // setup.sh 支持 zh/en（?lang= / Accept-Language / 运行端 LANG），默认生成带运行时语言分支的脚本；
+    // 用语言中立断言，避免只有中文/只有英文时误报。setup.ps1 目前仍是中文。
+    ["/setup.sh", ["dsh-ee 接入脚本", "dsh-ee setup script"]],
+    ["/setup.ps1", ["dsh-ee 接入脚本"]],
   ]) {
     const response = await fetch(BASE + path);
     assertEq(response.status, 200, path);
     const text = await response.text();
-    assert(text.length > 1000 && text.includes(marker), `${path} 内容不完整（${text.length} 字节）`);
+    const marker = markers.find((m) => text.includes(m));
+    assert(text.length > 1000 && marker, `${path} 内容不完整（${text.length} 字节）`);
     step(`${path}：${text.length} 字节，含「${marker}」`);
   }
+  // setup.sh 双语显式验证：?lang=en 全脚本无中文；?lang=zh 含中文
+  const enSetup = await (await fetch(`${BASE}/setup.sh?lang=en`)).text();
+  assert(!/[\u4e00-\u9fff]/.test(enSetup), "/setup.sh?lang=en 不应含中文");
+  const zhSetup = await (await fetch(`${BASE}/setup.sh?lang=zh`)).text();
+  assert(/[\u4e00-\u9fff]/.test(zhSetup), "/setup.sh?lang=zh 应含中文");
+  step("/setup.sh 语言参数：en 无中文、zh 有中文");
 
   const admin = await newPage(t);
   await login(admin, "admin", ADMIN_PW);

@@ -160,10 +160,10 @@ export class DshHarnessClient {
 
   constructor(options: DshClientOptions) {
     if (!isRecord(options) || typeof options.baseUrl !== 'string' || options.baseUrl.trim() === '') {
-      throw new TypeError('DshHarnessClient 需要 baseUrl');
+      throw new TypeError('DshHarnessClient requires baseUrl');
     }
     this.baseUrl = options.baseUrl.trim().replace(/\/+$/, '');
-    if (this.baseUrl === '') throw new TypeError('DshHarnessClient 的 baseUrl 不能只有斜杠');
+    if (this.baseUrl === '') throw new TypeError('DshHarnessClient baseUrl cannot consist only of slashes');
 
     const globalFetch = (globalThis as { fetch?: FetchLike }).fetch;
     if (options.fetch !== undefined) {
@@ -171,7 +171,7 @@ export class DshHarnessClient {
     } else if (typeof globalFetch === 'function') {
       this.fetchImpl = (url, init) => globalFetch(url, init);
     } else {
-      throw new DshError('当前运行环境没有 fetch；Node 18+ 自带 fetch，或通过 options.fetch 注入');
+      throw new DshError('No fetch in the current runtime; Node 18+ provides fetch, or inject one via options.fetch');
     }
 
     this.tokenValue = options.token;
@@ -217,12 +217,12 @@ export class DshHarnessClient {
     try {
       if (pending.meta.status === 304) {
         if (cached !== undefined) return cached.doc;
-        throw new DshError('发现文档返回 304，但本地没有缓存');
+        throw new DshError('Discovery document returned 304 but there is no local cache');
       }
       const body = await readBody(pending.response);
       this.throwIfError(pending.meta, body);
       if (!isRecord(body.json)) {
-        throw new DshError('发现文档不是 JSON 对象');
+        throw new DshError('Discovery document is not a JSON object');
       }
       const doc = body.json as unknown as HarnessDiscovery;
       this.discoveryCache = { doc, etag: pending.meta.etag };
@@ -246,7 +246,7 @@ export class DshHarnessClient {
 
   /** GET /v1/apps/{name}。 */
   async getApp(name: string, options: { signal?: AbortSignal } = {}): Promise<HarnessApp> {
-    if (typeof name !== 'string' || name === '') throw new TypeError('getApp 需要 name');
+    if (typeof name !== 'string' || name === '') throw new TypeError('getApp requires name');
     const detail = await this.requestJson<HarnessAppDetail>(
       `/v1/apps/${encodeURIComponent(name)}`,
       { signal: options.signal },
@@ -262,7 +262,7 @@ export class DshHarnessClient {
       signal: options.signal,
     });
     if (!isRecord(payload) || !Array.isArray(payload.data)) {
-      throw new DshError('GET /v1/models 响应缺少 data 数组');
+      throw new DshError('GET /v1/models response is missing the data array');
     }
     return payload.data as ModelInfo[];
   }
@@ -276,7 +276,7 @@ export class DshHarnessClient {
     options: { signal?: AbortSignal } = {},
   ): Promise<ChatCompletion> {
     if (request.stream === true) {
-      throw new DshError('createChatCompletion 只用于非流式请求；流式请用 streamChatCompletion()');
+      throw new DshError('createChatCompletion is for non-streaming requests only; use streamChatCompletion() for streaming');
     }
     const payload = await this.requestJson<ChatCompletion>('/v1/chat/completions', {
       method: 'POST',
@@ -284,7 +284,7 @@ export class DshHarnessClient {
       signal: options.signal,
     });
     if (!isRecord(payload) || !Array.isArray(payload.choices)) {
-      throw new DshError('POST /v1/chat/completions 响应缺少 choices 数组');
+      throw new DshError('POST /v1/chat/completions response is missing the choices array');
     }
     return payload;
   }
@@ -317,13 +317,13 @@ export class DshHarnessClient {
       if (stream === null) {
         const body = await readBody(pending.response);
         throw new DshError(
-          `期望 SSE 流，但响应没有 body（content-type: ${pending.meta.contentType || '未知'}）${body.text ? `：${truncate(body.text)}` : ''}`,
+          `Expected an SSE stream, but the response has no body (content-type: ${pending.meta.contentType || 'unknown'})${body.text ? `: ${truncate(body.text)}` : ''}`,
         );
       }
       if (!pending.meta.contentType.includes('text/event-stream')) {
         const body = await readBody(pending.response);
         throw new DshError(
-          `期望 text/event-stream，实际 content-type: ${pending.meta.contentType || '未知'}${body.text ? `：${truncate(body.text)}` : ''}`,
+          `Expected text/event-stream, got content-type: ${pending.meta.contentType || 'unknown'}${body.text ? `: ${truncate(body.text)}` : ''}`,
         );
       }
       for await (const data of iterateSseData(stream)) {
@@ -332,9 +332,9 @@ export class DshHarnessClient {
         try {
           chunk = JSON.parse(data) as unknown;
         } catch {
-          throw new DshError(`无法解析的 SSE data：${truncate(data)}`);
+          throw new DshError(`Unparseable SSE data: ${truncate(data)}`);
         }
-        if (!isRecord(chunk)) throw new DshError('SSE data 不是 JSON 对象');
+        if (!isRecord(chunk)) throw new DshError('SSE data is not a JSON object');
         yield chunk as ChatCompletionChunk;
       }
     } finally {
@@ -387,7 +387,7 @@ export class DshHarnessClient {
       const body = await readBody(pending.response);
       if (pending.meta.ok) {
         if (!isRecord(body.json) || typeof body.json.access_token !== 'string') {
-          throw new DshError('设备码令牌响应缺少 access_token');
+          throw new DshError('Device token response is missing access_token');
         }
         return body.json as unknown as DeviceToken;
       }
@@ -566,7 +566,7 @@ export class DshHarnessClient {
   /** 发一次 HTTP 请求并更新 last* 观测字段；body 由调用方读取后 cleanup()。 */
   private async send(path: string, options: RequestOptions = {}): Promise<PendingResponse> {
     if (typeof path !== 'string' || !path.startsWith('/')) {
-      throw new TypeError(`请求路径必须是以 / 开头的绝对路径：${String(path)}`);
+      throw new TypeError(`Request path must be an absolute path starting with /: ${String(path)}`);
     }
     const headers = { ...this.defaultHeaders, ...(options.headers ?? {}) };
     if (!hasHeader(headers, 'accept')) headers.Accept = options.accept ?? 'application/json';
@@ -604,7 +604,7 @@ export class DshHarnessClient {
       this.throwIfError(pending.meta, body);
       if (body.json === undefined) {
         throw new DshError(
-          `HTTP ${pending.meta.status} 响应不是 JSON（content-type: ${pending.meta.contentType || '未知'}）${body.text ? `：${truncate(body.text)}` : ''}`,
+          `HTTP ${pending.meta.status} response is not JSON (content-type: ${pending.meta.contentType || 'unknown'})${body.text ? `: ${truncate(body.text)}` : ''}`,
         );
       }
       return body.json as T;

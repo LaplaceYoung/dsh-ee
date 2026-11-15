@@ -297,6 +297,9 @@ type kbPatchReq struct {
 	Description *string            `json:"description"`
 	Scope       *store.Scope       `json:"scope"`
 	Maintainers *store.Maintainers `json:"maintainers"`
+	// 改范围或维护者时必须带上打开页面时读到的 updated_at：两者都是整段覆盖的，
+	// 用旧快照保存会悄悄丢掉这期间别人新加的授权。
+	UpdatedAt *time.Time `json:"updated_at"`
 }
 
 // PATCH /api/kb/{id}：维护者改名称与说明；范围与维护者要「管理知识库」。
@@ -317,7 +320,12 @@ func (s *Server) handleKBPatch(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusForbidden, "修改谁能查、谁来维护需要「管理知识库」权限")
 		return
 	}
-	p := store.KBasePatch{Title: req.Title, Description: req.Description}
+	// 范围与维护者是整段覆盖的：必须带上读到的 updated_at，避免旧快照覆盖新授权
+	if (req.Scope != nil || req.Maintainers != nil) && req.UpdatedAt == nil {
+		writeErr(w, http.StatusBadRequest, "改范围或维护者要带上 updated_at；请刷新页面后重试")
+		return
+	}
+	p := store.KBasePatch{Title: req.Title, Description: req.Description, ExpectedUpdatedAt: req.UpdatedAt}
 	title, desc := b.Title, b.Description
 	if req.Title != nil {
 		title = strings.TrimSpace(*req.Title)
@@ -341,6 +349,10 @@ func (s *Server) handleKBPatch(w http.ResponseWriter, r *http.Request) {
 		p.Maintainers, detail["maintainers"] = &m, m
 	}
 	if err := s.store.UpdateKBase(r.Context(), b.ID, p); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			writeErr(w, http.StatusConflict, "范围或维护者已被其他人修改，请刷新后重试")
+			return
+		}
 		s.internalErr(w, r, err)
 		return
 	}

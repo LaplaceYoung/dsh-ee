@@ -3,6 +3,7 @@
  * 类型与 server/internal/api 里的 JSON 字段一一对应。
  */
 import { ApiError, request } from "./api";
+import i18n from "../i18n";
 
 // ---- 写操作确认（server/internal/api/write_confirm.go）----
 
@@ -313,7 +314,7 @@ export const extApi = {
       throw e;
     }
     // 不该发生：服务端要求 confirm，永远会先给 409 计划
-    throw new Error("回滚预览没有返回计划");
+    throw new Error(i18n.t("extAdmin.rollbackNoPlan"));
   },
   extRollback: (target: string, version: number) => request<ExtRollbackResult>("POST", extTargetPath(target, "rollback"), { version, confirm: true }),
 

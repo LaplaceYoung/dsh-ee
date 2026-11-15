@@ -183,7 +183,7 @@ func (s *Server) handlePutPolicy(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cur := s.adminPolicy(ctx)
 	if cur.dual(DualConfig) {
-		writeErr(w, http.StatusConflict, "开了双人批准：管理约束要通过配置变更提交（dsh-ee config apply，或「字段与访问规则 → 变更请求」）")
+		writeErrCode(w, http.StatusConflict, codePolicyDualRequired, nil, "开了双人批准：管理约束要通过配置变更提交（dsh-ee config apply，或「字段与访问规则 → 变更请求」）")
 		return
 	}
 	if msg := s.setPolicy(r, cur, req); msg != "" {
@@ -248,7 +248,7 @@ func (s *Server) handleApplyPreset(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	cur := s.adminPolicy(ctx)
 	if cur.dual(DualConfig) {
-		writeErr(w, http.StatusConflict, "开了双人批准：预设要通过配置变更提交")
+		writeErrCode(w, http.StatusConflict, codePolicyPresetDualRequired, nil, "开了双人批准：预设要通过配置变更提交")
 		return
 	}
 	switch req.Name {
@@ -260,7 +260,7 @@ func (s *Server) handleApplyPreset(w http.ResponseWriter, r *http.Request) {
 		}
 	case "separated":
 		if !currentAccess(r).Super && !currentAccess(r).Has(rbac.RolesManage) {
-			writeErr(w, http.StatusForbidden, "没有权限")
+			writeErrCode(w, http.StatusForbidden, codePermDenied, nil, "没有权限")
 			return
 		}
 		var codes []string
@@ -270,7 +270,7 @@ func (s *Server) handleApplyPreset(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			if !subset(currentAccess(r), pr.Perms) {
-				writeErr(w, http.StatusForbidden, "建「"+pr.Name+"」要你自己有它的全部权限")
+				writeErrCode(w, http.StatusForbidden, codePolicyPresetOverreach, map[string]any{"role": pr.Name}, "建「"+pr.Name+"」要你自己有它的全部权限")
 				return
 			}
 			role := &store.Role{Code: pr.Code, Name: pr.Name, Description: "分权管理预设", Permissions: pr.Perms}
@@ -286,7 +286,7 @@ func (s *Server) handleApplyPreset(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	default:
-		writeErr(w, http.StatusBadRequest, "没有这个预设：standard / separated")
+		writeErrCode(w, http.StatusBadRequest, codePolicyInvalidPreset, nil, "没有这个预设：standard / separated")
 		return
 	}
 	s.handleGetPolicy(w, r)
@@ -340,6 +340,10 @@ func (s *Server) submitRolesChange(r *http.Request, targetID int64, ids []int64)
 
 // Recover 在服务器上生成一个一次性的恢复账号：有全部管理权限点（不靠超级管理员），1 小时后自动停用。
 // 把自己锁在外面（比如关掉超级管理员后唯一的权限管理员离职了）时用。审计里留记录。
+//
+// 审计写入失败时账号已经建好了：此时仍会填好 username/password/expires 并返回非 nil error。
+// 调用方必须把凭据交给操作人，同时明确告警「账号已创建但审计没写成」，让人工补记并排查 audit_logs 表；
+// 不能因为 err 非 nil 就当没创建、把凭据丢掉 —— 那会让管理员以为没拿到入口，而库里躺着一个无审计的全权账号。
 func Recover(ctx context.Context, st *store.Store) (username, password string, expires time.Time, err error) {
 	if err := st.SyncPermissions(ctx, rbac.Catalog); err != nil {
 		return "", "", time.Time{}, err
@@ -374,8 +378,12 @@ func Recover(ctx context.Context, st *store.Store) (username, password string, e
 	if err := st.AddRecoveryAccount(ctx, u.ID, expires); err != nil {
 		return "", "", time.Time{}, err
 	}
-	_ = st.InsertAudit(ctx, &store.AuditLog{ActorID: &u.ID, ActorName: u.Username, Action: "admin.recover", Target: u.Username, Via: "cli",
-		Detail: map[string]any{"expires_at": expires}})
+	if err := st.InsertAudit(ctx, &store.AuditLog{ActorID: &u.ID, ActorName: u.Username, Action: "admin.recover", Target: u.Username, Via: "cli",
+		Detail: map[string]any{"expires_at": expires}}); err != nil {
+		// 账号此时已完整创建（角色/密码/到期停用都生效），只是审计没写成。
+		// 照常把凭据带回去，让调用方告警并让人工补记；绝不能静默吞掉审计错误。
+		return u.Username, password, expires, fmt.Errorf("应急恢复账号 %q 已创建（%s 到期自动停用），但审计记录写入 audit_logs 失败；请人工记录该账号与到期时间并排查审计表：%w", u.Username, expires.Format(time.RFC3339), err)
+	}
 	return u.Username, password, expires, nil
 }
 
@@ -408,7 +416,11 @@ func (s *Server) expireRecovery(ctx context.Context) {
 			s.log.Warn("停用恢复账号失败", "user", id, "err", err)
 			continue
 		}
-		_ = s.store.DeleteUserSessions(ctx, id)
+		// 会话查询本身会过滤 disabled 账号（SessionUser/SessionInfo），停用已即时生效；
+		// 删除只是清掉残留会话行，失败不影响安全，后台任务也没有调用方可以返回错误。
+		if err := s.store.DeleteUserSessions(ctx, id); err != nil {
+			s.log.Warn("删除用户会话失败", "user", id, "err", err)
+		}
 		s.log.Info("恢复账号已到期停用", "user", id)
 	}
 }

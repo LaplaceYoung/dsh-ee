@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
 import { api, formatBytes, formatTokens } from "../../lib/api";
+import { formatNumber } from "../../lib/format";
 import { useApi } from "../../lib/use-api";
 import { platformLabel } from "../../lib/labels";
 import { Card, CardHeader, PageHeader, Segmented, Stat, StatStrip } from "../../components/ui";
@@ -72,9 +73,9 @@ export default function AdminStats() {
         {s && (
           <div className={loading ? "opacity-60 transition-opacity" : "transition-opacity"}>
             <StatStrip>
-              <Stat label={t("stats.installs")} value={s.totals.installs.toLocaleString()} hint={t("stats.installsHint", { deps: (s.totals.downloads - s.totals.installs).toLocaleString() })} />
-              <Stat label={t("stats.activeUsers")} value={s.totals.active_users.toLocaleString()} hint={t("stats.activeHint", { users: s.totals.users })} />
-              <Stat label={t("stats.calls")} value={s.totals.calls.toLocaleString()} hint={t("stats.callsHint", { errors: s.totals.call_errors, pct: errPct })} />
+              <Stat label={t("stats.installs")} value={formatNumber(s.totals.installs)} hint={t("stats.installsHint", { deps: formatNumber(s.totals.downloads - s.totals.installs) })} />
+              <Stat label={t("stats.activeUsers")} value={formatNumber(s.totals.active_users)} hint={t("stats.activeHint", { users: s.totals.users })} />
+              <Stat label={t("stats.calls")} value={formatNumber(s.totals.calls)} hint={t("stats.callsHint", { errors: s.totals.call_errors, pct: errPct })} />
               <Stat label={t("stats.tokens")} value={formatTokens(s.totals.tokens)} hint={t("stats.tokensHint")} />
             </StatStrip>
 
@@ -104,10 +105,10 @@ export default function AdminStats() {
                     key: d.department,
                     cells: [
                       d.department ? <span className="text-neutral-900">{d.department}</span> : <span className="text-neutral-600">{t("stats.noDepartment")}</span>,
-                      d.users.toLocaleString(),
-                      d.active_users.toLocaleString(),
-                      d.installs.toLocaleString(),
-                      d.calls.toLocaleString(),
+                      formatNumber(d.users),
+                      formatNumber(d.active_users),
+                      formatNumber(d.installs),
+                      formatNumber(d.calls),
                       formatTokens(d.tokens),
                     ],
                   }))}
@@ -131,8 +132,8 @@ export default function AdminStats() {
                           <span className="font-mono">{p.name}</span> · {p.origin === "hosted" ? t("stats.internal") : t("stats.upstream")}
                         </div>
                       </>,
-                      p.installs.toLocaleString(),
-                      p.users.toLocaleString(),
+                      formatNumber(p.installs),
+                      formatNumber(p.users),
                     ],
                   }))}
                 />
@@ -144,7 +145,7 @@ export default function AdminStats() {
                   empty={t("stats.empty")}
                   rows={s.top_models.map((m) => ({
                     key: m.model,
-                    cells: [<span className="font-mono text-neutral-900">{m.model}</span>, m.calls.toLocaleString(), m.users.toLocaleString(), formatTokens(m.tokens)],
+                    cells: [<span className="font-mono text-neutral-900">{m.model}</span>, formatNumber(m.calls), formatNumber(m.users), formatTokens(m.tokens)],
                   }))}
                 />
               </Card>
@@ -158,7 +159,7 @@ export default function AdminStats() {
                   empty={t("stats.empty")}
                   rows={s.platforms.map((p) => ({
                     key: `${p.os}/${p.arch}`,
-                    cells: [<span className="text-neutral-900">{platformLabel(p.os, p.arch, t("stats.unknownPlatform"))}</span>, p.users.toLocaleString(), p.installs.toLocaleString()],
+                    cells: [<span className="text-neutral-900">{platformLabel(p.os, p.arch, t("stats.unknownPlatform"))}</span>, formatNumber(p.users), formatNumber(p.installs)],
                   }))}
                 />
               </Card>

@@ -74,14 +74,14 @@ var secretFiles = []struct {
 	}},
 }
 
-var ErrNoPackageJSON = errors.New("tarball 里没有 package.json")
+var ErrNoPackageJSON = errors.New("No package.json in the tarball")
 
 // InspectTarball 解开 .tgz：取出 package.json、统计文件、扫描疑似密钥。
 // npm 打包时根目录是 package/，个别包（如 @types/*）用别的名字，所以按第一级目录认。
 func InspectTarball(r io.Reader) (*TarballInfo, error) {
 	gz, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("不是 gzip：%w", err)
+		return nil, fmt.Errorf("Not gzip: %w", err)
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
@@ -93,7 +93,7 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("解包失败：%w", err)
+			return nil, fmt.Errorf("Unpacking failed: %w", err)
 		}
 		if h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeRegA {
 			continue
@@ -112,7 +112,7 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 		info.FileCount++
 		info.UnpackedSize += h.Size
 		if info.FileCount > maxFiles || info.UnpackedSize > maxUnpackedSize {
-			return nil, errors.New("解包后文件过多或过大")
+			return nil, errors.New("Too many files or files too large after unpacking")
 		}
 		if len(info.Files) < 20000 {
 			info.Files[rel] = true
@@ -132,7 +132,7 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 		switch {
 		case rel == "package.json":
 			if h.Size > maxPackageJSON {
-				return nil, errors.New("package.json 过大")
+				return nil, errors.New("package.json is too large")
 			}
 			b, err := io.ReadAll(io.LimitReader(tr, maxPackageJSON))
 			if err != nil {

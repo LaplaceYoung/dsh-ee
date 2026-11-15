@@ -24,7 +24,7 @@ func TestSetupEnvPowerShell(t *testing.T) {
 		"$Token = 'tok-123'\n" +
 		"$DeviceLogin = $false\n" +
 		"$Pending = " + psQuote(filepath.Join(dir, "token.pending")) + "\n" +
-		setupEnvPowerShell()
+		setupEnvPowerShell(ps1TextZh)
 	scriptFile := filepath.Join(dir, "setup-env-test.ps1")
 	// PowerShell 5 默认按 ANSI 读无 BOM 文件；脚本里有中文，测试脚本本身要带 BOM。
 	if err := os.WriteFile(scriptFile, append([]byte{0xEF, 0xBB, 0xBF}, []byte(script)...), 0o600); err != nil {

@@ -3,7 +3,7 @@ import { ArrowDown, ArrowUp, ExternalLink, MousePointerClick } from "lucide-reac
 import { api, type Menu, type MenuInput, type MenuKind, type Permission } from "../../lib/api";
 import { useStore } from "../../lib/store";
 import { useAction, useApi } from "../../lib/use-api";
-import { buildTree, useMenuTitle, useMenus } from "../../lib/menus";
+import { buildTree, isDefaultPageTitle, useMenuTitle, useMenus } from "../../lib/menus";
 import { PAGE_META, type PageKey } from "../../lib/page-meta";
 import { useLabels } from "../../lib/labels";
 import { ICONS, MenuIcon } from "../../lib/icons";
@@ -43,7 +43,16 @@ function MenuForm({
   const L = useLabels();
   const menuTitle = useMenuTitle();
   const { notify } = useStore();
-  const initial: MenuInput = editing.mode === "edit" ? toInput(editing.menu) : blank(editing.kind);
+  /**
+   * 默认标题在编辑框里显示成当前界面语言：新建页面时写进后端的也是当前语言，
+   * 不再固定写中文默认值；显示时 `useMenuTitle` 认得任一语言的默认页面名。
+   */
+  function withLocalizedTitle(input: MenuInput): MenuInput {
+    return input.kind === "page" && isDefaultPageTitle(input.page_key, input.title)
+      ? { ...input, title: t(`pages.${input.page_key as PageKey}`) }
+      : input;
+  }
+  const initial: MenuInput = withLocalizedTitle(editing.mode === "edit" ? toInput(editing.menu) : blank(editing.kind));
   const [m, setM] = useState<MenuInput>(initial);
   const [error, setError] = useState<string | null>(null);
   const { busy, run } = useAction();
@@ -51,7 +60,7 @@ function MenuForm({
   const key = editing.mode === "edit" ? `e${editing.menu.id}` : `n${editing.kind}`;
 
   useEffect(() => {
-    setM(editing.mode === "edit" ? toInput(editing.menu) : blank(editing.kind));
+    setM(withLocalizedTitle(editing.mode === "edit" ? toInput(editing.menu) : blank(editing.kind)));
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);
@@ -109,10 +118,11 @@ function MenuForm({
                 ]}
                 onChange={(k) => {
                   const meta = PAGE_META[k];
-                  // 新建时顺手带出默认标题与路由
+                  // 新建时顺手带出默认标题与路由；标题按当前界面语言，避免把中文写进后端
+                  const useDefaultTitle = !!meta && (m.title.trim() === "" || isDefaultPageTitle(m.page_key, m.title));
                   set({
                     page_key: k,
-                    ...(meta && !m.title ? { title: meta.title } : {}),
+                    ...(useDefaultTitle ? { title: t(`pages.${k as PageKey}`) } : {}),
                     ...(meta && (m.path === "/" || !m.path) ? { path: meta.defaultPath } : {}),
                   });
                 }}

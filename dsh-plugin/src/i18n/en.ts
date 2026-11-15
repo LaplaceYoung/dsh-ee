@@ -256,6 +256,9 @@ const en = {
   // app-subscription.ts：启用/停用自选微应用
   appSubscription: {
     invalidAppName: "Invalid micro-app name",
+    invalidSkillName: "Invalid skill name",
+    invalidConnectionName: "Invalid connector name",
+    invalidKind: "Invalid capability type",
   },
   // apps-view.ts：企业应用侧栏/首屏横排/「查看更多」浮层/进行中
   appsView: {

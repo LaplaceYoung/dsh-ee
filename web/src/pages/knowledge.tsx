@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router";
 import { BookOpen, Download, ExternalLink, FolderPlus, MessageSquare, Plus, Search, Upload, SearchX, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, formatTime, type KBase, type KBQASettings, type KBQuery, type KBSearchResult, type Scope } from "../lib/api";
+import { formatDateOnly } from "../lib/format";
 import { copyText } from "../lib/clipboard";
 import { useAction, useApi } from "../lib/use-api";
 import { useStore } from "../lib/store";
@@ -386,7 +387,7 @@ export default function Knowledge() {
                             <Link to={kdocPath(d.id)} className="relative z-10 min-w-0 truncate text-neutral-800 hover:text-brand-600 dark:hover:text-brand-200 hover:underline">
                               {d.title}
                             </Link>
-                            <span className="shrink-0 text-xs text-neutral-400">{formatTime(d.updated_at).slice(0, 10)}</span>
+                            <span className="shrink-0 text-xs text-neutral-400">{formatDateOnly(d.updated_at)}</span>
                           </li>
                         ))}
                       </ul>

@@ -100,6 +100,11 @@ type dshSkill struct {
 	ModelInvocable bool   `json:"model_invocable"`
 	UserInvocable  bool   `json:"user_invocable"`
 	Version        int    `json:"version"`
+	// 下面几项给接入插件的「专家 · 技能 · 连接器」面板用；系统技能没有
+	AssetID    int64  `json:"asset_id,omitempty"`
+	Delivery   string `json:"delivery,omitempty"`
+	CategoryID int64  `json:"category_id,omitempty"`
+	Featured   bool   `json:"featured,omitempty"`
 }
 
 type dshApp struct {
@@ -125,6 +130,41 @@ type dshApp struct {
 	New bool `json:"new,omitempty"`
 	// 勾选上首页的组件数（启动台的「需要你处理」）
 	Todo int `json:"todo,omitempty"`
+	// 形态：expert 是专家（docs/expert-center.md），空是普通微应用
+	Form      string   `json:"form,omitempty"`
+	Expertise []string `json:"expertise,omitempty"`
+	// 专家团队的成员（专家标识）
+	Members    []string `json:"members,omitempty"`
+	CategoryID int64    `json:"category_id,omitempty"`
+	Featured   bool     `json:"featured,omitempty"`
+}
+
+// dshConnCard 是面板里的一张连接器卡片。
+type dshConnCard struct {
+	Name        string `json:"name"`
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	AssetID     int64  `json:"asset_id"`
+	Delivery    string `json:"delivery"`
+	// 在我的 DSH 里生效（自动生效，或我启用了）
+	Enabled bool `json:"enabled"`
+	// 我能用的工具数；其中有没有写操作
+	Tools  int  `json:"tools"`
+	Writes bool `json:"writes"`
+	// ready：可以直接用 / needs_auth：要我先在网页上填凭据或授权
+	Auth string `json:"auth"`
+	// 需要我自己存的凭据类型：user_secret / oauth；不需要时为空
+	AuthMode   string `json:"auth_mode,omitempty"`
+	CategoryID int64  `json:"category_id,omitempty"`
+	Featured   bool   `json:"featured,omitempty"`
+}
+
+// dshCategory 是我能看到的一个分类。
+type dshCategory struct {
+	ID    int64  `json:"id"`
+	Group string `json:"group"`
+	Name  string `json:"name"`
+	Sort  int    `json:"sort"`
 }
 
 type dshPlugin struct {
@@ -146,9 +186,15 @@ type dshCatalog struct {
 	// 员工可用的微应用，给接入插件画「企业应用」入口；旧插件忽略这个字段
 	Apps []dshApp `json:"apps"`
 	// 在可用范围内、需要员工自己启用、但还没启用的微应用；只有展示信息，/名字 加载不到
-	AvailableApps []dshApp    `json:"available_apps"`
-	Required      []dshPlugin `json:"required_plugins"`
-	Revision      string      `json:"revision"`
+	AvailableApps []dshApp `json:"available_apps"`
+	// 在可用范围内、需要员工自己启用、但还没启用的技能与提示词；/名字 加载不到
+	AvailableSkills []dshSkill `json:"available_skills"`
+	// 我能用的连接器（已生效的和可以自己启用的），带授权状态
+	Connections []dshConnCard `json:"connections"`
+	// 我能看到的受管分类
+	Categories []dshCategory `json:"categories"`
+	Required   []dshPlugin   `json:"required_plugins"`
+	Revision   string        `json:"revision"`
 	// 企业连接在 DSH 里的工具前缀（mcp__<server_name>__）
 	ServerName string   `json:"server_name"`
 	Brand      dshBrand `json:"brand"`
@@ -183,7 +229,7 @@ func (s *Server) userCatalog(ctx context.Context, v viewer) (*dshCatalog, error)
 		case a.Delivery == store.DeliveryAuto || subs[a.ID]:
 			on = append(on, a)
 			ids = append(ids, a.ID)
-		case a.Kind == store.KindApp && a.Delivery == store.DeliveryOptional:
+		case a.Delivery == store.DeliveryOptional:
 			offered = append(offered, a)
 			ids = append(ids, a.ID)
 		}
@@ -192,7 +238,8 @@ func (s *Server) userCatalog(ctx context.Context, v viewer) (*dshCatalog, error)
 	if err != nil {
 		return nil, err
 	}
-	c := &dshCatalog{Skills: []dshSkill{}, Apps: []dshApp{}, AvailableApps: []dshApp{}, Required: []dshPlugin{}, ServerName: s.mcpServerNameCtx(ctx),
+	c := &dshCatalog{Skills: []dshSkill{}, Apps: []dshApp{}, AvailableApps: []dshApp{}, AvailableSkills: []dshSkill{}, Connections: []dshConnCard{}, Categories: []dshCategory{},
+		Required: []dshPlugin{}, ServerName: s.mcpServerNameCtx(ctx),
 		assets: map[string]*store.Asset{}, specs: map[string]*assetSpec{}}
 	if c.kbases, err = s.readableKBases(ctx, v); err != nil {
 		return nil, err
@@ -207,14 +254,11 @@ func (s *Server) userCatalog(ctx context.Context, v viewer) (*dshCatalog, error)
 		sp := parseSpec(lv.Spec)
 		c.assets[a.Slug], c.specs[a.Slug] = a, sp
 		switch a.Kind {
-		case store.KindSkill:
-			model := sp.ModelInvocable == nil || *sp.ModelInvocable
-			c.Skills = append(c.Skills, dshSkill{Name: a.Slug, Title: sp.Title, Kind: a.Kind, Description: sp.Description, WhenToUse: sp.WhenToUse, ModelInvocable: model, UserInvocable: true, Version: lv.Version})
-		case store.KindPrompt, store.KindApp:
+		case store.KindSkill, store.KindPrompt:
+			c.Skills = append(c.Skills, skillEntry(a, sp, lv.Version))
+		case store.KindApp:
 			c.Skills = append(c.Skills, dshSkill{Name: a.Slug, Title: sp.Title, Kind: a.Kind, Description: sp.Description, ModelInvocable: false, UserInvocable: true, Version: lv.Version})
-			if a.Kind == store.KindApp {
-				c.Apps = append(c.Apps, appEntry(a, sp, lv.Version, v.user))
-			}
+			c.Apps = append(c.Apps, appEntry(a, sp, lv.Version, v.user))
 		case store.KindConnection:
 			c.conns = append(c.conns, &dshConn{asset: a, version: lv.Version, spec: sp})
 			connIDs = append(connIDs, a.ID)
@@ -223,13 +267,24 @@ func (s *Server) userCatalog(ctx context.Context, v viewer) (*dshCatalog, error)
 	for i := range c.Apps {
 		c.Apps[i].Missing = missingAppCapabilities(c.specs[c.Apps[i].Name], c)
 	}
-	// 可启用的微应用不进 assets / specs：没启用前 /名字 加载不到，也不算进必装插件
+	// 可启用的能力不进 assets / specs：没启用前 /名字 加载不到，工具也不进 /mcp，不算进必装插件
+	var offeredConns []*dshConn
 	for _, a := range offered {
-		if lv := live[a.ID]; lv != nil {
-			sp := parseSpec(lv.Spec)
+		lv := live[a.ID]
+		if lv == nil {
+			continue
+		}
+		sp := parseSpec(lv.Spec)
+		switch a.Kind {
+		case store.KindApp:
 			app := appEntry(a, sp, lv.Version, v.user)
 			app.Missing = missingAppCapabilities(sp, c)
 			c.AvailableApps = append(c.AvailableApps, app)
+		case store.KindSkill, store.KindPrompt:
+			c.AvailableSkills = append(c.AvailableSkills, skillEntry(a, sp, lv.Version))
+		case store.KindConnection:
+			offeredConns = append(offeredConns, &dshConn{asset: a, version: lv.Version, spec: sp})
+			connIDs = append(connIDs, a.ID)
 		}
 	}
 	if len(connIDs) > 0 {
@@ -238,14 +293,17 @@ func (s *Server) userCatalog(ctx context.Context, v viewer) (*dshCatalog, error)
 			return nil, err
 		}
 		byID := map[int64]*dshConn{}
-		for _, cn := range c.conns {
+		for _, cn := range append(append([]*dshConn{}, c.conns...), offeredConns...) {
 			byID[cn.asset.ID] = cn
 		}
 		for _, t := range tools {
-			if toolAllowed(v, t) {
-				byID[t.AssetID].tools = append(byID[t.AssetID].tools, t)
+			if cn := byID[t.AssetID]; cn != nil && toolAllowed(v, t) {
+				cn.tools = append(cn.tools, t)
 			}
 		}
+	}
+	if err := s.catalogCards(ctx, v, c, offeredConns); err != nil {
+		return nil, err
 	}
 
 	// 必装插件：插件策略设了自动安装且在范围内的，加上启用中的微应用依赖的
@@ -335,6 +393,8 @@ func (s *Server) userCatalog(ctx context.Context, v viewer) (*dshCatalog, error)
 		return c.AvailableApps[i].Title < c.AvailableApps[j].Title
 	})
 	sort.Slice(c.Required, func(i, j int) bool { return c.Required[i].Name < c.Required[j].Name })
+	sort.Slice(c.AvailableSkills, func(i, j int) bool { return c.AvailableSkills[i].Name < c.AvailableSkills[j].Name })
+	sort.Slice(c.Connections, func(i, j int) bool { return c.Connections[i].Name < c.Connections[j].Name })
 	sort.Slice(c.conns, func(i, j int) bool { return c.conns[i].asset.Slug < c.conns[j].asset.Slug })
 
 	brand, err := s.brandInfo(ctx, "")
@@ -348,6 +408,9 @@ func (s *Server) userCatalog(ctx context.Context, v viewer) (*dshCatalog, error)
 	_ = json.NewEncoder(h).Encode(c.Apps)
 	_ = json.NewEncoder(h).Encode(c.AvailableApps)
 	_ = json.NewEncoder(h).Encode(c.Required)
+	_ = json.NewEncoder(h).Encode(c.AvailableSkills)
+	_ = json.NewEncoder(h).Encode(c.Connections)
+	_ = json.NewEncoder(h).Encode(c.Categories)
 	_ = json.NewEncoder(h).Encode(c.Brand)
 	for _, name := range slices.Sorted(maps.Keys(c.system)) {
 		fmt.Fprintf(h, "sys:%s:%s;", name, c.system[name])
@@ -472,13 +535,78 @@ func appEntry(a *store.Asset, sp *assetSpec, version int, u *store.User) dshApp 
 			}
 		}
 	}
-	return dshApp{Name: a.Slug, Title: sp.Title, Description: sp.Description, Icon: sp.Icon, Starters: starters, Launch: launch, Delivery: a.Delivery, Version: version, AssetID: a.ID, Workbench: wb, Web: webEnabled(sp), Highlights: sp.Highlights, New: a.CreatedAt.After(time.Now().AddDate(0, 0, -homeNewDays)), Todo: todo}
+	return dshApp{Name: a.Slug, Title: sp.Title, Description: sp.Description, Icon: sp.Icon, Starters: starters, Launch: launch, Delivery: a.Delivery, Version: version, AssetID: a.ID, Workbench: wb, Web: webEnabled(sp), Highlights: sp.Highlights, New: a.CreatedAt.After(time.Now().AddDate(0, 0, -homeNewDays)), Todo: todo,
+		Form: sp.Form, Expertise: sp.Expertise, Members: sp.Members, CategoryID: derefID(a.CategoryID), Featured: a.Featured}
 }
 
-// POST / DELETE /api/dsh/apps/{name}/subscription：员工在 DSH 里启用或停用「自选」微应用。
+// skillEntry 是目录里一个技能或提示词。提示词只给人用 /名字 调用。
+func skillEntry(a *store.Asset, sp *assetSpec, version int) dshSkill {
+	k := dshSkill{Name: a.Slug, Title: sp.Title, Kind: a.Kind, Description: sp.Description, UserInvocable: true, Version: version,
+		AssetID: a.ID, Delivery: a.Delivery, CategoryID: derefID(a.CategoryID), Featured: a.Featured}
+	if a.Kind == store.KindSkill {
+		k.WhenToUse = sp.WhenToUse
+		k.ModelInvocable = sp.ModelInvocable == nil || *sp.ModelInvocable
+	}
+	return k
+}
+
+// catalogCards 填面板用的连接器卡片与分类。offered 是可以自己启用、还没启用的连接（已带上工具）。
+func (s *Server) catalogCards(ctx context.Context, v viewer, c *dshCatalog, offered []*dshConn) error {
+	creds, err := s.store.UserCredentialInfos(ctx, v.user.ID)
+	if err != nil {
+		return err
+	}
+	card := func(cn *dshConn, enabled bool) dshConnCard {
+		a := cn.asset
+		k := dshConnCard{Name: a.Slug, Title: cn.spec.Title, Description: cn.spec.Description, AssetID: a.ID, Delivery: a.Delivery, Enabled: enabled,
+			Tools: len(cn.tools), Auth: "ready", CategoryID: derefID(a.CategoryID), Featured: a.Featured}
+		for _, t := range cn.tools {
+			k.Writes = k.Writes || !t.ReadOnly
+		}
+		if cv := credentialView(cn.spec.UserAuth, creds, a.ID); cv != nil && cn.spec.UserAuth.personal() != "" {
+			k.AuthMode = cv.Mode
+			if !cv.Filled {
+				k.Auth = "needs_auth"
+			}
+		}
+		return k
+	}
+	for _, cn := range c.conns {
+		c.Connections = append(c.Connections, card(cn, true))
+	}
+	for _, cn := range offered {
+		c.Connections = append(c.Connections, card(cn, false))
+	}
+	cats, err := s.store.ListCategories(ctx)
+	if err != nil {
+		return err
+	}
+	for _, cat := range cats {
+		if v.inScope(cat.Scope) {
+			c.Categories = append(c.Categories, dshCategory{ID: cat.ID, Group: cat.Group, Name: cat.Name, Sort: cat.Sort})
+		}
+	}
+	return nil
+}
+
+// POST / DELETE /api/dsh/apps/{name}/subscription：员工在 DSH 里启用或停用「自选」微应用（含专家）。
 // 与网页上的启用是同一件事（同一张订阅表、同样的范围检查）；只给接入插件的界面用，不做成 AI 工具，
 // 免得模型被提示注入诱导去改员工的配置。令牌需要 hub 范围（dshPrincipal 统一检查）。
 func (s *Server) handleDshAppSubscription(w http.ResponseWriter, r *http.Request) {
+	s.dshSubscription(w, r, "微应用", store.KindApp)
+}
+
+// POST / DELETE /api/dsh/skills/{name}/subscription：同上，技能与提示词。
+func (s *Server) handleDshSkillSubscription(w http.ResponseWriter, r *http.Request) {
+	s.dshSubscription(w, r, "技能", store.KindSkill, store.KindPrompt)
+}
+
+// POST / DELETE /api/dsh/connections/{name}/subscription：同上，企业连接。启用后它的工具出现在 /mcp 里。
+func (s *Server) handleDshConnectionSubscription(w http.ResponseWriter, r *http.Request) {
+	s.dshSubscription(w, r, "连接", store.KindConnection)
+}
+
+func (s *Server) dshSubscription(w http.ResponseWriter, r *http.Request, label string, kinds ...string) {
 	v, ok := s.dshAuth(w, r)
 	if !ok {
 		return
@@ -491,12 +619,12 @@ func (s *Server) handleDshAppSubscription(w http.ResponseWriter, r *http.Request
 		s.internalErr(w, r, err)
 		return
 	}
-	if a == nil || a.Kind != store.KindApp || !available(v, a) {
-		writeErr(w, http.StatusNotFound, "没有这个微应用，或它不在你的可用范围内")
+	if a == nil || !slices.Contains(kinds, a.Kind) || !available(v, a) {
+		writeErr(w, http.StatusNotFound, "没有这个"+label+"，或它不在你的可用范围内")
 		return
 	}
 	if a.Delivery == store.DeliveryAuto {
-		writeErr(w, http.StatusBadRequest, "这个微应用对你默认生效，不需要启用，也不能停用")
+		writeErr(w, http.StatusBadRequest, "这个"+label+"对你默认生效，不需要启用，也不能停用")
 		return
 	}
 	if r.Method == http.MethodPost {
@@ -517,9 +645,32 @@ func (s *Server) handleDshAppSubscription(w http.ResponseWriter, r *http.Request
 	writeJSON(w, http.StatusOK, map[string]any{"revision": c.Revision, "enabled": r.Method == http.MethodPost})
 }
 
+type teamMember struct {
+	slug string
+	spec *assetSpec
+}
+
+// teamMembers 是专家团队里这位员工能用的成员专家（已在他的目录里、本身也是专家）。
+func teamMembers(sp *assetSpec, c *dshCatalog) []teamMember {
+	if !isExpert(sp) {
+		return nil
+	}
+	var out []teamMember
+	for _, slug := range sp.Members {
+		if a, msp := c.assets[slug], c.specs[slug]; a != nil && a.Kind == store.KindApp && isExpert(msp) && msp != sp {
+			out = append(out, teamMember{slug, msp})
+		}
+	}
+	return out
+}
+
 func missingAppCapabilities(sp *assetSpec, c *dshCatalog) []string {
 	var missing []string
-	for _, slug := range append(append([]string{}, sp.Skills...), sp.Connections...) {
+	members := []string{}
+	if isExpert(sp) {
+		members = sp.Members
+	}
+	for _, slug := range append(append(append([]string{}, sp.Skills...), sp.Connections...), members...) {
 		if c.assets[slug] == nil {
 			missing = append(missing, slug)
 		}
@@ -547,13 +698,23 @@ func appKBases(sp *assetSpec, c *dshCatalog) []*store.KBase {
 func appContent(sp *assetSpec, c *dshCatalog) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n\n%s\n", sp.Title, sp.Persona)
+	if isExpert(sp) && sp.Method != "" {
+		fmt.Fprintf(&b, "\n## 工作方法\n\n%s\n", sp.Method)
+	}
+	team := teamMembers(sp, c)
 	var lines []string
-	for _, slug := range sp.Skills {
+	// 团队成员用到的技能和系统也列给组长
+	skills, conns := sp.Skills, sp.Connections
+	for _, m := range team {
+		skills, conns = append(skills, m.spec.Skills...), append(conns, m.spec.Connections...)
+	}
+	skills, conns = dedupeStrings(skills), dedupeStrings(conns)
+	for _, slug := range skills {
 		if a := c.assets[slug]; a != nil && a.Kind == store.KindSkill {
 			lines = append(lines, fmt.Sprintf("- 技能 `%s`（%s）：需要时用 skill 工具加载", slug, c.specs[slug].Title))
 		}
 	}
-	for _, slug := range sp.Connections {
+	for _, slug := range conns {
 		if a := c.assets[slug]; a != nil && a.Kind == store.KindConnection {
 			lines = append(lines, fmt.Sprintf("- 企业系统「%s」：工具名以 `mcp__%s__%s__` 开头", c.specs[slug].Title, c.ServerName, slug))
 		}
@@ -576,6 +737,15 @@ func appContent(sp *assetSpec, c *dshCatalog) string {
 			}
 		}
 		b.WriteString(kbRules(c.ServerName, c.base, bases, board))
+	}
+	if len(team) > 0 {
+		b.WriteString("\n## 团队协作\n\n你是这个团队的组长。先把任务拆成几步，判断每一步该由哪位成员负责；互不依赖的步骤可以一起做，有依赖的按顺序做。轮到某位成员时，按下面他的角色说明和工作方法完成那一部分，并在回答里标明是哪位成员的结论；最后由你汇总成一份交付。\n")
+		for _, m := range team {
+			fmt.Fprintf(&b, "\n### 成员：%s\n\n%s\n", m.spec.Title, truncateStr(m.spec.Persona, 2000))
+			if m.spec.Method != "" {
+				fmt.Fprintf(&b, "\n工作方法：\n\n%s\n", truncateStr(m.spec.Method, 2000))
+			}
+		}
 	}
 	if missing := missingAppCapabilities(sp, c); len(missing) > 0 {
 		fmt.Fprintf(&b, "\n注意：这些能力不在当前用户的可用范围内，不要尝试调用：%s\n", strings.Join(missing, "、"))

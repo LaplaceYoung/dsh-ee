@@ -13,58 +13,21 @@ import (
 
 // 不启动服务、不连数据库的子命令：写扩展时用的检查和规格（docs/plugins.md §10、docs/agent-dev.md §3～§4）。
 
-const cliUsage = `用法：
-  dsh-ee                                 启动服务
-  dsh-ee version                         打印版本
-  dsh-ee extension init <目录> --id 作者/名字 [--kind declarative|service]
-                                         新建一个扩展（带 AGENTS.md），复制后照着改
-  dsh-ee extension check <目录> [--json]  检查一个扩展：清单、接口文档、只读标记、凭据写法
-  dsh-ee extension test <目录|地址> [--run "启动命令"] [--credential 值] [--config JSON] [--write] [--json]
-                                         把服务扩展跑起来按协议逐项测；全部通过才算合格
-  dsh-ee extension dev [--listen 地址]    起一个模拟的 dsh-ee（不要数据库），写扩展时用
-  dsh-ee extension call <地址> <工具> [--as 员工] [--args JSON] [--credential 值] [--config JSON]
-                                         以某位员工的身份调一次扩展的工具
-  dsh-ee extension pack <目录> [-o 文件]   把声明式扩展打成 zip，算出校验和（带签名的连签名一起打）
-  dsh-ee extension report <目录|地址>      生成给管理员看的交付说明（Markdown）
-  dsh-ee extension keygen <私钥文件> [--public 公钥文件]
-                                         生成签名用的 Ed25519 密钥；私钥只留在本机
-  dsh-ee extension sign <目录> --key <私钥文件> [-o 文件]
-                                         给清单（声明式连同接口文档）签名，写 signature.json
-  dsh-ee extension verify <目录> [--key 公钥文件]
-                                         核对签名；没有签名或验不过时退出码为 1
-  dsh-ee directory sign <文件> --key <私钥文件> [-o 文件]
-                                         给企业目录（dsh-ee-directory.json）整体签名；默认原地写回
-  dsh-ee directory verify <文件> [--key 公钥文件]
-                                         核对目录签名和条目；没有签名或验不过时退出码为 1
-  dsh-ee config export|plan|test|apply|explain|simulate …
-                                         把权限配置（角色、字段、访问规则）当文件来改，见 dsh-ee config help
-  dsh-ee package check <文件.tgz> [--json]
-                                         把 npm 包交给服务端做发布前预检，不发布、不占版本号
-  dsh-ee doctor [--json]                 只读诊断发布链路：服务连通、令牌范围、npmrc、Node/dsh 版本
-  dsh-ee admin recover                   在服务器上生成一个 1 小时有效的恢复账号（把自己锁在外面时用）
-  dsh-ee schema list [--json]            列出规格
-  dsh-ee schema get <名字>                打印一份规格（manifest：清单；errors：检查项）
-
-extension check 有错误时退出码为 1。加 --json 输出给程序和 Agent 看的结果：
-每一条都有 code、severity、where（文件和位置）、message、fix（具体改法）。
-package check 和 doctor 的地址/令牌也可以用 DSH_EE_URL、DSH_EE_TOKEN，或读 .npmrc 与 $DSH_HOME/dsh-ee/token。
-
-签名：sign 签的是「作者/名字@版本:摘要」，摘要就是 check 打印的 sha256（清单和接口文档的 sha256），
-Ed25519 detached 签名存在扩展目录的 signature.json 里。受信任的公钥文件可以用 --key 给，也可以用
-DSH_EE_EXTENSION_TRUSTED_KEYS；dsh-ee 服务端用同名环境变量，DSH_EE_EXTENSION_REQUIRE_SIGNATURE=1 时
-没签名或验不过的扩展不让安装（默认只在安装计划里提示，不阻断）。
-
-企业目录（format 2，docs/plugin-signing.md §8）：directory sign 签的是目录里除 signature 之外的
-canonical JSON，directory verify 用 --key 或 DSH_EE_EXTENSION_TRUSTED_KEYS 核对；tarball 来源的
-内网主机要写进 DSH_EE_DIRECTORY_TARBALL_HOSTS 白名单。
-`
-
 // runCLI 处理子命令。不是子命令时 handled 为 false，由调用方启动服务。
 func runCLI(args []string, stdout, stderr io.Writer) (handled bool, code int) {
+	// 全局 --lang 在这里统一摘掉并解析一次（可以出现在任意子命令位置），子命令不用认识它。
+	args, err := takeCLILang(args)
+	if err != nil {
+		fmt.Fprintln(stderr, err)
+		return true, 2
+	}
 	if len(args) == 0 {
 		return false, 0
 	}
 	switch args[0] {
+	case "version", "--version":
+		fmt.Fprintln(stdout, version)
+		return true, 0
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, cliUsage)
 		return true, 0
@@ -93,7 +56,7 @@ func flags(args []string) (rest []string, asJSON bool, err error) {
 		case a == "--json":
 			asJSON = true
 		case strings.HasPrefix(a, "-"):
-			return nil, false, fmt.Errorf("不认识的参数 %s", a)
+			return nil, false, fmt.Errorf(tr("不认识的参数 %s", "unknown option %s"), a)
 		default:
 			rest = append(rest, a)
 		}
@@ -120,12 +83,12 @@ func cliExtension(args []string, stdout, stderr io.Writer) int {
 		if err != nil {
 			fmt.Fprintln(stderr, err)
 		}
-		fmt.Fprintln(stderr, "用法：dsh-ee extension check <目录> [--json]")
+		fmt.Fprintln(stderr, tr("用法：dsh-ee extension check <目录> [--json]", "Usage: dsh-ee extension check <dir> [--json]"))
 		return 2
 	}
 	dir := rest[0]
 	if st, err := os.Stat(dir); err != nil || !st.IsDir() {
-		fmt.Fprintf(stderr, "%s 不是一个目录\n", dir)
+		fmt.Fprintf(stderr, tr("%s 不是一个目录\n", "%s is not a directory\n"), dir)
 		return 2
 	}
 	res := extension.Check(os.DirFS(dir))
@@ -143,59 +106,70 @@ func cliExtension(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-var severityLabel = map[string]string{extension.SevError: "错误", extension.SevWarning: "提醒", extension.SevInfo: "说明"}
+// severityLabel 把检查结果的严重级别翻成当前语言的词（默认中文，既有输出不变）。
+func severityLabel(severity string) string {
+	switch severity {
+	case extension.SevError:
+		return tr("错误", "error")
+	case extension.SevWarning:
+		return tr("提醒", "warning")
+	case extension.SevInfo:
+		return tr("说明", "info")
+	}
+	return severity
+}
 
 func printCheck(w io.Writer, res *extension.Result) {
 	if res.Identity != "" {
-		fmt.Fprintf(w, "%s（%s）\n", res.Identity, res.Kind)
+		fmt.Fprintf(w, tr("%s（%s）\n", "%s (%s)\n"), res.Identity, res.Kind)
 	}
 	if len(res.Servers) > 0 {
-		fmt.Fprintf(w, "请求只会发往：%s\n", strings.Join(res.Servers, "、"))
+		fmt.Fprintf(w, tr("请求只会发往：%s\n", "requests go only to: %s\n"), joinText(res.Servers))
 	}
 	if cr := res.Credential; cr != nil {
 		line := map[string]string{
-			extension.CredShared:     "管理员配的一份共享凭据",
-			extension.CredUserSecret: "员工自己填的凭据，放在 " + cr.Header,
-			extension.CredEEJWT:      "dsh-ee 为当前员工现签的身份令牌（ee_jwt），放在 " + cr.Header,
+			extension.CredShared:     tr("管理员配的一份共享凭据", "one shared credential configured by an admin"),
+			extension.CredUserSecret: tr("员工自己填的凭据，放在 ", "a credential each employee fills in, placed in ") + cr.Header,
+			extension.CredEEJWT:      tr("dsh-ee 为当前员工现签的身份令牌（ee_jwt），放在 ", "an identity token minted by dsh-ee for the current employee (ee_jwt), placed in ") + cr.Header,
 			extension.CredOAuth:      "oauth",
 		}[cr.Mode]
 		if cr.Mode == extension.CredEEJWT {
 			if cr.Audience != "" {
-				line += "，aud 是 " + cr.Audience
+				line += tr("，aud 是 ", "; aud is ") + cr.Audience
 			}
 			if len(cr.Claims) > 0 {
-				line += "，额外带 " + strings.Join(cr.Claims, "、")
+				line += tr("，额外带 ", "; extra claims: ") + joinText(cr.Claims)
 			}
 		}
 		if cr.SharedHeader != "" {
-			line += "；另带一份共享凭据，放在 " + cr.SharedHeader
+			line += tr("；另带一份共享凭据，放在 ", "; a shared credential is also sent in ") + cr.SharedHeader
 		}
-		fmt.Fprintf(w, "调用时的身份：%s\n", line)
+		fmt.Fprintf(w, tr("调用时的身份：%s\n", "identity on calls: %s\n"), line)
 	} else if res.Manifest != nil {
-		fmt.Fprintln(w, "调用时的身份：不带凭据")
+		fmt.Fprintln(w, tr("调用时的身份：不带凭据", "identity on calls: no credential"))
 	}
 	if len(res.Tools) > 0 {
-		fmt.Fprintln(w, "工具：")
+		fmt.Fprintln(w, tr("工具：", "Tools:"))
 		for _, t := range res.Tools {
-			kind := "写操作，调用前要员工确认"
+			kind := tr("写操作，调用前要员工确认", "write operation; the employee must confirm before each call")
 			if t.ReadOnly {
-				kind = "只读"
+				kind = tr("只读", "read-only")
 			}
 			line := "  " + t.Name
 			if t.Method != "" {
 				line += fmt.Sprintf("  %s %s", t.Method, t.Path)
 			}
-			fmt.Fprintf(w, "%s  （%s）\n", line, kind)
-			who := map[string]string{extension.FillApp: "搭应用的人固定", extension.FillAdmin: "管理员统一设置"}
+			fmt.Fprintf(w, tr("%s  （%s）\n", "%s  (%s)\n"), line, kind)
+			who := map[string]string{extension.FillApp: tr("搭应用的人固定", "fixed by the app builder"), extension.FillAdmin: tr("管理员统一设置", "set centrally by the admin")}
 			for _, p := range t.Fixed {
 				extra := ""
 				if len(p.Default) > 0 && string(p.Default) != "null" {
-					extra = "，预先填 " + string(p.Default)
+					extra = tr("，预先填 ", ", pre-filled with ") + string(p.Default)
 				}
-				fmt.Fprintf(w, "      %s：%s，模型看不到%s\n", p.Name, who[p.Fill], extra)
+				fmt.Fprintf(w, tr("      %s：%s，模型看不到%s\n", "      %s: %s; not visible to the model%s\n"), p.Name, who[p.Fill], extra)
 			}
 			if len(t.Keep) > 0 {
-				fmt.Fprintf(w, "      返回只保留：%s\n", strings.Join(t.Keep, "、"))
+				fmt.Fprintf(w, tr("      返回只保留：%s\n", "      returns only: %s\n"), joinText(t.Keep))
 			}
 		}
 	}
@@ -203,19 +177,19 @@ func printCheck(w io.Writer, res *extension.Result) {
 		fmt.Fprintln(w)
 	}
 	for _, d := range res.Results {
-		fmt.Fprintf(w, "%s  %s  %s\n      %s\n", severityLabel[d.Severity], d.Code, d.Where, d.Message)
+		fmt.Fprintf(w, "%s  %s  %s\n      %s\n", severityLabel(d.Severity), d.Code, d.Where, d.Message)
 		if d.Fix != "" {
-			fmt.Fprintf(w, "      改法：%s\n", d.Fix)
+			fmt.Fprintf(w, tr("      改法：%s\n", "      fix: %s\n"), d.Fix)
 		}
 	}
 	fmt.Fprintln(w)
 	if res.OK {
-		fmt.Fprintf(w, "通过：0 个错误，%d 个提醒\n", res.Warnings)
+		fmt.Fprintf(w, tr("通过：0 个错误，%d 个提醒\n", "passed: 0 errors, %d warnings\n"), res.Warnings)
 		if res.Digest != "" {
-			fmt.Fprintf(w, "sha256：%s\n", res.Digest)
+			fmt.Fprintf(w, tr("sha256：%s\n", "sha256: %s\n"), res.Digest)
 		}
 	} else {
-		fmt.Fprintf(w, "没通过：%d 个错误，%d 个提醒\n", res.Errors, res.Warnings)
+		fmt.Fprintf(w, tr("没通过：%d 个错误，%d 个提醒\n", "failed: %d errors, %d warnings\n"), res.Errors, res.Warnings)
 	}
 }
 
@@ -232,7 +206,7 @@ func cliSchema(args []string, stdout, stderr io.Writer) int {
 	switch args[0] {
 	case "list":
 		if len(rest) != 0 {
-			fmt.Fprintln(stderr, "用法：dsh-ee schema list [--json]")
+			fmt.Fprintln(stderr, tr("用法：dsh-ee schema list [--json]", "Usage: dsh-ee schema list [--json]"))
 			return 2
 		}
 		list := extension.Schemas()
@@ -249,12 +223,12 @@ func cliSchema(args []string, stdout, stderr io.Writer) int {
 		return 0
 	case "get":
 		if len(rest) != 1 {
-			fmt.Fprintln(stderr, "用法：dsh-ee schema get <名字>")
+			fmt.Fprintln(stderr, tr("用法：dsh-ee schema get <名字>", "Usage: dsh-ee schema get <name>"))
 			return 2
 		}
 		raw, ok := extension.Schema(rest[0])
 		if !ok {
-			fmt.Fprintf(stderr, "没有名为 %s 的规格；用 dsh-ee schema list 看有哪些\n", rest[0])
+			fmt.Fprintf(stderr, tr("没有名为 %s 的规格；用 dsh-ee schema list 看有哪些\n", "no schema named %s; run dsh-ee schema list to see what is available\n"), rest[0])
 			return 1
 		}
 		_, _ = stdout.Write(raw)

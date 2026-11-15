@@ -13,7 +13,8 @@ import { isZh } from "../i18n";
 import { copyText } from "../lib/clipboard";
 import { useStore } from "../lib/store";
 import { DocsMarkdown } from "../components/docs-markdown";
-import { Badge, Button, Card, Empty, backLinkCls } from "../components/ui";
+import { Badge, Button, Card, Empty } from "../components/ui";
+import { LangSwitch } from "../components/lang-switch";
 
 export default function DevDocDetail() {
   const { t } = useTranslation();
@@ -47,10 +48,17 @@ export default function DevDocDetail() {
 
   return (
     <div className="max-w-4xl" data-dev-page="docs" data-dev-doc={doc.slug}>
-      <Link to="/docs" className={backLinkCls}>
-        <ArrowLeft size={14} />
-        {t("devdocs.backToList")}
-      </Link>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <Link
+          to="/docs"
+          className="inline-flex items-center gap-1 rounded text-[13px] font-medium text-neutral-500 transition-colors hover:text-neutral-900"
+        >
+          <ArrowLeft size={14} />
+          {t("devdocs.backToList")}
+        </Link>
+        {/* 文档正文只有中文；语言入口切换的是界面语言（英文界面会显示「正文为中文」提示）。 */}
+        <LangSwitch />
+      </div>
 
       <div className="mb-6">
         <div className="flex flex-wrap items-center gap-2">

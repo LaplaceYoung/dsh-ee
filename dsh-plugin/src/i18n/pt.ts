@@ -262,6 +262,9 @@ const pt: DeepPartial<Messages<typeof zh>> = {
   // app-subscription.ts: ativar/desativar microapps escolhidos
   appSubscription: {
     invalidAppName: "Nome de microapp inválido",
+    invalidSkillName: "Nome de habilidade inválido",
+    invalidConnectionName: "Nome de conector inválido",
+    invalidKind: "Tipo de capacidade inválido",
   },
   // apps-view.ts: barra lateral de aplicativos da empresa, faixa da tela inicial, “Ver mais” e itens em andamento
   appsView: {
