@@ -118,7 +118,9 @@ export function formatValue(value: any, format?: string): string {
     case "percent":
       return Number.isFinite(number) ? `${Number((number * 100).toFixed(2))}%` : String(value);
     case "date": {
-      const date = new Date(value);
+      // 纯日期 "YYYY-MM-DD" 按本地日历日解析：new Date("2026-11-25") 是 UTC 零点，西半球会显示成前一天
+      const m = typeof value === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+      const date = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(value);
       return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString(localeTag());
     }
     default:
