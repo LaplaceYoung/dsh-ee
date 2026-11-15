@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -340,6 +341,9 @@ func (s *Store) SyncProviderModels(ctx context.Context, providerID int64, names 
 		existing[n] = true
 	}
 	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("读取已有模型: %w", err)
+	}
 	want := map[string]bool{}
 	t := now()
 	for _, n := range names {
