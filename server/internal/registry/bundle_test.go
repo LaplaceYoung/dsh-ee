@@ -32,7 +32,7 @@ func newDBBundleService(t *testing.T) *Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return NewService(st, blobs, nil, st.GetSettings, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	return NewService(st, blobs, nil, st.GetSettings, slog.New(slog.NewTextHandler(io.Discard, nil)), "test-instance")
 }
 
 // newOfflineBundleService 造一个不连数据库的 Service：规模上限在写库之前就会被拒绝，
@@ -45,7 +45,7 @@ func newOfflineBundleService(t *testing.T) *Service {
 	}
 	return NewService(nil, blobs, nil, func(context.Context) (*store.AppSettings, error) {
 		return store.DefaultSettings(), nil
-	}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	}, slog.New(slog.NewTextHandler(io.Discard, nil)), "test-instance")
 }
 
 // rawBundleVersion 造一个版本条目：blob 内容由调用方给，条目上的包名/版本由
