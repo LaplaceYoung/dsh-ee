@@ -15,6 +15,7 @@ import (
 	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -93,6 +94,20 @@ type Options struct {
 	ExtensionRequireSignature bool
 	// 旧版 npm 令牌 / API key 的 scope 收敛（docs/token-lifecycle.md）；默认 false 保持旧行为。
 	RestrictLegacyTokenScopes bool
+	// DeepSeek 工具代理（deepseek_tools.go）选用的模型上游：provider 的 name 或数字 id；
+	// 为空时用第一个启用且 vendor=deepseek 的上游。只影响 /v1/files 与 /v1/tools/*，
+	// 不参与模型网关的故障切换。
+	DeepSeekProvider string
+	// 是否允许普通员工调用 DeepSeek 文件/工具接口与在对话里引用 file_id
+	// （DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）。默认 false：只有管理员与机器人/服务账号可用。
+	DeepSeekToolsAllowEmployee bool
+	// DeepSeek Chatbot 的网关注入选项（docs/dev/chatbot.md）：
+	// SafetyCheckLevel 为空表示不注入，high 时向 vendor=deepseek 的上游请求注入
+	// safety_check:{level:"high"}；ChatTitle 为 true 时注入 title:{enabled:true}。
+	// 只影响发往 DeepSeek 上游的那次请求，客户端已经带了对应字段时保留客户端值；
+	// 非 DeepSeek 上游不注入，也不改变模型/额度/记账或响应内容。
+	SafetyCheckLevel string
+	ChatTitle        bool
 	// mint 的共享（数据库）固定窗口限流：每 IP 每分钟次数；0 用默认 30（DSH_EE_EMBED_MINT_PER_MINUTE）。
 	// 多实例部署时是合计额度，不是每实例一份。
 	EmbedMintPerMinute int
@@ -148,6 +163,9 @@ type Server struct {
 	loginUsernameLimited atomic.Uint64
 	// 被拒绝的嵌入请求数（embed.deny 审计）：进程内累计，重启清零、多实例各自独立
 	embedDenied atomic.Uint64
+	// 网关记账成功后的累计细项，只给 /metrics 用（没有用户 / 模型标签，低基数）
+	usageReasoningTokens atomic.Int64
+	usageCachedTokens    atomic.Int64
 	// 可信反向代理网段；只有这些对端的 X-Forwarded-* 会被采信（见 proxy.go）
 	trustedProxies []netip.Prefix
 	upstream       *http.Client
@@ -167,8 +185,15 @@ type Server struct {
 	// 服务扩展：连续出错时的熔断、回调地址的限流（service_ext.go）
 	extBreak        extBreaker
 	extEndpointRate keyRate
-	// /v1/* 与 /mcp 的每令牌限流；nil 表示关闭（见 rate_limit.go）
+	// /v1/* 与 /mcp 的每令牌限流；nil 表示关闭（见 rate_limit.go）。
+	// 计数优先走数据库里的共享固定窗口，tokenRate 只在数据库不可用或没有数据库
+	// （单元测试直接构造 Server）时兜底。
 	tokenRate *tokenRate
+	// 共享限流每个窗口已建行的 key 集合：key 来自令牌（攻击者可以随便造无效令牌），
+	// 超过上限后的陌生 key 共用一个溢出 key，数据库行数不会跟着请求量无限涨（见 rate_limit.go）。
+	rateKeys rateKeyAdmission
+	// 「退回内存限流」告警的限频时间（UnixNano），避免数据库持续故障时每个请求刷一条日志。
+	rateDBWarnedAt atomic.Int64
 	// 示例内容里演示差旅系统的内存数据
 	demo demoTravel
 	crm  demoCRM
@@ -320,7 +345,7 @@ func (s *Server) Handler() http.Handler {
 	// Anthropic 兼容面的别名前缀（DeepSeek 的 base URL 习惯）：未匹配路径用 Anthropic 错误壳，
 	// 不要落到前端 SPA 兜底。
 	mux.HandleFunc("/anthropic/", func(w http.ResponseWriter, r *http.Request) {
-		writeAnthropicErr(w, http.StatusNotFound, "not_found_error", "接口不存在：Anthropic 兼容入口是 POST /v1/messages（别名 /anthropic/v1/messages）")
+		writeAnthropicErr(w, http.StatusNotFound, "not_found_error", "接口不存在：Anthropic 兼容入口是 POST /v1/messages（别名 /anthropic/v1/messages）与 /anthropic/v1/files")
 	})
 	if s.opts.Web != nil {
 		mux.Handle("/", s.opts.Web)
@@ -340,8 +365,35 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: 200}
 		next.ServeHTTP(rec, r)
-		s.log.Info("http", "method", r.Method, "path", r.URL.Path, "status", rec.status, "ms", time.Since(start).Milliseconds(), "request_id", requestIDFrom(r))
+		s.log.Info("http", "method", r.Method, "path", redactLogPath(r.URL.Path), "status", rec.status, "ms", time.Since(start).Milliseconds(), "request_id", requestIDFrom(r))
 	})
+}
+
+// redactLogPath 把访问日志里回调地址的令牌段换成 <redacted>。
+// /x/<token>/… 的 token 是免登录口令（生成见 service_ext.go，校验见 handleExtEndpoint 的
+// subtle.ConstantTimeCompare），拿到它就能冒充第三方系统回调扩展；而访问日志会进日志平台、
+// 监控与导出，所以不能把原样 path 记下来。这里在通用日志层处理，而不是只改回调处理函数：
+// 未匹配到路由的 /x/<token>/… 请求同样会记日志，在这层才都盖得住。
+// 只脱敏「/x/ 后紧跟的第一段」，其余段、前后斜杠形态、以及 /x、/x/、/xy/… 等非回调形状原样保留；
+// 首段大小写敏感（回调路由就是小写 /x/）。
+func redactLogPath(p string) string {
+	const prefix = "/x/"
+	const redacted = "<redacted>"
+	if !strings.HasPrefix(p, prefix) {
+		return p
+	}
+	rest := p[len(prefix):]
+	if rest == "" {
+		return p // "/x/" 本身不是回调地址
+	}
+	end := strings.IndexByte(rest, '/')
+	if end == 0 {
+		return p // "/x//…"：第二段为空，不匹配
+	}
+	if end < 0 {
+		return prefix + redacted
+	}
+	return prefix + redacted + rest[end:]
 }
 
 type statusRecorder struct {

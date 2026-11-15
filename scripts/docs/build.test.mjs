@@ -404,7 +404,9 @@ test("中文 golden 搜索：标题/摘要/正文命中、两字词、多词全�
   const { fromGeneratedDoc } = await import(selectUrl);
   const { matchesDevDoc, searchDevDocs } = await import(searchUrl);
   const docs = GENERATED_DEV_DOCS.map(fromGeneratedDoc);
-  assert.equal(docs.length, 8, "生成物应有 8 篇站内文档");
+  // 数量以发布白名单为准（新增一篇只改 manifest + 重新生成，这里不再写死数字）。
+  const docsManifest = JSON.parse(readFileSync(join(HERE, "manifest.json"), "utf8"));
+  assert.equal(docs.length, docsManifest.docs.length, `生成物应有 ${docsManifest.docs.length} 篇站内文档`);
 
   // 标题命中：access-rules 的标题与摘要都含「权限」，应排第一
   assert.ok(matchesDevDoc(docs.find((d) => d.slug === "access-rules"), "权限"));

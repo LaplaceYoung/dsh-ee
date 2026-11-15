@@ -5,13 +5,15 @@ Go 写的 dsh-ee 服务端。目前实现：
 - **用户登录**：本地账号（bcrypt），HttpOnly 会话 cookie，同一用户名连续失败 5 次锁定 15 分钟；管理员可建用户、禁用、重置密码（禁用 / 重置后立即踢下线）。
 - **账号月度额度**：管理员给账号分配每月 token 上限（`NULL` 不限额、`0` 未分配）、允许的模型与有效期；额度按账号共享，账号下所有 key 从同一份里扣，每月 1 日（UTC）重置。
 - **企业 API key 二次分发**：管理员录入企业在上游开通的模型服务（OpenAI 兼容，如 DeepSeek），上游 key 用主密钥 AES-256-GCM 加密存库；`sk-ee-…` 个人 key 由管理员代发或员工自助创建，随时吊销。
-- **OpenAI 兼容网关**：`/v1/chat/completions`（含流式）与 `/v1/models`。员工用个人 key 调用，dsh-ee 换成企业 key 转发，按账号校验额度与模型，并按次记录用量（即调用审计）。
+- **OpenAI 兼容网关**：`/v1/chat/completions`（含流式）与 `/v1/models`。员工用个人 key 调用，dsh-ee 换成企业 key 转发，按账号校验额度与模型，并按次记录用量（prompt / completion / total tokens，以及上游提供时的推理 token 与缓存命中 token，即调用审计）。
 - **Anthropic Messages 兼容端点**：`POST /v1/messages`（含流式 SSE；别名 `POST /anthropic/v1/messages`，兼容 DeepSeek 的 `/anthropic` base URL 习惯），Claude Code / Anthropic SDK 用 `x-api-key` 或 Bearer 带上同一枚统一令牌即可；复用模型权限、额度、限流与用量记账。优先线路 `vendor=deepseek` 时原生透传到 `<base>/anthropic/v1/messages`（响应逐字节转发，`anthropic-version`/`anthropic-beta` 透传），其它 provider 降级转成 OpenAI chat；故障转移只在同协议内进行。不做 `count_tokens` / Batches / Files / 服务端工具，详见 [../docs/dev/anthropic-api.md](../docs/dev/anthropic-api.md)。
+- **上游共享文件（DeepSeek `file_id`）访问拦截**：请求里引用上游文件（`file` 块的 `file_id`、`document` / `image` 的 `source.file_id`）时，`/v1/chat/completions` 与 `/v1/messages` 在转发前检查：普通员工默认 403 `file_access_denied`（Anthropic 壳为 `permission_error` + `error.code`）且不请求上游；管理员（账号有任一管理权限）与 `account_type=bot` 机器人账号放行；`DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` 才对全体员工放行（默认 `false`，fail closed）。只做拦截，不做 Files 端点 / 审计，见 `server/internal/api/file_access.go`。
 - **内置 npm 源**（`/npm/`）：企业作用域的托管与发布、逐版本审核、上游回源与镜像、上游预载（连同依赖闭包）、离线包导入导出，以及由已上架插件生成的 DSH 插件索引（`/index/dsh-index.json`）。详见下文「npm 源」。
 - **LDAP / AD 登录**：员工用公司域账号登录网页与 `npm login`；首次登录自动开通，每次登录同步显示名、部门、邮箱与组映射的角色；每小时核对目录，离职（被删除或在 AD 里禁用）的账号自动禁用。详见下文「LDAP / AD」。
-- **运营统计与审计日志**：按本地日期统计能力安装、模型调用与 Token，按部门、能力、模型、终端（npm 客户端 User-Agent 里的系统与架构）汇总；登录、账号与权限、模型接入、设置、发布与审核等操作写入审计日志。
+- **运营统计与审计日志**：按本地日期统计能力安装、模型调用与 Token（含推理 / 缓存命中细项），按部门、能力、模型、终端（npm 客户端 User-Agent 里的系统与架构）汇总；登录、账号与权限、模型接入、设置、发布与审核等操作写入审计日志。
 - **能力中心**：技能、提示词、微应用与企业连接的版本、审核、可用范围（部门 / 角色 / 指定人）与下发方式（自动生效 / 自己启用）；插件也可以设范围与「自动安装」。详见下文「能力中心与 DSH 接入」。
 - **单文件部署**：前端在构建时嵌进二进制（`internal/webui`），同一个端口提供界面与全部接口。部署方式见 [../deploy](../deploy/README.md)。
+- **OpenAI Responses API 兼容入口**：`POST /v1/responses`（v0，另有 DeepSeek 习惯的等价别名 `POST /responses`），Codex / OpenAI Agents SDK 等按 Responses 协议写的客户端可用同一枚企业令牌接入。`vendor=deepseek` 的上游走**原生透传**（只改 model 后转发 `<base>/responses`；响应/SSE 逐字节转发，保留 web_search、citations、refusal、title、image/file 等；dsh-ee 只做鉴权/额度/限流/用量记账），其它 vendor 走 **chat completions 转换层（降级）**：只支持 function 工具子集、流式为完整结果回放。故障转移只在同协议/厂商内进行，详见 [../docs/dev/responses-api.md](../docs/dev/responses-api.md)。
 
 数据库走 MySQL 协议：**OceanBase（MySQL 模式）** 与 **TiDB** 通用。所有 SQL 都在 `internal/store`，以后接其它方言只改这一层。
 
@@ -39,7 +41,7 @@ Go 写的 dsh-ee 服务端。目前实现：
 设计依据与取舍见 [docs/capability-hub.md](../docs/capability-hub.md)。
 
 - **统一接入令牌**：`ee_at_…` 同时用于 npm 源、模型网关（`/v1`）、技能目录（`/api/dsh/*`）与企业连接（`/mcp`）。每次请求按账号 RBAC 与令牌 scope 求交集，可配置令牌级月度额度、模型范围和有效期；明文只显示一次，服务端只存 sha256。旧 `ee_npm_…`、`sk-ee-…` 保持原有权限与额度行为。
-- **接入限流与请求 ID**：`/v1/*` 与 `/mcp` 按令牌做固定窗口限流（同一令牌共用一份额度），默认每分钟 60 次，可用 `DSH_EE_RATE_LIMIT` 调整，`0` 或 `off` 关闭。超限返回 429，带 `Retry-After` 与 `X-RateLimit-Limit/Remaining/Reset`；正常响应也带 `X-RateLimit-*`，便于客户端提前退避。所有响应带 `X-Request-Id`：请求里已有合法值时原样沿用（不覆盖），否则服务端生成；同一个 id 会写进访问日志，方便和客户端 / 反向代理对账。限流只影响错误头，不改 `/v1` 的 OpenAI 错误体与 `/mcp` 的 JSON-RPC 错误体形状。
+- **接入限流与请求 ID**：`/v1/*` 与 `/mcp` 按令牌做固定窗口限流（同一令牌共用一份额度），默认每分钟 60 次，可用 `DSH_EE_RATE_LIMIT` 调整，`0` 或 `off` 关闭。计数在数据库 `shared_rate_limits` 表里：多实例连同一个库时是**所有实例合计**的一份额度，不会按实例数量放大（窗口按分钟对齐，部署建议开 NTP）。数据库不可用时退回进程内限流（每实例一份额度）并写告警日志：仍然限流，不会 fail open，也不会因为限流存储故障把协议面整体打成 5xx。超限返回 429，带 `Retry-After` 与 `X-RateLimit-Limit/Remaining/Reset`；正常响应也带 `X-RateLimit-*`，便于客户端提前退避。所有响应带 `X-Request-Id`：请求里已有合法值时原样沿用（不覆盖），否则服务端生成；同一个 id 会写进访问日志，方便和客户端 / 反向代理对账。限流只影响错误头，不改 `/v1` 的 OpenAI 错误体与 `/mcp` 的 JSON-RPC 错误体形状。
 - **API 客户端（client_credentials）**：给第三方 Harness / CI 按集成方注册 `client_id` / `client_secret`（`POST /api/admin/clients`，需要 `keys.manage`），客户端用 `POST /api/auth/client-token` 换 1 小时有效的 `ee_at_`，不必把管理员令牌交给对方。scope 取注册范围 ∩ owner 账号当前权限（收权立即生效）；secret 只存 sha256、只在创建时显示一次；凭据失败统一 `invalid_client`，换 token 按 IP 限流。详见 [docs/token-lifecycle.md](../docs/token-lifecycle.md) §6。
 - **设备登录**：`POST /api/device/code` 发起 RFC 8628 设备码流程，员工在 `/device` 登录并确认；设备令牌只能领取一次，默认滑动有效 90 天，同账号同设备再次登录会吊销旧令牌。机器人账号由管理员创建并指定负责人，不能会话登录。
 - **技能、提示词、微应用**：存在 `assets` / `asset_versions`；员工提交的版本在白名单模式下要审核。DSH 通过 `GET /api/dsh/catalog`（带 ETag，没变化回 304）拿到自己此刻应有的目录，`GET /api/dsh/skills/{name}` 取正文。提示词与微应用以「只给人调用」的 skill 下发（DSH 里输入 `/名字`）。
@@ -62,8 +64,11 @@ Go 写的 dsh-ee 服务端。目前实现：
 ## 大模型接入
 
 - 上游一律走 OpenAI 兼容接口（DeepSeek、通义千问、智谱、豆包、Kimi、硅基流动、OpenAI、Ollama、vLLM 等都提供），网关按原始 JSON 透传，不经 SDK 二次序列化，厂商扩展字段（如 `reasoning_content`）原样保留。
+- **DeepSeek Chatbot 能力（只透传）**：联网工具（`deepseek_web_search` / `deepseek_read_url`）、内容安全 `safety_check`、会话标题 `title`，以及响应里的 `title` / `annotations`（引用）/ `refusal` / `server_tool_calls` / `server_tool_event` 等块都原样转发，网关不执行、不解析、不改写这些字段。可用 `DSH_EE_SAFETY_CHECK=high` / `DSH_EE_CHAT_TITLE=on` 给 `vendor=deepseek` 的 Chat Completions 上游请求注入默认值（客户端已传则保留；非 DeepSeek 上游不注入；`/v1/messages` 原生透传只转发客户端自带字段、不注入）；能力在发现文档与 `/v1/capabilities` 的 `chatbot` 里声明。详见 [docs/dev/chatbot.md](../docs/dev/chatbot.md)。
 - 模型单独成表：员工调用时写**对外名称**，转发时换成**上游模型名**。同一个对外名称可以挂在多个上游上，按上游优先级依次尝试，连不上、429、5xx 时自动切到下一条（开始向客户端写响应后不再切换）。
 - 「检查连接」请求上游 `/models`；上游不提供该接口时，用一个已配置的模型发一次 `max_tokens=1` 的对话验证。结果会存下来显示在管理端。
+- **DeepSeek 工具代理**：`/v1/files`、`/v1/tools/asr|tts|search|fetch|ocr` 与 Anthropic 兼容 `/anthropic/v1/files` 复用同一套 Bearer 鉴权（`models` scope + `llm.use`），按 `DSH_EE_DEEPSEEK_PROVIDER` 选一个上游（默认第一个启用且 `vendor=deepseek` 的线路），把 multipart / 查询串 / JSON 原样转发，不解析、不落盘、不缓存。Files/OCR/ASR/TTS/Search/Fetch 与 Anthropic 兼容 Files 都按上游工具计费，**不写 token 用量统计**、不占月度 token 额度；`file_id` 与所选上游绑定，Anthropic 兼容 Files 需带 `anthropic-beta: files-api-2025-04-14`。这些接口默认只允许管理员与机器人/服务账号（普通员工 403），普通员工在聊天里引用 `file_id` 也会被拦下；上传/删除/列文件写 `files.*` 审计（只记 `file_id`，不记文件名/内容）。详见 [../docs/dev/deepseek-tools.md](../docs/dev/deepseek-tools.md)。
+- 用量细项：网关从上游响应的 `usage` 里解析 `prompt_tokens` / `completion_tokens` / `total_tokens`，并在上游提供时另存两项细项——OpenAI 兼容格式的 `completion_tokens_details.reasoning_tokens` 与 `prompt_tokens_details.cached_tokens`，以及 DeepSeek 顶层的 `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`（命中数优先取嵌套 `cached_tokens`，其次 `prompt_cache_hit_tokens`，只给未命中数时按 `prompt_tokens - miss` 推回）。流式请求看最后一块的 `usage`；上游没给细项、旧响应或客户端中途停止时两项细项按 0 记，估算兜底仍只估 prompt / completion。细项不改变 `total_tokens` 与额度口径，月报、运营统计、个人用量接口在原有字段之外多返回 `reasoning_tokens` / `cached_tokens`。
 
 ## npm 源
 
@@ -133,6 +138,7 @@ OceanBase 单机最低也要几 GB 内存，本地机器紧张时先用 TiDB 调
 | `DSH_EE_BOOTSTRAP_ADMIN` / `_PASSWORD` | 用户表为空时创建的管理员，默认用户名 `admin` |
 | `DSH_EE_COOKIE_SECURE` | 会话 cookie 是否加 `Secure`；不填时 `DSH_EE_PUBLIC_URL` 是 https 就自动开启，显式设置覆盖 |
 | `DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES` | 设为 `true` 时收敛旧 `ee_npm_` / `sk-ee_` 令牌的 scope（npm 令牌只剩 registry、API key 只剩模型网关）；默认关闭，见 [docs/token-lifecycle.md](../docs/token-lifecycle.md) |
+| `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | DeepSeek Files（上游账号级共享文件）的 `file_id` 访问拦截开关：**默认 `false`（fail closed）**，员工请求里引用 `file_id` / `document.source.file_id` 返回 403 `file_access_denied`（不请求上游）；管理员（账号有任一管理权限）与 `account_type=bot` 机器人账号始终放行；设为 `true` 才对全体员工放行。非法值启动失败。覆盖 `/v1/chat/completions` 与 `/v1/messages`（含别名），语义见 [docs/dev/anthropic-api.md](../docs/dev/anthropic-api.md) §2 |
 | `DSH_EE_REFRESH_TOKENS` | 刷新令牌（OAuth 风格轮换 + 复用检测）总开关，**默认关闭**。开启后 `POST /api/auth/refresh` 可用，设备登录 / 手工 / 管理员签发的响应会额外带 `ee_rt_` refresh token；关闭时刷新端点返回 404、签发响应不变。见 [docs/token-lifecycle.md](../docs/token-lifecycle.md) §3 |
 | `DSH_EE_REFRESH_ACCESS_TTL` | 刷新换出的 access token 有效期，默认 `1h`，允许 `1m`–`24h` |
 | `DSH_EE_REFRESH_TOKEN_TTL` | 单枚 refresh token 的空闲有效期，默认 `720h`（30 天），允许 `1h`–`8760h`；轮换时重新计算 |
@@ -147,8 +153,12 @@ OceanBase 单机最低也要几 GB 内存，本地机器紧张时先用 TiDB 调
 | `DSH_EE_LOGIN_IP_LIMIT` | 同一客户端 IP 在窗口内允许的登录失败次数，默认 `50`；设为 `0` / `off` 关闭 |
 | `DSH_EE_LOGIN_IP_WINDOW` | 按 IP 统计登录失败的固定窗口，默认 `15m`，取值 `1m`～`24h` |
 | `DSH_EE_METRICS` | 设为 `true` 时开放 `GET /metrics`（Prometheus 文本格式，只允许本机 / 内网抓取）；默认关闭 |
-| `DSH_EE_RATE_LIMIT` | `/v1/*` 与 `/mcp` 的每令牌限流，单位「次/分钟」，默认 `60`；`0` 或 `off` 关闭 |
+| `DSH_EE_RATE_LIMIT` | `/v1/*` 与 `/mcp` 的每令牌限流，单位「次/分钟」，默认 `60`；`0` 或 `off` 关闭。计数在数据库 `shared_rate_limits` 里，多实例部署时是合计额度（窗口按分钟对齐，依赖各实例时钟同步）；数据库不可用时退回单实例内存限流 |
 | `DSH_EE_CLIENT_TOKEN_PER_MINUTE` | `POST /api/auth/client-token`（API 客户端 client_credentials）每 IP 每分钟最多换几次 token，默认 `120`；`0` 或 `off` 关闭。只防用错误 secret 撞库 / 刷库 |
+| `DSH_EE_DEEPSEEK_PROVIDER` | DeepSeek Files / ASR / TTS / Search / Fetch / OCR 工具代理使用的模型上游：provider 的 `name` 或数字 `id`（Web「模型接入」里配的，BaseURL 填 `https://api.deepseek.com` 这类地址、不要带 `/v1`）。不设置时用第一个启用且 `vendor=deepseek` 的上游；找不到时接口返回 `503 deepseek_provider_unavailable`。见 [../docs/dev/deepseek-tools.md](../docs/dev/deepseek-tools.md) |
+| `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | 设为 `true` 才允许普通员工调用 DeepSeek 文件/工具接口（`/v1/files`、`/anthropic/v1/files`、`/v1/tools/*`）并在聊天里引用 `file_id`；默认 `false`：只有管理员与机器人/服务账号可用，普通员工 403 `deepseek_tools_forbidden`（聊天引用 `file_access_denied`）。文件属于上游共享账号、员工之间不隔离，打开前评估租户风险；非法值让启动失败 |
+| `DSH_EE_SAFETY_CHECK` | `off`（默认）/ `high`。`high` 时向 `vendor=deepseek` 的 Chat Completions 上游请求注入 `safety_check:{"level":"high"}`；客户端已传 `safety_check` 时保留客户端值，非 DeepSeek 上游与 `/v1/messages` 原生透传不注入。见 [docs/dev/chatbot.md](../docs/dev/chatbot.md) |
+| `DSH_EE_CHAT_TITLE` | `off`（默认）/ `on`。`on` 时向 `vendor=deepseek` 的上游请求注入 `title:{"enabled":true}`；客户端已传 `title` 时保留客户端值。建议只在会话第一轮打开（上游可能为等标题多等约 5 秒）。 |
 | `DSH_EE_TRUSTED_PROXIES` | 可信反向代理的地址 / CIDR（逗号分隔）。只有来自这些对端的 `X-Forwarded-For`、`X-Forwarded-Host`、`X-Forwarded-Proto` 才会被采信；默认只有 `127.0.0.1/32` 与 `::1/128`。代理在别的机器、容器网络或云负载均衡后面时必须配置 |
 | `DSH_EE_EMBED_ORIGINS` | 允许用 iframe 嵌入微应用网页（`/a/*`）的宿主来源，逗号分隔的完整 origin，如 `https://harness.acme.internal,http://localhost:5173`；只接受 https（`http://localhost` 等回环地址例外），非法值启动失败；不设时只允许同站嵌入（`frame-ancestors 'self'`）。接入方式、embed 参数与 postMessage 协议见 [docs/embedding.md](../docs/embedding.md) |
 | `DSH_EE_EMBED_CROSS_SITE` | 跨站 iframe 嵌入 v1 总开关，默认关闭。开启后 `POST /api/embed/sessions`、`POST /api/auth/embed/exchange` 才可用，且必须同时设置 `DSH_EE_EMBED_ORIGINS`（否则启动失败）。管理端「系统设置 → 跨站嵌入」可显式覆盖（数据库值优先） |
@@ -235,6 +245,7 @@ curl -fsS http://127.0.0.1:8080/readyz    # 依赖就绪；-f 让 503 以非 0 �
 | GET / POST | `/api/device/{user_code}` | 查看设备信息 / 登录后批准或拒绝 |
 | GET | `/api/settings` | 系统设置（登录即可读） |
 | PUT | `/api/admin/settings` | 整份替换；按改动的段落校验权限（npm 源 / 上游段落也可由对应管理员修改） |
+| GET | `/api/admin/directory/updates` | 企业目录更新检查（**只读**）：对比登记过的目录条目与已装扩展连接 / 企业 npm 源已上架插件版本，返回 `available / current / not_installed / unknown`，每条带 `current / target / channel / signature / installed_connection / auto_upgrade`；不下载、不安装、不升级。`auto_upgrade` 声明与设置 `directory.autoUpgrade`（默认 `false`）本期只展示、不执行。需 `connections.manage` 或 `settings.manage`。见 [docs/plugin-signing.md](../docs/plugin-signing.md) §8 |
 | GET | `/api/catalog`、`/api/catalog/{包名}` | 能力市场：已上架的能力 / 详情（版本、检查结果、README） |
 | GET / POST | `/api/me/packages` | 我发布的包与各版本状态 / 网页发布（请求体是 `.tgz`，`Content-Type: application/octet-stream`） |
 | POST | `/api/me/packages/check` | 发布前预检：请求体同样是 `.tgz`，只解包并返回自动检查与发布冲突，不落库、不占用版本号 |
@@ -258,7 +269,17 @@ curl -fsS http://127.0.0.1:8080/readyz    # 依赖就绪；-f 让 503 以非 0 �
 | GET | `/setup.sh`、`/setup.ps1` | 员工电脑的一键接入脚本 |
 | GET | `/v1/models` | `Authorization: Bearer sk-ee-…` |
 | POST | `/v1/chat/completions` | 同上，OpenAI 格式，支持 `stream` |
-| GET | `/metrics` | 最小监控指标（Prometheus 文本格式）。需 `DSH_EE_METRICS=true`，且只允许本机 / 内网来源抓取；含嵌入指标 `dsh_ee_embed_sessions_active` / `dsh_ee_embed_denied_total` |
+| POST / GET | `/v1/files` | DeepSeek Files 代理：multipart 上传（上限 100 MiB）/ 列表（查询串原样转发）；Bearer 令牌 + `models` scope |
+| GET / DELETE | `/v1/files/{id}` | DeepSeek Files 代理：查 / 删单个文件；`file_id` 只允许字母、数字、`.`、`_`、`-` |
+| POST | `/v1/tools/asr` | DeepSeek ASR 代理：multipart 音频（≤8 MiB）原样转发，返回转写 JSON |
+| POST | `/v1/tools/tts` | DeepSeek TTS 代理：JSON（≤64 KiB）合成音频，音频流式回传 |
+| POST | `/v1/tools/search` | DeepSeek Search 代理：JSON（≤64 KiB）搜索网页，结果数组原样返回 |
+| POST | `/v1/tools/fetch` | DeepSeek Fetch 代理：JSON（≤64 KiB）抓取网页 Markdown |
+| POST | `/v1/tools/ocr` | DeepSeek OCR 代理：multipart（≤100 MiB）识别文档/图片，换行保活后返回 JSON |
+| POST / GET | `/anthropic/v1/files` | Anthropic 兼容 Files 代理：上传（≤100 MiB）/ 列表，需 `anthropic-beta: files-api-2025-04-14` |
+| GET / DELETE | `/anthropic/v1/files/{id}` | Anthropic 兼容 Files 代理：查 / 删单个文件；鉴权可用 Bearer 或 `x-api-key` |
+| POST | `/v1/responses`、`/responses` | OpenAI Responses API 兼容（v0）：`vendor=deepseek` 上游原生透传，其余 vendor 转 chat completions（降级）；`/responses` 是 DeepSeek 习惯的等价别名；见 [../docs/dev/responses-api.md](../docs/dev/responses-api.md) |
+| GET | `/metrics` | 最小监控指标（Prometheus 文本格式）。需 `DSH_EE_METRICS=true`，且只允许本机 / 内网来源抓取；含登录失败 / 限流计数、记账成功的推理 / 缓存命中 token 累计数（进程内累计，重启清零），以及嵌入指标 `dsh_ee_embed_sessions_active` / `dsh_ee_embed_denied_total` |
 
 协议面（`/v1/*` 与 `/mcp`）的限流与 `X-Request-Id` 见上面「能力中心与 DSH 接入」；成功和 429 响应都带 `X-RateLimit-*`，429 另带 `Retry-After`。
 
@@ -291,12 +312,13 @@ curl localhost:8080/v1/chat/completions -H 'Authorization: Bearer sk-ee-…' -H 
 ## 已知限制
 
 - 额度按 UTC 自然月重置，检查在请求前做，单次请求可能略微超出额度。
-- 登录限流在进程内存里，多实例部署时需改为共享存储。登录失败先按用户名锁（15 分钟 5 次），再按客户端 IP 固定窗口限流（默认 15 分钟 50 次，只统计用户名或密码错误），两者都在单实例内存里。
+- 登录限流在进程内存里，多实例部署时按实例各自计数（需要更严的登录防爆破时，建议在反向代理 / WAF 层再加一层）。登录失败先按用户名锁（15 分钟 5 次），再按客户端 IP 固定窗口限流（默认 15 分钟 50 次，只统计用户名或密码错误），两者都在单实例内存里。
 - 按 IP 限流默认值取得比较宽，避免公司多人共用一个出口 IP 时把整个出口封死；如果出口 IP 背后人数很多，可以调大 `DSH_EE_LOGIN_IP_LIMIT`，或设成 `0` / `off` 关闭。`/metrics` 的登录计数也是进程内累计，重启清零、多实例各自独立。嵌入的 `dsh_ee_embed_denied_total` 同样是进程内计数；`dsh_ee_embed_sessions_active` 是数据库里的全库活跃会话数，多实例抓取到的是同一个值（Prometheus 用 `max()` 而不是 `sum()`），数据库不可用时这一行省略。
-- `/v1/*` 与 `/mcp` 的每令牌限流同样在进程内存里，多实例部署时按实例各自计数；需要全局一致限流时得改用共享存储。
+- `/v1/*` 与 `/mcp` 的每令牌限流计数在数据库（`shared_rate_limits`），多实例部署时是所有实例合计的额度；窗口按 wall clock 对齐，依赖各实例时钟同步（部署时开 NTP），边界有几秒偏差时额度最多多放出一小截，不会成倍放大。
+- 共享限流在数据库不可用时退回单实例内存计数：仍然会 429，不会 fail open，也不会把 `/v1`、`/mcp` 整体打成 5xx；代价是多实例下额度暂时放大 N 倍，并会限频写告警日志。为避免无效令牌把限流表刷大，每个实例每个窗口最多为 1 万个 key 建行；其后的陌生 key 共用一个溢出 key（所有实例、所有陌生令牌合计不超过一次正常令牌额度），正常令牌数量远低于这个量级。
 - 管理操作（建用户、分配额度、代发 / 吊销 key）尚未写审计日志；网关调用已逐条记录在 `usage_logs`。
 - 只支持本地账号；LDAP / OIDC 后续加。
-- 多实例部署：一次性状态（web link handoff、开始使用接入码、OIDC state/PKCE）已放共享表 `ephemeral_states`，A 实例生成、B 实例可用；但登录限流、上游 packument 的内存缓存、预载任务、后台任务与进程内锁仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容）。tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。
+- 多实例部署：一次性状态（web link handoff、开始使用接入码、OIDC state/PKCE）已放共享表 `ephemeral_states`，A 实例生成、B 实例可用；每令牌限流（`/v1`、`/mcp`）也已放数据库共享表 `shared_rate_limits`，多实例合计一份额度；但登录限流、上游 packument 的内存缓存、预载任务、后台任务与进程内锁仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容）。tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。
 - 多实例部署：周期后台任务（LDAP/飞书/知识源同步、上游检查、接入插件发布、Desktop 版本同步、到期与清理）已用数据库租约选主（`background_leases`，默认开启，见 [docs/operations.md](../docs/operations.md) §9.2），同一任务不会重复执行；但登录限流、上游 packument 的内存缓存、MCP 事件流等仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容），tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。启动时的 `FailRunningJobs` 与管理员手动触发的镜像任务仍没有作业级归属。
 - 离线包没有签名（导入时只校验每个 tarball 的 sha512）；dshfind 签名种子包对接后再加 ed25519 校验。
 - 上游 registry 只支持匿名访问，不支持需要认证的 Nexus / Artifactory 代理仓库。

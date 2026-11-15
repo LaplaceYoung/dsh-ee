@@ -72,7 +72,9 @@ var specSchema = map[string]any{
 		"工作台的数据源可以写 {\"table\": 表名}（统计写 {\"table\": 表名, \"args\": {\"group_by\": 字段}}，返回 items 里的 count），" +
 		"表单的 submit 写 {\"label\": …, \"table\": 表名} 直接插入一行（不写 fields 就按表生成）；" +
 		"表格的行按钮写 {\"label\": …, \"table\": 表名, \"set\": {字段: 值}} 改这一行，或 {\"label\": …, \"table\": 表名, \"delete\": true} 删除这一行。" +
-		"每个组件写 width（full / wide / half / third / quarter）按仪表盘排；状态列用 format: status。版式与规范见技能 dsh-ee-app-design，做应用前先读。",
+		"每个组件写 width（full / wide / half / third / quarter）按仪表盘排；状态列用 format: status。版式与规范见技能 dsh-ee-app-design，做应用前先读。" +
+		"专家：kind 用 app、form 写 expert，persona 写角色说明，再加 method（工作方法）、expertise（擅长领域，最多 6 个）、starters（任务示例）、skills / connections / knowledge，" +
+		"可选 members（成员专家的标识，最多 5 个，组成专家团队）；专家不能带 tables、workbench、web。写专家前先读技能 dsh-ee-expert-design。",
 	"properties": map[string]any{
 		"title":           map[string]any{"type": "string"},
 		"description":     map[string]any{"type": "string", "description": "一两句话，DSH 靠它判断什么时候用"},
@@ -90,6 +92,10 @@ var specSchema = map[string]any{
 		"tables":          map[string]any{"type": "array", "items": map[string]any{"type": "object"}},
 		"workbench":       map[string]any{"type": "object", "description": "{panes: [{id, type: panel, title, widgets: [...]}]}，组件类型 metric / table / chart / checklist / form / actions / markdown / heading / board，每个组件可写 width（full / wide / half / third / quarter）"},
 		"web":             map[string]any{"type": "boolean", "description": "开放网页版：能用的人可以在浏览器（含手机）里打开 /a/<标识> 使用工作台，没有 AI"},
+		"form":            map[string]any{"type": "string", "enum": []string{"app", "expert"}, "description": "app（默认）是微应用，expert 是专家"},
+		"expertise":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "专家：擅长领域标签，最多 6 个，每个最多 20 字"},
+		"method":          map[string]any{"type": "string", "description": "专家：工作方法（Markdown）——按什么步骤做、遵守什么标准、交付什么格式"},
+		"members":         map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "专家团队：成员专家的标识，最多 5 个；召唤时由这位专家当组长"},
 	},
 }
 
@@ -223,9 +229,10 @@ var agentSpecs = map[string]*agentSpec{
 		Shape: func(_ *Principal, _ map[string]any, body []byte) any {
 			m := dec(body)
 			a, _ := m["asset"].(map[string]any)
-			out := pick(a, "id", "slug", "kind", "title", "description", "category", "status", "delivery", "available", "enabled", "owner_name", "department", "can_manage", "live_version")
+			out := pick(a, "id", "slug", "kind", "title", "description", "category", "category_id", "featured", "status", "delivery", "available", "enabled", "owner_name", "department", "can_manage", "live_version")
 			if sp, ok := a["spec"].(map[string]any); ok {
-				s := pick(sp, "when_to_use", "starters", "skills", "connections", "plugins", "instructions", "type")
+				// 专家的字段要全给：改版本时 Agent 在它的基础上提交完整 spec，漏读会把它们清掉
+				s := pick(sp, "title", "description", "when_to_use", "starters", "skills", "connections", "plugins", "knowledge", "instructions", "type", "icon", "launch", "highlights", "form", "expertise", "method", "members")
 				if b, ok := sp["body"].(string); ok {
 					s["body"] = clip(b, 6000)
 				}
@@ -271,7 +278,7 @@ var agentSpecs = map[string]*agentSpec{
 		Params: []agentParam{{Name: "id", Type: "integer", Required: true, In: "path"}},
 	},
 	"POST /api/hub": {
-		Tool: "ee_hub", Action: "create", Summary: "把写好的技能、提示词或微应用提交到能力中心（按设置可能先审核）；for_me 做成「自己用」，不用审核、马上能用", En: "Create a capability", Effect: effWrite,
+		Tool: "ee_hub", Action: "create", Summary: "把写好的技能、提示词、微应用或专家（kind=app、spec.form=expert）提交到能力中心（按设置可能先审核）；for_me 做成「自己用」，不用审核、马上能用", En: "Create a capability", Effect: effWrite,
 		Params: []agentParam{
 			{Name: "kind", Type: "string", Required: true, Enum: []string{"skill", "prompt", "app"}},
 			{Name: "slug", Type: "string", Required: true, Desc: "标识，小写字母数字和连字符，如 expense-policy，也是 /命令名"},
@@ -293,7 +300,7 @@ var agentSpecs = map[string]*agentSpec{
 		},
 	},
 	"POST /api/hub/{id}/versions": {
-		Tool: "ee_hub", Action: "new_version", Summary: "给我负责的能力提交新版本", En: "Submit a new version", Effect: effWrite,
+		Tool: "ee_hub", Action: "new_version", Summary: "给我负责的能力（含专家）提交新版本：先用 ee_hub 的 detail 读出当前内容，改完把完整的 spec 提交上来", En: "Submit a new version", Effect: effWrite,
 		Params: []agentParam{
 			{Name: "id", Type: "integer", Required: true, In: "path"},
 			{Name: "spec", Required: true, Schema: specSchema},
