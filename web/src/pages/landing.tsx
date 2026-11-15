@@ -4,6 +4,7 @@ import { Check, Cpu, FileSearch, ShieldCheck, X } from "lucide-react";
 import { WhaleMark } from "../components/whale-mark";
 import { auditLog, clientPlatforms, microApps } from "../mock/data";
 import { PageLink } from "../lib/menus";
+import { formatNumber } from "../lib/format";
 import { LangSwitch } from "../components/lang-switch";
 import { ThemeToggle } from "../components/theme-toggle";
 import { LandingHeroScene } from "../components/landing-hero-scene";
@@ -148,7 +149,7 @@ function WorkbenchFragment() {
               <div className="min-w-0 flex-1">
                 <div className="font-medium text-lp-ink">{m.title}</div>
                 <div className="truncate text-xs text-lp-muted">
-                  {t("landing.fragment.runs", { department: m.department, runs: m.runs.toLocaleString() })}
+                  {t("landing.fragment.runs", { department: m.department, runs: formatNumber(m.runs) })}
                 </div>
               </div>
               <span className="shrink-0 rounded-full bg-lp-accent-soft px-3 py-1 text-xs font-semibold text-lp-accent">
@@ -188,7 +189,7 @@ function AuditFragment() {
       <div className="mt-2 border-t border-white/[0.08] bg-black/10 px-5 py-4">
         <div className="mb-2 flex justify-between text-xs text-[#8193a8]">
           <span>{t("landing.fragment.os")}</span>
-          <span className="tabular-nums">{t("landing.fragment.devices", { n: total.toLocaleString() })}</span>
+          <span className="tabular-nums">{t("landing.fragment.devices", { n: formatNumber(total) })}</span>
         </div>
         <div className="flex h-2 gap-0.5 overflow-hidden rounded-full">
           {clientPlatforms.map((c) => (

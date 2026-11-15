@@ -1,6 +1,7 @@
 /** 接真实接口的页面共用的小组件：加载 / 出错状态、key 状态、用量条。 */
 import type { ReactNode } from "react";
 import { formatTokens, keyState, type ApiKey } from "../lib/api";
+import { formatNumber } from "../lib/format";
 import { CircleAlert } from "lucide-react";
 import { Badge, Button, cx, Notice, Spinner } from "./ui";
 import { useTranslation } from "react-i18next";
@@ -73,7 +74,7 @@ export function QuotaBar({ used, limit }: { used: number; limit: number | null }
   const pct = Math.min(100, (used / limit) * 100);
   const over = used >= limit;
   return (
-    <Tip label={t("keys.quota.exact", { used: used.toLocaleString(), limit: limit.toLocaleString(), pct: pct.toFixed(1) })}>
+    <Tip label={t("keys.quota.exact", { used: formatNumber(used), limit: formatNumber(limit), pct: pct.toFixed(1) })}>
     <div tabIndex={0} className="min-w-32 cursor-help">
       <div className="text-right tabular-nums">
         {formatTokens(used)}

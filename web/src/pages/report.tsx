@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { ArrowLeft, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { api, formatTime, formatTokens, type MonthlyReport, type ReportParams } from "../lib/api";
+import { formatNumber } from "../lib/format";
 import { useAction, useApi } from "../lib/use-api";
 import { useStore } from "../lib/store";
 import { BarList, DailyBars } from "../components/charts";
@@ -97,14 +98,14 @@ function ReportBody({ d }: { d: MonthlyReport }) {
         />
         <Kpi
           label={t("report.kpiApps")}
-          value={r.app_runs.toLocaleString()}
+          value={formatNumber(r.app_runs)}
           hint={t("report.kpiAppsHint", { users: r.app_users })}
-          sub={t("report.vsLast", { value: d.previous.app_runs.toLocaleString() })}
+          sub={t("report.vsLast", { value: formatNumber(d.previous.app_runs) })}
         />
         <Kpi
           label={t("report.kpiSaved")}
           value={t("report.hours", { n: d.estimate.hours })}
-          hint={d.params.hourlyCost > 0 ? t("report.kpiSavedHint", { cost: d.estimate.cost.toLocaleString() }) : t("report.kpiSavedHintNoCost")}
+          hint={d.params.hourlyCost > 0 ? t("report.kpiSavedHint", { cost: formatNumber(d.estimate.cost) }) : t("report.kpiSavedHintNoCost")}
         />
         <Kpi
           label={t("report.kpiSatisfaction")}
@@ -146,7 +147,7 @@ function ReportBody({ d }: { d: MonthlyReport }) {
                     {a.title} <span className="font-mono text-xs text-neutral-500">/{a.slug}</span>
                   </td>
                   <td className={td}>{a.department || "—"}</td>
-                  <td className={cx(td, "text-right tabular-nums")}>{a.runs.toLocaleString()}</td>
+                  <td className={cx(td, "text-right tabular-nums")}>{formatNumber(a.runs)}</td>
                   <td className={cx(td, "text-right tabular-nums")}>{a.users}</td>
                 </tr>
               ))}
@@ -205,7 +206,7 @@ function ReportBody({ d }: { d: MonthlyReport }) {
                 <td className={cx(td, "text-right tabular-nums")}>
                   {x.active_users} / {x.users} <span className="text-xs text-neutral-500">{pct(x.active_users, x.users)}</span>
                 </td>
-                <td className={cx(td, "text-right tabular-nums")}>{x.app_runs.toLocaleString()}</td>
+                <td className={cx(td, "text-right tabular-nums")}>{formatNumber(x.app_runs)}</td>
                 <td className={cx(td, "text-right tabular-nums")}>{formatTokens(x.tokens)}</td>
               </tr>
             ))}

@@ -1,5 +1,6 @@
 /** 与 server/ 对接的接口层。类型与 server/internal/store 的 JSON 字段一一对应。 */
 import i18n from "../i18n";
+import { formatDateTime, formatNumber } from "./format";
 import type { DshClient, DshRelease, Plugin, PluginKind, PluginStatus, Settings } from "./types";
 
 export interface RoleRef {
@@ -2207,12 +2208,8 @@ export const api = {
     }),
 };
 
-export function formatBytes(n: number) {
-  if (n >= 1 << 30) return `${(n / (1 << 30)).toFixed(1)} GB`;
-  if (n >= 1 << 20) return `${(n / (1 << 20)).toFixed(1)} MB`;
-  if (n >= 1024) return `${Math.round(n / 1024)} KB`;
-  return `${n} B`;
-}
+// 统一格式化层在 lib/format.ts（按界面语言）；这里保留同名导出，历史 import 路径不用改。
+export { formatBytes } from "./format";
 
 export function keyState(k: ApiKey): "active" | "revoked" | "expired" {
   if (k.revoked_at) return "revoked";
@@ -2220,15 +2217,15 @@ export function keyState(k: ApiKey): "active" | "revoked" | "expired" {
   return "active";
 }
 
+/** token 数：K/M 仍是业务口径（单位符号不随语言变），数字分组/小数点跟界面语言。 */
 export function formatTokens(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
   if (n >= 10_000) return `${(n / 1000).toFixed(0)}K`;
-  return n.toLocaleString();
+  return formatNumber(n);
 }
 
+/** 日期 + 时间，按界面语言渲染；null/非法值给 "—"。 */
 export function formatTime(iso: string | null) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  const pad = (x: number) => String(x).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return formatDateTime(iso);
 }
