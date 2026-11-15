@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { setAppSubscription } from "../src/app-subscription.js";
+import { setAppSubscription, setSubscription } from "../src/app-subscription.js";
 
 function fakeHttp(status: number, body: any) {
   const calls: string[] = [];
@@ -25,4 +25,14 @@ test("启用、停用调对应接口，失败时带上服务端的错误", async
   const invalid = fakeHttp(200, {});
   assert.deepEqual(await setAppSubscription(invalid.http, "../x", true), { ok: false, error: "微应用名不合法" });
   assert.deepEqual(invalid.calls, []);
+});
+
+test("技能与连接走各自的接口，类型不对直接拒绝", async () => {
+  const ok = fakeHttp(200, {});
+  assert.deepEqual(await setSubscription(ok.http, "skills", "invoice-check", true), { ok: true });
+  assert.deepEqual(await setSubscription(ok.http, "connections", "erp", false), { ok: true });
+  assert.deepEqual(ok.calls, ["POST /api/dsh/skills/invoice-check/subscription", "DELETE /api/dsh/connections/erp/subscription"]);
+  assert.deepEqual(await setSubscription(ok.http, "plugins" as any, "x", true), { ok: false, error: "能力类型不合法" });
+  assert.deepEqual(await setSubscription(ok.http, "connections", "Bad Name", true), { ok: false, error: "连接名不合法" });
+  assert.equal(ok.calls.length, 2);
 });

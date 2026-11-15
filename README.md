@@ -8,7 +8,7 @@ Connect your ERP, CRM, data warehouse and policy docs, assemble them into AI mic
 and ship them, reviewed and permissioned, to every employee's [DeepSeek Harness (DSH)](https://github.com/deepseek-ai/deepseek-harness).<br>
 Data and credentials stay on your own server, and every call can be audited.
 
-English · [简体中文](./README.zh-CN.md)
+English · [简体中文](./README.zh-CN.md) · [Español](./README.es.md) · [Português](./README.pt.md) · [हिन्दी](./README.hi.md)
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](./LICENSE)
 
@@ -181,6 +181,7 @@ Confirm the device code in the browser, and DSH is connected to the company's ca
 | `DSH_EE_REFRESH_ACCESS_TTL` / `_TOKEN_TTL` / `_FAMILY_TTL` / `_GRACE` | Refresh token TTLs and rotation grace: access `1h`, refresh idle `720h`, family cap `4320h`, grace `0` (strict) by default |
 | `DSH_EE_DEEPSEEK_PROVIDER` | Model provider (`name` or numeric `id`) used by the DeepSeek tool proxy — Files, ASR, TTS, Search, Fetch, OCR and the Anthropic-compatible Files API; defaults to the first enabled `vendor=deepseek` upstream. Calls are billed on the upstream account and do not consume dsh-ee token quota; see [docs/dev/deepseek-tools.md](./docs/dev/deepseek-tools.md) |
 | `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | Allow **regular employees** (not only admins and bot/service accounts) to call the DeepSeek file/tool endpoints and reference `file_id` in chat; default `false` (employees get 403). Files live in one shared upstream account with no per-employee isolation — review the tenant risk before enabling |
+| `DSH_EE_SAFETY_CHECK` / `DSH_EE_CHAT_TITLE` | DeepSeek Chatbot options for `vendor=deepseek` Chat Completions upstreams: inject `safety_check` (`off`/`high`) and conversation `title` (`off`/`on`) when the client did not send them; client values are kept; both off by default; `/v1/messages` native passthrough is never injected. See [docs/dev/chatbot.md](./docs/dev/chatbot.md) |
 
 The full list is in [server/README.md](./server/README.md).
 

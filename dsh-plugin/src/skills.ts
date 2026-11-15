@@ -22,6 +22,90 @@ export interface CatalogApp {
   web?: boolean;
   /** 右侧栏业务工作台；旧服务端没有这个字段 */
   workbench?: AppWorkbench;
+  /** expert 是专家（docs/expert-center.md），空是普通微应用；旧服务端没有 */
+  form?: string;
+  expertise?: string[];
+  /** 专家团队的成员（专家标识） */
+  members?: string[];
+  category_id?: number;
+  featured?: boolean;
+}
+
+/** 「专家 · 技能 · 连接器」面板里的一项技能或提示词。 */
+export interface CenterSkill {
+  name: string;
+  title: string;
+  kind: "skill" | "prompt";
+  description: string;
+  asset_id: number;
+  delivery: "auto" | "optional";
+  category_id?: number;
+  featured?: boolean;
+  /** 在我的 DSH 里生效 */
+  enabled: boolean;
+  detail_url?: string;
+}
+
+export interface CenterConnection {
+  name: string;
+  title: string;
+  description: string;
+  asset_id: number;
+  delivery: "auto" | "optional";
+  enabled: boolean;
+  tools: number;
+  writes: boolean;
+  /** ready：可以直接用 / needs_auth：要先在网页上填凭据或授权 */
+  auth: "ready" | "needs_auth";
+  auth_mode?: string;
+  category_id?: number;
+  featured?: boolean;
+  detail_url?: string;
+}
+
+export interface CenterCategory {
+  id: number;
+  group: "app" | "skill" | "connection";
+  name: string;
+  sort: number;
+}
+
+export interface CenterData {
+  /** 已生效的专家；availableExperts 是可以自己启用、还没启用的 */
+  experts: CatalogApp[];
+  availableExperts: CatalogApp[];
+  skills: CenterSkill[];
+  connections: CenterConnection[];
+  categories: CenterCategory[];
+  /** 服务端还不认识专家与连接器目录（旧版 dsh-ee）：面板只显示专家 */
+  legacy: boolean;
+}
+
+/** 把目录整理成面板要的样子。base 是 dsh-ee 网页地址，用来拼详情链接。 */
+export function centerData(catalog: any, base: string): CenterData {
+  const detail = (id?: number) => (id ? `${base}/assets/${id}` : undefined);
+  const withUrls = (app: CatalogApp) => ({ ...app, web_url: appWebUrl(base, app), detail_url: detail(app.asset_id) });
+  const experts = (catalog?.apps ?? []).filter((app: CatalogApp) => app.form === "expert").map(withUrls);
+  const availableExperts = (catalog?.available_apps ?? []).filter((app: CatalogApp) => app.form === "expert").map(withUrls);
+  const skill = (enabled: boolean) => (k: any): CenterSkill => ({
+    name: k.name, title: k.title, kind: k.kind, description: k.description, asset_id: k.asset_id, delivery: k.delivery,
+    category_id: k.category_id, featured: !!k.featured, enabled, detail_url: detail(k.asset_id),
+  });
+  // 系统技能和微应用也在 skills 里：只要带 asset_id 的技能和提示词
+  const isSkill = (k: any) => (k?.kind === "skill" || k?.kind === "prompt") && k?.asset_id;
+  const skills = [
+    ...(catalog?.skills ?? []).filter(isSkill).map(skill(true)),
+    ...(catalog?.available_skills ?? []).filter(isSkill).map(skill(false)),
+  ];
+  const connections = (catalog?.connections ?? []).map((c: any): CenterConnection => ({ ...c, featured: !!c.featured, detail_url: detail(c.asset_id) }));
+  return {
+    experts,
+    availableExperts,
+    skills,
+    connections,
+    categories: Array.isArray(catalog?.categories) ? catalog.categories : [],
+    legacy: !Array.isArray(catalog?.connections),
+  };
 }
 
 export interface SkillsHandle {
@@ -31,6 +115,8 @@ export interface SkillsHandle {
   readAvailableApps: () => Promise<CatalogApp[]>;
   /** 立刻重新拉目录（登录之后用），有变化就通知 DSH 刷新技能列表。 */
   refreshNow: () => Promise<void>;
+  /** 「专家 · 技能 · 连接器」面板的数据 */
+  readCenter: () => Promise<CenterData>;
 }
 
 export async function registerSkills(ctx: DshContext, config: PluginConfig, http: HttpClient): Promise<SkillsHandle> {
@@ -117,6 +203,10 @@ export async function registerSkills(ctx: DshContext, config: PluginConfig, http
         invalidate();
         await install();
       }
+    },
+    readCenter: async () => {
+      await refresh();
+      return centerData(catalog, config.base);
     },
   };
 }

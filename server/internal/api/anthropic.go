@@ -184,7 +184,9 @@ func (s *Server) handleAnthropicMessages(w http.ResponseWriter, r *http.Request)
 		// 与 OpenAI 网关一致：流式要求上游在最后一块里带 usage，否则统计不到 token。
 		chatBody["stream_options"] = map[string]any{"include_usage": true}
 	}
-	resp, p, ok := s.openChatUpstreamCandidates(w, r, k, model, chatBody, stream, start, convertedCands, s.anthropicErrorWriter(w))
+	// Anthropic 转换层不注入 Chatbot 选项：DSH_EE_SAFETY_CHECK / DSH_EE_CHAT_TITLE 只作用于
+	// Chat Completions 端点，这里传 nil 保持请求体原样。
+	resp, p, ok := s.openChatUpstreamCandidates(w, r, k, model, chatBody, stream, start, convertedCands, s.anthropicErrorWriter(w), nil)
 	if !ok {
 		return
 	}

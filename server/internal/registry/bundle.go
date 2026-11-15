@@ -17,9 +17,23 @@ import (
 
 // 离线包：能上网的 dsh-ee（DMZ）导出已镜像的上游包，摆渡到内网实例导入。
 // 格式是一个 tar：第一项 dsh-ee-bundle.json 是清单，之后每个 tarball 一项 blobs/<sha512>。
-// 导入时逐个重算 sha512，与文件名、清单里的 integrity 都对得上才入库。
+// 导入时逐个重算 sha512，与文件名、清单里的 integrity 核对；再解开 tarball，用里面真实的
+// package.json 交叉核对包名 / 版本号与 is_plugin——清单是摆渡包自带的，tarball 内容才是事实。
 
 const bundleManifestName = "dsh-ee-bundle.json"
+
+// 离线包是管理员从 DMZ 人工摆渡进来的，解包前没法信任任何字段：清单会被整个解进内存，
+// tarball 会直接落盘。不设上限时，一个超大或恶意构造的包就能打爆内存或写满磁盘。
+// 这些检查都在写库之前完成。
+const (
+	// 清单 JSON 的读取上限。正常清单只有格式版本、来源和几百个包，8 MiB 足够。
+	maxBundleManifest = 8 << 20
+	// 一次导入允许的包数与版本数。
+	maxBundlePackages = 500
+	maxBundleVersions = 5000
+	// 所有 tarball 累计落盘上限（单个 tarball 仍受 Service.MaxTarball = 100 MB 限制）。
+	maxBundleTotalBytes int64 = 8 << 30
+)
 
 type BundleManifest struct {
 	Format    int             `json:"format"`
@@ -147,6 +161,32 @@ type ImportResult struct {
 	Skipped  []string `json:"skipped"`
 }
 
+// checkBundleManifest 在写任何东西之前校验清单的规模：包数、版本数直接能数出来；
+// 声明总大小用来提前拒绝明显超限的包，真实字节数在落盘时还会再累计核对一遍。
+func checkBundleManifest(man *BundleManifest) error {
+	if n := len(man.Packages); n > maxBundlePackages {
+		return errf(400, "离线包包含 %d 个包，超过上限 %d 个", n, maxBundlePackages)
+	}
+	versions := 0
+	var declaredBytes int64
+	for _, p := range man.Packages {
+		versions += len(p.Versions)
+		for _, v := range p.Versions {
+			// 先逐项判上界再加，避免被构造的超大 size 撑溢出 int64 绕过检查。
+			if v.Size > 0 {
+				if v.Size > maxBundleTotalBytes || declaredBytes > maxBundleTotalBytes-v.Size {
+					return errf(400, "离线包声明的 tarball 总大小超过上限 %d 字节", maxBundleTotalBytes)
+				}
+				declaredBytes += v.Size
+			}
+		}
+	}
+	if versions > maxBundleVersions {
+		return errf(400, "离线包包含 %d 个版本，超过上限 %d 个", versions, maxBundleVersions)
+	}
+	return nil
+}
+
 // ImportBundle 从 r 流式读取离线包并入库。插件版本在白名单模式下进入待审核。
 func (s *Service) ImportBundle(ctx context.Context, r io.Reader, by int64) (*ImportResult, *store.SyncJob, error) {
 	set, err := s.settings(ctx)
@@ -168,12 +208,18 @@ func (s *Service) ImportBundle(ctx context.Context, r io.Reader, by int64) (*Imp
 	if h.Name != bundleManifestName {
 		return nil, nil, errf(400, "离线包的第一项应该是 %s，得到 %q", bundleManifestName, h.Name)
 	}
+	if h.Size > maxBundleManifest {
+		return nil, nil, errf(400, "离线包清单 %d 字节，超过上限 %d 字节", h.Size, int64(maxBundleManifest))
+	}
 	var man BundleManifest
-	if err := json.NewDecoder(io.LimitReader(tr, 1<<30)).Decode(&man); err != nil {
+	if err := json.NewDecoder(io.LimitReader(tr, maxBundleManifest)).Decode(&man); err != nil {
 		return nil, nil, errf(400, "离线包清单格式错误：%v", err)
 	}
 	if man.Format != 1 {
 		return nil, nil, errf(400, "不支持的离线包格式 %d", man.Format)
+	}
+	if err := checkBundleManifest(&man); err != nil {
+		return nil, nil, err
 	}
 	total := 0
 	for _, p := range man.Packages {
@@ -210,8 +256,20 @@ func (s *Service) ImportBundle(ctx context.Context, r io.Reader, by int64) (*Imp
 }
 
 func (s *Service) importBundle(ctx context.Context, tr *tar.Reader, man *BundleManifest, set *store.AppSettings, jb *job, by int64) (*ImportResult, error) {
-	// 1. 先把 tarball 都落盘（按内容寻址，重复导入不占额外空间）
+	scopes := set.CompanyScopes()
+
+	// 1. 先把清单引用到的 tarball 落盘（按内容寻址，重复导入不占额外空间）。
+	//    没被任何版本引用的条目不落盘：正常导出不会产生，塞进来只会白占磁盘。
+	refs := map[string]bool{}
+	for _, p := range man.Packages {
+		for _, v := range p.Versions {
+			if blobKey.MatchString(v.Blob) {
+				refs[v.Blob] = true
+			}
+		}
+	}
 	have := map[string]bool{}
+	var totalBytes int64
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
@@ -221,8 +279,12 @@ func (s *Service) importBundle(ctx context.Context, tr *tar.Reader, man *BundleM
 			return nil, fmt.Errorf("读取离线包：%w", err)
 		}
 		dir, key := path.Split(h.Name)
-		if dir != "blobs/" || !blobKey.MatchString(key) {
+		if dir != "blobs/" || !blobKey.MatchString(key) || !refs[key] {
 			continue
+		}
+		// 先按 tar 头里的字节数预判配额，超限的这一项就不写了。
+		if h.Size > 0 && h.Size > maxBundleTotalBytes-totalBytes {
+			return nil, errf(400, "离线包里的 tarball 累计超过上限 %d 字节", maxBundleTotalBytes)
 		}
 		d, err := s.blobs.Put(tr, s.MaxTarball)
 		if err != nil {
@@ -232,17 +294,89 @@ func (s *Service) importBundle(ctx context.Context, tr *tar.Reader, man *BundleM
 			return nil, fmt.Errorf("离线包里的 %s 内容与文件名不符（实际 sha512 %s），可能已被篡改", key, d.Key)
 		}
 		have[key] = true
+		totalBytes += d.Size
+		if totalBytes > maxBundleTotalBytes {
+			return nil, errf(400, "离线包里的 tarball 累计超过上限 %d 字节", maxBundleTotalBytes)
+		}
 		jb.add(0, 0, d.Size)
 	}
 
-	// 2. 再按清单入库
+	// 2. 写库之前逐个版本核对 blob 里的真实内容。清单里的文件名、integrity 和
+	//    manifest 字段都是摆渡包自带的，可以伪造；tarball 里的 package.json 才是
+	//    事实。这里与 mirror / publish 路径同口径：解包、解析，比对包名与版本号，
+	//    并由 package.json 里的 dsh.bundle 派生真实的 is_plugin。任何一项对不上都
+	//    拒绝整个导入：此时还没有写库，不会留下半截数据。
+	type bundleCheck struct {
+		name, version    string
+		size             int64
+		isPlugin         bool
+		hasInstallScript bool
+		scan             json.RawMessage
+	}
+	checks := make([][]*bundleCheck, len(man.Packages))
+	inspected := map[string]*bundleCheck{} // 同一个 blob 只解一次（清单可以重复引用）
+	for i := range man.Packages {
+		bp := &man.Packages[i]
+		checks[i] = make([]*bundleCheck, len(bp.Versions))
+		for j := range bp.Versions {
+			bv := &bp.Versions[j]
+			if !have[bv.Blob] && !s.blobs.Has(bv.Blob) {
+				jb.logf("✘ %s@%s：离线包里缺少它的 tarball", bp.Name, bv.Version)
+				jb.add(1, 1, 0)
+				continue
+			}
+			// 这一项只证明「blob 文件名 vs 清单声明」一致，下面才解开 tarball 核对内容。
+			if err := CheckIntegrity(Digest{Key: bv.Blob, Integrity: sha512Integrity(bv.Blob), Shasum: bv.Shasum}, bv.Integrity, ""); err != nil {
+				jb.logf("✘ %s@%s：%v", bp.Name, bv.Version, err)
+				jb.add(1, 1, 0)
+				continue
+			}
+			var m map[string]any
+			if json.Unmarshal(bv.Manifest, &m) != nil || str(m["name"]) != bp.Name || str(m["version"]) != bv.Version {
+				jb.logf("✘ %s@%s：清单与包名 / 版本号不一致", bp.Name, bv.Version)
+				jb.add(1, 1, 0)
+				continue
+			}
+			c := inspected[bv.Blob]
+			if c == nil {
+				f, err := s.blobs.Open(bv.Blob)
+				if err != nil {
+					return nil, errf(400, "离线包里 %s@%s 的 tarball 打不开：%v", bp.Name, bv.Version, err)
+				}
+				st, statErr := f.Stat()
+				info, err := InspectTarball(f)
+				f.Close()
+				if err != nil {
+					return nil, errf(400, "离线包里 %s@%s 的 tarball 无法解包（%v），拒绝导入", bp.Name, bv.Version, err)
+				}
+				inner, err := ParseManifest(info.PackageJSON)
+				if err != nil {
+					return nil, errf(400, "离线包里 %s@%s 的 package.json 不是合法 JSON（%v），拒绝导入", bp.Name, bv.Version, err)
+				}
+				c = &bundleCheck{name: inner.Name, version: inner.Version, isPlugin: inner.IsPlugin, hasInstallScript: len(inner.InstallScripts()) > 0}
+				if statErr == nil {
+					c.size = st.Size()
+				}
+				if c.isPlugin {
+					c.scan = scanItems(inner, info, c.size, scopes)
+				}
+				inspected[bv.Blob] = c
+			}
+			if c.name != bp.Name || c.version != bv.Version {
+				return nil, errf(400, "离线包里 %s@%s 的 tarball 里写的是 %s@%s，内容与清单不一致，拒绝导入", bp.Name, bv.Version, c.name, c.version)
+			}
+			checks[i][j] = c
+		}
+	}
+
+	// 3. 再按清单入库（真实内容已在上一步核对过）
 	res := &ImportResult{Packages: len(man.Packages), Skipped: []string{}}
-	scopes := set.CompanyScopes()
 	var publisher *int64
 	if by != 0 {
 		publisher = &by
 	}
-	for _, bp := range man.Packages {
+	for i := range man.Packages {
+		bp := &man.Packages[i]
 		if !ValidName(bp.Name) || InScopes(bp.Name, scopes) {
 			res.Skipped = append(res.Skipped, bp.Name)
 			jb.logf("跳过 %s：属于企业作用域或包名不合法", bp.Name)
@@ -255,56 +389,56 @@ func (s *Service) importBundle(ctx context.Context, tr *tar.Reader, man *BundleM
 			jb.add(len(bp.Versions), 0, 0)
 			continue
 		}
-		pkg := &store.NpmPackage{Name: bp.Name, IsPlugin: bp.IsPlugin, DistTags: bp.DistTags}
+		// 包的 is_plugin 也以真实内容为准：清单标了 false 的插件不能在能力市场里漏掉。
+		pkgIsPlugin := bp.IsPlugin
+		for _, c := range checks[i] {
+			if c != nil && c.isPlugin {
+				pkgIsPlugin = true
+				break
+			}
+		}
+		pkg := &store.NpmPackage{Name: bp.Name, IsPlugin: pkgIsPlugin, DistTags: bp.DistTags}
 		if err := s.store.EnsureUpstreamPackage(ctx, pkg); err != nil {
 			return nil, err
 		}
 		c := bp.Catalog
 		_ = s.store.UpdatePackageCatalog(ctx, bp.Name, (&FeedPlugin{Title: c.Title, Description: c.Description, Author: c.Author, Icon: c.Icon,
 			Homepage: c.Homepage, Repository: c.Repository, Category: c.Category, Featured: c.Featured, Score: c.UpstreamScore, Stars: c.UpstreamStars}).patch())
-		if bp.IsPlugin {
+		if pkgIsPlugin {
 			yes := true
 			_ = s.store.UpdatePackageCatalog(ctx, bp.Name, store.CatalogPatch{IsPlugin: &yes})
 		}
 		if len(bp.DistTags) > 0 {
 			_ = s.store.SetPackageDistTags(ctx, bp.Name, bp.DistTags)
 		}
-		for _, bv := range bp.Versions {
+		for j := range bp.Versions {
+			bv := &bp.Versions[j]
 			if _, err := s.store.GetVersion(ctx, bp.Name, bv.Version); err == nil {
 				res.Existing++
 				jb.add(1, 0, 0)
 				continue
 			}
-			if !have[bv.Blob] && !s.blobs.Has(bv.Blob) {
-				jb.logf("✘ %s@%s：离线包里缺少它的 tarball", bp.Name, bv.Version)
-				jb.add(1, 1, 0)
-				continue
-			}
-			if err := CheckIntegrity(Digest{Key: bv.Blob, Integrity: sha512Integrity(bv.Blob), Shasum: bv.Shasum}, bv.Integrity, ""); err != nil {
-				jb.logf("✘ %s@%s：%v", bp.Name, bv.Version, err)
-				jb.add(1, 1, 0)
-				continue
-			}
-			var m map[string]any
-			if json.Unmarshal(bv.Manifest, &m) != nil || str(m["name"]) != bp.Name || str(m["version"]) != bv.Version {
-				jb.logf("✘ %s@%s：清单与包名 / 版本号不一致", bp.Name, bv.Version)
-				jb.add(1, 1, 0)
-				continue
+			c := checks[i][j]
+			if c == nil {
+				continue // 预检时已经记过失败
 			}
 			status := store.StatusPublished
-			if bv.IsPlugin && pluginNeedsReview(set) {
-				status = store.StatusPending
+			if c.isPlugin {
+				if pluginNeedsReview(set) {
+					status = store.StatusPending
+				}
+				if !bv.IsPlugin {
+					jb.logf("！%s@%s：清单标的是非插件，tarball 里是 DSH 插件，按插件处理", bp.Name, bv.Version)
+				}
 			}
 			nv := &store.NpmVersion{Name: bp.Name, Version: bv.Version, Manifest: bv.Manifest, Integrity: bv.Integrity, Shasum: bv.Shasum,
-				Size: bv.Size, BlobKey: bv.Blob, IsPlugin: bv.IsPlugin, HasInstallScript: bv.HasInstallScript, Status: status,
+				Size: c.size, BlobKey: bv.Blob, IsPlugin: c.isPlugin, HasInstallScript: c.hasInstallScript, Status: status,
 				PublisherID: publisher, Deprecated: bv.Deprecated, CreatedAt: bv.CreatedAt}
 			if status == store.StatusPublished {
 				t := time.Now().UTC().Truncate(time.Millisecond)
 				nv.PublishedAt = &t
 			}
-			if bv.IsPlugin {
-				nv.Scan = s.scanBlob(ctx, bp.Name, bv.Version, bv.Blob, bv.Size, scopes)
-			}
+			nv.Scan = c.scan
 			if err := s.store.InsertMirroredVersion(ctx, nv); err != nil {
 				if errors.Is(err, store.ErrExists) {
 					res.Existing++
@@ -323,25 +457,9 @@ func (s *Service) importBundle(ctx context.Context, tr *tar.Reader, man *BundleM
 	return res, nil
 }
 
-// scanBlob 对已落盘的 tarball 做一次自动检查（失败时返回 nil，不挡导入）。
-func (s *Service) scanBlob(ctx context.Context, name, version, key string, size int64, scopes []string) json.RawMessage {
-	f, err := s.blobs.Open(key)
-	if err != nil {
-		return nil
-	}
-	defer f.Close()
-	info, err := InspectTarball(f)
-	if err != nil {
-		return nil
-	}
-	m, err := ParseManifest(info.PackageJSON)
-	if err != nil {
-		return nil
-	}
+// scanItems 把已经解开的 tarball 序列化成版本的自动检查结果（只给插件版本用）。
+func scanItems(m *Manifest, info *TarballInfo, size int64, scopes []string) json.RawMessage {
 	items := Check(m, info, size, scopes)
-	if m.Name != name || m.Version != version {
-		items = append([]ScanItem{{Key: "manifest-mismatch", Level: LevelFail, Params: map[string]any{"inner": m.Name + "@" + m.Version}}}, items...)
-	}
 	b, _ := json.Marshal(items)
 	return b
 }

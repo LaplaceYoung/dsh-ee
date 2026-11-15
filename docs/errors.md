@@ -136,6 +136,7 @@ scope 常量在 `server/internal/rbac/scopes.go`：`models`、`registry:read`、
 | 401 | `token_invalid` / `token_expired` / `token_revoked` | 缺 Bearer 或令牌无效 | [l1-client.md](./l1-client.md#7-常见错误) |
 | 403 | `permission_denied` | 令牌缺 `models` 或账号缺 `llm.use` | 同上 |
 | 403 | `model_not_allowed` | 模型不在账号或令牌的可用范围 | 同上 |
+| 403 | `file_access_denied` | 普通员工在对话 / Responses 原生透传的 `input` 里引用已上传文件的 `file_id`（默认只允许管理员与机器人账号） | [dev/responses-api.md](./dev/responses-api.md#原生透传的文件引用访问边界) |
 | 403 | `quota_expired` | 账号额度过期 | 同上 |
 | 429 | `monthly_quota_exceeded` | 账号或令牌本月额度用完（`0` 表示未分配） | 同上 |
 | 404 | `model_not_found` | 对外模型没有可用上游 | 同上 |

@@ -47,18 +47,25 @@ type UsageDay struct {
 	Day    string `json:"day"`
 	Calls  int    `json:"calls"`
 	Tokens int64  `json:"tokens"`
+	// 用量细项，Tokens 的子集；没有细项时为 0
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+	CachedTokens    int64 `json:"cached_tokens"`
 }
 
 type UsageGroup struct {
 	Name   string `json:"name"`
 	Calls  int    `json:"calls"`
 	Tokens int64  `json:"tokens"`
+	// 用量细项，Tokens 的子集；没有细项时为 0
+	ReasoningTokens int64 `json:"reasoning_tokens"`
+	CachedTokens    int64 `json:"cached_tokens"`
 }
 
 // UserUsageByDay 是最近若干天每天的调用次数与 token 数（UTC 日期）。
 func (s *Store) UserUsageByDay(ctx context.Context, userID int64, since time.Time) ([]UsageDay, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT DATE(created_at), COUNT(*), COALESCE(SUM(total_tokens), 0) FROM usage_logs
+		`SELECT DATE(created_at), COUNT(*), COALESCE(SUM(total_tokens), 0),
+		  COALESCE(SUM(reasoning_tokens), 0), COALESCE(SUM(cached_tokens), 0) FROM usage_logs
 		 WHERE user_id = ? AND created_at >= ? GROUP BY DATE(created_at) ORDER BY DATE(created_at)`, userID, since)
 	if err != nil {
 		return nil, err
@@ -68,7 +75,7 @@ func (s *Store) UserUsageByDay(ctx context.Context, userID int64, since time.Tim
 	for rows.Next() {
 		var d UsageDay
 		var day any
-		if err := rows.Scan(&day, &d.Calls, &d.Tokens); err != nil {
+		if err := rows.Scan(&day, &d.Calls, &d.Tokens, &d.ReasoningTokens, &d.CachedTokens); err != nil {
 			return nil, err
 		}
 		switch v := day.(type) {
@@ -89,13 +96,15 @@ func (s *Store) UserUsageByDay(ctx context.Context, userID int64, since time.Tim
 
 // UserUsageByModel 本月按模型汇总。
 func (s *Store) UserUsageByModel(ctx context.Context, userID int64) ([]UsageGroup, error) {
-	return s.usageGroups(ctx, `SELECT model, COUNT(*), COALESCE(SUM(total_tokens), 0) FROM usage_logs
+	return s.usageGroups(ctx, `SELECT model, COUNT(*), COALESCE(SUM(total_tokens), 0),
+		  COALESCE(SUM(reasoning_tokens), 0), COALESCE(SUM(cached_tokens), 0) FROM usage_logs
 		WHERE user_id = ? AND created_at >= ? GROUP BY model ORDER BY SUM(total_tokens) DESC LIMIT 20`, userID)
 }
 
 // UserUsageByToken 本月按令牌汇总（没有令牌的旧 key 调用归在「旧版 key」）。
 func (s *Store) UserUsageByToken(ctx context.Context, userID int64) ([]UsageGroup, error) {
-	return s.usageGroups(ctx, `SELECT COALESCE(t.name, '旧版 key'), COUNT(*), COALESCE(SUM(l.total_tokens), 0)
+	return s.usageGroups(ctx, `SELECT COALESCE(t.name, '旧版 key'), COUNT(*), COALESCE(SUM(l.total_tokens), 0),
+		  COALESCE(SUM(l.reasoning_tokens), 0), COALESCE(SUM(l.cached_tokens), 0)
 		FROM usage_logs l LEFT JOIN access_tokens t ON t.id = l.token_id
 		WHERE l.user_id = ? AND l.created_at >= ? GROUP BY COALESCE(t.name, '旧版 key') ORDER BY SUM(l.total_tokens) DESC LIMIT 20`, userID)
 }
@@ -109,7 +118,7 @@ func (s *Store) usageGroups(ctx context.Context, q string, userID int64) ([]Usag
 	out := []UsageGroup{}
 	for rows.Next() {
 		var g UsageGroup
-		if err := rows.Scan(&g.Name, &g.Calls, &g.Tokens); err != nil {
+		if err := rows.Scan(&g.Name, &g.Calls, &g.Tokens, &g.ReasoningTokens, &g.CachedTokens); err != nil {
 			return nil, err
 		}
 		out = append(out, g)
@@ -125,11 +134,15 @@ type ModelCall struct {
 	LatencyMS        int       `json:"latency_ms"`
 	Token            string    `json:"token"`
 	CreatedAt        time.Time `json:"created_at"`
+	// 用量细项；没有细项时为 0
+	ReasoningTokens int `json:"reasoning_tokens"`
+	CachedTokens    int `json:"cached_tokens"`
 }
 
 func (s *Store) UserModelCalls(ctx context.Context, userID int64, limit int) ([]ModelCall, error) {
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT l.model, l.prompt_tokens, l.completion_tokens, l.status_code, l.latency_ms, COALESCE(t.name, ''), l.created_at
+		`SELECT l.model, l.prompt_tokens, l.completion_tokens, l.status_code, l.latency_ms, COALESCE(t.name, ''), l.created_at,
+		  l.reasoning_tokens, l.cached_tokens
 		 FROM usage_logs l LEFT JOIN access_tokens t ON t.id = l.token_id
 		 WHERE l.user_id = ? ORDER BY l.id DESC LIMIT ?`, userID, limit)
 	if err != nil {
@@ -139,7 +152,7 @@ func (s *Store) UserModelCalls(ctx context.Context, userID int64, limit int) ([]
 	out := []ModelCall{}
 	for rows.Next() {
 		var c ModelCall
-		if err := rows.Scan(&c.Model, &c.PromptTokens, &c.CompletionTokens, &c.StatusCode, &c.LatencyMS, &c.Token, &c.CreatedAt); err != nil {
+		if err := rows.Scan(&c.Model, &c.PromptTokens, &c.CompletionTokens, &c.StatusCode, &c.LatencyMS, &c.Token, &c.CreatedAt, &c.ReasoningTokens, &c.CachedTokens); err != nil {
 			return nil, err
 		}
 		out = append(out, c)

@@ -10,6 +10,8 @@ dsh-ee 的第三方 Harness 客户端（TypeScript / ESM），基于 `fetch`，*
 | 能力摘要 | `GET /v1/capabilities` | 当前令牌可用模型、MCP 工具数、微应用、目录 revision |
 | 模型目录 | `GET /v1/models` | dsh-ee 的**对外模型名**（不是上游厂商模型名） |
 | 模型调用 | `POST /v1/chat/completions` | OpenAI chat completions 子集；支持非流式与 SSE 流式 |
+| 思考模式 | `POST /v1/chat/completions` | `thinking` / `reasoning_effort` 原样转发；`reasoning_content` 原样返回 |
+| DeepSeek Chatbot | `POST /v1/chat/completions` | server tools（`deepseek_web_search` / `deepseek_read_url`）、`safety_check`、`title` 原样转发；工具过程/引用/拒答/标题原样返回（不执行工具） |
 | 设备码登录 | `POST /api/device/code`、`POST /api/device/token` | OAuth 风格设备码；SDK 负责轮询与 `slow_down` |
 | MCP | `POST /mcp` | initialize、`tools/list` cursor 分页、`tools/call`、写确认 `_meta` |
 | 可观测 | 响应头 | `X-Request-Id`、`Dsh-EE-API-Version`、`X-RateLimit-*`、`Retry-After` |
@@ -115,6 +117,149 @@ for await (const chunk of client.streamChatCompletion({
 服务端会强制 `stream_options.include_usage = true`，最后一块通常带 `usage`。
 流式请求默认没有整条流的总超时（长回答可能持续很久），用 `signal` 取消；
 需要总超时可传 `streamChatCompletion(req, { timeoutMs: 120_000 })`。
+
+### 思考模式（thinking / reasoning_effort）
+
+dsh-ee 网关把思考模式参数**原样转发**给上游，不做白名单/映射；能力以服务端公布为准：
+
+- 发现文档 `models.reasoning`、`GET /v1/capabilities` 的 `reasoning`：参数名（`thinking` /
+  `reasoning_effort`）与响应字段（`reasoning_content`）。
+- `GET /v1/models` 每项的 `capabilities.reasoning`：该模型是否支持、可用哪些
+  `reasoning_effort`（`efforts`，可能是 `minimal` / `low` / `medium` / `high` / `xhigh` /
+  `max` / `ultra` 等上游值）。
+
+```ts
+// 非流式：响应里的 message.reasoning_content 是思维链，content 是最终回答。
+const result = await client.createChatCompletion({
+  model: 'company-reasoner',
+  messages: [{ role: 'user', content: '9.11 和 9.8 哪个大？' }],
+  thinking: { type: 'enabled' },
+  reasoning_effort: 'high',
+});
+const reasoning = result.choices[0]?.message.reasoning_content;
+```
+
+流式时思维链在 `delta.reasoning_content` 里逐块返回，跨 chunk 拼起来即可：
+
+```ts
+let reasoningText = '';
+for await (const chunk of client.streamChatCompletion({
+  model: 'company-reasoner',
+  messages: [{ role: 'user', content: '9.11 和 9.8 哪个大？' }],
+  thinking: { type: 'enabled' },
+  reasoning_effort: 'medium',
+})) {
+  reasoningText += chunk.choices[0]?.delta?.reasoning_content ?? '';
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? '');
+}
+```
+
+**工具调用轮次必须回传历史 `reasoning_content`**：请求带 `tools` 时，后续请求要把历史
+assistant 消息的 `reasoning_content` 原样带上（即使该轮没有实际调用工具），否则上游返回 400
+（`The reasoning_content in the thinking mode must be passed back to the API.`）。不带 `tools`
+的多轮对话可以不回传，上游会忽略。dsh-ee 网关不补、不删、不校验这个字段，保留它是调用方的责任：
+
+```ts
+const messages: ChatMessage[] = [{ role: 'user', content: '杭州明天天气？' }];
+const first = await client.createChatCompletion({
+  model: 'company-reasoner',
+  messages,
+  tools,
+  thinking: { type: 'enabled' },
+  reasoning_effort: 'high',
+});
+// 非流式直接用返回的 message 追加：content / reasoning_content / tool_calls 都在里面。
+messages.push(first.choices[0].message);
+// ...执行 tool_calls 后追加 role: 'tool' 消息，再发下一轮；历史 assistant 的 reasoning_content 会一起回传。
+```
+
+### DeepSeek Chatbot 扩展（server tools / safety / title / 拒答）
+
+DeepSeek 的 Chatbot 能力通过 chat completions 扩展字段声明与返回，dsh-ee 网关原样透传，
+**SDK 不执行服务端工具逻辑**（搜索/读链接由上游完成）。完整示例见
+[`../examples/chatbot-server-tools.md`](../examples/chatbot-server-tools.md)。
+
+```ts
+const result = await client.createChatCompletion({
+  model: 'company-bot',
+  messages: [{ role: 'user', content: 'DeepSeek V4.1 有什么新特性？' }],
+  tools: [{ type: 'deepseek_web_search' }, { type: 'deepseek_read_url' }],
+  safety_check: { level: 'high' },
+  title: { enabled: true },
+});
+
+const message = result.choices[0]?.message;
+console.log(message?.title); // 会话标题（非流式 message.title；流式最后一块 delta.title）
+for (const step of message?.server_tool_calls ?? []) {
+  for (const call of step.calls) console.log(call.kind, call.action, call.status, call.signature);
+}
+for (const annotation of message?.annotations ?? []) console.log(annotation.url_citation.url);
+if (result.choices[0]?.finish_reason === 'content_filter') console.log('拒答:', message?.refusal);
+```
+
+- 多轮：把上一轮 assistant 消息原样回传，**保留 `server_tool_calls` 里的 `kind` 与 `signature`**；
+  丢掉 `signature` 时请求仍成功，但之前读过的页面不会进入上下文。
+- 流式：工具进度在 choice 级 `server_tool_event`，完整 `server_tool_calls` / `annotations` 在带
+  `finish_reason` 的最后一块 `delta` 里；`delta.title` 也在最后一块。
+- 拒答：`finish_reason: "content_filter"` + `message.refusal`（被拦截图片说明）；移除已展示回答。
+- 类型命名：Chat Completions 扩展类型以 `DeepSeek*` 开头（`DeepSeekServerToolCall` /
+  `DeepSeekServerToolStep` / `DeepSeekUrlCitation` / `DeepSeekRefusal` /
+  `DeepSeekStopDetails` 等）；Messages API 的响应块（`server_tool_use` /
+  `web_search_tool_result` / `web_fetch_tool_result` / citations）也提供同名类型，便于统一渲染。
+
+#### 用户元信息标记（`latest_reminder`）
+
+```ts
+import { formatLatestReminder } from '@dsh-ee/harness-client';
+
+const messages = [
+  {
+    role: 'latest_reminder',
+    content: formatLatestReminder({
+      date: '2026-11-11',
+      weekday: 'Wednesday',
+      location: 'Singapore',
+      platform: 'Web',
+      language: 'English',
+    }),
+  },
+  { role: 'user', content: '今天有什么新闻？' },
+];
+await client.createChatCompletion({ model: 'company-bot', messages });
+```
+
+`formatLatestReminder` 生成 `<date>,<weekday>,<location>,<platform>,<language>`；
+`location` 可为空、允许含逗号。消息必须紧贴对应的 `user` 消息之前（上游校验，400 表示位置/格式
+不对）；历史轮次的 reminder 可原样带回以提高 context cache 命中。类型：
+`DeepSeekLatestReminder` / `DeepSeekLatestReminderMessage` / `ChatRole`。
+
+#### 文件 / 文档输入（DeepSeek Files API）
+
+文件需先上传到 **DeepSeek Files API**（`POST /files`，`purpose` = `user_data` /
+`text_recognition` / `rich_layout_recognition`）并解析拿到 `file-api-...`，再在 chat 请求里引用。
+**dsh-ee 的 `/v1` 只透传 chat 请求，不代理 Files API；本 SDK 不实现 Files API**。
+
+```ts
+await client.createChatCompletion({
+  model: 'company-bot',
+  messages: [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: '总结这份文档的重点。' },
+        { type: 'file', file_id: 'file-api-xxxxxxxxxxxxxxxx' }, // 文档只能这样引用
+      ],
+    },
+  ],
+});
+```
+
+- `file` 内容块：`file_id` 与 `file_data` 恰好二选一。`file_data` 是内联 base64 data URL
+  （`data:image/jpeg;base64,...`，可带 `filename`）；文档（PDF/Word/PPT 等）只能通过 `file_id` 引用。
+- Messages API 形状的 `document` 块（`DeepSeekDocumentBlock` / `DeepSeekDocumentSource`：
+  `source.type = "file"` 或 `"text"`）也提供类型，便于统一渲染或对接 Messages API。
+- 限制（上游）：单请求最多 20 个文档、文本合计 ≤8 MiB，超长 400；文档上传 ≤100 MiB、≤1000 页，
+  上传/解析各 120 秒内完成；`rich_layout_recognition` 裁出的图占输入 token 与图片数量上限。
 
 ## 设备码登录
 

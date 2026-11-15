@@ -48,6 +48,9 @@ func (s *Store) SyncPermissions(ctx context.Context, catalog []rbac.Permission) 
 		existing[c] = true
 	}
 	rows.Close()
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("读取已有权限点: %w", err)
+	}
 
 	inCatalog := map[string]bool{}
 	t := now()
