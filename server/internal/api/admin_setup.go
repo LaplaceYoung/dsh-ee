@@ -188,10 +188,10 @@ func (s *Server) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
 	add(setupStep{ID: "connections", Title: "企业连接", Optional: true, Done: conns > 0, Detail: fmt.Sprintf("%d 个", conns),
 		How: "可选。新建连接要上游凭据，请在网页「企业连接」里接入；接入后可用 ee_connections_admin 试连、开关工具"})
 	if _, imported := s.demoState(ctx); imported {
-		add(setupStep{ID: "demo", Title: "示例公司", Optional: true, Done: true, Detail: "已导入示例公司「星河科技」：6 个部门知识库、差旅 / CRM / IT 工单三个演示系统、应用、10 个演示员工和 30 天的使用数据。转正式使用前可以一键清除"})
+		add(setupStep{ID: "demo", Title: "示例公司", Optional: true, Done: true, Detail: "已导入示例场景（示例公司「星河科技」或小团队「山海工作室」）：知识库、应用、专家、演示账号和 30 天的使用数据。转正式使用前可以一键清除"})
 	} else {
 		add(setupStep{ID: "demo", Title: "示例公司", Optional: true,
-			How: "可选。一键导入示例公司「星河科技」：6 个部门的知识库、差旅 / CRM / IT 工单三个演示系统、带工作台的应用、10 个演示员工和 30 天的使用数据，打开 DSH 就能试。只能由超级管理员在网页部署清单里导入，试完可以一键清除"})
+			How: "可选。一键导入一个示例场景：示例公司「星河科技」（6 个部门的知识库、差旅 / CRM / IT 工单三个演示系统、带工作台的应用、10 个演示员工），或小团队「山海工作室」（4 个人的小说连载团队，知识库 + 应用 + 审稿专家）；都带 30 天的使用数据，打开 DSH 就能试。只能由超级管理员在网页部署清单里导入，试完可以一键清除"})
 	}
 
 	var st connectState

@@ -207,7 +207,7 @@ const demoITSMOpenAPI = `{
         "operationId": "get_summary",
         "summary": "工单概况：未解决、超时（超过 3 天未解决）、近 7 天解决的工单数",
         "parameters": [
-          { "name": "requester", "in": "query", "required": false, "description": "只看某人报修的，填姓名", "schema": { "type": "string" } }
+          { "name": "requester", "in": "query", "required": false, "description": "只看某人报修的（处理人填自己的姓名，看派给他的），填姓名", "schema": { "type": "string" } }
         ]
       }
     },
@@ -216,7 +216,7 @@ const demoITSMOpenAPI = `{
         "operationId": "list_tickets",
         "summary": "工单列表，新的在前",
         "parameters": [
-          { "name": "requester", "in": "query", "required": false, "description": "报修人姓名", "schema": { "type": "string" } },
+          { "name": "requester", "in": "query", "required": false, "description": "报修人姓名；处理人填自己的姓名，看派给他的工单", "schema": { "type": "string" } },
           { "name": "status", "in": "query", "required": false, "description": "待处理 / 处理中 / 已解决 / 已关闭，或「未解决」", "schema": { "type": "string" } }
         ]
       },
@@ -284,6 +284,9 @@ func (s *Server) demoImportSelfApp(ctx context.Context, d demoSelfApp) (demoItem
 		OwnerID: &owner.ID, Scope: store.Scope{Users: []int64{owner.ID}}, Delivery: store.DeliveryOptional}
 	if d.Everyone {
 		a.Scope, a.Delivery = store.Scope{All: true}, store.DeliveryAuto
+		if len(d.Departments) > 0 {
+			a.Scope = store.Scope{Departments: d.Departments}
+		}
 	}
 	if err := s.store.CreateAsset(ctx, a, raw, store.StatusPublished, owner.ID); err != nil {
 		if errors.Is(err, store.ErrDuplicate) {
@@ -333,10 +336,10 @@ func demoOutingApp() demoSelfApp {
 	morning, afternoon := "周六上午 · 徒步", "周六下午 · 烧烤"
 	return demoSelfApp{Owner: "demo.wu.min", Everyone: true, demoAsset: demoAsset{Kind: store.KindApp, Slug: "team-outing", Delivery: store.DeliveryAuto, Spec: assetSpec{
 		Title:       "团建报名",
-		Description: "人力资源部吴敏发起的 11 月团建报名：选场次、填人数和忌口。每人只看到自己的报名，组织者看到全部；AI 可以帮你报名、改报名、查报名情况。",
+		Description: "人力资源部吴敏发起的本月团建报名：选场次、填人数和忌口。每人只看到自己的报名，组织者看到全部；AI 可以帮你报名、改报名、查报名情况。",
 		Icon:        "🏕",
 		Web:         true,
-		Persona: "你是星河科技 11 月团建的报名助手，组织者是人力资源部的吴敏。员工想报名时，问清场次（" + morning + " / " + afternoon + "）、同行人数和忌口，" +
+		Persona: "你是星河科技本月团建的报名助手，组织者是人力资源部的吴敏。员工想报名时，问清场次（" + morning + " / " + afternoon + "）、同行人数和忌口，" +
 			"把要写的内容复述一遍、得到确认后再用 app__write 写进报名表；想改报名时先用 app__rows 查出他自己的那一行再改。" +
 			"组织者问报名情况时，用 app__rows 的 group_by 按场次统计人数，再列出有忌口的人。集合时间、地点以「公告」表为准，不要自己编。",
 		Starters: []string{"帮我报名周六下午的烧烤，我不吃辣", "我报了哪一场？帮我改成上午", "现在各场次报了多少人？"},
@@ -415,6 +418,17 @@ var demoQuestions = []struct {
 	{"电子合同怎么签", "legal-guide", true},
 	{"生产发布是哪天", "eng-handbook", false},
 	{"代码评审多久要给意见", "eng-handbook", false},
+	// 山海工作室
+	{"林栖一天能引雾几次", "novel-bible", false},
+	{"陆沉舟是不是引雾者", "novel-bible", false},
+	{"铜罗盘是第几章出现的", "novel-bible", false},
+	{"白焰附近能不能引雾", "novel-bible", false},
+	{"雾港有多少人口", "novel-bible", true},
+	{"林栖的母亲叫什么", "novel-bible", true},
+	{"一章写多少字", "novel-style", false},
+	{"交稿要提前多久", "novel-style", false},
+	{"存稿至少留几章", "novel-style", false},
+	{"番外什么时候更新", "novel-style", true},
 }
 
 // demoPersona 决定一个演示员工每天大概做什么：用哪些应用、调哪些工具、问哪些库。
@@ -430,23 +444,29 @@ var demoPersonas = map[string]demoPersona{
 	"demo.zhao.lei":     {0.8, []string{"meeting-minutes"}, nil, []string{"eng-handbook"}, 10},
 	"demo.sun.yue":      {0.9, []string{"sunyue-review", "meeting-minutes"}, nil, []string{"eng-handbook", "it-helpdesk"}, 18},
 	"demo.zheng.xiaoyu": {0.95, []string{"onboarding-buddy", "it-service-desk"}, []struct{ conn, tool string }{{demoITSMConn, "list_tickets"}}, []string{"employee-handbook", "it-helpdesk", "eng-handbook"}, 8},
-	"demo.lin.na":       {0.85, []string{"travel-expense", "customer-brief", "meeting-minutes"}, []struct{ conn, tool string }{{demoCRMConn, "get_summary"}, {demoCRMConn, "list_renewals"}}, []string{"product-docs"}, 9},
-	"demo.zhou.hang":    {0.95, []string{"travel-expense", "customer-brief", "zhouhang-weekly"}, []struct{ conn, tool string }{{demoCRMConn, "list_customers"}, {demoCRMConn, "get_customer"}, {demoConn, "list_claims"}}, []string{"product-docs", "travel-policy"}, 14},
-	"demo.he.jing":      {0.7, []string{"travel-expense"}, []struct{ conn, tool string }{{demoConn, "get_summary"}, {demoConn, "list_claims"}}, []string{"travel-policy"}, 6},
-	"demo.chen.yi":      {0.75, []string{"travel-expense"}, []struct{ conn, tool string }{{demoConn, "list_claims"}}, []string{"travel-policy"}, 7},
+	"demo.lin.na":       {0.85, []string{"travel-expense", "customer-brief", "meeting-minutes", demoRenewalExpert}, []struct{ conn, tool string }{{demoCRMConn, "get_summary"}, {demoCRMConn, "list_renewals"}}, []string{"product-docs"}, 9},
+	"demo.zhou.hang":    {0.95, []string{"travel-expense", "customer-brief", "zhouhang-weekly", demoRenewalExpert}, []struct{ conn, tool string }{{demoCRMConn, "list_customers"}, {demoCRMConn, "get_customer"}, {demoConn, "list_claims"}}, []string{"product-docs", "travel-policy"}, 14},
+	"demo.he.jing":      {0.7, []string{"travel-expense", demoAuditExpert}, []struct{ conn, tool string }{{demoConn, "get_summary"}, {demoConn, "list_claims"}}, []string{"travel-policy"}, 6},
+	"demo.chen.yi":      {0.75, []string{"travel-expense", demoAuditExpert}, []struct{ conn, tool string }{{demoConn, "list_claims"}}, []string{"travel-policy"}, 7},
 	"demo.wu.min":       {0.6, []string{"onboarding-buddy", "meeting-minutes"}, nil, []string{"employee-handbook"}, 5},
 	"demo.liu.yang":     {0.7, []string{"it-service-desk"}, []struct{ conn, tool string }{{demoITSMConn, "list_tickets"}, {demoITSMConn, "get_summary"}, {demoITSMConn, "list_categories"}}, []string{"it-helpdesk"}, 6},
-	"demo.xu.nuo":       {0.5, nil, nil, []string{"legal-guide"}, 4},
+	"demo.xu.nuo":       {0.5, []string{demoContractExpert}, nil, []string{"legal-guide"}, 4},
+	// 山海工作室
+	"demo.shen.mo":      {0.9, []string{"story-bible", "continuity-editor", "chapter-board"}, nil, []string{"novel-bible", "novel-style"}, 16},
+	"demo.gu.qing":      {0.85, []string{"chapter-board", "line-editor", "continuity-editor"}, nil, []string{"novel-style", "novel-bible"}, 12},
+	"demo.ning.yuan":    {0.8, []string{"story-bible", "continuity-editor", "chapter-board"}, nil, []string{"novel-bible"}, 9},
+	"demo.tang.xiaoman": {0.6, []string{"chapter-board"}, nil, []string{"novel-style"}, 4},
 }
 
 // demoSimulateUsage 写入近 30 天的模型调用、应用打开、企业系统调用、知识库检索与启用记录，
 // 让管理总览、运营数据和月度报告一打开就有曲线。只写一次（demo_records 里有标记），数据都挂在演示员工名下，清除时随账号删掉。
-func (s *Server) demoSimulateUsage(ctx context.Context, now time.Time) (int, error) {
-	if done, err := s.store.HasDemoRecord(ctx, demoUsageMark, 0); err != nil || done {
+// 每个场景各写一次：mark 是 demo_records 里的 ref_id（示例公司是 0）。
+func (s *Server) demoSimulateUsage(ctx context.Context, now time.Time, staff []demoUser, mark int64) (int, error) {
+	if done, err := s.store.HasDemoRecord(ctx, demoUsageMark, mark); err != nil || done {
 		return 0, err
 	}
 	users := map[string]int64{}
-	for _, u := range demoUsers {
+	for _, u := range staff {
 		if x, err := s.store.GetUserByUsername(ctx, u.Username); err == nil {
 			users[u.Username] = x.ID
 		}
@@ -477,7 +497,7 @@ func (s *Server) demoSimulateUsage(ctx context.Context, now time.Time) (int, err
 		weekend := day.Weekday() == time.Saturday || day.Weekday() == time.Sunday
 		// 越近越活跃：一个月里用的人和次数都在涨
 		growth := 0.55 + 0.45*float64(29-back)/29
-		for _, u := range demoUsers {
+		for _, u := range staff {
 			uid, ok := users[u.Username]
 			p, has := demoPersonas[u.Username]
 			if !ok || !has {
@@ -561,8 +581,8 @@ func (s *Server) demoSimulateUsage(ctx context.Context, now time.Time) (int, err
 		return 0, err
 	}
 	// 「能力安装」：演示员工在头两周陆续启用了周报提示词
-	if id, ok := assets["weekly-report"]; ok {
-		for i, u := range demoUsers {
+	if id, ok := assets["weekly-report"]; ok && mark == 0 {
+		for i, u := range staff {
 			if uid, ok := users[u.Username]; ok && i%2 == 0 {
 				if err := s.store.SubscribeAt(ctx, uid, id, now.AddDate(0, 0, -25+i)); err != nil {
 					return 0, err
@@ -570,7 +590,7 @@ func (s *Server) demoSimulateUsage(ctx context.Context, now time.Time) (int, err
 			}
 		}
 	}
-	return len(logs) + len(uses) + len(calls) + len(queries), s.store.RecordDemo(ctx, demoUsageMark, 0, "30 天模拟使用数据")
+	return len(logs) + len(uses) + len(calls) + len(queries), s.store.RecordDemo(ctx, demoUsageMark, mark, "30 天模拟使用数据")
 }
 
 // ---- 一键清除 ----
@@ -664,6 +684,10 @@ func (s *Server) handleDemoClear(w http.ResponseWriter, r *http.Request) {
 		}
 		res.Users++
 	}
+	if err := s.demoClearPolicies(ctx, recs); err != nil {
+		s.internalErr(w, r, err)
+		return
+	}
 	if res.Data, err = s.demoClearData(ctx, recs); err != nil {
 		s.internalErr(w, r, err)
 		return
@@ -681,30 +705,25 @@ func (s *Server) handleDemoClear(w http.ResponseWriter, r *http.Request) {
 
 // demoGuide 是导入完成后的「下一步」：用哪个演示员工登录、先试哪个应用。
 type demoGuideStep struct {
-	Username    string `json:"username"`
-	DisplayName string `json:"display_name"`
-	Department  string `json:"department"`
-	Title       string `json:"title"`
-	App         string `json:"app"`
-	AppTitle    string `json:"app_title"`
-	Try         string `json:"try"`
+	// 属于哪个示例场景（demoScenarios 里的标识和名字），登录页按它分组
+	Scenario      string `json:"scenario"`
+	ScenarioTitle string `json:"scenario_title"`
+	Username      string `json:"username"`
+	DisplayName   string `json:"display_name"`
+	Department    string `json:"department"`
+	Title         string `json:"title"`
+	App           string `json:"app"`
+	AppTitle      string `json:"app_title"`
+	Try           string `json:"try"`
 }
 
 func demoGuide() []demoGuideStep {
-	byName := map[string]demoUser{}
-	for _, u := range demoUsers {
-		byName[u.Username] = u
-	}
-	step := func(user, app, appTitle, try string) demoGuideStep {
-		u := byName[user]
-		return demoGuideStep{Username: u.Username, DisplayName: u.DisplayName, Department: u.Department, Title: u.Title, App: app, AppTitle: appTitle, Try: try}
-	}
-	return []demoGuideStep{
-		step("demo.zhou.hang", "customer-brief", "客户拜访简报", "给华东精密制造生成一份拜访简报"),
-		step("demo.zheng.xiaoyu", "onboarding-buddy", "新人入职助手", "我第一周要做什么？"),
-		step("demo.chen.yi", "travel-expense", "出差报销助手", "去上海出差 3 天，住宿每晚 650，坐高铁二等座来回 1100，能报多少？"),
-		step("demo.liu.yang", "it-service-desk", "IT 服务台", "VPN 连不上，提示证书错误"),
-	}
+	return demoGuideSteps(demoScenarioCompany, demoUsers, [][4]string{
+		{"demo.zhou.hang", "customer-brief", "客户拜访简报", "给华东精密制造生成一份拜访简报"},
+		{"demo.zheng.xiaoyu", "onboarding-buddy", "新人入职助手", "我第一周要做什么？"},
+		{"demo.chen.yi", "travel-expense", "出差报销助手", "去上海出差 3 天，住宿每晚 650，坐高铁二等座来回 1100，能报多少？"},
+		{"demo.liu.yang", "it-service-desk", "IT 服务台", "VPN 连不上，提示证书错误"},
+	})
 }
 
 // demoRecordCreated 把这次新建的示例项记进 demo_records。

@@ -51,6 +51,9 @@ export interface DemoSite {
 }
 
 export interface DemoPersona {
+  /** 属于哪个示例场景（xinghe / novel）；登录页按它分组 */
+  scenario?: string;
+  scenario_title?: string;
   username: string;
   display_name: string;
   department: string;
@@ -1510,6 +1513,8 @@ export interface DemoItem {
 }
 
 export interface DemoGuideStep {
+  scenario?: string;
+  scenario_title?: string;
   username: string;
   display_name: string;
   department: string;
@@ -1519,7 +1524,23 @@ export interface DemoGuideStep {
   try: string;
 }
 
+/** 一个示例场景：示例公司，或几个人的小团队。 */
+export interface DemoScenario {
+  id: string;
+  kind: "company" | "team";
+  title: string;
+  summary: string;
+  imported: boolean;
+  present: boolean;
+  people: number;
+  kbases: number;
+  assets: number;
+  guide: DemoGuideStep[];
+}
+
 export interface DemoStatus {
+  /** 可以导入的示例场景，以及各自导没导入 */
+  scenarios?: DemoScenario[];
   items: DemoItem[];
   imported: boolean;
   /** 还有没有可清除的示例数据 */
@@ -2136,7 +2157,7 @@ export const api = {
   publishConnect: (force = false) => request<ConnectState>("POST", "/api/admin/connect/publish", { force }),
   setupStatus: () => request<SetupStatus>("GET", "/api/admin/setup-status"),
   demoStatus: () => request<DemoStatus>("GET", "/api/admin/demo"),
-  importDemo: () => request<DemoImport>("POST", "/api/admin/demo"),
+  importDemo: (scenario?: string) => request<DemoImport>("POST", "/api/admin/demo" + (scenario ? `?scenario=${encodeURIComponent(scenario)}` : "")),
   clearDemo: () => request<{ assets: number; kbases: number; users: number }>("DELETE", "/api/admin/demo"),
   welcome: () => request<{ show: boolean; dismissed: boolean; connected: boolean }>("GET", "/api/me/welcome"),
   putWelcome: (dismissed: boolean) => request<{ dismissed: boolean }>("PUT", "/api/me/welcome", { dismissed }),

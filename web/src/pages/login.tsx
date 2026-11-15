@@ -4,7 +4,7 @@ import { WhaleMark } from "../components/whale-mark";
 import { useAuth } from "../lib/auth";
 import { api } from "../lib/api";
 import { useApi } from "../lib/use-api";
-import { Button, buttonCls, inputCls, Notice, PasswordInput, Spinner } from "../components/ui";
+import { Button, buttonCls, cx, inputCls, Notice, PasswordInput, Spinner } from "../components/ui";
 import { ErrorNote } from "../components/api-ui";
 import { LangSwitch } from "../components/lang-switch";
 import { ThemeToggle } from "../components/theme-toggle";
@@ -32,6 +32,7 @@ export default function Login() {
   // 演示站：点了哪张场景卡片、登录后去哪
   const [picking, setPicking] = useState<string | null>(null);
   const [pickError, setPickError] = useState<string | null>(null);
+  const [demoScenario, setDemoScenario] = useState("xinghe");
   const [dest, setDest] = useState<string | null>(null);
   const methods = useApi(api.authMethods);
   const ldap = !!methods.data?.ldap;
@@ -74,7 +75,11 @@ export default function Login() {
       setPicking(null);
     }
   };
-  const personas = demo?.personas ?? [];
+  const allPersonas = demo?.personas ?? [];
+  // 示例场景（示例公司 / 小团队）：多于一个时在卡片上方给一排切换
+  const scenarioIds = [...new Set(allPersonas.map((p) => p.scenario ?? "xinghe"))];
+  const scenario = scenarioIds.includes(demoScenario) ? demoScenario : (scenarioIds[0] ?? "xinghe");
+  const personas = allPersonas.filter((p) => (p.scenario ?? "xinghe") === scenario);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -100,8 +105,27 @@ export default function Login() {
       {personas.length > 0 && (
         <section className="relative mb-10 w-full max-w-3xl">
           <div className="mb-6 text-center text-white">
-            <h1 className="text-2xl leading-9 font-bold tracking-[-0.02em] sm:text-[28px]">{t("login.demo.heroTitle")}</h1>
-            <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-white/85">{t("login.demo.heroSubtitle")}</p>
+            <h1 className="text-2xl leading-9 font-bold tracking-[-0.02em] sm:text-[28px]">{scenario === "novel" ? t("login.demo.scenarios.novel.heroTitle") : t("login.demo.heroTitle")}</h1>
+            <p className="mx-auto mt-2 max-w-2xl text-sm leading-6 text-white/85">
+              {scenario === "novel" ? t("login.demo.scenarios.novel.heroSubtitle") : t("login.demo.heroSubtitle")}
+            </p>
+            {scenarioIds.length > 1 && (
+              <div role="tablist" aria-label={t("login.demo.scenarios.pick")} className="mt-4 inline-flex flex-wrap justify-center gap-1 rounded-full bg-white/15 p-1">
+                {scenarioIds.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={id === scenario}
+                    data-scenario={id}
+                    onClick={() => setDemoScenario(id)}
+                    className={cx("rounded-full px-4 py-1.5 text-sm font-medium transition", id === scenario ? "bg-white text-neutral-900 shadow" : "text-white/90 hover:bg-white/15")}
+                  >
+                    {t(`login.demo.scenarios.${id}.tab`, { defaultValue: allPersonas.find((p) => p.scenario === id)?.scenario_title ?? id })}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {pickError && (
             <div className="mb-3">

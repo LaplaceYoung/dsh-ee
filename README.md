@@ -20,7 +20,7 @@ English · [简体中文](./README.zh-CN.md) · [Español](./README.es.md) · [P
 
 ## Try it
 
-Open [demo.hikariming.com](https://demo.hikariming.com/) and pick an employee of the sample company, Xinghe Tech. No sign-up needed:
+Open [demo.hikariming.com](https://demo.hikariming.com/) and pick a scenario: a 200-person sample company, Xinghe Tech, or a 4-person team serialising a novel, Shanhai Studio. Then pick a person. No sign-up needed. In the company:
 
 - **Zhou Hang, account manager**: see the customers he owns, which contracts are about to expire and who needs a visit, in *Customer visit brief*
 - **Chen Yi, expense accountant**: check expense claims and spot over-limit hotels and duplicate invoices in *Travel expense assistant*
@@ -29,7 +29,11 @@ Open [demo.hikariming.com](https://demo.hikariming.com/) and pick an employee of
 
 You can also sign in as the admin (the account is on the sign-in page) to see how systems are connected, how apps are reviewed and permissioned, and how every call is logged.
 
-The sample company's data is in Chinese.
+The sample company also ships three experts (renewal negotiation, contract review, expense audit), an expert team, and a block policy that keeps R&D out of the CRM. Open *Experts & connectors policy* as the admin and look up an R&D employee to see which rule hides what.
+
+In the studio, **Shen Mo, lead writer** checks the story's rules in *Lore Q&A*, and **Gu Qing, editor** tracks which chapters are due in *Chapter tracker*.
+
+The sample data is in Chinese.
 
 **Already have DSH?** Run `curl -fsSL https://demo.hikariming.com/setup.sh | sh` (on Windows, `irm https://demo.hikariming.com/setup.ps1 | iex`), pick an employee in the browser to approve the sign-in, then type `/customer-brief` in DSH and ask for a visit brief on 华东精密制造. The demo doesn't provide a model: DSH uses the one you've already set up.
 
@@ -44,6 +48,7 @@ The sample company's data is in Chinese.
 ## Who it's for
 
 - **For**: companies, from dozens to thousands of people, whose employees use or will use DeepSeek / DSH, that want the AI to work with their own systems and knowledge, and that worry about data leaks, uncontrolled access and calls nobody can trace.
+- **Also for**: small teams of a few people who use DSH together, such as a studio serialising a novel, a social media team or an online shop. They have no ERP to connect, but they share knowledge (a story bible, a brand guide, an after-sales policy), a few experts and a table or two that everyone edits. The demo has a team like this next to the company.
 - **Not for**: personal use; teams that only want a chat page in the browser; companies that don't plan to have employees install DSH on their computers.
 
 ## Why dsh-ee
@@ -63,6 +68,7 @@ dsh-ee is not an AI runtime. **Inference and tool calls run in each employee's l
 
 - **Capability hub**: plugins, skills, prompts, enterprise connections and micro-apps are managed in one place. Each has versions, an access scope (department, role or person) and a delivery mode (auto-enabled or opt-in). Enabled capabilities sync to employees' DSH automatically.
 - **Micro-apps**: a persona plus a workbench plus ingredients (knowledge bases, connections, skills, prompts), with optional app-owned tables. Employees open them in DSH with `/name`; apps can also be published as web pages that work on mobile.
+- **Experts, skills and connectors**: an expert is a role with a working method, example tasks and the skills, systems and knowledge it may use; experts can be grouped into a team. Admins manage categories, featured items and block policies, and can look up what any employee ends up with and why.
 - **Enterprise connections (MCP gateway)**: bring in ERP, CRM, ticketing and other internal systems as MCP servers or OpenAPI specs. Credentials are encrypted and kept server-side, never sent to employee machines. Every tool is authorized on its own, and every call is logged.
 - **Data hub**: shared datasets in a separate database, queried through a read-only account, with per-user parameters such as `:me_department`. Customers, people, products and other shared reference data live in one place.
 - **Knowledge base**: Q&A where every answer cites its sources, with no vector database involved. An agent runs several rounds of keyword search and reads the original documents. Supports PDF, Word and Markdown, with versions and rollback.
