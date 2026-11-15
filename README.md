@@ -67,7 +67,7 @@ dsh-ee is not an AI runtime. **Inference and tool calls run in each employee's l
 - **Data hub**: shared datasets in a separate database, queried through a read-only account, with per-user parameters such as `:me_department`. Customers, people, products and other shared reference data live in one place.
 - **Knowledge base**: Q&A where every answer cites its sources, with no vector database involved. An agent runs several rounds of keyword search and reads the original documents. Supports PDF, Word and Markdown, with versions and rollback.
 - **Built-in npm registry with review**: hosting and publishing for the company scope, per-version review, and automated checks for install scripts, dependencies, licenses and leaked secrets. The company scope never falls back to the public registry, which blocks dependency confusion. Supports preloading packages from upstream and offline bundle import/export.
-- **OpenAI-compatible model gateway**: plug in DeepSeek or any other OpenAI-compatible upstream and expose one set of model names. A model can sit on several upstreams with automatic failover. Each account gets a monthly token quota and a list of allowed models.
+- **OpenAI-compatible model gateway**: plug in DeepSeek or any other OpenAI-compatible upstream and expose one set of model names. A model can sit on several upstreams with automatic failover. Each account gets a monthly token quota and a list of allowed models. DeepSeek's beta FIM and chat-prefix completions are passed through as-is under `/beta/*`.
 - **One-command onboarding**: run `curl -fsSL <dsh-ee>/setup.sh | sh` (or `irm <dsh-ee>/setup.ps1 | iex` on Windows) and confirm a device code in the browser. A single unified token (`ee_at_…`) then configures the npm registry, models and capability hub.
 - **Third-party harness access**: register an API client (`client_id` / `client_secret`) per integration; CI or another harness exchanges it for a short-lived `ee_at_` token via `client_credentials` instead of holding an admin token. Scopes are capped by the owning account, the secret is stored as a hash and shown once, and every exchange is audited.
 - **Identity and governance**: local accounts plus LDAP / AD, RBAC, menus you can edit at runtime, an audit log, and analytics broken down by department, capability, model and endpoint.
@@ -179,7 +179,7 @@ Confirm the device code in the browser, and DSH is connected to the company's ca
 | `DSH_EE_TRUSTED_PROXIES` | Reverse-proxy IPs/CIDRs (comma-separated) whose `X-Forwarded-*` headers are trusted; defaults to loopback only. Set it when the proxy runs in another container/host or behind a cloud LB |
 | `DSH_EE_REFRESH_TOKENS` | Opt-in OAuth-style refresh tokens (one-time rotation + reuse detection); default off, so no client behavior changes. When enabled, device/manual issuance also returns an `ee_rt_` refresh token and `POST /api/auth/refresh` is available (404 while off). See [docs/token-lifecycle.md](./docs/token-lifecycle.md) §3 |
 | `DSH_EE_REFRESH_ACCESS_TTL` / `_TOKEN_TTL` / `_FAMILY_TTL` / `_GRACE` | Refresh token TTLs and rotation grace: access `1h`, refresh idle `720h`, family cap `4320h`, grace `0` (strict) by default |
-| `DSH_EE_DEEPSEEK_PROVIDER` | Model provider (`name` or numeric `id`) used by the DeepSeek tool proxy — Files, ASR, TTS, Search, Fetch, OCR and the Anthropic-compatible Files API; defaults to the first enabled `vendor=deepseek` upstream. Calls are billed on the upstream account and do not consume dsh-ee token quota; see [docs/dev/deepseek-tools.md](./docs/dev/deepseek-tools.md) |
+| `DSH_EE_DEEPSEEK_PROVIDER` | Model provider (`name` or numeric `id`) used by the DeepSeek tool proxy — Files, ASR, TTS, Search, Fetch, OCR and the Anthropic-compatible Files API; defaults to the first enabled `vendor=deepseek` upstream. Calls are billed on the upstream account and do not consume dsh-ee token quota; see [docs/dev/deepseek-tools.md](./docs/dev/deepseek-tools.md) Also used by the DeepSeek beta passthrough (`/beta/completions`, `/beta/chat/completions`), which requires `vendor=deepseek`. |
 | `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | Allow **regular employees** (not only admins and bot/service accounts) to call the DeepSeek file/tool endpoints and reference `file_id` in chat; default `false` (employees get 403). Files live in one shared upstream account with no per-employee isolation — review the tenant risk before enabling |
 | `DSH_EE_SAFETY_CHECK` / `DSH_EE_CHAT_TITLE` | DeepSeek Chatbot options for `vendor=deepseek` Chat Completions upstreams: inject `safety_check` (`off`/`high`) and conversation `title` (`off`/`on`) when the client did not send them; client values are kept; both off by default; `/v1/messages` native passthrough is never injected. See [docs/dev/chatbot.md](./docs/dev/chatbot.md) |
 
@@ -199,7 +199,7 @@ cp .env.example .env.local        # fill in DSH_EE_SECRET_KEY and the admin pass
 set -a; . ./.env.local; set +a
 go run ./cmd/dsh-ee
 
-# 3. Web UI (proxies /api, /v1, /npm, /index to :8080)
+# 3. Web UI (proxies /api, /v1, /beta, /npm, /index to :8080)
 cd web
 pnpm install
 pnpm dev                          # http://localhost:5188

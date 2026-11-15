@@ -36,6 +36,7 @@ lang: zh-CN
 | [anthropic-api.md](./anthropic-api.md) | Harness 接入 | Claude Code / Anthropic SDK 调 `POST /v1/messages`：鉴权、转换、流式与错误壳 |
 | [thinking-mode.md](./thinking-mode.md) | Harness 接入 | 思考模式：`thinking` / `reasoning_effort` 透传、`reasoning_content` 与工具轮次回传 || [plugin-quickstart.md](./plugin-quickstart.md) | DSH 插件 | 插件骨架、清单、自查与发布入口 |
 | [deepseek-tools.md](./deepseek-tools.md) | Harness 接入 | DeepSeek 工具代理（Files / ASR / TTS / Search / Fetch / OCR + Anthropic 兼容 Files）：访问边界（默认管理员/机器人）、接口、计费、审计与边界 |
+| [beta-completions.md](./beta-completions.md) | Harness 接入 | DeepSeek FIM / Chat Prefix beta 透传：两个入口、上游选择、治理与边界 |
 | [extension-quickstart.md](./extension-quickstart.md) | dsh-ee 扩展 | 三种扩展形态、CLI 与交付前检查 |
 | [access-rules.md](./access-rules.md) | 权限 | 权限点、字段访问规则、管理约束速查 |
 | [publish-precheck.md](./publish-precheck.md) | 发布 | 发布入口、预检结果语义与自查清单 |
@@ -70,6 +71,7 @@ lang: zh-CN
 | [harness-quickstart.md](./harness-quickstart.md) | 站内导读：第三方 Harness / 自研客户端的五分钟路径与限制 | draft |
 | [anthropic-api.md](./anthropic-api.md) | Anthropic Messages 兼容端点：Claude Code 接入、请求/响应/SSE 转换、错误与 v0 边界 | draft |
 | [deepseek-tools.md](./deepseek-tools.md) | 站内导读：DeepSeek 工具代理（文件/语音/搜索抓取/OCR + Anthropic 兼容 Files）、访问边界、上游选择、计费归属与审计 | draft |
+| [beta-completions.md](./beta-completions.md) | DeepSeek FIM / Chat Prefix beta 透传：入口、上游选择、错误码与不做什么 | draft |
 | [plugin-quickstart.md](./plugin-quickstart.md) | 站内导读：插件骨架、清单字段、本地自查与发布入口 | draft |
 | [extension-quickstart.md](./extension-quickstart.md) | 站内导读：扩展清单、CLI 命令与交付前检查 | draft |
 | [access-rules.md](./access-rules.md) | 站内导读：权限点、字段访问规则、管理约束速查 | draft |

@@ -34,11 +34,15 @@ type Config struct {
 	LoginIPWindow time.Duration
 	// 是否开放 GET /metrics（Prometheus 文本格式，只允许本机 / 内网抓取）。默认关闭。
 	Metrics bool
-	// 公开协议面（/v1/* 与 /mcp）的每令牌限流，单位「次/分钟」；默认 60，0 或 off 关闭。
+	// 公开协议面（/v1/*、/beta/* 与 /mcp）的每令牌限流，单位「次/分钟」；默认 60，0 或 off 关闭。
 	RateLimitPerMinute int
 	// API 客户端（client_credentials）的每 IP 每分钟签发次数（DSH_EE_CLIENT_TOKEN_PER_MINUTE）；
 	// 默认 120，0 或 off 关闭。只防用错误 secret 撞库 / 刷库，正常集成远低于这个量。
 	ClientTokenPerMinute int
+	// DeepSeek FIM / Chat Prefix beta 透传（/beta/*）选用的上游：vendor=deepseek 的 provider
+	// name 或 id（DSH_EE_DEEPSEEK_PROVIDER）。为空时取优先级最高的启用 DeepSeek 上游；
+	// 找不到可用上游时 /beta/* 返回 503，不会跨厂商转发。见 server/internal/api/beta_completions.go。
+	DeepSeekBetaProvider string
 	// 旧版 npm 令牌（ee_npm_）与 API key（sk-ee-）的 scope 收敛（docs/token-lifecycle.md）。
 	// true 时它们只保留原始用途的 scope：npm 令牌只剩 registry，key 只剩模型网关；
 	// 默认 false 不改变旧行为，避免现有客户端突然失效。
@@ -327,6 +331,7 @@ func Load() (*Config, error) {
 			c.ClientTokenPerMinute = n
 		}
 	}
+	c.DeepSeekBetaProvider = strings.TrimSpace(os.Getenv("DSH_EE_DEEPSEEK_PROVIDER"))
 	if v := os.Getenv("DSH_EE_SESSION_TTL"); v != "" {
 		d, err := time.ParseDuration(v)
 		if err != nil {

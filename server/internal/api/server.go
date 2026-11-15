@@ -124,6 +124,9 @@ type Options struct {
 	// index.html 里内联脚本的 CSP sha256 源（形如 "sha256-…"）。由 webui 在启动时从
 	// 嵌入的构建产物算出来，见 webui.InlineScriptHashes；为空时 script-src 只有 'self'。
 	CSPInlineScriptHashes []string
+	// DeepSeek FIM / Chat Prefix beta 透传（/beta/*）选用的上游 name 或 id（DSH_EE_DEEPSEEK_PROVIDER）；
+	// 为空时取优先级最高的启用 vendor=deepseek 上游。找不到可用上游时 /beta/* 返回 503。
+	DeepSeekBetaProvider string
 	// 企业目录（directory.go）：tarball 来源的主机白名单；空表示只接受公网 https 地址。
 	DirectoryTarballHosts []string
 	// API 客户端 client_credentials（clients.go）：每 IP 每分钟最多签发几次；0 表示关闭限流，
@@ -346,6 +349,10 @@ func (s *Server) Handler() http.Handler {
 	// 不要落到前端 SPA 兜底。
 	mux.HandleFunc("/anthropic/", func(w http.ResponseWriter, r *http.Request) {
 		writeAnthropicErr(w, http.StatusNotFound, "not_found_error", "接口不存在：Anthropic 兼容入口是 POST /v1/messages（别名 /anthropic/v1/messages）与 /anthropic/v1/files")
+	})
+	// DeepSeek beta 透传（/beta/*）的未匹配路径同样给 OpenAI 错误壳，不要落到前端 SPA 兜底。
+	mux.HandleFunc("/beta/", func(w http.ResponseWriter, r *http.Request) {
+		writeOpenAIErr(w, http.StatusNotFound, "invalid_request_error", "not_found", "接口不存在")
 	})
 	if s.opts.Web != nil {
 		mux.Handle("/", s.opts.Web)

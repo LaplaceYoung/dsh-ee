@@ -517,7 +517,8 @@ func TestHarnessOpenAPI(t *testing.T) {
 	}
 	for _, path := range []string{
 		"/.well-known/dsh-ee", "/v1/capabilities", "/v1/models", "/v1/chat/completions", "/v1/messages",
-		"/anthropic/v1/messages", "/v1/apps", "/v1/apps/{name}", "/v1/openapi.json",
+		"/anthropic/v1/messages", "/beta/completions", "/beta/chat/completions",
+		"/v1/apps", "/v1/apps/{name}", "/v1/openapi.json",
 	} {
 		if _, ok := spec.Paths[path]; !ok {
 			t.Fatalf("OpenAPI 缺少路径 %s（现有 %v）", path, len(spec.Paths))

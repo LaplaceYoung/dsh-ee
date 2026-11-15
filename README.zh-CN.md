@@ -64,7 +64,7 @@ dsh-ee 本身不跑 AI：**推理与工具调用都在员工本机的 DSH 里**�
 - **数据中台**：企业共用的数据集放在单独的库里，用只读账号查询，支持 `:me_department` 这类按人取值的参数。客户、人员、产品等主数据只存一份。
 - **知识库问答**：不依赖向量模型，Agent 多轮关键词检索、读原文后作答，句句带出处；支持 PDF、Word、Markdown，文档有版本、可回滚。
 - **内置 npm 源与审核**：企业作用域的托管与发布、逐版本审核，自动检查安装脚本、依赖、许可证与密钥泄露；企业作用域永不回源，防依赖混淆；支持上游预载与离线包导入导出。
-- **OpenAI 兼容模型网关**：接入 DeepSeek 等上游后对外统一模型名，同名模型可挂多个上游自动故障转移，按账号分配月度 token 额度与可用模型。
+- **OpenAI 兼容模型网关**：接入 DeepSeek 等上游后对外统一模型名，同名模型可挂多个上游自动故障转移，按账号分配月度 token 额度与可用模型；DeepSeek 的 beta FIM / Chat Prefix 补全按原协议从 `/beta/*` 透传。
 - **一条命令接入**：`curl -fsSL <dsh-ee>/setup.sh | sh`（Windows 用 `irm <dsh-ee>/setup.ps1 | iex`），浏览器确认设备码后，统一令牌 `ee_at_…` 一次配好 npm 源、模型与能力中心。
 - **第三方 Harness 接入**：按集成方注册 API 客户端（`client_id` / `client_secret`），CI 或其它 Harness 用 `client_credentials` 换短期 `ee_at_` 令牌，不必把管理员令牌交给对方；scope 受所属账号权限约束，secret 只存哈希且只显示一次，每次换 token 都有审计。
 - **身份与治理**：本地账号与 LDAP / AD、RBAC、可在线调整的菜单、审计日志，以及按部门、能力、模型、终端统计的运营数据。
@@ -178,7 +178,7 @@ irm https://<dsh-ee>/setup.ps1 | iex          # Windows
 | `DSH_EE_CSP` | 内容安全策略模式：`off`（默认，只加现有的 `frame-ancestors` 嵌入收口）/ `report`（`Content-Security-Policy-Report-Only`，只报告不阻断）/ `enforce`（`Content-Security-Policy`，阻断违规）。内联脚本哈希在启动时从嵌入的 `index.html` 计算，`frame-ancestors` 与 `DSH_EE_EMBED_ORIGINS` 合并；非法值启动失败。见 [docs/operations.md](./docs/operations.md) §10.1 |
 | `DSH_EE_CSP_REPORT_URI` | 可选的 CSP 违规报告地址（`http(s)://…`）；`DSH_EE_CSP` 不是 `off` 时写进 `report-uri`。dsh-ee 不自带收集端点 |
 | `DSH_EE_TRUSTED_PROXIES` | 可信反向代理的地址 / CIDR（逗号分隔），只有它们传来的 `X-Forwarded-*` 会被采信；默认只有本机回环地址。代理在别的机器、容器网络或云负载均衡后面时必填 |
-| `DSH_EE_DEEPSEEK_PROVIDER` | DeepSeek 工具代理（Files / ASR / TTS / Search / Fetch / OCR 与 Anthropic 兼容 Files）使用的模型上游：provider 的 `name` 或数字 `id`；不设置时用第一个启用且 `vendor=deepseek` 的上游。这些调用在上游账号按工具计费，不占 dsh-ee 的 token 额度；见 [docs/dev/deepseek-tools.md](./docs/dev/deepseek-tools.md) |
+| `DSH_EE_DEEPSEEK_PROVIDER` | DeepSeek 工具代理（Files / ASR / TTS / Search / Fetch / OCR 与 Anthropic 兼容 Files）使用的模型上游：provider 的 `name` 或数字 `id`；不设置时用第一个启用且 `vendor=deepseek` 的上游。这些调用在上游账号按工具计费，不占 dsh-ee 的 token 额度；见 [docs/dev/deepseek-tools.md](./docs/dev/deepseek-tools.md)；DeepSeek beta 透传（`/beta/completions`、`/beta/chat/completions`）也用它，且必须是 `vendor=deepseek`。 |
 | `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | 是否允许**普通员工**（默认只有管理员与机器人/服务账号）调用 DeepSeek 文件/工具接口、在聊天里引用 `file_id`；默认 `false`（普通员工 403）。文件在上游是共享账号空间、员工之间不隔离，开启前请评估租户风险 |
 | `DSH_EE_SAFETY_CHECK` / `DSH_EE_CHAT_TITLE` | DeepSeek Chatbot 选项：对 `vendor=deepseek` 的 Chat Completions 上游请求注入安全审核 `safety_check`（`off`/`high`）与会话标题 `title`（`off`/`on`），客户端已传对应字段时保留；默认都关闭；`/v1/messages` 原生透传不做注入。见 [docs/dev/chatbot.md](./docs/dev/chatbot.md) |
 
@@ -198,7 +198,7 @@ cp .env.example .env.local        # 填好 DSH_EE_SECRET_KEY 与管理员密码
 set -a; . ./.env.local; set +a
 go run ./cmd/dsh-ee
 
-# 3. 前端（Vite 把 /api、/v1、/npm、/index 代理到 :8080）
+# 3. 前端（Vite 把 /api、/v1、/beta、/npm、/index 代理到 :8080）
 cd web
 pnpm install
 pnpm dev                          # http://localhost:5188

@@ -4,7 +4,7 @@
     "title": "dsh-ee Harness API",
     "version": "1.0.0",
     "summary": "第三方 Harness 接入 dsh-ee 的中立 v1 契约（只读部分）",
-    "description": "dsh-ee 面向第三方 Harness 的中立契约 v1 静态描述。运行时的实际入口、scope、模型与应用以 GET /.well-known/dsh-ee 与 /v1/capabilities 为准；本文件描述这些只读端点的形状、统一错误壳与响应头。MCP（JSON-RPC）与 npm registry 协议不在本文件内。所有 /.well-known/dsh-ee、/v1/* 与 /responses（Responses API 别名）响应都带 Dsh-EE-API-Version: 1。 模型网关的扩展工具面还包括 DeepSeek Files / ASR / TTS / Search / Fetch / OCR 代理（见 tools tag）与 Anthropic 兼容 Files API（见 anthropic tag）：请求与响应按上游原样转发，文件/音频/识别文本不在 dsh-ee 落盘或缓存，这些调用也不写 token 用量统计。 文件/工具接口默认只允许管理员与机器人/服务账号调用（`DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` 才放开普通员工，文件属于上游共享账号）；普通员工在 Chat Completions 里引用 `file_id` 返回 403 `file_access_denied`，文件上传/删除/列出写 `files.*` 审计（只记 `file_id`，不记文件名/内容）。",
+    "description": "dsh-ee 面向第三方 Harness 的中立契约 v1 静态描述。运行时的实际入口、scope、模型与应用以 GET /.well-known/dsh-ee 与 /v1/capabilities 为准；本文件描述这些只读端点的形状、统一错误壳与响应头。MCP（JSON-RPC）与 npm registry 协议不在本文件内；DeepSeek 的 FIM / Chat Prefix beta 透传（/beta/*，只转发给启用中的 vendor=deepseek 上游）也在本文件内。所有 /.well-known/dsh-ee、/v1/* 与 /responses（Responses API 别名）响应都带 Dsh-EE-API-Version: 1。 模型网关的扩展工具面还包括 DeepSeek Files / ASR / TTS / Search / Fetch / OCR 代理（见 tools tag）与 Anthropic 兼容 Files API（见 anthropic tag）：请求与响应按上游原样转发，文件/音频/识别文本不在 dsh-ee 落盘或缓存，这些调用也不写 token 用量统计。 文件/工具接口默认只允许管理员与机器人/服务账号调用（`DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` 才放开普通员工，文件属于上游共享账号）；普通员工在 Chat Completions 里引用 `file_id` 返回 403 `file_access_denied`，文件上传/删除/列出写 `files.*` 审计（只记 `file_id`，不记文件名/内容）。",
     "license": {
       "name": "Apache-2.0",
       "identifier": "Apache-2.0"
@@ -29,6 +29,10 @@
     {
       "name": "apps",
       "description": "只读中立微应用"
+    },
+    {
+      "name": "beta",
+      "description": "DeepSeek beta 能力（FIM 补全 / Chat Prefix 续写）的透传入口"
     },
     {
       "name": "tools",
@@ -473,6 +477,242 @@
               }
             },
             "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。"
+          }
+        }
+      }
+    },
+    "/beta/completions": {
+      "post": {
+        "operationId": "createFIMCompletion",
+        "summary": "DeepSeek FIM 补全（beta 透传）",
+        "tags": [
+          "beta"
+        ],
+        "description": "把请求转发给一个启用中的 vendor=deepseek 上游的 /beta/completions（model 换成该上游的上游模型名）；不做多厂商语义翻译，也不跨上游故障转移，没有可用的 DeepSeek 上游时返回 503 beta_unavailable。鉴权、模型权限、额度、限流与用量记录与 /v1 网关相同。DeepSeek 侧仍是 beta 能力，参数与最大输出长度以 DeepSeek 官方文档为准，dsh-ee 不承诺 SLA。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FIMCompletionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FIM 补全结果；stream=true 时为 text/event-stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FIMCompletionResponse"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "与上游逐字节相同：data 分块里的补全内容在 choices[].text；最后一个内容分块可能带 usage，以 data: [DONE] 结束。"
+              }
+            }
+          },
+          "400": {
+            "description": "请求体或 FIM 形状不合法，例如 prompt_required / invalid_prompt / invalid_suffix / invalid_max_tokens（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "令牌缺失、无效、过期或已吊销（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "账号没有调用模型的权限，模型不在允许列表，或额度已过期（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "对外模型没有配置在当前选中的 DeepSeek 上游上（model_not_found）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 16 MiB（request_too_large）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "月度 token 额度用完（monthly_quota_exceeded）或触发每令牌限流（rate_limit_exceeded）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "连不上 DeepSeek 上游（upstream_unreachable）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有启用中的 vendor=deepseek 上游，或 DSH_EE_DEEPSEEK_PROVIDER 没有匹配到可用上游（beta_unavailable）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/beta/chat/completions": {
+      "post": {
+        "operationId": "createChatPrefixCompletion",
+        "summary": "DeepSeek Chat Prefix 续写（beta 透传）",
+        "tags": [
+          "beta"
+        ],
+        "description": "与 /v1/chat/completions 相同的请求体，但要求 messages 的最后一条是 assistant 且带 \"prefix\": true；不满足时在服务端返回 400 prefix_required，不转发上游。请求转发给一个启用中的 vendor=deepseek 上游的 /beta/chat/completions，流式时补 stream_options.include_usage=true。不跨上游故障转移、不做多厂商语义翻译；DeepSeek 侧仍是 beta 能力，dsh-ee 不承诺 SLA。",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChatPrefixCompletionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Chat Prefix 续写结果；stream=true 时为 text/event-stream",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatCompletionResponse"
+                }
+              },
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "与上游逐字节相同；last chunk 带 usage（服务端注入了 include_usage）。"
+              }
+            }
+          },
+          "400": {
+            "description": "请求体或前缀形状不合法，例如 messages_required / prefix_required / invalid_json（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "令牌缺失、无效、过期或已吊销（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "账号没有调用模型的权限，模型不在允许列表，或额度已过期（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "对外模型没有配置在当前选中的 DeepSeek 上游上（model_not_found）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "请求体超过 16 MiB（request_too_large）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "月度 token 额度用完（monthly_quota_exceeded）或触发每令牌限流（rate_limit_exceeded）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "连不上 DeepSeek 上游（upstream_unreachable）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "没有启用中的 vendor=deepseek 上游，或 DSH_EE_DEEPSEEK_PROVIDER 没有匹配到可用上游（beta_unavailable）（OpenAI 错误壳）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpenAIError"
+                }
+              }
+            }
           }
         }
       }
@@ -3389,6 +3629,144 @@
             }
           }
         }
+      },
+      "FIMCompletionRequest": {
+        "type": "object",
+        "required": [
+          "model",
+          "prompt"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "dsh-ee 的对外模型名，必须配置在当前选中的 vendor=deepseek 上游上"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "前缀文本（必填）"
+          },
+          "suffix": {
+            "type": "string",
+            "description": "后缀文本，模型补中间内容"
+          },
+          "max_tokens": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32768,
+            "description": "dsh-ee 统一按 1..32768 校验；DeepSeek FIM 目前单次输出上限为 4K，实际上限以上游为准"
+          },
+          "stream": {
+            "type": "boolean",
+            "description": "true 时返回 text/event-stream"
+          },
+          "stop": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ],
+            "description": "最多 16 个停止序列"
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "top_p": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          }
+        },
+        "additionalProperties": true,
+        "description": "FIM 请求体；除 model（换成上游模型名）外原样转发。"
+      },
+      "FIMCompletionResponse": {
+        "type": "object",
+        "required": [
+          "choices"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "object": {
+            "type": "string",
+            "const": "text_completion"
+          },
+          "created": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string",
+            "description": "上游模型名"
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "text"
+              ],
+              "properties": {
+                "index": {
+                  "type": "integer"
+                },
+                "text": {
+                  "type": "string",
+                  "description": "补出的内容"
+                },
+                "finish_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": true
+            }
+          },
+          "usage": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "OpenAI 形状的 token 用量：prompt_tokens / completion_tokens / total_tokens（上游没给时 dsh-ee 只按估算记账，不修改响应）。"
+          }
+        },
+        "additionalProperties": true,
+        "description": "FIM 响应体原样返回；补出的内容在 choices[].text。"
+      },
+      "ChatPrefixCompletionRequest": {
+        "type": "object",
+        "required": [
+          "model",
+          "messages"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "description": "dsh-ee 的对外模型名"
+          },
+          "messages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "description": "最后一条必须是 {\"role\":\"assistant\",\"content\":\"…\",\"prefix\":true}"
+          },
+          "stream": {
+            "type": "boolean",
+            "description": "true 时返回 text/event-stream（服务端补 include_usage）"
+          }
+        },
+        "additionalProperties": true,
+        "description": "Chat Prefix 请求体；除 model 外原样转发给 DeepSeek 的 /beta/chat/completions。"
       },
       "DeepSeekFileUpload": {
         "type": "object",

@@ -503,6 +503,7 @@ func relaySSE(w http.ResponseWriter, body io.Reader) (tokenUsage, int) {
 }
 
 // streamChunk 只取记账要用的字段：usage，以及增量里会计费的文字（正文、思考、工具参数）。
+// FIM（/beta/completions）的流式增量不在 delta 里，而在 choices[].text；一并计入估算。
 type streamChunk struct {
 	Usage   *tokenUsage `json:"usage"`
 	Choices []struct {
@@ -516,6 +517,7 @@ type streamChunk struct {
 				} `json:"function"`
 			} `json:"tool_calls"`
 		} `json:"delta"`
+		Text string `json:"text"`
 	} `json:"choices"`
 }
 
@@ -527,6 +529,7 @@ func (c *streamChunk) deltaTokens() int {
 		for _, tc := range d.ToolCalls {
 			n += estimateTokens([]byte(tc.Function.Name)) + estimateTokens([]byte(tc.Function.Arguments))
 		}
+		n += estimateTokens([]byte(ch.Text))
 	}
 	return n
 }

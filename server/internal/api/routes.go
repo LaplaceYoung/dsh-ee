@@ -475,6 +475,10 @@ func (s *Server) routes() []route {
 		// count_tokens 不在 v0 范围内：给 Anthropic 客户端一个明确的错误壳，而不是落到 /v1/ 的 OpenAI 404
 		pub("POST /v1/messages/count_tokens", s.handleAnthropicCountTokens),
 		pub("POST /anthropic/v1/messages/count_tokens", s.handleAnthropicCountTokens),
+		// DeepSeek beta 能力透传（FIM / Chat Prefix，见 beta_completions.go）：
+		// 同一个 personal key，只转发给一个 vendor=deepseek 的启用上游，不做多厂商翻译
+		pub("POST /beta/completions", s.handleBetaCompletions),
+		pub("POST /beta/chat/completions", s.handleBetaChatCompletions),
 		// DeepSeek 工具代理（deepseek_tools.go）：同一个 Bearer 令牌转发 Files / ASR / TTS
 		// 到配置的 DeepSeek 上游；文件与音频不落盘、不缓存，也不计入 token 用量。
 		pub("POST /v1/files", s.handleDeepSeekFilesUpload),

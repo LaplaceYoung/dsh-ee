@@ -125,7 +125,7 @@ func (l *tokenRate) take(key string) (rateInfo, bool) {
 	return info, w.count <= l.limit
 }
 
-// rateLimit 给 /v1/*、/responses（Responses API 别名）与 /mcp 加上每令牌限流。
+// rateLimit 给公开协议面（/v1/*、/responses（Responses API 别名）、/beta/* 与 /mcp）加上每令牌限流。
 // 成功与 429 响应都带 X-RateLimit-*，429 另带 Retry-After；错误体维持各端点原来的
 // 形状（见 writeRateLimited）。其它路径完全不受影响。
 func (s *Server) rateLimit(next http.Handler) http.Handler {
@@ -210,12 +210,15 @@ func (s *Server) warnRateLimitFallback(err error) {
 }
 
 // rateLimitedPath 只覆盖公开协议面：OpenAI 兼容网关（含 Responses API 别名）、
+// rateLimitedPath 只覆盖公开协议面：OpenAI 兼容网关（含 Responses API 别名与 DeepSeek beta 透传）、
 // Anthropic 兼容端点（含别名）与 MCP。
 func rateLimitedPath(path string) bool {
-	return isV1Path(path) || isMCPPath(path) || isAnthropicMessagesPath(path) || isResponsesAPIPath(path)
+	return isV1Path(path) || isBetaPath(path) || isMCPPath(path) || isAnthropicMessagesPath(path) || isResponsesAPIPath(path)
 }
 
 func isV1Path(path string) bool { return path == "/v1" || strings.HasPrefix(path, "/v1/") }
+
+func isBetaPath(path string) bool { return path == "/beta" || strings.HasPrefix(path, "/beta/") }
 
 func isMCPPath(path string) bool { return path == "/mcp" || strings.HasPrefix(path, "/mcp/") }
 
@@ -248,7 +251,7 @@ func setRateLimitHeaders(h http.Header, info rateInfo) {
 	h.Set("X-RateLimit-Reset", strconv.FormatInt(info.Reset.Unix(), 10))
 }
 
-// writeRateLimited 超限时保留原来的错误体形状：/v1 与 /responses 用 OpenAI 错误壳
+// writeRateLimited 超限时保留原来的错误体形状：/v1、/responses 与 /beta 用 OpenAI 错误壳
 // （Anthropic 兼容端点用 Anthropic 错误壳），/mcp 用 JSON-RPC 错误对象（code -32000）。
 func writeRateLimited(w http.ResponseWriter, r *http.Request) {
 	const msg = "请求过于频繁，请稍后重试"
@@ -261,7 +264,7 @@ func writeRateLimited(w http.ResponseWriter, r *http.Request) {
 		})
 	case isAnthropicMessagesPath(r.URL.Path):
 		writeAnthropicErr(w, http.StatusTooManyRequests, "rate_limit_error", msg)
-	case isV1Path(r.URL.Path) || isResponsesAPIPath(r.URL.Path):
+	case isV1Path(r.URL.Path) || isResponsesAPIPath(r.URL.Path) || isBetaPath(r.URL.Path):
 		writeOpenAIErr(w, http.StatusTooManyRequests, "rate_limit_error", "rate_limit_exceeded", msg)
 	default:
 		writeErr(w, http.StatusTooManyRequests, msg)

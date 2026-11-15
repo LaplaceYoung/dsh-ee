@@ -185,6 +185,8 @@ var agentExcluded = map[string]string{
 	"POST /anthropic/v1/messages":               "Anthropic 兼容的模型网关协议入口（DeepSeek 风格 base URL 别名）",
 	"POST /v1/messages/count_tokens":            "Anthropic 兼容端点（v0 明确不支持，返回 404）",
 	"POST /anthropic/v1/messages/count_tokens":  "Anthropic 兼容端点（v0 明确不支持，返回 404）",
+	"POST /beta/completions":                    "DeepSeek FIM 补全给编辑器 / 客户端直接调，模型不替员工写代码补全",
+	"POST /beta/chat/completions":               "DeepSeek Chat Prefix 续写给客户端直接调，不在模型工具面暴露",
 	// DeepSeek 工具代理（deepseek_tools.go）：给 Chatbot / 第三方 Harness 传文件与语音，
 	// 请求体是文件/音频二进制，不适合走模型工具的参数与审计形状。
 	"POST /v1/files":                  "DeepSeek Files 工具代理入口，传文件二进制给上游",
