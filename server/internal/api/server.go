@@ -50,6 +50,9 @@ type Options struct {
 	TrustedProxies []netip.Prefix
 	// 监听地址；示例里的演示差旅系统连接从这里访问 dsh-ee 自己。为空时用请求的 Host。
 	Addr string
+	// 本实例标识，用于多实例下的作业级归属：写进新建同步任务的 sync_jobs.owner，
+	// 启动时只中断本实例遗留的 running 任务。用主机名+监听地址，同一实例重启后不变。
+	InstanceID string
 	// 管理模式里「小时」的长度，默认 1 小时；只给自动化测试缩短用。
 	AdminModeUnit time.Duration
 	// 访问上游 npm registry 与 dshfind 目录的客户端；测试里可替换。
@@ -321,7 +324,7 @@ func (s *Server) newRegistry() *registry.Service {
 		s.log.Error("npm 源不可用", "err", err)
 		return nil
 	}
-	svc := registry.NewService(s.store, blobs, up, s.appSettings, s.log)
+	svc := registry.NewService(s.store, blobs, up, s.appSettings, s.log, s.opts.InstanceID)
 	if s.opts.FeedURL != "" {
 		svc.FeedURL = s.opts.FeedURL
 	}

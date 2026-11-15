@@ -41,6 +41,24 @@ func main() {
 	}
 }
 
+// instanceID 返回本实例稳定的作业归属标识：主机名 + 监听地址。
+// 同一实例重启后不变，能认出本实例上次崩溃遗留的 running 同步任务；
+// 不同实例/不同容器（主机名不同）之间也不会撞车。不用 lease.OwnerID：
+// 它带 PID 与随机串，重启后认不出自己。
+func instanceID(addr string) string {
+	host, err := os.Hostname()
+	if err != nil || host == "" {
+		host = "unknown"
+	}
+	if len(host) > 64 {
+		host = host[:64]
+	}
+	if len(addr) > 80 {
+		addr = addr[:80]
+	}
+	return host + "/" + addr
+}
+
 func run(log *slog.Logger) error {
 	cfg, err := config.Load()
 	if err != nil {
@@ -94,7 +112,7 @@ func run(log *slog.Logger) error {
 	if err := os.MkdirAll(cfg.DataDir, 0o750); err != nil {
 		return fmt.Errorf("创建数据目录 %s: %w", cfg.DataDir, err)
 	}
-	if err := st.FailRunningJobs(ctx); err != nil {
+	if err := st.FailRunningJobs(ctx, instanceID(cfg.Addr)); err != nil {
 		return err
 	}
 	// 数据中台：开不起来时只关掉这一块，其余照常
@@ -148,6 +166,7 @@ func run(log *slog.Logger) error {
 		TrustedProxies: cfg.TrustedProxies,
 		CORSOrigins:    cfg.CORSOrigins,
 		Addr:           cfg.Addr,
+		InstanceID:     instanceID(cfg.Addr),
 		AdminModeUnit:  cfg.AdminModeUnit,
 		// 旧令牌 scope 收敛（DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES）；默认关闭，不破坏现有客户端
 		RestrictLegacyTokenScopes: cfg.RestrictLegacyTokenScopes,

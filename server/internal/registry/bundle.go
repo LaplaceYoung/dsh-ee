@@ -226,7 +226,7 @@ func (s *Service) ImportBundle(ctx context.Context, r io.Reader, by int64) (*Imp
 		total += len(p.Versions)
 	}
 	params, _ := json.Marshal(map[string]any{"source": man.Source, "created_at": man.CreatedAt, "packages": len(man.Packages)})
-	j := &store.SyncJob{Kind: "import", Params: params, Total: total}
+	j := &store.SyncJob{Kind: "import", Params: params, Total: total, Owner: s.owner}
 	if by != 0 {
 		j.CreatedBy = &by
 	}

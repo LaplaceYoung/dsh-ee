@@ -321,6 +321,6 @@ curl localhost:8080/v1/chat/completions -H 'Authorization: Bearer sk-ee-…' -H 
 - 管理操作（建用户、分配额度、代发 / 吊销 key）尚未写审计日志；网关调用已逐条记录在 `usage_logs`。
 - 只支持本地账号；LDAP / OIDC 后续加。
 - 多实例部署：一次性状态（web link handoff、开始使用接入码、OIDC state/PKCE）已放共享表 `ephemeral_states`，A 实例生成、B 实例可用；每令牌限流（`/v1`、`/mcp`）也已放数据库共享表 `shared_rate_limits`，多实例合计一份额度；但登录限流、上游 packument 的内存缓存、预载任务、后台任务与进程内锁仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容）。tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。
-- 多实例部署：周期后台任务（LDAP/飞书/知识源同步、上游检查、接入插件发布、Desktop 版本同步、到期与清理）已用数据库租约选主（`background_leases`，默认开启，见 [docs/operations.md](../docs/operations.md) §9.2），同一任务不会重复执行；但登录限流、上游 packument 的内存缓存、MCP 事件流等仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容），tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。启动时的 `FailRunningJobs` 与管理员手动触发的镜像任务仍没有作业级归属。
+- 多实例部署：周期后台任务（LDAP/飞书/知识源同步、上游检查、接入插件发布、Desktop 版本同步、到期与清理）已用数据库租约选主（`background_leases`，默认开启，见 [docs/operations.md](../docs/operations.md) §9.2），同一任务不会重复执行；但登录限流、上游 packument 的内存缓存、MCP 事件流等仍在单个进程里，多个实例同时第一次启动时数据库迁移会互相冲突（先起一个再扩容），tarball 存在本地磁盘，多实例需要共享存储（NFS 等）或以后改成对象存储。启动时的 `FailRunningJobs` 已按实例（主机名+监听地址）做作业级归属（`sync_jobs.owner`）：管理员手动触发的镜像任务与离线包导入都记在创建它的实例名下，启动时只中断本实例与升级前无归属的 running 任务，不再误伤其它在线实例正在跑的任务；滚动升级期间旧版本实例创建的任务没有归属，仍可能被新实例启动时标中断。
 - 离线包没有签名（导入时只校验每个 tarball 的 sha512）；dshfind 签名种子包对接后再加 ed25519 校验。
 - 上游 registry 只支持匿名访问，不支持需要认证的 Nexus / Artifactory 代理仓库。
