@@ -364,7 +364,7 @@
                 }
               }
             },
-            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。普通员工在 messages 里引用 file/document 的 file_id 时返回 403 + file_access_denied（默认只允许管理员与机器人引用，见 docs/dev/deepseek-tools.md）。也可能是 model_not_allowed / permission_denied。"
+            "description": "/v1 模型网关沿用 OpenAI 错误壳（Dsh-EE-API-Version 响应头仍在）。请求引用了上游共享文件（file_id / document.source.file_id）时返回 403 + file_access_denied：普通员工默认拒绝，管理员与机器人账号放行（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 才放开员工，见 docs/dev/deepseek-tools.md），命中时不请求上游。也可能是 model_not_allowed / permission_denied。"
           },
           "404": {
             "type": "object",
@@ -623,7 +623,7 @@
         "tags": [
           "models"
         ],
-        "description": "Claude Code / Anthropic SDK 兼容入口：用企业令牌（x-api-key 或 Authorization: Bearer）调用 dsh-ee 已接入的模型。请求转成 OpenAI chat completions 后复用 /v1/chat/completions 的模型权限、月度额度、上游故障转移与用量记账；响应与流式 SSE 转回 Anthropic 形状。只实现 POST /v1/messages（及别名 POST /anthropic/v1/messages，行为完全一致）；count_tokens / batches / Files API 返回 404。候选线路第一条（最高优先级）的 provider vendor=deepseek 时走原生透传：请求直接转发到 <provider.base>/anthropic/v1/messages，只改写 model，anthropic-version/anthropic-beta 原样透传，响应 JSON/SSE 逐字节转发，不解析 server tools/citations/safety 等扩展块；其它 vendor 降级成 OpenAI chat 转换（anthropic-version/anthropic-beta 被忽略）。故障转移只在同 vendor/同协议内进行，不跨协议。Files API 本身不实现。错误体是 Anthropic 形状（AnthropicError）。",
+        "description": "Claude Code / Anthropic SDK 兼容入口：用企业令牌（x-api-key 或 Authorization: Bearer）调用 dsh-ee 已接入的模型。请求转成 OpenAI chat completions 后复用 /v1/chat/completions 的模型权限、月度额度、上游故障转移与用量记账；响应与流式 SSE 转回 Anthropic 形状。只实现 POST /v1/messages（及别名 POST /anthropic/v1/messages，行为完全一致）；count_tokens / batches / Files API 返回 404。候选线路第一条（最高优先级）的 provider vendor=deepseek 时走原生透传：请求直接转发到 <provider.base>/anthropic/v1/messages，只改写 model，anthropic-version/anthropic-beta 原样透传，响应 JSON/SSE 逐字节转发，不解析 server tools/citations/safety 等扩展块；其它 vendor 降级成 OpenAI chat 转换（anthropic-version/anthropic-beta 被忽略）。故障转移只在同 vendor/同协议内进行，不跨协议。Files API 本身不实现。错误体是 Anthropic 形状（AnthropicError）。 请求转发前会扫描 Anthropic messages content 里的 file_id / document.source.file_id / image.source.file_id：普通员工默认 403 file_access_denied（Anthropic 壳 permission_error + error.code），命中时不请求上游；管理员（任一管理权限）与 account_type=bot 机器人账号放行，DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 对全体员工放行。",
         "parameters": [
           {
             "name": "x-api-key",
@@ -695,7 +695,7 @@
             }
           },
           "403": {
-            "description": "令牌缺 models scope、账号缺 llm.use、模型不在范围或额度过期（permission_error）",
+            "description": "令牌缺 models scope、账号缺 llm.use、模型不在范围或额度过期（permission_error） 引用无权限的上游共享文件（file_id / source.file_id）时 error.code=file_access_denied，普通员工默认拒绝。",
             "content": {
               "application/json": {
                 "schema": {
@@ -3381,6 +3381,10 @@
               "message": {
                 "type": "string",
                 "description": "给人看的说明"
+              },
+              "code": {
+                "type": "string",
+                "description": "可选的细分错误码；目前仅 file_access_denied（请求引用了当前账号无权限的上游共享文件）"
               }
             }
           }

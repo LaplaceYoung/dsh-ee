@@ -156,6 +156,7 @@ curl -fsS "$BASE/mcp" \
 | 401 `token_invalid` / `token_revoked` / `token_expired` | 令牌错误、过期或被吊销 | 重新生成；别复用旧值 |
 | 403 `permission_denied` | 令牌缺 `models`，或账号没有 `llm.use` | 补 scope / 找管理员开权限 |
 | 403 `model_not_allowed` | 用的模型不在账号或令牌的可用模型里 | 先 `GET /v1/models` 看对外名 |
+| 403 `file_access_denied`（Anthropic 壳为 `error.code`） | 请求引用了上游共享文件（DeepSeek `file_id` / `source.file_id`），普通员工默认不允许 | 让管理员/机器人账号处理该文件；如需员工可用，管理员开 `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` |
 | 403 `quota_expired` | 账号额度过期 | 找管理员续期 |
 | 403「你的账号没有使用工作台的权限」 | 令牌缺 `/mcp` 需要的 `connections`，或账号没有 portal 权限 | 补 scope / 找管理员开权限 |
 | 404 `model_not_found` | 对外模型没有可用上游，或用了上游名/未导入的模型 | 先 `GET /v1/models` 看对外名；找管理员检查模型接入 |

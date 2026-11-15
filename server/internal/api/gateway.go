@@ -393,14 +393,9 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeGatewayError(w, r, http.StatusForbidden, "permission_error", "model_not_allowed", "你的账号不能使用模型 "+model+"，可在 /ee-status 查看可用模型")
 		return
 	}
-	// 文件属于上游共享账号，默认不对普通员工开放。即使员工不从文件接口拿 file_id，
-	// 聊天请求里引用已知 file_id 也会让上游读取该账号的文件，所以在入口一并拦截。
-	// 管理员/机器人（或部署显式放开员工）不受影响。Anthropic Messages（anthropic.go）已在
-	// main 上，但它的原生透传会原样转发 file 块，本 PR 不改变该行为、也不在它的入口加此判断；
-	// Responses 尚未落地，两者以后需要统一边界时都应在各自入口复用同一个判断。
-	if !s.deepseekToolsAllowed(k) && chatReferencesFileID(body) {
-		writeOpenAIErr(w, http.StatusForbidden, "permission_error", fileAccessDeniedCode,
-			"当前账号不能引用已上传的文件（file_id）；DeepSeek 文件默认只允许管理员与机器人账号使用")
+	// DeepSeek Files 是上游账号级共享资源：普通员工默认不能引用 file_id，在请求上游之前拦截。
+	if !s.fileAccessAllowed(k) && chatRequestReferencesFiles(body) {
+		writeOpenAIFileAccessDenied(w)
 		return
 	}
 	// 生成参数在转发前收口：超额输出、多候选会让单次请求的用量脱离额度约束。

@@ -7,6 +7,7 @@ Go 写的 dsh-ee 服务端。目前实现：
 - **企业 API key 二次分发**：管理员录入企业在上游开通的模型服务（OpenAI 兼容，如 DeepSeek），上游 key 用主密钥 AES-256-GCM 加密存库；`sk-ee-…` 个人 key 由管理员代发或员工自助创建，随时吊销。
 - **OpenAI 兼容网关**：`/v1/chat/completions`（含流式）与 `/v1/models`。员工用个人 key 调用，dsh-ee 换成企业 key 转发，按账号校验额度与模型，并按次记录用量（prompt / completion / total tokens，以及上游提供时的推理 token 与缓存命中 token，即调用审计）。
 - **Anthropic Messages 兼容端点**：`POST /v1/messages`（含流式 SSE；别名 `POST /anthropic/v1/messages`，兼容 DeepSeek 的 `/anthropic` base URL 习惯），Claude Code / Anthropic SDK 用 `x-api-key` 或 Bearer 带上同一枚统一令牌即可；复用模型权限、额度、限流与用量记账。优先线路 `vendor=deepseek` 时原生透传到 `<base>/anthropic/v1/messages`（响应逐字节转发，`anthropic-version`/`anthropic-beta` 透传），其它 provider 降级转成 OpenAI chat；故障转移只在同协议内进行。不做 `count_tokens` / Batches / Files / 服务端工具，详见 [../docs/dev/anthropic-api.md](../docs/dev/anthropic-api.md)。
+- **上游共享文件（DeepSeek `file_id`）访问拦截**：请求里引用上游文件（`file` 块的 `file_id`、`document` / `image` 的 `source.file_id`）时，`/v1/chat/completions` 与 `/v1/messages` 在转发前检查：普通员工默认 403 `file_access_denied`（Anthropic 壳为 `permission_error` + `error.code`）且不请求上游；管理员（账号有任一管理权限）与 `account_type=bot` 机器人账号放行；`DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true` 才对全体员工放行（默认 `false`，fail closed）。只做拦截，不做 Files 端点 / 审计，见 `server/internal/api/file_access.go`。
 - **内置 npm 源**（`/npm/`）：企业作用域的托管与发布、逐版本审核、上游回源与镜像、上游预载（连同依赖闭包）、离线包导入导出，以及由已上架插件生成的 DSH 插件索引（`/index/dsh-index.json`）。详见下文「npm 源」。
 - **LDAP / AD 登录**：员工用公司域账号登录网页与 `npm login`；首次登录自动开通，每次登录同步显示名、部门、邮箱与组映射的角色；每小时核对目录，离职（被删除或在 AD 里禁用）的账号自动禁用。详见下文「LDAP / AD」。
 - **运营统计与审计日志**：按本地日期统计能力安装、模型调用与 Token（含推理 / 缓存命中细项），按部门、能力、模型、终端（npm 客户端 User-Agent 里的系统与架构）汇总；登录、账号与权限、模型接入、设置、发布与审核等操作写入审计日志。
@@ -137,7 +138,7 @@ OceanBase 单机最低也要几 GB 内存，本地机器紧张时先用 TiDB 调
 | `DSH_EE_BOOTSTRAP_ADMIN` / `_PASSWORD` | 用户表为空时创建的管理员，默认用户名 `admin` |
 | `DSH_EE_COOKIE_SECURE` | 会话 cookie 是否加 `Secure`；不填时 `DSH_EE_PUBLIC_URL` 是 https 就自动开启，显式设置覆盖 |
 | `DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES` | 设为 `true` 时收敛旧 `ee_npm_` / `sk-ee_` 令牌的 scope（npm 令牌只剩 registry、API key 只剩模型网关）；默认关闭，见 [docs/token-lifecycle.md](../docs/token-lifecycle.md) |
-| `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | 设为 `true` 时允许普通员工引用已上传文件的 `file_id`（Responses 原生透传入口默认只允许管理员与机器人账号，普通员工 403 `file_access_denied`）；默认关闭，与在途的 DeepSeek 工具代理（#160）使用同一变量与语义 |
+| `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | DeepSeek Files（上游账号级共享文件）的 `file_id` 访问拦截开关：**默认 `false`（fail closed）**，员工请求里引用 `file_id` / `document.source.file_id` 返回 403 `file_access_denied`（不请求上游）；管理员（账号有任一管理权限）与 `account_type=bot` 机器人账号始终放行；设为 `true` 才对全体员工放行。非法值启动失败。覆盖 `/v1/chat/completions` 与 `/v1/messages`（含别名），语义见 [docs/dev/anthropic-api.md](../docs/dev/anthropic-api.md) §2 |
 | `DSH_EE_REFRESH_TOKENS` | 刷新令牌（OAuth 风格轮换 + 复用检测）总开关，**默认关闭**。开启后 `POST /api/auth/refresh` 可用，设备登录 / 手工 / 管理员签发的响应会额外带 `ee_rt_` refresh token；关闭时刷新端点返回 404、签发响应不变。见 [docs/token-lifecycle.md](../docs/token-lifecycle.md) §3 |
 | `DSH_EE_REFRESH_ACCESS_TTL` | 刷新换出的 access token 有效期，默认 `1h`，允许 `1m`–`24h` |
 | `DSH_EE_REFRESH_TOKEN_TTL` | 单枚 refresh token 的空闲有效期，默认 `720h`（30 天），允许 `1h`–`8760h`；轮换时重新计算 |
