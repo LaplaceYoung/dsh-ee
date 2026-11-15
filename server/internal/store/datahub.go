@@ -158,17 +158,29 @@ func (s *Store) CreateDataSet(ctx context.Context, d *DataSet, by int64) error {
 	return nil
 }
 
-func (s *Store) UpdateDataSet(ctx context.Context, d *DataSet, by int64) error {
+// UpdateDataSet 覆盖保存数据集。expected 非空时做乐观并发检查：范围与 SQL 都是整段覆盖的，
+// 用页面上的旧快照保存会丢掉别人后来的改动；0 行受影响 → ErrNotFound / ErrConflict。
+func (s *Store) UpdateDataSet(ctx context.Context, d *DataSet, by int64, expected *time.Time) error {
 	params, _ := json.Marshal(d.Params)
 	scope, _ := json.Marshal(d.Scope.Normalize())
-	res, err := s.db.ExecContext(ctx, "UPDATE data_sets SET title = ?, description = ?, sql_text = ?, params = ?, scope = ?, updated_by = ?, updated_at = ? WHERE slug = ?",
-		d.Title, d.Description, d.SQL, string(params), string(scope), by, now(), d.Slug)
+	n := now()
+	q := "UPDATE data_sets SET title = ?, description = ?, sql_text = ?, params = ?, scope = ?, updated_by = ?, updated_at = ? WHERE slug = ?"
+	args := []any{d.Title, d.Description, d.SQL, string(params), string(scope), by, n, d.Slug}
+	if expected != nil {
+		q += " AND updated_at = ?"
+		args = append(args, *expected)
+	}
+	res, err := s.db.ExecContext(ctx, q, args...)
 	if err != nil {
 		return err
 	}
-	if n, _ := res.RowsAffected(); n == 0 {
+	if affected, _ := res.RowsAffected(); affected == 0 {
+		if expected != nil {
+			return s.casMiss(ctx, "data_sets", "slug", d.Slug, *expected)
+		}
 		return ErrNotFound
 	}
+	d.UpdatedAt = n
 	return nil
 }
 

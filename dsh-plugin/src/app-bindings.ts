@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { dshHome } from "./config.js";
+import { t } from "./i18n/index.js";
 
 export interface AppBinding {
   sessionId: string;
@@ -24,8 +25,8 @@ export class AppBindings {
   }
 
   bind(name: string, sessionId: string): AppBindingMap {
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) || name.length > 48) throw new Error("微应用名不合法");
-    if (typeof sessionId !== "string" || !sessionId.trim() || sessionId.length > 256) throw new Error("会话 id 不合法");
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) || name.length > 48) throw new Error(t("appBindings.invalidAppName"));
+    if (typeof sessionId !== "string" || !sessionId.trim() || sessionId.length > 256) throw new Error(t("appBindings.invalidSessionId"));
     const bindings = this.list();
     bindings[name] = { sessionId: sessionId.trim(), updatedAt: new Date().toISOString() };
     this.write(bindings);
@@ -33,7 +34,7 @@ export class AppBindings {
   }
 
   unbind(name: string): AppBindingMap {
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) || name.length > 48) throw new Error("微应用名不合法");
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(name) || name.length > 48) throw new Error(t("appBindings.invalidAppName"));
     const bindings = this.list();
     delete bindings[name];
     this.write(bindings);
@@ -54,7 +55,7 @@ export class AppBindings {
       }
       return { version: 1, bindings };
     } catch {
-      this.warningMessage = `微应用会话绑定文件已损坏，已按空绑定处理（${this.file}）`;
+      this.warningMessage = t("appBindings.corruptFile", { file: this.file });
       return { version: 1, bindings: {} };
     }
   }

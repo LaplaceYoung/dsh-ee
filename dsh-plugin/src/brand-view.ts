@@ -1,3 +1,5 @@
+import { t } from "./i18n/index.js";
+
 export interface BrandColorPair {
   light: string;
   dark: string;
@@ -34,7 +36,7 @@ export function brandMark(createElement: (...args: any[]) => any, brand: BrandVi
       style: { width: size, height: size, ...shape, display: "block" },
     });
   }
-  const letter = (brand.name.trim().charAt(0) || "企").toUpperCase();
+  const letter = (brand.name.trim().charAt(0) || t("brandView.fallbackLetter")).toUpperCase();
   return createElement("span", {
     "aria-label": brand.name,
     style: {

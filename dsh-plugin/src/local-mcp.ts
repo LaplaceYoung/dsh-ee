@@ -17,6 +17,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { dshHome, npmrcPath } from "./config.js";
 import type { DshContext, PluginConfig } from "./dsh.js";
+import { t } from "./i18n/index.js";
 
 /** 注册给 dsh-mcp-manager 的一项本机 MCP 服务（stdio）。 */
 export interface LocalMcpEntry {
@@ -64,15 +65,15 @@ export function localMcpStorePath(): string {
 /** 把「包名[@版本]」拆开；不是 npm 包名（URL、file:、git: 等）时报错。 */
 export function parsePackageSpec(raw: string): { package: string; version: string } | { error: string } {
   const text = String(raw ?? "").trim();
-  if (!text) return { error: "要带 npm 包名，例如 /ee-local add @acme/legacy-oa-local@0.1.0" };
-  if (/[\s:]/.test(text)) return { error: `「${text}」不是 npm 包名：端侧扩展只从企业 npm 源安装，不写 URL、本地路径或 git 地址` };
+  if (!text) return { error: t("localMcp.missingPackage") };
+  if (/[\s:]/.test(text)) return { error: t("localMcp.notNpmPackage", { text }) };
   const at = text.lastIndexOf("@");
   // 作用域包以 @ 开头（@scope/name），所以版本分隔符只可能是最后一个 @（下标 > 0）
   const hasVersion = at > 0;
   const pkg = hasVersion ? text.slice(0, at) : text;
   const version = hasVersion ? text.slice(at + 1) : "";
-  if (!PACKAGE_RE.test(pkg)) return { error: `「${pkg}」不是合法的 npm 包名（应形如 @scope/name 或 name）` };
-  if (hasVersion && !VERSION_RE.test(version)) return { error: `「${version}」不是合法的版本号` };
+  if (!PACKAGE_RE.test(pkg)) return { error: t("localMcp.invalidPackage", { pkg }) };
+  if (hasVersion && !VERSION_RE.test(version)) return { error: t("localMcp.invalidVersion", { version }) };
   return { package: pkg, version };
 }
 
@@ -200,7 +201,7 @@ export function parseLocalCommand(rawInput: string | undefined): LocalCommandArg
   if (!action) return args;
   if (action === "help") return { ...args, action: "help" };
   if (!["list", "add", "remove", "snippet"].includes(action)) {
-    return { ...args, error: `子命令只能是 list / add / remove / snippet；收到「${action}」` };
+    return { ...args, error: t("localMcp.unknownSubcommand", { action }) };
   }
   args.action = action as LocalCommandArgs["action"];
   const positional: string[] = [];
@@ -209,17 +210,17 @@ export function parseLocalCommand(rawInput: string | undefined): LocalCommandArg
     if (token === "--yes" || token === "-y") args.yes = true;
     else if (token === "--id") {
       const value = rest[++i];
-      if (value === undefined) return { ...args, error: "--id 后面要跟扩展 id，例如 acme/legacy-oa" };
+      if (value === undefined) return { ...args, error: t("localMcp.idHint") };
       const id = parseExtensionId(value);
-      if (!id) return { ...args, error: `「${value}」不是合法扩展 id（应形如 acme/legacy-oa）` };
+      if (!id) return { ...args, error: t("localMcp.invalidId", { value }) };
       args.id = id;
-    } else if (token.startsWith("-")) return { ...args, error: `不认识的参数「${token}」` };
+    } else if (token.startsWith("-")) return { ...args, error: t("localMcp.unknownFlag", { token }) };
     else positional.push(token);
   }
   if ((args.action === "add" || args.action === "remove" || args.action === "snippet") && positional.length === 0) {
-    return { ...args, error: `${args.action} 后面要跟包名或扩展 id` };
+    return { ...args, error: t("localMcp.missingTarget", { action: args.action }) };
   }
-  if (positional.length > 1) return { ...args, error: `带了多余参数「${positional.slice(1).join(" ")}」` };
+  if (positional.length > 1) return { ...args, error: t("localMcp.extraArgs", { args: positional.slice(1).join(" ") }) };
   args.target = positional[0] ?? "";
   return args;
 }
@@ -298,7 +299,7 @@ export function createLocalMcp(ctx: DshContext, config: PluginConfig, options: {
       const skipped: Array<{ name: string; reason: string }> = [];
       for (const extension of extensions) {
         if (taken.has(extension.serverName)) {
-          skipped.push({ name: extension.id, reason: `已有同名 MCP 服务 ${extension.serverName}，不覆盖` });
+          skipped.push({ name: extension.id, reason: t("localMcp.duplicateService", { name: extension.serverName }) });
           continue;
         }
         try {
@@ -324,22 +325,22 @@ export function createLocalMcp(ctx: DshContext, config: PluginConfig, options: {
 
     list() {
       const extensions = readLocalExtensions(store);
-      const hint = this.available ? "" : "\n这台 DSH 没有 MCP 管理接口（@deepseek-ai/dsh-mcp-manager），不能自动注册；用 /ee-local snippet <包名> 生成配置片段。\n";
+      const hint = this.available ? "" : t("localMcp.noManagerHint");
       if (!extensions.length) {
-        return { kind: "success", text: `还没有添加本机扩展。\n用法：/ee-local add <包名>[@版本] [--id 作者/名字]\n${hint}` };
+        return { kind: "success", text: t("localMcp.noExtensions", { hint }) };
       }
       const state = new Map<string, string>();
       const service = manager();
       if (service) {
         try {
           const rows = service.list();
-          if (Array.isArray(rows)) for (const row of rows) state.set(row.name, row.status?.state ?? "已注册");
+          if (Array.isArray(rows)) for (const row of rows) state.set(row.name, row.status?.state ?? t("localMcp.registered"));
         } catch {
           // 读不到状态就只列记录
         }
       }
-      const lines = extensions.map((extension) => describe(extension, state.get(extension.serverName) ?? (this.available ? "未注册" : "未注册（没有 MCP 管理接口）")));
-      return { kind: "success", text: `本机扩展（${extensions.length} 个）：\n${lines.join("\n")}\n${hint}\n移除：/ee-local remove <扩展 id 或包名>` };
+      const lines = extensions.map((extension) => describe(extension, state.get(extension.serverName) ?? (this.available ? t("localMcp.unregistered") : t("localMcp.unregisteredNoManager"))));
+      return { kind: "success", text: t("localMcp.listHeader", { count: extensions.length, lines: lines.join("\n"), hint }) };
     },
 
     async add(parsed) {
@@ -357,42 +358,42 @@ export function createLocalMcp(ctx: DshContext, config: PluginConfig, options: {
       const sameId = stored.find((item) => item.id === extension.id);
       const samePackage = stored.find((item) => item.package === extension.package);
       if (sameId ? sameId.package === extension.package && sameId.version === extension.version : samePackage && samePackage.version === extension.version) {
-        return { kind: "success", text: `已经添加过 ${extension.package}${extension.version ? `@${extension.version}` : ""}；要改 id 或版本先 /ee-local remove。` };
+        return { kind: "success", text: t("localMcp.alreadyAdded", { spec: `${extension.package}${extension.version ? `@${extension.version}` : ""}` }) };
       }
       if (sameId && sameId.package !== extension.package) {
-        return { kind: "error", text: `扩展 id ${extension.id} 已经用在 ${sameId.package} 上；先 /ee-local remove ${extension.id}，或换一个 --id。` };
+        return { kind: "error", text: t("localMcp.idTaken", { id: extension.id, pkg: sameId.package }) };
       }
       if (!sameId && samePackage) {
-        return { kind: "error", text: `这个包已经以扩展 id ${samePackage!.id} 添加过；要换 id 先 /ee-local remove ${samePackage!.id}。` };
+        return { kind: "error", text: t("localMcp.packageBound", { id: samePackage!.id }) };
       }
       if (!this.available) {
         return {
           kind: "error",
-          text: `这台 DSH 没有 MCP 管理接口（@deepseek-ai/dsh-mcp-manager 没有挂载，旧版 DSH 或精简组合没有它），不能自动注册。\n把下面这段加进 profile 的 cordis.patch.yml（或把 DSH 升级到 0.2.2 再试）：\n\n${localMcpSnippet(config, extension, npmrc)}\n`,
+          text: t("localMcp.noManagerAdd", { snippet: localMcpSnippet(config, extension, npmrc) }),
         };
       }
       const taken = await names();
       // 更新同一扩展的版本时，服务名是我们自己注册的，不算冲突
       const ours = sameId !== undefined && disposers.has(sameId.id);
       if (!ours && taken.has(extension.serverName)) {
-        return { kind: "error", text: `这里已经有名为 ${extension.serverName} 的 MCP 服务（员工自己配的、别的插件注册的，或之前加的），不覆盖。\n换个 --id 会得到另一个服务名，例如：/ee-local add ${extension.package}${extension.version ? `@${extension.version}` : ""} --id ${id.split("/")[0]}/<另一个名字>\n` };
+        return { kind: "error", text: t("localMcp.serviceConflict", { name: extension.serverName, spec: `${extension.package}${extension.version ? `@${extension.version}` : ""}`, scope: id.split("/")[0] }) };
       }
       if (!parsed.yes) {
         return {
           kind: "success",
-          text: `准备把端侧扩展${sameId ? "更新为新的版本并" : ""}注册成本机 MCP 服务（只写这台电脑，不改 dsh-ee，不覆盖已有服务）：\n  扩展      ${extension.id}\n  包        ${extension.package}${extension.version ? `@${extension.version}` : "（最新版本）"}\n  MCP 服务  ${extension.serverName}（工具名 mcp__${extension.serverName}__<工具>）\n  env       DSH_EE_URL、DSH_EE_TOKEN（走 DSH 凭据库）、DSH_EE_HARNESS=dsh、企业 npm 源\n\n确认后执行：/ee-local add ${extension.package}${extension.version ? `@${extension.version}` : ""}${parsed.id ? ` --id ${parsed.id}` : ""} --yes\n`,
+          text: t("localMcp.confirmPlan", { update: sameId ? t("localMcp.updateSuffix") : "", id: extension.id, pkg: extension.package, latest: extension.version ? `@${extension.version}` : t("localMcp.latestVersion"), server: extension.serverName, spec: `${extension.package}${extension.version ? `@${extension.version}` : ""}`, idFlag: parsed.id ? ` --id ${parsed.id}` : "" }),
         };
       }
       try {
         unregister(extension.id);
         register(extension);
       } catch (error) {
-        return { kind: "error", text: `注册失败：${error instanceof Error ? error.message : String(error)}` };
+        return { kind: "error", text: t("localMcp.registerFailed", { error: error instanceof Error ? error.message : String(error) }) };
       }
       writeLocalExtensions([...stored.filter((item) => item.id !== extension.id), extension], store);
       return {
         kind: "success",
-        text: `已注册（下次启动 DSH 自动恢复）：\n  ${extension.id} → ${extension.package}${extension.version ? `@${extension.version}` : ""}，服务名 ${extension.serverName}\n工具名以 mcp__${extension.serverName}__ 开头；第一次调用如果扩展要求登录，会弹出系统自己的登录窗口。\n移除：/ee-local remove ${extension.id}\n`,
+        text: t("localMcp.registeredText", { id: extension.id, spec: `${extension.package}${extension.version ? `@${extension.version}` : ""}`, server: extension.serverName }),
       };
     },
 
@@ -400,10 +401,10 @@ export function createLocalMcp(ctx: DshContext, config: PluginConfig, options: {
       const stored = readLocalExtensions(store);
       const target = parsed.target;
       const hit = stored.find((item) => item.package === target || item.id === target || item.serverName === target || `${item.package}@${item.version}` === target);
-      if (!hit) return { kind: "error", text: `没有找到「${target}」；/ee-local list 看已添加的扩展。` };
+      if (!hit) return { kind: "error", text: t("localMcp.notFound", { target }) };
       unregister(hit.id);
       writeLocalExtensions(stored.filter((item) => item !== hit), store);
-      return { kind: "success", text: `已移除 ${hit.id}（${hit.package}），MCP 服务 ${hit.serverName} 已注销。` };
+      return { kind: "success", text: t("localMcp.removed", { id: hit.id, pkg: hit.package, server: hit.serverName }) };
     },
 
     snippet(parsed) {
@@ -418,7 +419,7 @@ export function createLocalMcp(ctx: DshContext, config: PluginConfig, options: {
       };
       return {
         kind: "success",
-        text: `把下面这段加进对应 profile 的 cordis.patch.yml 末尾（DSH 没有 mcpServers 配置文件，这是官方的配置方式）：\n\n${localMcpSnippet(config, extension, npmrc)}\n\n${this.available ? "这台 DSH 有 MCP 管理接口，也可以用 /ee-local add 自动注册。" : ""}\n`,
+        text: t("localMcp.snippetIntro", { snippet: localMcpSnippet(config, extension, npmrc), hint: this.available ? t("localMcp.snippetHint") : "" }),
       };
     },
   };
@@ -431,8 +432,8 @@ export function registerLocalMcpCommand(ctx: DshContext, local: LocalMcpHandle):
   try {
     const dispose = commands.register({
       name: "ee-local",
-      description: "本机扩展：注册 / 查看 / 移除端侧扩展的 MCP 服务（只写这台电脑）",
-      input: { hint: "[list|add|remove|snippet] [包名[@版本]] [--id 作者/名字] [--yes]" },
+      description: t("localMcp.description"),
+      input: { hint: t("localMcp.inputHint") },
       handler: async (invocation: any) => {
         let parsed = parseLocalCommand(invocation?.rawInput);
         if (parsed.error) return { kind: "error", text: parsed.error };

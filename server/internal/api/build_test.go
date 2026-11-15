@@ -108,7 +108,8 @@ func TestBuildSelfUse(t *testing.T) {
 	}
 
 	// ---- 改范围即提交审核：通过前作者照常能用，别人看不到 ----
-	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"departments": []string{"销售部"}}}, nil)
+	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"departments": []string{"销售部"}},
+		"updated_at": scopeToken(t, alice, fmt.Sprintf("/api/hub/%d", mine.Asset.ID))}, nil)
 	expect(t, "申请扩大范围", code, 200, body)
 	patched := decodeAs[store.Asset](t, body)
 	if patched.PendingScope == nil || !patched.Scope.OnlyUser(ids["alice"]) {
@@ -150,7 +151,8 @@ func TestBuildSelfUse(t *testing.T) {
 	expect(t, "没有在审的申请", code, 409, body)
 
 	// 再扩大到全员 → 驳回：范围不变，作者看到原因
-	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"all": true}}, nil)
+	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"all": true},
+		"updated_at": scopeToken(t, alice, fmt.Sprintf("/api/hub/%d", mine.Asset.ID))}, nil)
 	expect(t, "申请全员", code, 200, body)
 	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "reject", "note": "先在部门里试一个月"}, nil)
 	expect(t, "驳回范围申请", code, 204, body)
@@ -162,9 +164,11 @@ func TestBuildSelfUse(t *testing.T) {
 	}
 
 	// 收窄范围直接生效，并作废在审的申请
-	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"all": true}}, nil)
+	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"all": true},
+		"updated_at": scopeToken(t, alice, fmt.Sprintf("/api/hub/%d", mine.Asset.ID))}, nil)
 	expect(t, "又申请全员", code, 200, body)
-	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"users": []int64{ids["alice"]}}}, nil)
+	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"users": []int64{ids["alice"]}},
+		"updated_at": scopeToken(t, alice, fmt.Sprintf("/api/hub/%d", mine.Asset.ID))}, nil)
 	expect(t, "收回到自己用", code, 200, body)
 	back := decodeAs[store.Asset](t, body)
 	if back.PendingScope != nil || !back.Scope.OnlyUser(ids["alice"]) {
@@ -175,7 +179,8 @@ func TestBuildSelfUse(t *testing.T) {
 	}
 
 	// 管理员改范围直接生效
-	code, body = admin.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"all": true}}, nil)
+	code, body = admin.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"all": true},
+		"updated_at": scopeToken(t, admin, fmt.Sprintf("/api/hub/%d", mine.Asset.ID))}, nil)
 	expect(t, "管理员改范围", code, 200, body)
 	if a := decodeAs[store.Asset](t, body); !a.Scope.All || a.PendingScope != nil {
 		t.Fatalf("管理员改范围不用审核：%s", body)

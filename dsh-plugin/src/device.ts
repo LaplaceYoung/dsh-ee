@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import os from "node:os";
+import { t } from "./i18n/index.js";
 import type { PluginConfig } from "./dsh.js";
 
 export interface DeviceStart {
@@ -23,7 +24,7 @@ export class DeviceFlow {
     });
     if (!response.ok) {
       const body = await response.json().catch(() => null) as { error?: string } | null;
-      throw new Error(body?.error ? `设备登录发起失败：${body.error}` : `设备登录发起失败：HTTP ${response.status}`);
+      throw new Error(body?.error ? t("device.startFailed", { error: body.error }) : t("device.startHttpFailed", { status: response.status }));
     }
     return response.json() as Promise<DeviceStart>;
   }
@@ -32,7 +33,7 @@ export class DeviceFlow {
     const deadline = Date.now() + timeoutMs;
     let interval = Math.max(1, intervalSeconds) * 1000;
     while (Date.now() < deadline) {
-      if (signal?.aborted) throw new Error("设备登录已取消");
+      if (signal?.aborted) throw new Error(t("device.cancelled"));
       const response = await this.fetchImpl(`${this.config.base}/api/device/token`, {
         method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ device_code: deviceCode }),
         signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(30_000)]) : AbortSignal.timeout(30_000),
@@ -43,20 +44,20 @@ export class DeviceFlow {
       if (body.error === "slow_down" || body.error === "rate_limited") {
         interval += 5000;
       } else if (body.error !== "authorization_pending") {
-        throw new Error(body.error || `设备登录失败：HTTP ${response.status}`);
+        throw new Error(body.error || t("device.failed", { status: response.status }));
       }
       let onAbort: (() => void) | undefined;
       try {
         await new Promise<void>((resolve, reject) => {
           const timer = setTimeout(resolve, interval);
-          onAbort = () => { clearTimeout(timer); reject(new Error("设备登录已取消")); };
+          onAbort = () => { clearTimeout(timer); reject(new Error(t("device.cancelled"))); };
           signal?.addEventListener("abort", onAbort, { once: true });
         });
       } finally {
         if (onAbort) signal?.removeEventListener("abort", onAbort);
       }
     }
-    throw new Error("设备登录超时");
+    throw new Error(t("device.timeout"));
   }
 }
 

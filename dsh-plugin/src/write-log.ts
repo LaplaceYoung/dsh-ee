@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { dshHome } from "./config.js";
+import { t } from "./i18n/index.js";
 
 /**
  * 一次经接入插件调到 dsh-ee 的写操作。dsh-ee 那边已经记下了这次调用（连接调用日志 / 审计日志），
@@ -75,7 +76,7 @@ export class WriteLog {
   constructor(readonly dir = path.join(dshHome(), "dsh-ee", "writes")) {}
 
   private file(sessionId: string): string {
-    if (typeof sessionId !== "string" || !sessionId) throw new Error("会话 id 不合法");
+    if (typeof sessionId !== "string" || !sessionId) throw new Error(t("writeLog.invalidSessionId"));
     const name = safeName.test(sessionId) ? sessionId : createHash("sha256").update(sessionId).digest("hex").slice(0, 32);
     return path.join(this.dir, `${name}.json`);
   }

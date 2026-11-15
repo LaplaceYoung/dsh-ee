@@ -44,7 +44,7 @@ test("发送失败时只提示，不再填进输入框", async () => {
   let filled = 0;
   const launcher = createLauncher(ctx, { bind: async () => undefined });
   const notice = await launcher.run(() => launcher.launchNew(app), async () => { filled++; return "已填进输入框"; });
-  assert.equal(notice, sendUnknownNotice);
+  assert.equal(notice, sendUnknownNotice());
   assert.equal(filled, 0);
   assert.equal(sent.length, 1);
 });

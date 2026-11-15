@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"unicode"
 )
 
 const exampleDir = "../../../extensions/examples/demo-declarative"
@@ -19,6 +20,24 @@ func cli(args ...string) (handled bool, code int, out, errOut string) {
 	var o, e bytes.Buffer
 	handled, code = runCLI(args, &o, &e)
 	return handled, code, o.String(), e.String()
+}
+
+// hasCJK 判断输出里有没有汉字（英文输出不该有）。
+func hasCJK(s string) bool {
+	for _, r := range s {
+		if unicode.Is(unicode.Han, r) {
+			return true
+		}
+	}
+	return false
+}
+
+// TestMain 隔离宿主机的语言环境：既有用例都按默认中文断言，新的语言用例自己用 t.Setenv / --lang 指定。
+func TestMain(m *testing.M) {
+	for _, key := range []string{"DSH_EE_LANG", "LC_ALL", "LANG"} {
+		os.Unsetenv(key)
+	}
+	os.Exit(m.Run())
 }
 
 func TestCLI(t *testing.T) {
@@ -378,7 +397,7 @@ func TestCLIDoctor(t *testing.T) {
 	// --json 给机器看
 	_, code, out, _ = cli("doctor", "--json", "--server", stub.server.URL, "--token", "ee_at_doctor")
 	var rep doctorReport
-	if code != 0 || json.Unmarshal([]byte(out), &rep) != nil || !rep.OK || rep.Summary != "全部正常" || len(rep.Checks) < 8 {
+	if code != 0 || json.Unmarshal([]byte(out), &rep) != nil || !rep.OK || (rep.Summary != "全部正常" && rep.Summary != "all checks passed") || len(rep.Checks) < 8 {
 		t.Fatalf("doctor --json 不对：%d\n%s", code, out)
 	}
 	ids := map[string]string{}
@@ -389,6 +408,22 @@ func TestCLIDoctor(t *testing.T) {
 		if ids[id] != "ok" {
 			t.Fatalf("检查项 %s 应是 ok：%v (status=%q)", id, ids, ids[id])
 		}
+	}
+
+	// --lang=en：--json 的人读字段（summary/title）跟着语言走，字段名与结构不变；人读输出不含中文
+	_, code, out, _ = cli("doctor", "--lang=en", "--json", "--server", stub.server.URL, "--token", "ee_at_doctor")
+	var repEN doctorReport
+	if code != 0 || json.Unmarshal([]byte(out), &repEN) != nil || !repEN.OK || repEN.Summary != "all checks passed" || len(repEN.Checks) < 8 {
+		t.Fatalf("doctor --lang=en --json 不对：%d\n%s", code, out)
+	}
+	for _, c := range repEN.Checks {
+		if hasCJK(c.Title) || hasCJK(c.Detail) {
+			t.Fatalf("doctor --lang=en 的检查项仍是中文：%+v", c)
+		}
+	}
+	_, code, out, _ = cli("doctor", "--lang=en", "--server", stub.server.URL, "--token", "ee_at_doctor")
+	if code != 0 || hasCJK(out) {
+		t.Fatalf("doctor --lang=en 输出不应有中文：%d\n%s", code, out)
 	}
 
 	// 令牌失效：退出 1，给下一步建议
@@ -442,5 +477,62 @@ func TestNpmrcHelpers(t *testing.T) {
 	}
 	if f := readNpmrc(filepath.Join(t.TempDir(), "missing")); f.exists || f.server() != "" || f.anyAuthToken() != "" {
 		t.Fatalf("缺文件时应是空配置：%+v", f)
+	}
+}
+
+// ---- 语言：CLI 只做中英双语（P5 五语化的 CLI 部分）----
+
+func TestCLILang(t *testing.T) {
+	// 默认（没有任何语言设置）是中文：既有脚本与测试都按这个约定
+	if _, code, out, _ := cli("help"); code != 0 || !hasCJK(out) || !strings.Contains(out, "用法：") {
+		t.Fatalf("默认应输出中文 help：%d\n%s", code, out)
+	}
+
+	// --lang=en：help 整段没有中文
+	_, code, out, errOut := cli("--lang=en", "help")
+	if code != 0 || hasCJK(out) || hasCJK(errOut) || !strings.Contains(out, "Usage:") {
+		t.Fatalf("--lang=en help 应是英文：%d\n%s\n%s", code, out, errOut)
+	}
+
+	// --lang=en 也可以写在子命令参数里（不要求放在第一个参数）
+	_, code, _, errOut = cli("extension", "check", filepath.Join(t.TempDir(), "nope"), "--lang=en")
+	if code != 2 || hasCJK(errOut) || !strings.Contains(errOut, "is not a directory") {
+		t.Fatalf("--lang=en 的目录错误应是英文：%d %q", code, errOut)
+	}
+	_, code, _, errOut = cli("schema", "get", "nope", "--lang=en")
+	if code != 1 || hasCJK(errOut) || !strings.Contains(errOut, "no schema named") {
+		t.Fatalf("--lang=en 的规格错误应是英文：%d %q", code, errOut)
+	}
+
+	// version 只打印版本号，但走 --lang=en 入口也不该有中文
+	_, code, out, _ = cli("--lang=en", "version")
+	if code != 0 || hasCJK(out) || strings.TrimSpace(out) != version {
+		t.Fatalf("--lang=en version：%d %q", code, out)
+	}
+
+	// LANG 环境变量生效：英文 locale → 英文
+	t.Setenv("LANG", "en_US.UTF-8")
+	if _, code, out, _ := cli("help"); code != 0 || hasCJK(out) || !strings.Contains(out, "Usage:") {
+		t.Fatalf("LANG=en_US.UTF-8 应用英文：%d\n%s", code, out)
+	}
+	// 显式 --lang=zh 覆盖 LANG=en
+	if _, code, out, _ := cli("--lang=zh", "help"); code != 0 || !hasCJK(out) || !strings.Contains(out, "用法：") {
+		t.Fatalf("--lang=zh 应覆盖 LANG：%d\n%s", code, out)
+	}
+	// DSH_EE_LANG 优先于 LANG
+	t.Setenv("DSH_EE_LANG", "zh")
+	if _, code, out, _ := cli("help"); code != 0 || !hasCJK(out) {
+		t.Fatalf("DSH_EE_LANG=zh 应覆盖 LANG：%d\n%s", code, out)
+	}
+	// 中文 locale → 中文
+	t.Setenv("DSH_EE_LANG", "")
+	t.Setenv("LANG", "zh_CN.UTF-8")
+	if _, code, out, _ := cli("help"); code != 0 || !hasCJK(out) {
+		t.Fatalf("LANG=zh_CN.UTF-8 应用中文：%d\n%s", code, out)
+	}
+
+	// 不认识的 --lang：用法错误，退出码 2
+	if _, code, _, errOut := cli("--lang=fr", "help"); code != 2 || errOut == "" {
+		t.Fatalf("非法 --lang 应退出 2：%d %q", code, errOut)
 	}
 }

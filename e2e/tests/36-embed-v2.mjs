@@ -6,7 +6,7 @@ import { ADMIN_PW, BASE, api, assert, assertEq, login, newPage, step, tag } from
 
 const HOST_PORT = Number(process.env.E2E_EMBED_HOST_PORT || 8099);
 const HOST_ORIGIN = `http://localhost:${HOST_PORT}`;
-const SUPPORTS = ["connect-v1", "navigate", "navigate-request", "open-external", "logout", "deeplink", "theme", "resize"];
+const SUPPORTS = ["connect-v1", "navigate", "navigate-request", "open-external", "logout", "deeplink", "theme", "resize", "lang"];
 
 async function startHost(token, slug, deeplink) {
   const page = `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><title>v2 宿主</title></head>
@@ -124,7 +124,10 @@ export default async function (t) {
     assertEq(state.hello.protocol, 2, "hello.protocol");
     for (const s of SUPPORTS) assert(state.hello.supports?.includes(s), "hello.supports 应包含 " + s + "：" + JSON.stringify(state.hello.supports));
     assert(state.ready?.supports?.includes("connect-v1"), "ready 仍带 connect-v1");
-    step("v2 握手：hello/supports（8 项）+ ready 兼容 v1");
+    assert(state.ready?.supports?.includes("lang"), "ready 声明 lang");
+    assertEq(state.hello.locale, "zh-CN", "hello.locale");
+    assertEq(state.ready?.locale, "zh-CN", "ready.locale");
+    step("v2 握手：hello/supports（9 项，含 lang）+ ready 兼容 v1 并带 locale");
 
     // fit=auto / 视口 / 超时：hello 与 ready 带 viewport，hello 声明 10s 握手 + 8s 宿主兜底；
     // resize 报内容高度（上限 4000）。宿主按 8s 显示手动兜底、iframe 10s 自行失败，两者对齐。

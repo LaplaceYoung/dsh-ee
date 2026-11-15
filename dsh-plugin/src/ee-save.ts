@@ -1,5 +1,6 @@
 import type { DshContext } from "./dsh.js";
 import { fillInput, sendToSession } from "./host-session.js";
+import { t } from "./i18n/index.js";
 
 // /ee-save 提炼请求的正文；e2e 场景按这段文本比对（e2e/dsh/scenarios/run-m6-9.mjs）。
 export const EE_SAVE_PROMPT =
@@ -35,7 +36,7 @@ export function registerEeSave(ctx: DshContext): void {
       const dispose = commandUi.register({
         name: "ee-save",
         label: () => "ee-save",
-        description: () => "把这段对话沉淀成能力（提示词 / 技能 / 应用草稿）",
+        description: () => t("eeSave.description"),
         available: (session: any) => typeof session?.sessionId === "string" && session.sessionId !== "",
         ui: {
           kind: "action",

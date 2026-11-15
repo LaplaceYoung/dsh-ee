@@ -154,6 +154,75 @@ func TestTokenRefreshMigration(t *testing.T) {
 	}
 }
 
+// 0037：公开协议面（/v1 与 /mcp）的每令牌限流改为数据库共享固定窗口。
+func TestSharedRateLimitsMigration(t *testing.T) {
+	body, err := migrationFS.ReadFile("migrations/0037_shared_rate_limits.sql")
+	if err != nil {
+		t.Fatalf("读 0037 迁移: %v", err)
+	}
+	stmts := splitStatements(string(body))
+	if len(stmts) == 0 {
+		t.Fatal("0037 迁移没有可执行语句")
+	}
+	// 迁移里为了对齐列写了很多空格，断言前先压成单个空格。
+	joined := strings.Join(strings.Fields(strings.Join(stmts, "\n")), " ")
+	for _, want := range []string{
+		"CREATE TABLE shared_rate_limits",
+		"rate_key VARCHAR(191) NOT NULL",
+		"window_start DATETIME(3) NOT NULL",
+		"count INT NOT NULL DEFAULT 0",
+		"PRIMARY KEY (rate_key, window_start)",
+		"KEY idx_shared_rate_limits_window (window_start)",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("0037 迁移缺少 %q：\n%s", want, joined)
+		}
+	}
+}
+
+// 0038：模型能力声明列（思考模式开关与可用强度）。
+func TestModelReasoningMigration(t *testing.T) {
+	body, err := migrationFS.ReadFile("migrations/0038_model_reasoning.sql")
+	if err != nil {
+		t.Fatalf("读 0038 迁移: %v", err)
+	}
+	stmts := splitStatements(string(body))
+	if len(stmts) == 0 {
+		t.Fatal("0038 迁移没有可执行语句")
+	}
+	joined := strings.Join(stmts, "\n")
+	for _, want := range []string{
+		"ALTER TABLE models",
+		"supports_reasoning TINYINT(1) NOT NULL DEFAULT 0",
+		"reasoning_efforts VARCHAR(128) NOT NULL DEFAULT ''",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("0038 迁移缺少 %q：\n%s", want, joined)
+		}
+	}
+}
+
+// 0040：模型输入模态声明列（text / image / file，默认 text）。
+func TestModelInputModalitiesMigration(t *testing.T) {
+	body, err := migrationFS.ReadFile("migrations/0040_model_input_modalities.sql")
+	if err != nil {
+		t.Fatalf("读 0040 迁移: %v", err)
+	}
+	stmts := splitStatements(string(body))
+	if len(stmts) == 0 {
+		t.Fatal("0040 迁移没有可执行语句")
+	}
+	joined := strings.Join(stmts, "\n")
+	for _, want := range []string{
+		"ALTER TABLE models",
+		"input_modalities VARCHAR(128) NOT NULL DEFAULT 'text'",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("0040 迁移缺少 %q：\n%s", want, joined)
+		}
+	}
+}
+
 // 0037：users 表加语言偏好列。空串 = 跟随组织默认语言，老账号不用回填；
 // 迁移是可重复执行的加法 DDL（旧二进制不读这列也能继续跑）。
 func TestUserLanguageMigration(t *testing.T) {

@@ -1,13 +1,14 @@
 import os from "node:os";
 import path from "node:path";
 import type { DshContext, PluginConfig } from "./dsh.js";
+import { t } from "./i18n/index.js";
 
 export function normalizeConfig(input: Partial<PluginConfig>): PluginConfig {
   const base = String(input.base ?? "").replace(/\/+$/, "");
-  if (!/^https?:\/\//.test(base)) throw new Error("[dsh-ee] base 必须是 http(s) 地址");
+  if (!/^https?:\/\//.test(base)) throw new Error(t("config.badBase"));
   return {
     base,
-    org: input.org || "企业",
+    org: input.org || t("config.defaultOrg"),
     serverName: input.serverName || "ee",
     tokenRef: input.tokenRef || "DSHEE_TOKEN",
     autoInstall: input.autoInstall !== false,

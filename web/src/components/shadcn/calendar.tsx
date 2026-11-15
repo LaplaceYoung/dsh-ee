@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { cn } from "@/lib/utils"
+import { formatDateOnly } from "@/lib/format"
 import {
   DayPicker,
   getDefaultClassNames,
@@ -40,7 +41,7 @@ function Calendar({
       locale={locale}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString(locale?.code, { month: "short" }),
+          formatDateOnly(date, locale?.code, { month: "short" }),
         ...formatters,
       }}
       classNames={{
@@ -199,7 +200,7 @@ function CalendarDayButton({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString(locale?.code)}
+      data-day={formatDateOnly(day.date, locale?.code, { year: "numeric", month: "numeric", day: "numeric" })}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

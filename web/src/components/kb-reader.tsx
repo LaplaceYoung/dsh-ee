@@ -1,4 +1,5 @@
 import { createElement, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { computeMarks, docSheets, docView, markdownLines, parseBlocks, sheetBlocks, type Highlight } from "@workbench/kb-doc-render";
 import { cx } from "./ui";
 
@@ -11,6 +12,7 @@ const MORE = 400;
  * 高亮的几行会滚到中间；Excel 文档顶上按工作表切换。
  */
 export function KBReader({ markdown, format, highlight, jump }: { markdown: string; format?: string; highlight: Highlight | null; jump?: number }) {
+  const { t } = useTranslation();
   const blocks = useMemo(() => parseBlocks(markdownLines(markdown)), [markdown]);
   const sheets = useMemo(() => docSheets(blocks, format), [blocks, format]);
   const marks = useMemo(() => computeMarks(blocks, highlight), [blocks, highlight?.from, highlight?.to, highlight?.quote]);
@@ -53,7 +55,7 @@ export function KBReader({ markdown, format, highlight, jump }: { markdown: stri
   return (
     <div ref={ref}>
       {sheets.length > 1 && (
-        <div role="tablist" aria-label="工作表" className="-mx-1 mb-4 flex flex-wrap gap-1 border-b border-neutral-100 pb-3">
+        <div role="tablist" aria-label={t("kbReader.sheets")} className="-mx-1 mb-4 flex flex-wrap gap-1 border-b border-neutral-100 pb-3">
           {sheets.map((s) => (
             <button
               key={s.name}
@@ -76,7 +78,7 @@ export function KBReader({ markdown, format, highlight, jump }: { markdown: stri
       {limit < shown.length && (
         <div ref={sentinel} className="py-6 text-center text-xs text-neutral-500">
           <button className="hover:text-neutral-800" onClick={() => setLimit((l) => l + MORE)}>
-            还有 {shown.length - limit} 段，继续显示…
+            {t("kbReader.more", { n: shown.length - limit })}
           </button>
         </div>
       )}

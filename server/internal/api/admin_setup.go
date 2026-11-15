@@ -425,12 +425,12 @@ func (s *Server) handleInspectPackage(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	name, version, file := q.Get("name"), q.Get("version"), strings.TrimPrefix(q.Get("file"), "/")
 	if !registry.ValidName(name) {
-		writeErr(w, http.StatusBadRequest, "非法的包名")
+		writeErrCode(w, http.StatusBadRequest, codeAdminSetupInvalidPackageName, nil, "非法的包名")
 		return
 	}
 	v, err := s.store.GetVersion(r.Context(), name, version)
 	if notFound(err) {
-		writeErr(w, http.StatusNotFound, "版本不存在")
+		writeErrCode(w, http.StatusNotFound, codeAdminSetupVersionNotFound, nil, "版本不存在")
 		return
 	}
 	if err != nil {
@@ -490,7 +490,7 @@ func (s *Server) handleInspectAsset(w http.ResponseWriter, r *http.Request) {
 	ver, _ := strconv.Atoi(q.Get("version"))
 	a, err := s.store.GetAsset(r.Context(), id)
 	if notFound(err) {
-		writeErr(w, http.StatusNotFound, "能力不存在")
+		writeErrCode(w, http.StatusNotFound, codeAdminSetupAssetNotFound, nil, "能力不存在")
 		return
 	}
 	if err != nil {
@@ -498,12 +498,12 @@ func (s *Server) handleInspectAsset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !viewerOf(r).manages(a.Kind) {
-		writeErr(w, http.StatusForbidden, "没有权限审核这类能力")
+		writeErrCode(w, http.StatusForbidden, codeAdminSetupReviewForbidden, nil, "没有权限审核这类能力")
 		return
 	}
 	av, err := s.store.GetAssetVersion(r.Context(), a.ID, ver)
 	if notFound(err) {
-		writeErr(w, http.StatusNotFound, "版本不存在")
+		writeErrCode(w, http.StatusNotFound, codeAdminSetupVersionNotFound, nil, "版本不存在")
 		return
 	}
 	if err != nil {

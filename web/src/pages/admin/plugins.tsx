@@ -190,7 +190,8 @@ export default function AdminPlugins() {
         labels={{ auto: t("pluginPolicy.auto"), optional: t("pluginPolicy.optional"), autoHint: t("pluginPolicy.autoHint"), optionalHint: t("pluginPolicy.optionalHint") }}
         onSave={async (scope, delivery) => {
           if (!policyFor) return;
-          await api.setPluginPolicy(policyFor, { scope, delivery });
+          const policy = policies[policyFor];
+          await api.setPluginPolicy(policyFor, { scope, delivery, ...(policy ? { updated_at: policy.updated_at } : {}) });
           notify(t("pluginPolicy.saved", { name: policyFor }));
           hub.reload();
         }}

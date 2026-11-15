@@ -1,3 +1,5 @@
+import { t } from "./i18n/index.js";
+
 // 来源：dsh-worktable v0.5.1（f98246e，MIT）；仅保留本计划用到的宿主会话兼容写法。
 export function currentSessionOf(snapshot: any): string {
   if (typeof snapshot?.current === "string") return snapshot.current;
@@ -15,7 +17,7 @@ export async function openSession(ctx: any, id: string): Promise<void> {
     await ctx.sessions.open(id);
     return;
   }
-  throw new Error("宿主不支持切换会话");
+  throw new Error(t("hostSession.switchUnsupported"));
 }
 
 /** 新会话放进哪个工作区：当前会话所在的；当前没有会话时用列表里的第一个。 */
@@ -43,24 +45,24 @@ export async function createSession(ctx: any): Promise<string> {
       const snapshot = ctx.sessions?.list?.getSnapshot?.();
       const id = currentSessionOf(snapshot);
       const cwd = snapshot?.byId?.[id]?.cwd;
-      if (!cwd) throw new Error("当前会话没有可用于新建会话的工作目录");
+      if (!cwd) throw new Error(t("hostSession.noCwd"));
       workspace = await ctx.workspaces.create({ path: cwd });
     } else {
-      throw new Error("宿主不支持创建工作区");
+      throw new Error(t("hostSession.createWorkspaceUnsupported"));
     }
     workspaceId = typeof workspace?.workspaceId === "string" && workspace.workspaceId ? workspace.workspaceId : undefined;
   }
-  if (!workspaceId) throw new Error("无法为新会话取得工作区");
+  if (!workspaceId) throw new Error(t("hostSession.noWorkspace"));
   // uiWorkspace 会复用这个工作区里还没发过消息的空白会话，和点「New Session」一样
   const ui = typeof ctx?.get === "function" ? ctx.get("uiWorkspace") : undefined;
   if (typeof ui?.connectWorkspace === "function") return ui.connectWorkspace(workspaceId);
-  if (typeof ctx?.sessions?.create !== "function") throw new Error("宿主不支持新建会话");
+  if (typeof ctx?.sessions?.create !== "function") throw new Error(t("hostSession.createSessionUnsupported"));
   return ctx.sessions.create({ workspaceId });
 }
 
 function checkSendResult(result: any) {
   if (result?.kind === "error" || result?.ok === false) {
-    throw new Error(result.text || result.error?.message || result.error?.code || "宿主拒绝了消息");
+    throw new Error(result.text || result.error?.message || result.error?.code || t("hostSession.rejected"));
   }
 }
 
@@ -75,7 +77,7 @@ export async function sendToSession(ctx: any, id: string, text: string): Promise
       checkSendResult(await session.prompt([{ type: "text", text }], "queue"));
       return;
     }
-    throw new Error("宿主不支持发送消息");
+    throw new Error(t("hostSession.sendUnsupported"));
   };
   if (typeof sessions?.using === "function") {
     await sessions.using(id, { source: "dshEEApps" }, async (ref: any) => {

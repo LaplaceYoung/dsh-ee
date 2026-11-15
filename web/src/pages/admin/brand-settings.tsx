@@ -166,6 +166,7 @@ function logoStyle(shape: BrandLogoShape, size: number): CSSProperties {
 }
 
 function LogoMark({ brand, fallbackName, size }: { brand: Brand; fallbackName: string; size: number }) {
+  const { t } = useTranslation();
   if (brand.logoRev) {
     return <img src={`/api/dsh/brand/logo?rev=${encodeURIComponent(brand.logoRev)}`} alt="" style={logoStyle(brand.logoShape, size)} />;
   }
@@ -174,7 +175,7 @@ function LogoMark({ brand, fallbackName, size }: { brand: Brand; fallbackName: s
       className="inline-flex shrink-0 items-center justify-center bg-neutral-200 font-semibold text-neutral-600"
       style={{ ...logoStyle(brand.logoShape === "plain" ? "rounded" : brand.logoShape, size), fontSize: Math.round(size * 0.42) }}
     >
-      {(fallbackName || "企").charAt(0).toUpperCase()}
+      {(fallbackName || t("brandAdmin.logoFallback")).charAt(0).toUpperCase()}
     </span>
   );
 }
@@ -220,8 +221,8 @@ function DshPreview({ brand, orgName, mode }: { brand: Brand; orgName: string; m
           </div>
         </div>
         <div className="flex gap-2">
-          <span className="rounded-full px-2 py-0.5" style={{ background: c("accentSoft"), color: c("accent") }}>IT 服务台</span>
-          <span className="rounded-full px-2 py-0.5" style={{ background: c("accentSoft"), color: c("accent") }}>出差报销助手</span>
+          <span className="rounded-full px-2 py-0.5" style={{ background: c("accentSoft"), color: c("accent") }}>{t("brandAdmin.mockChip1")}</span>
+          <span className="rounded-full px-2 py-0.5" style={{ background: c("accentSoft"), color: c("accent") }}>{t("brandAdmin.mockChip2")}</span>
         </div>
       </div>
     </div>

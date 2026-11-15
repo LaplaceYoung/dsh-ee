@@ -16,7 +16,7 @@ const PRESETS: Record<OidcConfig["preset"], Partial<OidcConfig>> = {
   authing: { preset: "authing", scopes: "profile email roles", usernameClaim: "preferred_username", nameClaim: "name", emailClaim: "email", departmentClaim: "department", groupsClaim: "roles" },
   azure: { preset: "azure", scopes: "profile email", usernameClaim: "preferred_username", nameClaim: "name", emailClaim: "email", departmentClaim: "department", groupsClaim: "groups" },
   custom: { preset: "custom" },
-  feishu: { preset: "feishu", name: "飞书", issuer: "https://accounts.feishu.cn", feishuApiBase: "https://open.feishu.cn", scopes: "profile email", usernameClaim: "preferred_username", nameClaim: "name", emailClaim: "email", departmentClaim: "department", groupsClaim: "groups" },
+  feishu: { preset: "feishu", issuer: "https://accounts.feishu.cn", feishuApiBase: "https://open.feishu.cn", scopes: "profile email", usernameClaim: "preferred_username", nameClaim: "name", emailClaim: "email", departmentClaim: "department", groupsClaim: "groups" },
 };
 
 function configOf(v: OidcView): OidcConfig {
@@ -114,7 +114,7 @@ export default function OidcSettings() {
         <div className="flex flex-wrap items-center gap-2 text-sm text-neutral-600">
           <span>{t("oidcAdmin.preset")}</span>
           {(Object.keys(PRESETS) as OidcConfig["preset"][]).map((k) => (
-            <Button key={k} size="sm" variant={form.preset === k ? "primary" : "secondary"} onClick={() => set(PRESETS[k])}>
+            <Button key={k} size="sm" variant={form.preset === k ? "primary" : "secondary"} onClick={() => set(k === "feishu" ? { ...PRESETS[k], name: t("oidcAdmin.presets.feishu") } : PRESETS[k])}>
               {t(`oidcAdmin.presets.${k}`)}
             </Button>
           ))}

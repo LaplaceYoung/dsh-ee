@@ -1,4 +1,5 @@
 import { createElement, useEffect, useState } from "react";
+import { initI18n, t } from "./i18n/index.js";
 import { createTypertRemoteInfo } from "@deepseek-ai/dsh-typert-protocol";
 import { z } from "zod";
 import { createBrandStore, loadCachedBrand, saveCachedBrand, themeOverrides, type BrandViewData } from "./brand-view.js";
@@ -11,6 +12,7 @@ import { registerVotes } from "./votes.js";
 import { registerEeSave } from "./ee-save.js";
 import { registerServerSettings } from "./settings-view.js";
 import { registerTurnWrites } from "./turn-writes-client.js";
+import { registerCenter } from "./center-client.js";
 
 export const inject = ["slots", "remote", "sidebarRightTabs", "sidebarRight", "sessions", "conversation", "workspaces"];
 
@@ -27,6 +29,8 @@ const clientRemote = createTypertRemoteInfo({
     "dshEE/availableApps": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/enableApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/disableApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
+    "dshEE/center": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
+    "dshEE/setSubscription": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/appBindings": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/bindApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
     "dshEE/unbindApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => z.any() }, invocation: { kind: "direct" } },
@@ -52,8 +56,8 @@ const clientRemote = createTypertRemoteInfo({
 
 function unwrapRemote(result: any): any {
   if (result && typeof result === "object") {
-    if (result.error) throw new Error(typeof result.error === "string" ? result.error : result.error.message || "企业远程调用失败");
-    if (result.ok === false) throw new Error("企业远程调用失败");
+    if (result.error) throw new Error(typeof result.error === "string" ? result.error : result.error.message || t("client.remoteFailed"));
+    if (result.ok === false) throw new Error(t("client.remoteFailed"));
     if ("value" in result) return result.value;
   }
   return result;
@@ -89,7 +93,7 @@ function createOverviewStore(remote: any) {
     try {
       const data = unwrapRemote(await Promise.race([
         remote.overview(),
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error("读取企业账号超时")), OVERVIEW_TIMEOUT_MS)),
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error(t("client.overviewTimeout"))), OVERVIEW_TIMEOUT_MS)),
       ]));
       update(data?.me ? { data, failed: false, failure: undefined } : { failed: true, failure: data?.failure });
     } catch {
@@ -124,6 +128,7 @@ function createOverviewStore(remote: any) {
 }
 
 export async function apply(ctx: any): Promise<void> {
+  initI18n(ctx);
   // 品牌最先注册、只依赖 slots：先用上次缓存的品牌（DSH 一打开就是企业 logo），连上 dsh-ee 后再换成最新的。
   // 不能排在远程服务和其它功能后面——前面任何一步卡住或出错，logo 就会一直是 DSH 自带的鱼。
   const brandStore = createBrandStore(loadCachedBrand() ?? { enabled: false, name: "", logo_url: "", revision: "" });
@@ -148,6 +153,12 @@ export async function apply(ctx: any): Promise<void> {
     const workbench = registerWorkbench(ctx, { remote, unwrapRemote, appsNow: apps.appsNow, appsLoaded: apps.appsLoaded, loadApps: apps.loadApps, subscribeApps: apps.subscribeApps });
     apps.setWorkbenchOpener(workbench.openWorkbench);
     registerVotes(ctx, remote, unwrapRemote);
+    // 「专家 · 技能 · 连接器」标签页：出错不能拖死后面的品牌与企业面板
+    try {
+      registerCenter(ctx, { remote, unwrapRemote, useOverview, summon: apps.summon, reloadApps: apps.reloadApps });
+    } catch {
+      // 宿主不认右侧栏标签页
+    }
     registerEeSave(ctx);
     // 一轮末尾的「已留痕」提示不能拖死后面的品牌：宿主没有这个槽位时 inject 会一直等着，不会抛错
     try {
@@ -157,11 +168,11 @@ export async function apply(ctx: any): Promise<void> {
     }
     const readBrand = async (): Promise<BrandViewData> => unwrapRemote(await Promise.race([
       remote.brand(),
-      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("读取企业品牌超时")), 10_000)),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error(t("client.brandTimeout"))), 10_000)),
     ]));
     brandStore.setReader(readBrand);
     await brandStore.refresh();
-    const org = brandStore.get().name || "企业";
+    const org = brandStore.get().name || t("client.defaultOrg");
     ctx.effect(() => brandStore.start());
     // 配色与 logo 无关，不需要接管品牌位置：交给 DSH 的主题服务按设计变量覆盖，改了就跟着变。
     // 主题服务不存在或拒绝注入时不能拖死后面的品牌槽位注册，单独兜底。
@@ -202,10 +213,10 @@ export async function apply(ctx: any): Promise<void> {
         state.setBusy(true);
         try {
           const result = unwrapRemote(await remote.login());
-          setNotice(result?.text || "请在浏览器完成企业登录。");
+          setNotice(result?.text || t("client.loginInBrowser"));
           // 之后由全局的登录轮询（每 5 秒）发现登录成功
         } catch {
-          setNotice("发起登录失败，请检查网络后重试。");
+          setNotice(t("client.loginStartFailed"));
         } finally {
           state.setBusy(false);
         }
@@ -215,7 +226,7 @@ export async function apply(ctx: any): Promise<void> {
         try {
           setDoctor(unwrapRemote(await remote.doctor()));
         } catch {
-          setNotice("诊断失败，请检查网络后重试。");
+          setNotice(t("client.diagnoseFailed"));
         } finally {
           state.setBusy(false);
         }

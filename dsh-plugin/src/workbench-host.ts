@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { dshHome } from "./config.js";
+import { t } from "./i18n/index.js";
 import { renderResult } from "./bridge.js";
 import type { CatalogApp } from "./skills.js";
 import type { DshContext } from "./dsh.js";
@@ -35,10 +36,10 @@ export function findWidget(apps: CatalogApp[], request: WidgetRequest): Workbenc
  */
 export async function readWidgetData(apps: CatalogApp[], tools: ToolCaller, request: WidgetRequest): Promise<WidgetData> {
   const widget = findWidget(apps, request);
-  if (!widget?.source) return { error: "目录里没有这个组件" };
+  if (!widget?.source) return { error: t("workbenchHost.noComponent") };
   const name = `${widget.source.connection}__${widget.source.tool}`;
   if (!tools.hasTool(name)) return { forbidden: true };
-  if (!tools.isReadOnlyTool(name)) return { error: "这个数据源不是只读工具，面板不能用它取数" };
+  if (!tools.isReadOnlyTool(name)) return { error: t("workbenchHost.notReadOnly") };
   try {
     return { value: toolValue(await tools.callTool(name, widget.source.args ?? {})) };
   } catch (error) {
@@ -50,7 +51,7 @@ export async function readWidgetData(apps: CatalogApp[], tools: ToolCaller, requ
 export async function insertFormRow(apps: CatalogApp[], tools: ToolCaller, request: WidgetRequest & { values?: Record<string, unknown> }): Promise<{ ok: true } | { error: string }> {
   const widget = findWidget(apps, request);
   const table = widget?.type === "form" ? widget.submit?.table : undefined;
-  if (!table) return { error: "这个表单没有配置提交到表" };
+  if (!table) return { error: t("workbenchHost.formNoTable") };
   const allowed = new Set((widget!.fields ?? []).map((field) => field.name));
   const row: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(request.values ?? {})) {
@@ -73,8 +74,8 @@ export async function writeTableRow(apps: CatalogApp[], tools: ToolCaller, reque
   const action = widget?.type === "table" && Number.isInteger(request?.action) ? widget.row_actions?.[request.action] : undefined;
   const write = action ? rowWriteOf(action) : undefined;
   const table = widget?.source?.table;
-  if (!action || !write || !table || action.table !== table) return { error: "这个按钮不能改表" };
-  if (!Number.isInteger(request.id) || request.id <= 0) return { error: "这一行没有编号" };
+  if (!action || !write || !table || action.table !== table) return { error: t("workbenchHost.rowNoAction") };
+  if (!Number.isInteger(request.id) || request.id <= 0) return { error: t("workbenchHost.rowNoId") };
   try {
     if (write === "set") {
       toolValue(await tools.callTool("app__write", { action: "update", app: request.app, table, id: request.id, row: action.set }));
@@ -104,7 +105,7 @@ export async function readKBDoc(tools: ToolCaller, request: KBDocRequest): Promi
   const name = kbTool("read");
   if (!tools.hasTool(name)) return { forbidden: true };
   const int = (value: any) => (Number.isInteger(value) && value > 0 ? value : undefined);
-  if (!int(request?.doc)) return { error: "文档编号不对" };
+  if (!int(request?.doc)) return { error: t("workbenchHost.badDoc") };
   try {
     return { value: toolValue(await tools.callTool(name, { doc: request.doc, version: int(request.version), from: int(request.from) ?? 1, to: int(request.to) })) };
   } catch (error) {
@@ -154,8 +155,8 @@ const safeName = /^[A-Za-z0-9_-]{1,80}$/;
 
 /** 每个应用每个会话一个文件：<dir>/<应用>--<会话>.json。 */
 function sessionFile(dir: string, app: string, sessionId: string): string {
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(app) || app.length > 48) throw new Error("微应用名不合法");
-  if (typeof sessionId !== "string" || !sessionId) throw new Error("会话 id 不合法");
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(app) || app.length > 48) throw new Error(t("workbenchHost.invalidAppName"));
+  if (typeof sessionId !== "string" || !sessionId) throw new Error(t("workbenchHost.invalidSessionId"));
   // 会话 id 原样做文件名不安全时，改用它的哈希
   const session = safeName.test(sessionId) ? sessionId : createHash("sha256").update(sessionId).digest("hex").slice(0, 32);
   return path.join(dir, `${app}--${session}.json`);
@@ -229,7 +230,7 @@ export class ChecklistStore {
 
   /** 把 done 里的条目勾上、undone 里的取消；返回这个清单现在勾了哪些。 */
   update(app: string, sessionId: string, key: string, done: string[], undone: string[]): string[] {
-    if (!/^[a-z0-9-]{1,32}:\d{1,2}$/.test(key)) throw new Error("清单编号不合法");
+    if (!/^[a-z0-9-]{1,32}:\d{1,2}$/.test(key)) throw new Error(t("workbenchHost.invalidChecklistKey"));
     const file = sessionFile(this.dir, app, sessionId);
     const current = this.read(app, sessionId) ?? { app, sessionId, updatedAt: "", lists: {} };
     const set = new Set(current.lists[key] ?? []);
@@ -257,74 +258,74 @@ export interface WorkbenchToolDeps {
 
 /** 执行一次 ee_workbench 调用；exec 是 DSH 传给工具的执行上下文，exec.agent.session 是调用它的会话。 */
 export async function runWorkbenchTool(deps: WorkbenchToolDeps, args: any, exec?: any): Promise<string> {
-  if (args?.action !== "board" && args?.action !== "checklist") throw new Error("action 只能是 board 或 checklist");
+  if (args?.action !== "board" && args?.action !== "checklist") throw new Error(t("workbenchHost.actionInvalid"));
   const app = String(args?.app ?? "");
   const apps = await deps.readApps();
   const target = apps.find((item) => item.name === app);
-  if (!target) throw new Error(`没有微应用 ${app}，或它不在你的可用范围内`);
+  if (!target) throw new Error(t("workbenchHost.appNotFound", { app }));
   if (args.action === "checklist") return runChecklist(deps, target, args, exec);
-  if (!target.workbench?.panes.some((pane) => pane.widgets?.some((widget) => widget.type === "board"))) throw new Error(`微应用 ${app} 的工作台没有 AI 看板`);
+  if (!target.workbench?.panes.some((pane) => pane.widgets?.some((widget) => widget.type === "board"))) throw new Error(t("workbenchHost.noBoard", { app }));
   const checked = checkBoardBlocks(args?.blocks);
   if (!checked.blocks) throw new Error(checked.error);
   const sessionId = exec?.agent?.session?.id ?? deps.boundSession(app);
-  if (typeof sessionId !== "string" || !sessionId) throw new Error("找不到要更新看板的会话");
+  if (typeof sessionId !== "string" || !sessionId) throw new Error(t("workbenchHost.noBoardSession"));
   const verified = await verifyCitations(deps.tools, checked.blocks);
   deps.boards.write(app, sessionId, verified.blocks);
-  const notes = ["已更新工作台看板"];
-  if (verified.bad.length) notes.push(`引用 ${verified.bad.map((n) => `[${n}]`).join(" ")} 对不上原文：请用 kb__read 重新读那几行，改正后再写一次看板，并在对话里向用户更正。`);
-  if (verified.stale.length) notes.push(`引用 ${verified.stale.map((n) => `[${n}]`).join(" ")} 的文档已经更新，请读最新版本确认结论没有变。`);
+  const notes = [t("workbenchHost.boardUpdated")];
+  if (verified.bad.length) notes.push(t("workbenchHost.badCitations", { numbers: verified.bad.map((n) => `[${n}]`).join(" ") }));
+  if (verified.stale.length) notes.push(t("workbenchHost.staleCitations", { numbers: verified.stale.map((n) => `[${n}]`).join(" ") }));
   return notes.join("\n");
 }
 
 /** ee_workbench 的 checklist 动作：按标题找到清单（只有一个时可以不写），勾上 done、取消 undone。 */
 function runChecklist(deps: WorkbenchToolDeps, target: CatalogApp, args: any, exec?: any): string {
-  if (!deps.checklists) throw new Error("这个版本的接入插件不支持清单");
+  if (!deps.checklists) throw new Error(t("workbenchHost.checklistUnsupported"));
   const found: { key: string; widget: WorkbenchWidget }[] = [];
   for (const pane of target.workbench?.panes ?? []) {
     (pane.widgets ?? []).forEach((widget, index) => {
       if (widget.type === "checklist") found.push({ key: checklistKey(pane.id, index), widget });
     });
   }
-  if (!found.length) throw new Error(`微应用 ${target.name} 的工作台没有清单`);
+  if (!found.length) throw new Error(t("workbenchHost.noChecklist", { app: target.name }));
   const title = typeof args?.title === "string" ? args.title.trim() : "";
   const picked = title ? found.filter((item) => item.widget.title === title) : found;
-  if (picked.length !== 1) throw new Error(title ? `没有标题是「${title}」的清单；可选：${found.map((item) => `「${item.widget.title}」`).join("")}` : `有 ${found.length} 个清单，请用 title 指定：${found.map((item) => `「${item.widget.title}」`).join("")}`);
+  if (picked.length !== 1) throw new Error(title ? t("workbenchHost.checklistNotFound", { title, options: found.map((item) => t("workbenchHost.checklistOption", { title: item.widget.title })).join("") }) : t("workbenchHost.checklistAmbiguous", { count: found.length, options: found.map((item) => t("workbenchHost.checklistOption", { title: item.widget.title })).join("") }));
   const ids = (value: any) => (Array.isArray(value) ? value.map((x) => String(x).trim()).filter((x) => x && x.length <= 80) : []);
   const done = ids(args?.done);
   const undone = ids(args?.undone);
-  if (!done.length && !undone.length) throw new Error("done 与 undone 至少填一个");
+  if (!done.length && !undone.length) throw new Error(t("workbenchHost.doneOrUndone"));
   const { key, widget } = picked[0];
   // 配置里写好的条目：编号必须存在；从数据源取的条目，编号由数据决定，这里不查
   if (widget.items?.length) {
     const known = widget.items.map((item) => item.id);
     const unknown = [...done, ...undone].filter((id) => !known.includes(id));
-    if (unknown.length) throw new Error(`清单「${widget.title}」里没有条目 ${unknown.join("、")}；条目编号：${known.join("、")}`);
+    if (unknown.length) throw new Error(t("workbenchHost.itemsNotFound", { title: widget.title, unknown: unknown.join(t("common.listSeparator")), known: known.join(t("common.listSeparator")) }));
   }
   const sessionId = exec?.agent?.session?.id ?? deps.boundSession(target.name);
-  if (typeof sessionId !== "string" || !sessionId) throw new Error("找不到要更新清单的会话");
+  if (typeof sessionId !== "string" || !sessionId) throw new Error(t("workbenchHost.noChecklistSession"));
   const now = deps.checklists.update(target.name, sessionId, key, done, undone);
   const total = widget.items?.length;
-  return total ? `已更新清单「${widget.title}」：完成 ${widget.items!.filter((item) => now.includes(item.id)).length}/${total}` : `已更新清单「${widget.title}」：已完成 ${now.length} 项`;
+  return total ? t("workbenchHost.checklistUpdated", { title: widget.title, done: widget.items!.filter((item) => now.includes(item.id)).length, total }) : t("workbenchHost.checklistMarked", { title: widget.title, count: now.length });
 }
 
 /** 注册 ee_workbench 工具，返回撤销函数。 */
 export function registerWorkbenchTool(ctx: DshContext, deps: WorkbenchToolDeps): () => void {
   return ctx.tools.register({
     name: workbenchToolName,
-    description: "更新当前微应用工作台：action=board 把本轮处理结果写到「AI 看板」（每次整体替换，citations 块里的知识库引用会自动核对）；action=checklist 勾选或取消工作台清单里的条目（done / undone 填条目编号）。不会改任何业务数据。",
+    description: t("workbenchHost.description"),
     parameters: {
       type: "object",
       required: ["action", "app"],
       properties: {
         action: { type: "string", enum: ["board", "checklist"] },
-        app: { type: "string", description: "微应用名，也就是 /名字 里的名字" },
-        title: { type: "string", description: "checklist：清单的标题；工作台只有一个清单时可以不填" },
-        done: { type: "array", items: { type: "string" }, description: "checklist：标成完成的条目编号" },
-        undone: { type: "array", items: { type: "string" }, description: "checklist：撤回完成的条目编号" },
+        app: { type: "string", description: t("workbenchHost.paramApp") },
+        title: { type: "string", description: t("workbenchHost.paramTitle") },
+        done: { type: "array", items: { type: "string" }, description: t("workbenchHost.paramDone") },
+        undone: { type: "array", items: { type: "string" }, description: t("workbenchHost.paramUndone") },
         blocks: {
           type: "array",
           maxItems: 20,
-          description: "看板内容，从上到下显示；只当文字显示，不支持 HTML",
+          description: t("workbenchHost.paramBlocks"),
           items: {
             type: "object",
             required: ["type"],
@@ -333,7 +334,7 @@ export function registerWorkbenchTool(ctx: DshContext, deps: WorkbenchToolDeps):
               text: { type: "string" },
               items: {
                 type: "array",
-                description: "list：每项一段文字；citations：每项一条知识库引用 {doc, version, from, to, quote, title}",
+                description: t("workbenchHost.paramItems"),
                 items: {
                   anyOf: [
                     { type: "string" },

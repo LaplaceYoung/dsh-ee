@@ -1,5 +1,6 @@
 import type { DshContext, PluginConfig } from "./dsh.js";
 import { DeviceFlow, openBrowser } from "./device.js";
+import { t } from "./i18n/index.js";
 import type { TokenManager } from "./token.js";
 
 /** /ee-login 后面跟的接入码（网页「开始使用」页给的），形如 ABCD-EFGH；没有就是空串。 */
@@ -23,10 +24,10 @@ export function registerCommands(ctx: DshContext, config: PluginConfig, tokens: 
   // flow.start 是网络请求；pending 要等它回来才赋值，中间这段用 starting 防并发。
   let starting = false;
   const login = async (rawInput?: string): Promise<CommandResult> => {
-    if (pending) return { kind: "success", text: `请在浏览器确认，确认码 ${pending.code}，链接 ${pending.url}` };
-    if (starting) return { kind: "success", text: "正在发起企业登录，请稍候…" };
+    if (pending) return { kind: "success", text: t("commands.pending", { code: pending.code, url: pending.url }) };
+    if (starting) return { kind: "success", text: t("commands.starting") };
     const setupCode = parseSetupCode(rawInput);
-    if (String(rawInput ?? "").trim() && !setupCode) return { kind: "error", text: "接入码格式不对，应形如 ABCD-EFGH；不带接入码直接输入 /ee-login 也可以" };
+    if (String(rawInput ?? "").trim() && !setupCode) return { kind: "error", text: t("commands.badSetupCode") };
     starting = true;
     let started;
     try {
@@ -50,8 +51,8 @@ export function registerCommands(ctx: DshContext, config: PluginConfig, tokens: 
     })();
     pending = { code: started.user_code, url, task };
     void task.catch(() => undefined);
-    if (setupCode) return { kind: "success", text: `回到 dsh-ee 网页的「开始使用」页，核对确认码 ${started.user_code} 后点「确认授权」（网页关了的话打开 ${url}）。确认后回到这里继续对话。` };
-    return { kind: "success", text: `请在浏览器确认，确认码 ${started.user_code}，链接 ${url}` };
+    if (setupCode) return { kind: "success", text: t("commands.setupConfirm", { code: started.user_code, url }) };
+    return { kind: "success", text: t("commands.pending", { code: started.user_code, url }) };
   };
 
   const commands = ctx.get("commands");
@@ -62,38 +63,38 @@ export function registerCommands(ctx: DshContext, config: PluginConfig, tokens: 
     };
     register({
       name: "ee-login",
-      description: "登录企业账号（可以带上网页「开始使用」页给的接入码）",
-      input: { hint: "[接入码]" },
+      description: t("commands.loginDescription"),
+      input: { hint: t("commands.setupCodeHint") },
       handler: (invocation: any) => login(invocation?.rawInput),
     });
     register({
       name: "ee-status",
-      description: "查看企业登录状态",
+      description: t("commands.statusDescription"),
       handler: async () => {
         const current = await tokens.resolve();
-        if (!current) return { kind: "success", text: "未登录，在对话框输入 /ee-login" };
+        if (!current) return { kind: "success", text: t("commands.notLoggedIn") };
         let response: Response;
         try {
           response = await fetch(`${config.base}/api/dsh/whoami`, { headers: { Authorization: `Bearer ${current.value}` }, signal: AbortSignal.timeout(30_000) });
         } catch {
-          return { kind: "error", text: "连不上 dsh-ee，请检查网络或 VPN 后重试" };
+          return { kind: "error", text: t("commands.unreachable") };
         }
         if (!response.ok) {
-          if (response.status === 401) return { kind: "success", text: "登录已失效，在对话框输入 /ee-login" };
-          return { kind: "error", text: `dsh-ee 返回 HTTP ${response.status}，稍后再试（不是登录失效）` };
+          if (response.status === 401) return { kind: "success", text: t("commands.sessionExpired") };
+          return { kind: "error", text: t("commands.httpError", { status: response.status }) };
         }
         const me = await response.json() as { username: string; department: string; token_prefix: string; expires_at?: string; client_name?: string };
         const matches = await tokens.npmrcMatches(current.value);
-        const expiry = me.expires_at ? ` · ${new Date(me.expires_at).toLocaleDateString()} 到期` : " · 长期有效";
-        return { kind: "success", text: `已登录 ${me.username}（${me.department}）· 令牌 ${me.token_prefix}${expiry} · 插件 ${config.version} · npmrc ${matches ? "一致" : "不一致"}` };
+        const expiry = me.expires_at ? t("commands.expiresOn", { date: new Date(me.expires_at).toLocaleDateString() }) : t("commands.neverExpires");
+        return { kind: "success", text: t("commands.statusLine", { username: me.username, department: me.department, token: me.token_prefix, expiry, version: config.version, npmrc: matches ? t("commands.npmrcMatch") : t("commands.npmrcMismatch") }) };
       },
     });
     register({
       name: "ee-logout",
-      description: "退出企业账号",
+      description: t("commands.logoutDescription"),
       handler: async () => {
         const current = await tokens.resolve();
-        if (!current) return { kind: "success", text: "当前没有登录企业账号" };
+        if (!current) return { kind: "success", text: t("commands.noAccount") };
         const revoked = await fetch(`${config.base}/api/dsh/logout`, { method: "POST", headers: { Authorization: `Bearer ${current.value}` }, signal: AbortSignal.timeout(30_000) })
           .then((response) => response.ok, () => false);
         await tokens.unset(current.value);
@@ -102,10 +103,10 @@ export function registerCommands(ctx: DshContext, config: PluginConfig, tokens: 
         if (left?.value === current.value) {
           return {
             kind: "error",
-            text: `${revoked ? "已在服务端吊销该令牌，" : ""}但它来自环境变量或 $DSH_HOME/.env（${config.tokenRef}），请手动删除后重启 DSH`,
+            text: `${revoked ? t("commands.revokedPrefix") : ""}${t("commands.envToken", { ref: config.tokenRef })}`,
           };
         }
-        return { kind: "success", text: revoked ? "已退出企业账号" : "本机已退出；连不上 dsh-ee，令牌未能在服务端吊销，可在网页「我的令牌」里吊销" };
+        return { kind: "success", text: revoked ? t("commands.loggedOut") : t("commands.loggedOutOffline") };
       },
     });
   }

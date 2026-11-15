@@ -77,7 +77,7 @@ export function NamedSharedCredentials({ assetId, spec, set }: { assetId?: numbe
           {!items.length && <p className="text-sm text-neutral-500">{t("sharedCredentials.empty")}</p>}
           {items.map((c) => (
             <div key={c.name} className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-neutral-50 px-3 py-2" data-testid={`shared-credential-${c.name}`}>
-              <div className="flex flex-wrap items-center gap-2 text-sm"><Badge tone={selected === c.name ? "brand" : "slate"}>{c.name}</Badge><span>{c.secret_hint}</span>{c.updated_at && <span className="text-xs text-neutral-500">{t("sharedCredentials.updatedAt", { time: formatDate(Date.parse(c.updated_at)) })}</span>}</div>
+              <div className="flex flex-wrap items-center gap-2 text-sm"><Badge tone={selected === c.name ? "brand" : "slate"}>{c.name}</Badge><span>{c.secret_hint}</span>{c.updated_at && <span className="text-xs text-neutral-500">{t("sharedCredentials.updatedAt", { time: formatDate(Date.parse(c.updated_at) / 1000) })}</span>}</div>
               <div className="flex gap-1">
                 <Button type="button" size="sm" variant="ghost" disabled={busy} aria-label={t("sharedCredentials.replace") + ` ${c.name}`} onClick={() => { setAdding(true); setName(c.name); setSecret(""); setError(null); }}><RefreshCw size={13} /> {t("sharedCredentials.replace")}</Button>
                 <Button type="button" size="sm" variant="ghost" disabled={busy} aria-label={t("sharedCredentials.delete") + ` ${c.name}`} onClick={() => remove(c.name)}>{t("sharedCredentials.delete")}</Button>

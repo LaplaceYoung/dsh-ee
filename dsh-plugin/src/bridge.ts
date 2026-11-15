@@ -1,6 +1,7 @@
 import type { DshContext, PluginConfig } from "./dsh.js";
 import type { HttpClient } from "./http.js";
 import { resultOk, writeOf, type WriteRecord } from "./write-log.js";
+import { t } from "./i18n/index.js";
 
 /** 写操作发生后通知调用方（记到本机按会话的写操作日志）；拿不到会话 id 时不记。 */
 export type WriteListener = (sessionId: string, record: WriteRecord) => void;
@@ -18,7 +19,7 @@ export type LocalAction = (args: any) => Promise<unknown>;
 export function renderResult(value: any): string {
   if (value && Array.isArray(value.content)) {
     const text = value.content.filter((part: any) => part?.type === "text").map((part: any) => String(part.text)).join("\n");
-    return value.isError ? `错误：${text}` : text;
+    return value.isError ? t("bridge.error", { text }) : text;
   }
   return JSON.stringify(value);
 }

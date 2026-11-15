@@ -1,16 +1,20 @@
 import { startText } from "./apps-view.js";
+import { t } from "./i18n/index.js";
 import { createSession, currentSessionOf, openSession, sendToSession } from "./host-session.js";
 import type { CatalogApp } from "./skills.js";
 
 /** 发送这一步出错：消息可能已经到了宿主，调用方不能再填输入框或重发。 */
 export class SendUnknownError extends Error {
   constructor(cause: unknown) {
-    super("消息可能没有发出，请查看会话后再试");
+    super(t("appLauncher.sendUnknown"));
     this.cause = cause;
   }
 }
 
-export const sendUnknownNotice = "消息可能没有发出，请查看会话后再试";
+/** 发送结果不确定时的提示（按当前界面语言在调用时取）。 */
+export function sendUnknownNotice(): string {
+  return t("appLauncher.sendUnknown");
+}
 
 export interface LauncherDeps {
   /** 记下应用当前对应的会话；失败不影响启动。 */
@@ -79,7 +83,7 @@ export function createLauncher(ctx: any, deps: LauncherDeps) {
       return "";
     } catch (error) {
       try { console.error("dsh-ee launch failed:", error); } catch { /* console 不可用时忽略 */ }
-      if (error instanceof SendUnknownError) return sendUnknownNotice;
+      if (error instanceof SendUnknownError) return sendUnknownNotice();
       return fallback();
     }
   };

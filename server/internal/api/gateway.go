@@ -93,6 +93,19 @@ func modelAllowed(p *Principal, quota *store.UserQuota, model string) bool {
 	return len(p.Models) == 0 || slices.Contains(p.Models, model)
 }
 
+// modelReasoningCapability 是 /v1/models 里每个模型的思考模式能力声明。
+// additive 字段：旧客户端只读 id / object / owned_by，忽略这段不受影响。
+type modelReasoningCapability struct {
+	Supported bool     `json:"supported"`
+	Efforts   []string `json:"efforts"`
+}
+
+type modelCapabilities struct {
+	Reasoning modelReasoningCapability `json:"reasoning"`
+	// Input 是该模型接受的请求输入模态（text/image/file，text 始终存在）；additive 字段。
+	Input []string `json:"input"`
+}
+
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 	k, quota, ok := s.authKey(w, r)
 	if !ok {
@@ -105,28 +118,93 @@ func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	type model struct {
-		ID      string `json:"id"`
-		Object  string `json:"object"`
-		OwnedBy string `json:"owned_by"`
+		ID           string            `json:"id"`
+		Object       string            `json:"object"`
+		OwnedBy      string            `json:"owned_by"`
+		Capabilities modelCapabilities `json:"capabilities"`
 	}
 	data := []model{}
 	for _, m := range ms {
-		if modelAllowed(k, quota, m.Name) {
-			data = append(data, model{ID: m.Name, Object: "model", OwnedBy: m.OwnedBy})
+		if !modelAllowed(k, quota, m.Name) {
+			continue
 		}
+		efforts := m.ReasoningEfforts
+		if !m.SupportsReasoning || efforts == nil {
+			// 不支持思考模式时不公布 effort，避免客户端据此误判；JSON 里保持 [] 而不是 null。
+			efforts = []string{}
+		}
+		modalities := m.InputModalities
+		if modalities == nil {
+			modalities = []string{"text"}
+		}
+		data = append(data, model{
+			ID: m.Name, Object: "model", OwnedBy: m.OwnedBy,
+			Capabilities: modelCapabilities{
+				Reasoning: modelReasoningCapability{Supported: m.SupportsReasoning, Efforts: efforts},
+				Input:     modalities,
+			},
+		})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"object": "list", "data": data})
 }
 
+// tokenUsage 是上游返回的 usage。普通字段各厂商都一样；细项的位置不统一：
+// OpenAI 放在 *_tokens_details 里，DeepSeek 的缓存命中 / 未命中在 usage 顶层。
+// 这里都收集起来，记账前用 reasoningTokens / cachedTokens 归一。
 type tokenUsage struct {
 	PromptTokens     int `json:"prompt_tokens"`
 	CompletionTokens int `json:"completion_tokens"`
 	TotalTokens      int `json:"total_tokens"`
+
+	CompletionTokensDetails *usageCompletionDetails `json:"completion_tokens_details"`
+	PromptTokensDetails     *usagePromptDetails     `json:"prompt_tokens_details"`
+
+	// DeepSeek：命中和未命中分开给，两者之和等于 prompt_tokens
+	PromptCacheHitTokens  int `json:"prompt_cache_hit_tokens"`
+	PromptCacheMissTokens int `json:"prompt_cache_miss_tokens"`
+}
+
+type usageCompletionDetails struct {
+	ReasoningTokens int `json:"reasoning_tokens"`
+}
+
+type usagePromptDetails struct {
+	CachedTokens int `json:"cached_tokens"`
+}
+
+// reasoningTokens 返回推理（思考）token 数；上游没给细项时为 0。
+func (u *tokenUsage) reasoningTokens() int {
+	if u.CompletionTokensDetails != nil && u.CompletionTokensDetails.ReasoningTokens > 0 {
+		return u.CompletionTokensDetails.ReasoningTokens
+	}
+	return 0
+}
+
+// cachedTokens 返回命中前缀缓存的 prompt token 数。OpenAI 兼容上游给
+// prompt_tokens_details.cached_tokens，DeepSeek 另给顶层 prompt_cache_hit_tokens；
+// 只给了 miss 时按 prompt_tokens - miss 推回命中数。都没给时为 0。
+func (u *tokenUsage) cachedTokens() int {
+	if u.PromptTokensDetails != nil && u.PromptTokensDetails.CachedTokens > 0 {
+		return u.PromptTokensDetails.CachedTokens
+	}
+	if u.PromptCacheHitTokens > 0 {
+		return u.PromptCacheHitTokens
+	}
+	if u.PromptCacheMissTokens > 0 && u.PromptTokens >= u.PromptCacheMissTokens {
+		return u.PromptTokens - u.PromptCacheMissTokens
+	}
+	return 0
 }
 
 // llmErrWriter 写一条模型网关错误。同一套校验/故障转移逻辑供 OpenAI 与 Anthropic
 // 两个端点复用，差别只在错误壳与状态码文案，由各端点传入自己的写法。
 type llmErrWriter func(status int, typ, code, msg string)
+
+// upstreamBodyFn 在每条候选线路上生成实际发给上游的请求体，参数是客户端请求体、
+// 该线路的上游模型名与 provider.vendor。Chat Completions 用它按 vendor 注入 DeepSeek
+// Chatbot 的 safety_check / title（docs/dev/chatbot.md）；nil 时保持「只改写 model、
+// 其余字段原样」的默认行为（Anthropic 端点的转换层走这条路径）。
+type upstreamBodyFn func(clientBody map[string]any, upstreamModel, vendor string) map[string]any
 
 // openaiErrorWriter 是 OpenAI 兼容网关错误的写法：普通客户端拿 OpenAI 壳，
 // DSH 接入插件额外映射成 400 的可展示文案（见 writeGatewayError）。
@@ -190,19 +268,20 @@ func (s *Server) loadModelCandidates(w http.ResponseWriter, r *http.Request, mod
 }
 
 // openChatUpstream 按模型候选列表依次尝试上游，返回可用的上游响应和实际使用的 provider。
-// body 会按候选改写 model 字段；一旦开始向客户端写响应就不再切换。失败时它已经用 writeErr
-// 写好响应并返回 ok=false，调用方只需关闭 resp.Body 并继续转发/转换。
-func (s *Server) openChatUpstream(w http.ResponseWriter, r *http.Request, k *Principal, model string, body map[string]any, stream bool, start time.Time, writeErr llmErrWriter) (*http.Response, *store.Provider, bool) {
+// body 会按候选改写 model 字段（传入 bodyFn 时由它构造每条线路的请求体，例如 Chat
+// Completions 的 DeepSeek Chatbot 注入）；一旦开始向客户端写响应就不再切换。失败时它已经
+// 用 writeErr 写好响应并返回 ok=false，调用方只需关闭 resp.Body 并继续转发/转换。
+func (s *Server) openChatUpstream(w http.ResponseWriter, r *http.Request, k *Principal, model string, body map[string]any, stream bool, start time.Time, writeErr llmErrWriter, bodyFn upstreamBodyFn) (*http.Response, *store.Provider, bool) {
 	cands, ok := s.loadModelCandidates(w, r, model, writeErr)
 	if !ok {
 		return nil, nil, false
 	}
-	return s.openChatUpstreamCandidates(w, r, k, model, body, stream, start, cands, writeErr)
+	return s.openChatUpstreamCandidates(w, r, k, model, body, stream, start, cands, writeErr, bodyFn)
 }
 
 // openChatUpstreamCandidates 是 openChatUpstream 的候选线路版本，供已经取过候选列表的调用方
 // （Anthropic 端点要先按 vendor 决定原生透传还是降级转换）复用，避免重复查库。
-func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Request, k *Principal, model string, body map[string]any, stream bool, start time.Time, cands []store.Candidate, writeErr llmErrWriter) (*http.Response, *store.Provider, bool) {
+func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Request, k *Principal, model string, body map[string]any, stream bool, start time.Time, cands []store.Candidate, writeErr llmErrWriter, bodyFn upstreamBodyFn) (*http.Response, *store.Provider, bool) {
 	// 按优先级逐个尝试：连不上、429、5xx 时换下一条线路；一旦开始给客户端写响应就不再切换。
 	var resp *http.Response
 	var p *store.Provider
@@ -225,8 +304,7 @@ func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Reque
 			}
 			continue
 		}
-		body["model"] = c.UpstreamModel
-		out, err := json.Marshal(body)
+		out, err := json.Marshal(candidateChatBody(body, c.UpstreamModel, p.Vendor, bodyFn))
 		if err != nil {
 			writeErr(http.StatusBadRequest, "invalid_request_error", "invalid_json", "请求体无法转发")
 			return nil, nil, false
@@ -275,6 +353,18 @@ func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Reque
 	return resp, p, true
 }
 
+// candidateChatBody 返回发往一条候选线路的请求体。bodyFn 为空时保持原行为：只把
+// model 换成该线路的上游模型名、其余字段原样；Chat Completions 传入 s.upstreamChatBody，
+// 在 vendor=deepseek 的线路上按部署配置补 safety_check / title（客户端已传则保留），
+// 并且每次尝试都用独立 map，故障切换不会把注入字段带给其它线路。
+func candidateChatBody(body map[string]any, upstreamModel, vendor string, bodyFn upstreamBodyFn) map[string]any {
+	if bodyFn == nil {
+		body["model"] = upstreamModel
+		return body
+	}
+	return bodyFn(body, upstreamModel, vendor)
+}
+
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	k, quota, ok := s.authKey(w, r)
@@ -303,6 +393,11 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		writeGatewayError(w, r, http.StatusForbidden, "permission_error", "model_not_allowed", "你的账号不能使用模型 "+model+"，可在 /ee-status 查看可用模型")
 		return
 	}
+	// DeepSeek Files 是上游账号级共享资源：普通员工默认不能引用 file_id，在请求上游之前拦截。
+	if !s.fileAccessAllowed(k) && chatRequestReferencesFiles(body) {
+		writeOpenAIFileAccessDenied(w)
+		return
+	}
 	// 生成参数在转发前收口：超额输出、多候选会让单次请求的用量脱离额度约束。
 	if code, msg := completionLimitError(body); code != "" {
 		writeGatewayError(w, r, http.StatusBadRequest, "invalid_request_error", code, msg)
@@ -323,8 +418,9 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		body["stream_options"] = opts
 	}
 
-	// 复用与 Anthropic 端点相同的候选选择、故障转移与冷却逻辑。
-	resp, p, ok := s.openChatUpstream(w, r, k, model, body, stream, start, s.openaiUpstreamErrorWriter(w))
+	// 复用与 Anthropic 端点相同的候选选择、故障转移与冷却逻辑；
+	// Chat Completions 额外按 vendor 注入 DeepSeek Chatbot 选项（docs/dev/chatbot.md）。
+	resp, p, ok := s.openChatUpstream(w, r, k, model, body, stream, start, s.openaiUpstreamErrorWriter(w), s.upstreamChatBody)
 	if !ok {
 		return
 	}
@@ -407,6 +503,7 @@ func relaySSE(w http.ResponseWriter, body io.Reader) (tokenUsage, int) {
 }
 
 // streamChunk 只取记账要用的字段：usage，以及增量里会计费的文字（正文、思考、工具参数）。
+// FIM（/beta/completions）的流式增量不在 delta 里，而在 choices[].text；一并计入估算。
 type streamChunk struct {
 	Usage   *tokenUsage `json:"usage"`
 	Choices []struct {
@@ -420,6 +517,7 @@ type streamChunk struct {
 				} `json:"function"`
 			} `json:"tool_calls"`
 		} `json:"delta"`
+		Text string `json:"text"`
 	} `json:"choices"`
 }
 
@@ -431,8 +529,51 @@ func (c *streamChunk) deltaTokens() int {
 		for _, tc := range d.ToolCalls {
 			n += estimateTokens([]byte(tc.Function.Name)) + estimateTokens([]byte(tc.Function.Arguments))
 		}
+		n += estimateTokens([]byte(ch.Text))
 	}
 	return n
+}
+
+// chatReferencesFileID 报告 Chat Completions 请求的 messages 里是否引用了已上传文件的
+// file_id（DeepSeek 的 file 内容块、Anthropic 风格 document 块，统一按递归查找 file_id
+// 字段处理；只看 messages 里的内容，避免把工具声明里的属性名当成引用）。
+func chatReferencesFileID(body map[string]any) bool {
+	raw, ok := body["messages"].([]any)
+	if !ok {
+		return false
+	}
+	for _, item := range raw {
+		msg, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if hasNonEmptyFileID(msg["content"]) {
+			return true
+		}
+	}
+	return false
+}
+
+// hasNonEmptyFileID 递归查找 map/slice 里值为非空字符串的 file_id 字段。
+func hasNonEmptyFileID(v any) bool {
+	switch x := v.(type) {
+	case map[string]any:
+		if id, ok := x["file_id"].(string); ok && strings.TrimSpace(id) != "" {
+			return true
+		}
+		for _, vv := range x {
+			if hasNonEmptyFileID(vv) {
+				return true
+			}
+		}
+	case []any:
+		for _, vv := range x {
+			if hasNonEmptyFileID(vv) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // estimateTokens 粗估 token 数，只在上游没给 usage 时兜底用：
@@ -459,6 +600,7 @@ func (s *Server) recordUsage(ctx context.Context, k *Principal, p *store.Provide
 	if u.TotalTokens == 0 {
 		u.TotalTokens = u.PromptTokens + u.CompletionTokens
 	}
+	reasoning, cached := u.reasoningTokens(), u.cachedTokens()
 	err := s.store.RecordUsage(ctx, store.Usage{
 		APIKeyID:         k.LegacyID,
 		UserID:           k.User.ID,
@@ -470,7 +612,18 @@ func (s *Server) recordUsage(ctx context.Context, k *Principal, p *store.Provide
 		TotalTokens:      u.TotalTokens,
 		StatusCode:       status,
 		LatencyMS:        int(time.Since(start).Milliseconds()),
+		ReasoningTokens:  reasoning,
+		CachedTokens:     cached,
 	})
+	if err == nil {
+		// 指标只累计真正写进库的调用，和 usage_logs 的累计口径一致。
+		if reasoning > 0 {
+			s.usageReasoningTokens.Add(int64(reasoning))
+		}
+		if cached > 0 {
+			s.usageCachedTokens.Add(int64(cached))
+		}
+	}
 	if err == nil && k.LegacyID > 0 {
 		err = s.store.TouchAPIKey(ctx, k.LegacyID)
 	}

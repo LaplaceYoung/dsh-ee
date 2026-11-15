@@ -1,6 +1,8 @@
 // 业务工作台的数据结构与纯函数：地址、取值、格式化、占位符替换、表单与看板校验。
 // 配置由 dsh-ee 服务端校验后下发（server/internal/api/workbench.go），这里只做显示与发送前的处理。
 
+import { getLang, localeTag, t } from "./i18n/index.js";
+
 export interface WorkbenchAction {
   label: string;
   /** 发给 AI 的话；表单提交到表（table）时可以不填 */
@@ -108,16 +110,16 @@ export function formatValue(value: any, format?: string): string {
   const number = typeof value === "number" ? value : Number(value);
   switch (format) {
     case "money":
-      return Number.isFinite(number) ? number.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(value);
+      return Number.isFinite(number) ? number.toLocaleString(localeTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(value);
     case "number":
-      return Number.isFinite(number) ? number.toLocaleString("zh-CN") : String(value);
+      return Number.isFinite(number) ? number.toLocaleString(localeTag()) : String(value);
     case "compact":
       return Number.isFinite(number) ? compactNumber(number) : String(value);
     case "percent":
       return Number.isFinite(number) ? `${Number((number * 100).toFixed(2))}%` : String(value);
     case "date": {
       const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString("zh-CN");
+      return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleDateString(localeTag());
     }
     default:
       return typeof value === "object" ? JSON.stringify(value) : String(value);
@@ -127,10 +129,16 @@ export function formatValue(value: any, format?: string): string {
 /** 1.2 万、3.4 亿：大数字在窄面板上也放得下。 */
 export function compactNumber(n: number): string {
   const abs = Math.abs(n);
-  const trim = (x: number) => Number(x.toFixed(x >= 100 ? 0 : 1)).toLocaleString("zh-CN");
-  if (abs >= 1e8) return `${n < 0 ? "-" : ""}${trim(abs / 1e8)} 亿`;
-  if (abs >= 1e4) return `${n < 0 ? "-" : ""}${trim(abs / 1e4)} 万`;
-  return n.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  const trim = (x: number) => Number(x.toFixed(x >= 100 ? 0 : 1)).toLocaleString(localeTag());
+  // 数字单位是语言习惯：中文用「亿 / 万」，其它语言用 B / M（不逐词直译）
+  if (getLang() === "zh-CN") {
+    if (abs >= 1e8) return `${n < 0 ? "-" : ""}${trim(abs / 1e8)}${t("workbench.unitHundredMillion")}`;
+    if (abs >= 1e4) return `${n < 0 ? "-" : ""}${trim(abs / 1e4)}${t("workbench.unitTenThousand")}`;
+  } else {
+    if (abs >= 1e9) return `${n < 0 ? "-" : ""}${trim(abs / 1e9)}${t("workbench.unitBillion")}`;
+    if (abs >= 1e6) return `${n < 0 ? "-" : ""}${trim(abs / 1e6)}${t("workbench.unitMillion")}`;
+  }
+  return n.toLocaleString(localeTag(), { maximumFractionDigits: 2 });
 }
 
 /** 变化比例 → 「↑12%」「↓3.5%」「持平」；不是数字时返回空字符串。 */
@@ -138,7 +146,7 @@ export function formatDelta(value: any): { text: string; direction: "up" | "down
   if (value === null || value === undefined || value === "") return undefined;
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return undefined;
-  if (Math.abs(n) < 0.0005) return { text: "持平", direction: "flat" };
+  if (Math.abs(n) < 0.0005) return { text: t("workbench.flat"), direction: "flat" };
   return { text: `${n > 0 ? "↑" : "↓"}${Number((Math.abs(n) * 100).toFixed(1))}%`, direction: n > 0 ? "up" : "down" };
 }
 
@@ -189,7 +197,7 @@ function placeholderValue(value: any): string {
 /** 把 {{row.x}} / {{form.x}} 换成这一行或这张表单里的值，{{scope.kbs}} 换成勾选的知识库，得到发给 AI 的一段普通文字。 */
 export function fillPrompt(prompt: string, data: { row?: any; form?: Record<string, any>; scope?: { kbs: string } }): string {
   return prompt.replace(placeholder, (_match, scope: "row" | "form" | "scope", path: string) =>
-    placeholderValue(getPath(scope === "row" ? data.row : scope === "form" ? data.form : data.scope ?? { kbs: "全部知识库" }, path)));
+    placeholderValue(getPath(scope === "row" ? data.row : scope === "form" ? data.form : data.scope ?? { kbs: t("workbench.allKbs") }, path)));
 }
 
 export interface KBaseItem {
@@ -201,8 +209,8 @@ export interface KBaseItem {
 /** {{scope.kbs}} 的文字：勾选了就是「知识库「A」「B」（标识 a、b）」，没勾就是全部。 */
 export function scopeText(bases: KBaseItem[], selected: string[]): string {
   const picked = bases.filter((item) => selected.includes(item.kb));
-  if (!picked.length) return "全部知识库";
-  return `知识库${picked.map((item) => `「${item.title}」`).join("")}（标识 ${picked.map((item) => item.kb).join("、")}）`;
+  if (!picked.length) return t("workbench.allKbs");
+  return t("workbench.scopePicked", { titles: picked.map((item) => t("workbench.kbTitle", { title: item.title })).join(""), ids: picked.map((item) => item.kb).join(t("common.listSeparator")) });
 }
 
 /** 表单提交前的检查；返回第一条错误，没有错误返回空字符串。 */
@@ -210,9 +218,9 @@ export function checkForm(fields: WorkbenchField[], values: Record<string, any>)
   for (const field of fields) {
     const raw = values[field.name];
     const value = typeof raw === "string" ? raw.trim() : raw;
-    if (field.required && (value === undefined || value === null || value === "")) return `请填写「${field.label}」`;
-    if (field.kind === "number" && value !== undefined && value !== "" && !Number.isFinite(Number(value))) return `「${field.label}」要填数字`;
-    if (field.kind === "select" && value && !(field.options ?? []).includes(value)) return `「${field.label}」请从选项里选`;
+    if (field.required && (value === undefined || value === null || value === "")) return t("workbench.formRequired", { label: field.label });
+    if (field.kind === "number" && value !== undefined && value !== "" && !Number.isFinite(Number(value))) return t("workbench.formNumber", { label: field.label });
+    if (field.kind === "select" && value && !(field.options ?? []).includes(value)) return t("workbench.formSelect", { label: field.label });
   }
   return "";
 }
@@ -228,7 +236,7 @@ export function tableRows(result: any, rows?: string): { rows: any[]; total: num
 export function toolValue(result: any): any {
   if (result?.isError) {
     const text = (result.content ?? []).filter((part: any) => part?.type === "text").map((part: any) => part.text).join("\n");
-    throw new Error(text || "企业工具调用失败");
+    throw new Error(text || t("overview.toolFailed"));
   }
   if (result?.structuredContent !== undefined) return result.structuredContent;
   const text = (result?.content ?? []).filter((part: any) => part?.type === "text").map((part: any) => String(part.text)).join("\n");
@@ -270,43 +278,43 @@ const maxBoardBytes = 32 << 10;
 
 /** 校验 AI 写看板的参数；内容只当文字显示，不渲染 HTML。返回规范化后的块或错误。 */
 export function checkBoardBlocks(blocks: any): { blocks?: BoardBlock[]; error?: string } {
-  if (!Array.isArray(blocks) || blocks.length === 0) return { error: "blocks 必须是非空数组" };
-  if (blocks.length > 20) return { error: "看板最多 20 块" };
-  if (new TextEncoder().encode(JSON.stringify(blocks)).length > maxBoardBytes) return { error: "看板内容不能超过 32 KB" };
+  if (!Array.isArray(blocks) || blocks.length === 0) return { error: t("workbench.blocksRequired") };
+  if (blocks.length > 20) return { error: t("workbench.blocksTooMany") };
+  if (new TextEncoder().encode(JSON.stringify(blocks)).length > maxBoardBytes) return { error: t("workbench.boardTooLarge") };
   const out: BoardBlock[] = [];
   const text = (value: any) => (value === null || value === undefined ? "" : String(value));
   for (const [index, block] of blocks.entries()) {
-    const where = `第 ${index + 1} 块`;
+    const where = t("workbench.blockWhere", { index: index + 1 });
     switch (block?.type) {
       case "text":
-        if (typeof block.text !== "string" || !block.text.trim()) return { error: `${where}：text 不能为空` };
+        if (typeof block.text !== "string" || !block.text.trim()) return { error: t("workbench.textEmpty", { where }) };
         out.push({ type: "text", text: block.text });
         break;
       case "list":
-        if (!Array.isArray(block.items) || block.items.length === 0 || block.items.length > 50) return { error: `${where}：items 要有 1～50 项` };
+        if (!Array.isArray(block.items) || block.items.length === 0 || block.items.length > 50) return { error: t("workbench.itemsRange", { where }) };
         out.push({ type: "list", items: block.items.map(text) });
         break;
       case "table":
-        if (!Array.isArray(block.columns) || block.columns.length === 0 || block.columns.length > 12) return { error: `${where}：columns 要有 1～12 列` };
-        if (!Array.isArray(block.rows) || block.rows.length > 50 || !block.rows.every((row: any) => Array.isArray(row))) return { error: `${where}：rows 必须是最多 50 行的二维数组` };
+        if (!Array.isArray(block.columns) || block.columns.length === 0 || block.columns.length > 12) return { error: t("workbench.columnsRange", { where }) };
+        if (!Array.isArray(block.rows) || block.rows.length > 50 || !block.rows.every((row: any) => Array.isArray(row))) return { error: t("workbench.rowsRange", { where }) };
         out.push({ type: "table", columns: block.columns.map(text), rows: block.rows.map((row: any[]) => row.map(text)) });
         break;
       case "citations": {
-        if (!Array.isArray(block.items) || block.items.length === 0 || block.items.length > 30) return { error: `${where}：items 要有 1～30 条引用` };
+        if (!Array.isArray(block.items) || block.items.length === 0 || block.items.length > 30) return { error: t("workbench.citationsRange", { where }) };
         const items: Citation[] = [];
         for (const [i, item] of block.items.entries()) {
-          const at = `${where}第 ${i + 1} 条引用`;
+          const at = t("workbench.citationAt", { where, index: i + 1 });
           const int = (value: any) => Number.isInteger(value) && value > 0;
-          if (!int(item?.doc) || !int(item?.from) || !int(item?.to) || item.to < item.from) return { error: `${at}：doc、from、to 要是正整数，且 to 不小于 from` };
-          if (item.version !== undefined && item.version !== null && !int(item.version)) return { error: `${at}：version 要是正整数` };
-          if (typeof item.quote !== "string" || !item.quote.trim() || item.quote.length > 500) return { error: `${at}：quote 要写 1～500 字的原文摘句` };
+          if (!int(item?.doc) || !int(item?.from) || !int(item?.to) || item.to < item.from) return { error: t("workbench.citationNumbers", { at }) };
+          if (item.version !== undefined && item.version !== null && !int(item.version)) return { error: t("workbench.citationVersion", { at }) };
+          if (typeof item.quote !== "string" || !item.quote.trim() || item.quote.length > 500) return { error: t("workbench.citationQuote", { at }) };
           items.push({ doc: item.doc, version: item.version ?? undefined, from: item.from, to: item.to, quote: item.quote, title: item.title === undefined ? undefined : text(item.title).slice(0, 200) });
         }
         out.push({ type: "citations", items });
         break;
       }
       default:
-        return { error: `${where}：type 只能是 text、list、table 或 citations` };
+        return { error: t("workbench.blockType", { where }) };
     }
   }
   return { blocks: out };

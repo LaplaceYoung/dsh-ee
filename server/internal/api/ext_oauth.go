@@ -372,6 +372,9 @@ func (s *Server) loadOAuthConnection(ctx context.Context, v viewer, id int64) (*
 
 // POST /api/me/connections/{id}/oauth/start：返回要跳去的授权地址。
 func (s *Server) handleOAuthStart(w http.ResponseWriter, r *http.Request) {
+	if !s.requireFullSession(w, r) {
+		return
+	}
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, "连接 id 不对")
@@ -434,6 +437,11 @@ func (s *Server) handleOAuthStart(w http.ResponseWriter, r *http.Request) {
 
 // GET /api/oauth/callback：对方系统把员工带回来。校验 state（必须是当前登录的这个人发起的）、换令牌、按人保存。
 func (s *Server) handleOAuthCallback(w http.ResponseWriter, r *http.Request) {
+	// 回调是浏览器往返，state 里没有会话类型；发起授权已被 handleOAuthStart 拦住，
+	// 这里再按当前会话类型拦一次，防 limited 会话拿旧 state（10 分钟有效）直接回放完成绑定。
+	if !s.requireFullSession(w, r) {
+		return
+	}
 	q := r.URL.Query()
 	back := func(assetID int64, problem string) {
 		target := "/workbench"

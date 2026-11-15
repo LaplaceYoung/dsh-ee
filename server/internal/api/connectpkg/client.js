@@ -28,7 +28,2779 @@ __export(client_exports, {
   inject: () => inject
 });
 module.exports = __toCommonJS(client_exports);
-var import_react5 = require("react");
+var import_react6 = require("react");
+
+// src/i18n/zh.ts
+var zh = {
+  // 多个模块共用的词（视图标题/按钮/空态）；页面专属文案放各自命名空间
+  common: {
+    login: "登录",
+    refresh: "刷新",
+    retry: "重试",
+    save: "保存",
+    submit: "提交",
+    close: "关闭",
+    hide: "隐藏",
+    loading: "加载中…",
+    noData: "暂无数据",
+    notSet: "未设置",
+    viewInWeb: "在网页查看",
+    delete: "删除",
+    newBadge: "新",
+    inProgress: "进行中",
+    pendingDecision: "待你决定",
+    working: "工作中",
+    turnEnded: "本轮结束",
+    viewMoreCount: "查看更多（{{n}}）",
+    listSeparator: "、"
+  },
+  // client.ts：客户端插件入口（远程调用兜底、登录/诊断提示、默认企业名）
+  client: {
+    remoteFailed: "企业远程调用失败",
+    overviewTimeout: "读取企业账号超时",
+    brandTimeout: "读取企业品牌超时",
+    defaultOrg: "企业",
+    loginInBrowser: "请在浏览器完成企业登录。",
+    loginStartFailed: "发起登录失败，请检查网络后重试。",
+    diagnoseFailed: "诊断失败，请检查网络后重试。"
+  },
+  // apps-client.ts：企业应用目录的客户端状态与操作提示
+  apps: {
+    copied: "已复制 {{command}}，粘贴到输入框发送",
+    filled: "已填进输入框，确认后发送",
+    loginInBrowser: "请在浏览器完成企业登录。",
+    loginStartFailed: "发起登录失败，请稍后重试。",
+    openWorkbenchFirst: "先点应用回到它的会话，再打开工作台",
+    workbenchNotOpen: "工作台没有打开，请稍后再试",
+    enableFailed: "启用失败：{{error}}",
+    enabled: "已启用「{{title}}」，点一下开始使用",
+    retryLater: "请稍后重试",
+    enableFailedNetwork: "启用失败，请检查网络后重试。",
+    disableFailed: "停用失败：{{error}}",
+    disabled: "已停用「{{title}}」",
+    disableFailedNetwork: "停用失败，请检查网络后重试。",
+    unbound: "已解除绑定",
+    unbindFailed: "解除绑定失败，请稍后重试。",
+    enterpriseApps: "企业应用"
+  },
+  // commands.ts：/ee-login /ee-status /ee-logout 的对话文案与命令描述
+  commands: {
+    pending: "请在浏览器确认，确认码 {{code}}，链接 {{url}}",
+    starting: "正在发起企业登录，请稍候…",
+    badSetupCode: "接入码格式不对，应形如 ABCD-EFGH；不带接入码直接输入 /ee-login 也可以",
+    setupConfirm: "回到 dsh-ee 网页的「开始使用」页，核对确认码 {{code}} 后点「确认授权」（网页关了的话打开 {{url}}）。确认后回到这里继续对话。",
+    loginDescription: "登录企业账号（可以带上网页「开始使用」页给的接入码）",
+    setupCodeHint: "[接入码]",
+    statusDescription: "查看企业登录状态",
+    notLoggedIn: "未登录，在对话框输入 /ee-login",
+    unreachable: "连不上 dsh-ee，请检查网络或 VPN 后重试",
+    sessionExpired: "登录已失效，在对话框输入 /ee-login",
+    httpError: "dsh-ee 返回 HTTP {{status}}，稍后再试（不是登录失效）",
+    expiresOn: " · {{date}} 到期",
+    neverExpires: " · 长期有效",
+    statusLine: "已登录 {{username}}（{{department}}）· 令牌 {{token}}{{expiry}} · 插件 {{version}} · npmrc {{npmrc}}",
+    npmrcMatch: "一致",
+    npmrcMismatch: "不一致",
+    logoutDescription: "退出企业账号",
+    noAccount: "当前没有登录企业账号",
+    revokedPrefix: "已在服务端吊销该令牌，",
+    envToken: "但它来自环境变量或 $DSH_HOME/.env（{{ref}}），请手动删除后重启 DSH",
+    loggedOut: "已退出企业账号",
+    loggedOutOffline: "本机已退出；连不上 dsh-ee，令牌未能在服务端吊销，可在网页「我的令牌」里吊销"
+  },
+  // doctor.ts：ee_local_doctor 诊断项与修复建议
+  doctor: {
+    appBindingsFix: "重新打开微应用会建立新绑定；原损坏文件无需手动删除",
+    noCredential: "本机没有企业登录凭据",
+    loginFix: "在对话框输入 /ee-login 登录",
+    hasCredential: "本机有企业登录凭据",
+    source: "来源：{{source}}",
+    expiringSoon: "登录将在 {{days}} 天内到期",
+    reLoginFix: "到期前输入 /ee-login 重新登录",
+    signedInAs: "已登录 {{username}}（{{department}}）",
+    loginExpired: "企业登录已失效",
+    reLoginFix2: "在对话框输入 /ee-login 重新登录",
+    readAccountFailed: "读取企业账号失败（HTTP {{status}}）",
+    serverRestarting: "dsh-ee 可能正在重启或暂时不可用；不是登录失效，稍后再试",
+    retryDiagnose: "稍等片刻重新运行诊断；持续失败请检查服务端状态",
+    unreachable: "连不上 dsh-ee（{{base}}）",
+    unreachableFix: "检查网络或 VPN；地址不对的话在 DSH 的「设置 → dsh-ee」里改成浏览器能打开的 dsh-ee 地址并测试",
+    npmrcOk: "DSH 的 .npmrc 里企业源配置与当前登录一致",
+    npmrcMissing: "DSH 的 .npmrc 里缺少企业 npm 源配置",
+    npmrcMismatch: "DSH 的 .npmrc 里企业源令牌与当前登录不一致",
+    npmrcDetail: "{{path}}；装企业插件会因 401 失败",
+    npmrcFix: "重启 DSH 或重新登录会自动同步",
+    modelsAvailable: "可用模型 {{models}}",
+    noModels: "没有可用的模型",
+    readModelsFailed: "读取模型列表失败",
+    readModelsHttp: "读取模型列表失败（HTTP {{status}}）",
+    modelPermissionFix: "联系管理员开通模型权限",
+    defaultModelMissing: "企业默认模型 {{model}} 不在你的可用列表里",
+    chooseModelFix: "在 DSH 里改选可用的模型",
+    pluginNewer: "接入插件有新版本 {{latest}}（当前 {{version}}）",
+    updateFix: "在 DSH 的「设置 → dsh-ee」点「更新到最新版」，装好后重启 DSH",
+    pluginLatest: "接入插件 {{version}} 已是最新",
+    missingPlugins: "缺少必装插件 {{plugins}}",
+    missingPluginsFix: "在 DSH 插件页安装，或重启 DSH 让接入插件自动安装",
+    pluginsOk: "必装插件都已安装",
+    bridgeFailed: "企业工具同步失败",
+    bridgeFix: "检查网络；输入 /ee-status 看登录状态",
+    bridgeOk: "企业工具已同步（{{count}} 个）",
+    summaryFail: "{{fails}} 项失败，{{warns}} 项需要注意",
+    summaryWarn: "{{warns}} 项需要注意",
+    summaryOk: "全部正常",
+    description: "检查这台电脑上 DSH 与企业工作台 dsh-ee 的接入：登录凭据、令牌是否有效、.npmrc、接入插件版本、必装插件、模型、企业工具同步，并附带服务端检查。只读，不修改任何东西。"
+  },
+  // status-view.ts：右侧企业面板标题栏与头部按钮
+  statusView: {
+    adminOn: "已开启",
+    adminOff: "未开启",
+    adminRemainingHours: "还剩 {{hours}} 小时 {{minutes}} 分钟",
+    adminRemainingMinutes: "还剩 {{minutes}} 分钟",
+    failureAuth: "还没有登录企业账号，或登录已失效，请登录。",
+    failureServer: "dsh-ee 返回错误（{{detail}}），请稍后刷新。",
+    failureUnreachable: "连不上 dsh-ee（{{base}}，{{detail}}）。请确认这台电脑能在浏览器里打开这个地址；地址不对的话，在 DSH 的「设置 → dsh-ee」里改成能打开的地址并测试。",
+    failureDefault: "未登录或连接不可用，请重新登录。",
+    reading: "正在读取企业账号…",
+    startingLogin: "正在发起登录…",
+    account: "账号",
+    department: "部门",
+    tokenExpiry: "令牌有效期",
+    adminMode: "管理模式",
+    expiresOn: "{{date}} 到期",
+    neverExpires: "长期有效",
+    quota: "本月额度",
+    quotaUnavailable: "额度信息不可用",
+    quotaUnlimited: "不限额",
+    quotaRemaining: "剩余 {{percent}}%",
+    models: "企业模型",
+    defaultModel: "默认：{{model}}",
+    modelsUnavailable: "没有可用模型或模型列表不可用",
+    status: "接入状态",
+    pluginVersion: "插件 {{version}}{{latest}}",
+    pluginNewVersion: " · 新版本 {{version}}",
+    pluginUpToDate: " · 已是最新",
+    diagnosing: "诊断中…",
+    diagnose: "诊断",
+    diagnoseResult: "诊断结果：{{summary}}",
+    checkLine: "{{title}}{{fix}}",
+    checkFixSeparator: "；",
+    headerDisconnected: "企业 · 未登录",
+    headerChecking: "企业 · 检查中",
+    headerAdmin: "管理模式 · {{remaining}}",
+    headerQuota: "企业模型 · 剩余 {{percent}}%",
+    headerUser: "企业模型 · {{username}}",
+    headerTitleUser: "{{username}}{{department}}",
+    headerDepartment: "（{{department}}）",
+    headerTitle: "重新登录企业账号",
+    guideDescription: "查看企业账号、额度、模型与接入状态"
+  },
+  // turn-writes-view.ts：一轮末尾「已留痕」提示
+  turnWrites: {
+    failedOp: "{{label}} 未成功{{count}}",
+    failedCount: " ×{{count}}",
+    failedNotice: "这一轮在企业系统里的写操作（有未成功的），已在 dsh-ee 留痕",
+    okNotice: "这一轮改了企业系统里的数据，已在 dsh-ee 留痕",
+    systemLabel: "「{{system}}」"
+  },
+  // votes.ts：助手消息尾的 👍👎 反馈
+  votes: {
+    notePrompt: "这次回答哪里没帮上忙？（可留空，会按问题聚合给应用作者）",
+    helpful: "有帮助",
+    notHelpful: "没帮上忙",
+    label: "评价这次回答"
+  },
+  // write-log.ts：本机写操作日志
+  writeLog: {
+    invalidSessionId: "会话 id 不合法"
+  },
+  // overview.ts：读取企业账号失败原因
+  overview: {
+    timeout: "连接超时",
+    toolFailed: "企业工具调用失败",
+    toolNoJson: "企业工具没有返回 JSON"
+  },
+  // config.ts：插件配置默认值与校验
+  config: {
+    badBase: "[dsh-ee] base 必须是 http(s) 地址",
+    defaultOrg: "企业"
+  },
+  // app-launcher.ts：启动微应用时的发送结果不确定提示
+  appLauncher: {
+    sendUnknown: "消息可能没有发出，请查看会话后再试"
+  },
+  // host-session.ts：宿主会话兼容层的失败提示
+  hostSession: {
+    switchUnsupported: "宿主不支持切换会话",
+    noCwd: "当前会话没有可用于新建会话的工作目录",
+    createWorkspaceUnsupported: "宿主不支持创建工作区",
+    noWorkspace: "无法为新会话取得工作区",
+    createSessionUnsupported: "宿主不支持新建会话",
+    rejected: "宿主拒绝了消息",
+    sendUnsupported: "宿主不支持发送消息"
+  },
+  // device.ts：设备码登录
+  device: {
+    startFailed: "设备登录发起失败：{{error}}",
+    startHttpFailed: "设备登录发起失败：HTTP {{status}}",
+    cancelled: "设备登录已取消",
+    failed: "设备登录失败：HTTP {{status}}",
+    timeout: "设备登录超时"
+  },
+  // connect-update.ts：一键更新接入插件
+  connectUpdate: {
+    noManager: "这台 DSH 没有插件管理接口，请在插件页手动更新接入插件",
+    noLatest: "查不到企业端的接入插件版本：{{why}}{{hint}}",
+    signInHint: "；先登录企业账号再试",
+    notPublished: "企业端还没有发布接入插件，请管理员先在系统设置里发布",
+    upToDate: "已是最新（{{version}}）",
+    installed: "已安装 {{pkg}}@{{latest}}，重启 DSH 后生效",
+    installFailed: "安装失败：{{error}}"
+  },
+  // upload.ts：ee_plugins.upload 上传 .tgz
+  upload: {
+    missingPath: "缺少 path：.tgz 文件的本机路径",
+    notTarball: "只能上传 npm pack 生成的 .tgz 文件",
+    fileNotFound: "找不到文件：{{file}}",
+    notAFile: "不是文件：{{file}}",
+    tooLarge: "文件太大",
+    timeout: "上传超时，请重试；网络较慢时可改用网页上传",
+    unreachable: "连不上 dsh-ee，请检查网络或 VPN",
+    httpFailed: "上传失败（HTTP {{status}}）"
+  },
+  // ee-save.ts：/ee-save 命令描述（提炼请求正文本身保留中文，e2e 按原文比对）
+  eeSave: {
+    description: "把这段对话沉淀成能力（提示词 / 技能 / 应用草稿）"
+  },
+  // app-bindings.ts：微应用会话绑定文件
+  appBindings: {
+    invalidAppName: "微应用名不合法",
+    invalidSessionId: "会话 id 不合法",
+    corruptFile: "微应用会话绑定文件已损坏，已按空绑定处理（{{file}}）"
+  },
+  // app-subscription.ts：启用/停用自选微应用
+  appSubscription: {
+    invalidAppName: "微应用名不合法",
+    invalidSkillName: "技能名不合法",
+    invalidConnectionName: "连接名不合法",
+    invalidKind: "能力类型不合法"
+  },
+  // apps-view.ts：企业应用侧栏/首屏横排/「查看更多」浮层/进行中
+  appsView: {
+    startersTitle: "从示例问题开始",
+    confirmDisable: "确认停用",
+    disable: "停用",
+    newSession: "新开一个会话",
+    openWorkbench: "打开工作台",
+    fillInput: "填进输入框",
+    unbind: "解除绑定",
+    moreActions: "{{title}}更多操作",
+    missingList: "不可用：{{missing}}",
+    missing: "部分能力不可用",
+    missingHint: "{{title}}。点击查看并申请",
+    missingApply: "部分能力不可用 · 申请",
+    todoBadge: "{{count}} 待处理",
+    openArrow: "打开 →",
+    enable: "启用",
+    gallerySubtitle: "{{count}} 个应用 · 点一个开始，AI 会带着工作台一起打开",
+    searchAppsAria: "搜索企业应用",
+    searchAppsPlaceholder: "搜索应用…",
+    noMatches: "没有匹配的应用",
+    availableCount: "可启用（{{count}}）",
+    showInSidebar: "在左侧栏显示企业应用",
+    loginToSee: "登录后查看企业应用",
+    expandApps: "展开企业应用",
+    collapseApps: "收起企业应用",
+    hideSidebar: "在左侧栏隐藏企业应用（在「查看更多」或 设置 → dsh-ee 里可以再打开）",
+    collapsedCount: "（{{count}}）",
+    allApps: "全部应用",
+    availablePlus: "＋ 可启用（{{count}}）",
+    heroSearchPlaceholder: "搜索…",
+    itemTitle: "{{title}}：{{label}}",
+    todosNeed: "需要你处理：{{count}} 项",
+    startHint: "点一个开始，工作台会在右侧打开"
+  },
+  // workbench-client.ts：业务工作台标签页（面板/原文窗格、写表、清单、继续追问）
+  workbenchClient: {
+    fallbackTitle: "工作台",
+    noSession: "没有找到当前会话，请先打开这个应用的会话",
+    sentToAi: "已发给 AI：{{label}}",
+    networkError: "网络错误",
+    noSessionCheck: "没有找到当前会话，勾选不会保存",
+    checkNotSaved: "勾选没有保存，请稍后再试",
+    updatePlugin: "请把接入插件更新到最新版本",
+    saved: "已保存：{{label}}",
+    saveFailedNetwork: "没有保存，请检查网络后重试",
+    writeFailed: "没有{{action}}：{{error}}",
+    deletedRow: "已删除这一行",
+    updated: "已更新：{{label}}",
+    docLabel: "文档 {{doc}}",
+    askPrompt: "接着看知识库文档「{{title}}」（文档编号 {{doc}}）第 {{from}}～{{to}} 行前后的内容：这一部分还有哪些相关规定或例外情况？请带出处回答。",
+    ask: "在这篇里继续问",
+    saveFailedDefault: "没有保存，请把接入插件更新到最新版本"
+  },
+  // settings-view.ts：DSH 设置里的「dsh-ee」页（地址、测试、更新、侧栏开关）
+  settingsView: {
+    title: "dsh-ee 连接",
+    description: "接入插件通过这个地址登录企业账号、同步企业技能和微应用、调用企业模型。连不上时，先在浏览器里打开 dsh-ee 网页，把能打开的地址填在这里。",
+    reading: "正在读取…",
+    addressLabel: "dsh-ee 地址",
+    packagedOverridden: "插件包里的地址是 {{packaged}}，你改成了现在这个。",
+    packagedDefault: "这是管理员发布接入插件时写进去的地址。",
+    testing: "正在测试…",
+    testConnection: "测试连接",
+    resetAddress: "恢复插件包里的地址",
+    plugin: "接入插件",
+    currentVersion: "当前版本 {{version}}",
+    updating: "正在更新…",
+    updateLatest: "更新到最新版",
+    updateHint: "更新到企业端已发布的最新版；装好后需要重启 DSH 才生效。",
+    changeHint: "改地址只影响这台电脑。如果大家都连不上，请管理员在 dsh-ee 网页的系统设置里填写「访问地址」，再重新发布接入插件。",
+    readFailed: "读取设置失败：{{error}}",
+    testFailed: "测试失败：{{error}}",
+    saveFailed: "保存失败：{{error}}",
+    updateFailed: "更新失败：{{error}}",
+    savedNotice: "已保存并生效。企业技能、微应用和工具正在按新地址同步；登录无效的话，去侧栏企业面板重新登录。",
+    sidebarHint: "左侧栏只列前 3 个应用，其余在「查看更多」里；隐藏后首屏输入框下方和右侧企业面板里照样能打开企业应用。",
+    saving: "正在保存…"
+  },
+  // server-settings.ts：dsh-ee 地址的保存与连接测试
+  serverSettings: {
+    reasonTimeout: "连接超时：这台电脑访问不到这个地址（内网地址、VPN 没连，或者被防火墙挡住）",
+    reasonRefused: "连接被拒绝：地址能找到，但这个端口上没有服务",
+    reasonDns: "找不到这个域名：检查拼写，或者是否需要连 VPN",
+    reasonTls: "HTTPS 证书有问题（{{code}}）",
+    badAddress: "地址格式不对",
+    badAddressDetail: "要写完整的 http:// 或 https:// 地址，例如 https://ee.example.com，不要带路径以外的参数",
+    unreachable: "连不上",
+    reachable: "能连上（{{ms}} ms）",
+    notDshEe: "这个地址上不是 dsh-ee",
+    notDshEeDetail: "访问 /healthz 返回 HTTP {{status}}；确认地址是 dsh-ee 网页的地址",
+    isDshEe: "是 dsh-ee{{version}}",
+    versionSuffix: "（{{version}}）",
+    noLogin: "这台电脑还没有登录企业账号",
+    noLoginDetail: "保存地址后，在侧栏企业面板点「登录」，或在对话框输入 /ee-login",
+    signedIn: "已登录 {{username}}{{department}}",
+    departmentSuffix: "（{{department}}）",
+    loginInvalid: "本机的登录在这台 dsh-ee 上无效",
+    loginInvalidDetail: "保存地址后重新登录即可（令牌是按 dsh-ee 发的，换了服务器要重新登录）",
+    loginCheckFailed: "检查登录失败",
+    saveBadAddress: "地址格式不对：要写完整的 http:// 或 https:// 地址"
+  },
+  // workbench.ts：工作台数据格式化、占位符、表单与看板校验（纯函数）
+  workbench: {
+    unitHundredMillion: " 亿",
+    unitTenThousand: " 万",
+    unitBillion: " 十亿",
+    unitMillion: " 百万",
+    flat: "持平",
+    allKbs: "全部知识库",
+    scopePicked: "知识库{{titles}}（标识 {{ids}}）",
+    kbTitle: "「{{title}}」",
+    formRequired: "请填写「{{label}}」",
+    formNumber: "「{{label}}」要填数字",
+    formSelect: "「{{label}}」请从选项里选",
+    blocksRequired: "blocks 必须是非空数组",
+    blocksTooMany: "看板最多 20 块",
+    boardTooLarge: "看板内容不能超过 32 KB",
+    blockWhere: "第 {{index}} 块",
+    textEmpty: "{{where}}：text 不能为空",
+    itemsRange: "{{where}}：items 要有 1～50 项",
+    columnsRange: "{{where}}：columns 要有 1～12 列",
+    rowsRange: "{{where}}：rows 必须是最多 50 行的二维数组",
+    citationsRange: "{{where}}：items 要有 1～30 条引用",
+    citationAt: "{{where}}第 {{index}} 条引用",
+    citationNumbers: "{{at}}：doc、from、to 要是正整数，且 to 不小于 from",
+    citationVersion: "{{at}}：version 要是正整数",
+    citationQuote: "{{at}}：quote 要写 1～500 字的原文摘句",
+    blockType: "{{where}}：type 只能是 text、list、table 或 citations"
+  },
+  // workbench-host.ts：ee_workbench 工具与面板取数/写表
+  workbenchHost: {
+    noComponent: "目录里没有这个组件",
+    notReadOnly: "这个数据源不是只读工具，面板不能用它取数",
+    formNoTable: "这个表单没有配置提交到表",
+    rowNoAction: "这个按钮不能改表",
+    rowNoId: "这一行没有编号",
+    badDoc: "文档编号不对",
+    invalidAppName: "微应用名不合法",
+    invalidSessionId: "会话 id 不合法",
+    invalidChecklistKey: "清单编号不合法",
+    actionInvalid: "action 只能是 board 或 checklist",
+    appNotFound: "没有微应用 {{app}}，或它不在你的可用范围内",
+    noBoard: "微应用 {{app}} 的工作台没有 AI 看板",
+    noBoardSession: "找不到要更新看板的会话",
+    boardUpdated: "已更新工作台看板",
+    badCitations: "引用 {{numbers}} 对不上原文：请用 kb__read 重新读那几行，改正后再写一次看板，并在对话里向用户更正。",
+    staleCitations: "引用 {{numbers}} 的文档已经更新，请读最新版本确认结论没有变。",
+    checklistUnsupported: "这个版本的接入插件不支持清单",
+    noChecklist: "微应用 {{app}} 的工作台没有清单",
+    checklistNotFound: "没有标题是「{{title}}」的清单；可选：{{options}}",
+    checklistAmbiguous: "有 {{count}} 个清单，请用 title 指定：{{options}}",
+    checklistOption: "「{{title}}」",
+    doneOrUndone: "done 与 undone 至少填一个",
+    itemsNotFound: "清单「{{title}}」里没有条目 {{unknown}}；条目编号：{{known}}",
+    noChecklistSession: "找不到要更新清单的会话",
+    checklistUpdated: "已更新清单「{{title}}」：完成 {{done}}/{{total}}",
+    checklistMarked: "已更新清单「{{title}}」：已完成 {{count}} 项",
+    description: "更新当前微应用工作台：action=board 把本轮处理结果写到「AI 看板」（每次整体替换，citations 块里的知识库引用会自动核对）；action=checklist 勾选或取消工作台清单里的条目（done / undone 填条目编号）。不会改任何业务数据。",
+    paramApp: "微应用名，也就是 /名字 里的名字",
+    paramTitle: "checklist：清单的标题；工作台只有一个清单时可以不填",
+    paramDone: "checklist：标成完成的条目编号",
+    paramUndone: "checklist：撤回完成的条目编号",
+    paramBlocks: "看板内容，从上到下显示；只当文字显示，不支持 HTML",
+    paramItems: "list：每项一段文字；citations：每项一条知识库引用 {doc, version, from, to, quote, title}"
+  },
+  // workbench-view.ts：业务工作台面板（指标/表格/图表/清单/表单/看板/原文）
+  workbenchView: {
+    widgetMetric: "指标",
+    widgetTable: "表格",
+    widgetChart: "图表",
+    widgetChecklist: "清单",
+    widgetForm: "表单",
+    widgetActions: "快捷按钮",
+    widgetMarkdown: "说明",
+    widgetBoard: "AI 看板",
+    widgetKbScope: "查哪些库",
+    confirmDelete: "确认删除",
+    forbidden: "无权限：你没有这个数据源的使用权限",
+    fetchFailed: "取数失败：{{error}}",
+    forbiddenDetail: "无权限：你还没有「{{connection}}」里「{{tool}}」的使用权限。",
+    thisDataSource: "这个数据源",
+    requestAccess: "去申请权限 ↗",
+    contactAdmin: "请联系管理员开通。",
+    countRows: "{{total}} 条",
+    expandDetail: "展开详情",
+    collapseDetail: "收起详情",
+    truncatedRows: "共 {{total}} 行，只显示前 {{shown}} 行",
+    pointTip: "{{label}} · {{series}}：{{value}}",
+    pieTip: "{{label}}：{{value}}（{{percent}}%）",
+    selectPlaceholder: "请选择",
+    citationOk: "✔ 已核对原文",
+    citationStale: "原文已更新",
+    citationMismatch: "✖ 对不上原文",
+    citationMissing: "✖ 找不到这篇文档",
+    citationUnchecked: "未核对",
+    citationWhere: "{{title}} · 第 {{range}} 行",
+    citationTip: "{{where}}\n“{{quote}}”",
+    webSourceTip: "{{tip}}\n在 dsh-ee 网页上看原文",
+    quoteText: "“{{quote}}”",
+    viewSource: "查看原文：{{where}}",
+    nearSkippedTip: "那一页是扫描页或乱码，没有收录进知识库；答案可能漏了那一页的内容，请看原件",
+    nearSkipped: "⚠ 第 {{page}} 页没收录",
+    noKbs: "你还没有可以查的知识库",
+    kbDocs: "{{count}} 篇",
+    scopeOnly: "只查勾选的 {{count}} 个库",
+    scopeAllHint: "没有勾选时查全部",
+    boardEmpty: "AI 处理完以后会把结果写在这里。",
+    updatedAt: "更新于 {{time}}",
+    unavailable: "这个工作台已经不可用：应用可能已停用，或者工作台配置改了。可以关掉这个标签页。",
+    openCitationHint: "点「答案与出处」里的引用，会在这里打开原文。",
+    versionLine: "第 {{version}} 版 · 第 {{from}}～{{to}} 行 / 共 {{total}} 行",
+    staleNotice: "{{stale}}；高亮的是引用时的版本。",
+    prevPage: "上一页",
+    nextPage: "下一页",
+    readView: "阅读视图",
+    rawView: "看原文（带行号）",
+    quotedSource: "引用的原文：“{{quote}}”"
+  },
+  // local-mcp.ts：/ee-local 命令与本机扩展 MCP 注册
+  localMcp: {
+    missingPackage: "要带 npm 包名，例如 /ee-local add @acme/legacy-oa-local@0.1.0",
+    notNpmPackage: "「{{text}}」不是 npm 包名：端侧扩展只从企业 npm 源安装，不写 URL、本地路径或 git 地址",
+    invalidPackage: "「{{pkg}}」不是合法的 npm 包名（应形如 @scope/name 或 name）",
+    invalidVersion: "「{{version}}」不是合法的版本号",
+    unknownSubcommand: "子命令只能是 list / add / remove / snippet；收到「{{action}}」",
+    idHint: "--id 后面要跟扩展 id，例如 acme/legacy-oa",
+    invalidId: "「{{value}}」不是合法扩展 id（应形如 acme/legacy-oa）",
+    unknownFlag: "不认识的参数「{{token}}」",
+    missingTarget: "{{action}} 后面要跟包名或扩展 id",
+    extraArgs: "带了多余参数「{{args}}」",
+    duplicateService: "已有同名 MCP 服务 {{name}}，不覆盖",
+    noManagerHint: "\n这台 DSH 没有 MCP 管理接口（@deepseek-ai/dsh-mcp-manager），不能自动注册；用 /ee-local snippet <包名> 生成配置片段。\n",
+    noExtensions: "还没有添加本机扩展。\n用法：/ee-local add <包名>[@版本] [--id 作者/名字]\n{{hint}}",
+    registered: "已注册",
+    unregistered: "未注册",
+    unregisteredNoManager: "未注册（没有 MCP 管理接口）",
+    listHeader: "本机扩展（{{count}} 个）：\n{{lines}}\n{{hint}}\n移除：/ee-local remove <扩展 id 或包名>",
+    alreadyAdded: "已经添加过 {{spec}}；要改 id 或版本先 /ee-local remove。",
+    idTaken: "扩展 id {{id}} 已经用在 {{pkg}} 上；先 /ee-local remove {{id}}，或换一个 --id。",
+    packageBound: "这个包已经以扩展 id {{id}} 添加过；要换 id 先 /ee-local remove {{id}}。",
+    noManagerAdd: "这台 DSH 没有 MCP 管理接口（@deepseek-ai/dsh-mcp-manager 没有挂载，旧版 DSH 或精简组合没有它），不能自动注册。\n把下面这段加进 profile 的 cordis.patch.yml（或把 DSH 升级到 0.2.2 再试）：\n\n{{snippet}}\n",
+    serviceConflict: "这里已经有名为 {{name}} 的 MCP 服务（员工自己配的、别的插件注册的，或之前加的），不覆盖。\n换个 --id 会得到另一个服务名，例如：/ee-local add {{spec}} --id {{scope}}/<另一个名字>\n",
+    confirmPlan: "准备把端侧扩展{{update}}注册成本机 MCP 服务（只写这台电脑，不改 dsh-ee，不覆盖已有服务）：\n  扩展      {{id}}\n  包        {{pkg}}{{latest}}\n  MCP 服务  {{server}}（工具名 mcp__{{server}}__<工具>）\n  env       DSH_EE_URL、DSH_EE_TOKEN（走 DSH 凭据库）、DSH_EE_HARNESS=dsh、企业 npm 源\n\n确认后执行：/ee-local add {{spec}}{{idFlag}} --yes\n",
+    updateSuffix: "更新为新的版本并",
+    latestVersion: "（最新版本）",
+    registerFailed: "注册失败：{{error}}",
+    registeredText: "已注册（下次启动 DSH 自动恢复）：\n  {{id}} → {{spec}}，服务名 {{server}}\n工具名以 mcp__{{server}}__ 开头；第一次调用如果扩展要求登录，会弹出系统自己的登录窗口。\n移除：/ee-local remove {{id}}\n",
+    notFound: "没有找到「{{target}}」；/ee-local list 看已添加的扩展。",
+    removed: "已移除 {{id}}（{{pkg}}），MCP 服务 {{server}} 已注销。",
+    snippetIntro: "把下面这段加进对应 profile 的 cordis.patch.yml 末尾（DSH 没有 mcpServers 配置文件，这是官方的配置方式）：\n\n{{snippet}}\n\n{{hint}}\n",
+    snippetHint: "这台 DSH 有 MCP 管理接口，也可以用 /ee-local add 自动注册。",
+    description: "本机扩展：注册 / 查看 / 移除端侧扩展的 MCP 服务（只写这台电脑）",
+    inputHint: "[list|add|remove|snippet] [包名[@版本]] [--id 作者/名字] [--yes]"
+  },
+  // index.ts（宿主端）：远程方法里的兜底错误
+  serverIndex: {
+    microAppNotFound: "目录里没有这个微应用",
+    notLoggedIn: "没有登录企业账号",
+    feedbackFailed: "反馈失败：HTTP {{status}}",
+    invalidEntryId: "条目编号不合法"
+  },
+  // kb-doc-render.ts：知识库原文阅读视图（分页标签）
+  kbDocRender: {
+    page: "第 {{page}} 页"
+  },
+  // bridge.ts：MCP 工具结果文字
+  bridge: {
+    error: "错误：{{text}}"
+  },
+  // brand-view.ts：没有 logo 时的首字母兜底
+  brandView: {
+    fallbackLetter: "企"
+  }
+};
+var zh_default = zh;
+
+// src/i18n/en.ts
+var en = {
+  // 多个模块共用的词（视图标题/按钮/空态）；页面专属文案放各自命名空间
+  common: {
+    login: "Log in",
+    refresh: "Refresh",
+    retry: "Retry",
+    save: "Save",
+    submit: "Submit",
+    close: "Close",
+    hide: "Hide",
+    loading: "Loading…",
+    noData: "No data",
+    notSet: "Not set",
+    viewInWeb: "View on web",
+    delete: "Delete",
+    newBadge: "New",
+    inProgress: "In progress",
+    pendingDecision: "Needs your decision",
+    working: "Working",
+    turnEnded: "Turn ended",
+    viewMoreCount: "View more ({{n}})",
+    listSeparator: ", "
+  },
+  // client.ts：客户端插件入口（远程调用兜底、登录/诊断提示、默认企业名）
+  client: {
+    remoteFailed: "Enterprise remote call failed",
+    overviewTimeout: "Timed out reading the enterprise account",
+    brandTimeout: "Timed out reading the enterprise brand",
+    defaultOrg: "Enterprise",
+    loginInBrowser: "Complete enterprise sign-in in your browser.",
+    loginStartFailed: "Could not start sign-in. Check your network and try again.",
+    diagnoseFailed: "Diagnostics failed. Check your network and try again."
+  },
+  // apps-client.ts：企业应用目录的客户端状态与操作提示
+  apps: {
+    copied: "Copied {{command}}. Paste it into the input box and send.",
+    filled: "Filled into the input box. Review and send.",
+    loginInBrowser: "Complete enterprise sign-in in your browser.",
+    loginStartFailed: "Could not start sign-in. Try again later.",
+    openWorkbenchFirst: "Open the app's session first, then open its workbench.",
+    workbenchNotOpen: "The workbench did not open. Try again later.",
+    enableFailed: "Enable failed: {{error}}",
+    enabled: "Enabled “{{title}}”. Click it to start.",
+    retryLater: "Try again later",
+    enableFailedNetwork: "Enable failed. Check your network and try again.",
+    disableFailed: "Disable failed: {{error}}",
+    disabled: "Disabled “{{title}}”.",
+    disableFailedNetwork: "Disable failed. Check your network and try again.",
+    unbound: "Unbound",
+    unbindFailed: "Unbind failed. Try again later.",
+    enterpriseApps: "Enterprise apps"
+  },
+  // commands.ts：/ee-login /ee-status /ee-logout 的对话文案与命令描述
+  commands: {
+    pending: "Confirm in your browser. Code {{code}}, link {{url}}",
+    starting: "Starting enterprise sign-in…",
+    badSetupCode: "Invalid access code. Expected a code like ABCD-EFGH; you can also run /ee-login without one.",
+    setupConfirm: "Go back to the Get started page on the dsh-ee website, check code {{code}}, and click “Authorize” (if the page is closed, open {{url}}). Then come back here to continue.",
+    loginDescription: "Log in to your enterprise account (optionally with the access code from the web Get started page)",
+    setupCodeHint: "[access code]",
+    statusDescription: "Check enterprise sign-in status",
+    notLoggedIn: "Not signed in. Type /ee-login in the chat.",
+    unreachable: "Cannot reach dsh-ee. Check your network or VPN and try again.",
+    sessionExpired: "Sign-in expired. Type /ee-login in the chat.",
+    httpError: "dsh-ee returned HTTP {{status}}. Try again later (this is not a sign-in failure).",
+    expiresOn: " · expires {{date}}",
+    neverExpires: " · never expires",
+    statusLine: "Signed in as {{username}} ({{department}}) · token {{token}}{{expiry}} · plugin {{version}} · npmrc {{npmrc}}",
+    npmrcMatch: "matches",
+    npmrcMismatch: "mismatch",
+    logoutDescription: "Sign out of the enterprise account",
+    noAccount: "No enterprise account is signed in",
+    revokedPrefix: "The token was revoked on the server, ",
+    envToken: "but it comes from an environment variable or $DSH_HOME/.env ({{ref}}). Delete it manually and restart DSH.",
+    loggedOut: "Signed out of the enterprise account",
+    loggedOutOffline: "Signed out locally; dsh-ee was unreachable, so the token could not be revoked on the server. You can revoke it under My tokens on the web."
+  },
+  // doctor.ts：ee_local_doctor 诊断项与修复建议
+  doctor: {
+    appBindingsFix: "Reopening the micro-app creates a new binding; the corrupt file does not need manual cleanup.",
+    noCredential: "No enterprise sign-in credential on this machine",
+    loginFix: "Type /ee-login in the chat to sign in",
+    hasCredential: "Enterprise sign-in credential found on this machine",
+    source: "Source: {{source}}",
+    expiringSoon: "Sign-in expires within {{days}} day(s)",
+    reLoginFix: "Run /ee-login before it expires to sign in again",
+    signedInAs: "Signed in as {{username}} ({{department}})",
+    loginExpired: "Enterprise sign-in has expired",
+    reLoginFix2: "Type /ee-login in the chat to sign in again",
+    readAccountFailed: "Failed to read the enterprise account (HTTP {{status}})",
+    serverRestarting: "dsh-ee may be restarting or temporarily unavailable. This is not a sign-in failure; try again later.",
+    retryDiagnose: "Run diagnostics again shortly; if it keeps failing, check the server status.",
+    unreachable: "Cannot reach dsh-ee ({{base}})",
+    unreachableFix: "Check your network or VPN. If the address is wrong, change it under Settings → dsh-ee in DSH to a dsh-ee address that opens in your browser, then test it.",
+    npmrcOk: "The enterprise registry config in DSH's .npmrc matches the current sign-in",
+    npmrcMissing: "DSH's .npmrc is missing the enterprise npm registry config",
+    npmrcMismatch: "The enterprise registry token in DSH's .npmrc does not match the current sign-in",
+    npmrcDetail: "{{path}}; installing enterprise plugins will fail with 401",
+    npmrcFix: "Restarting DSH or signing in again syncs it automatically",
+    modelsAvailable: "Available models: {{models}}",
+    noModels: "No models available",
+    readModelsFailed: "Failed to read the model list",
+    readModelsHttp: "Failed to read the model list (HTTP {{status}})",
+    modelPermissionFix: "Ask your administrator to grant model access",
+    defaultModelMissing: "The enterprise default model {{model}} is not in your available list",
+    chooseModelFix: "Pick an available model in DSH",
+    pluginNewer: "A newer version of the connect plugin is available: {{latest}} (current {{version}})",
+    updateFix: "Click “Update to latest” under Settings → dsh-ee in DSH, then restart DSH after it installs.",
+    pluginLatest: "Connect plugin {{version}} is up to date",
+    missingPlugins: "Missing required plugins: {{plugins}}",
+    missingPluginsFix: "Install them on the DSH plugins page, or restart DSH so the connect plugin installs them automatically.",
+    pluginsOk: "All required plugins are installed",
+    bridgeFailed: "Enterprise tool sync failed",
+    bridgeFix: "Check your network; type /ee-status to see sign-in status.",
+    bridgeOk: "Enterprise tools synced ({{count}} tool(s))",
+    summaryFail: "{{fails}} failed, {{warns}} need attention",
+    summaryWarn: "{{warns}} need attention",
+    summaryOk: "All good",
+    description: "Check how DSH on this machine connects to the dsh-ee enterprise workbench: sign-in credential, token validity, .npmrc, connect plugin version, required plugins, models, enterprise tool sync, plus server-side checks. Read-only; changes nothing."
+  },
+  // status-view.ts：右侧企业面板标题栏与头部按钮
+  statusView: {
+    adminOn: "On",
+    adminOff: "Off",
+    adminRemainingHours: "{{hours}} h {{minutes}} min left",
+    adminRemainingMinutes: "{{minutes}} min left",
+    failureAuth: "Not signed in to the enterprise account, or the sign-in has expired. Please sign in.",
+    failureServer: "dsh-ee returned an error ({{detail}}). Refresh later.",
+    failureUnreachable: "Cannot reach dsh-ee ({{base}}, {{detail}}). Make sure this machine can open that address in a browser; if the address is wrong, change it under Settings → dsh-ee in DSH to one that opens, then test it.",
+    failureDefault: "Not signed in or the connection is unavailable. Please sign in again.",
+    reading: "Reading enterprise account…",
+    startingLogin: "Starting sign-in…",
+    account: "Account",
+    department: "Department",
+    tokenExpiry: "Token expiry",
+    adminMode: "Admin mode",
+    expiresOn: "expires {{date}}",
+    neverExpires: "Never expires",
+    quota: "This month's quota",
+    quotaUnavailable: "Quota information unavailable",
+    quotaUnlimited: "Unlimited",
+    quotaRemaining: "{{percent}}% left",
+    models: "Enterprise models",
+    defaultModel: "Default: {{model}}",
+    modelsUnavailable: "No models available, or the model list is unavailable",
+    status: "Connection status",
+    pluginVersion: "Plugin {{version}}{{latest}}",
+    pluginNewVersion: " · new version {{version}}",
+    pluginUpToDate: " · up to date",
+    diagnosing: "Diagnosing…",
+    diagnose: "Diagnostics",
+    diagnoseResult: "Diagnostics: {{summary}}",
+    checkLine: "{{title}}{{fix}}",
+    checkFixSeparator: "; ",
+    headerDisconnected: "Enterprise · Not signed in",
+    headerChecking: "Enterprise · Checking",
+    headerAdmin: "Admin mode · {{remaining}}",
+    headerQuota: "Enterprise models · {{percent}}% left",
+    headerUser: "Enterprise models · {{username}}",
+    headerTitleUser: "{{username}}{{department}}",
+    headerDepartment: " ({{department}})",
+    headerTitle: "Sign in to the enterprise account again",
+    guideDescription: "View the enterprise account, quota, models and connection status"
+  },
+  // turn-writes-view.ts：一轮末尾「已留痕」提示
+  turnWrites: {
+    failedOp: "{{label}} failed{{count}}",
+    failedCount: " ×{{count}}",
+    failedNotice: "This turn's write operations in enterprise systems (some failed) have been logged in dsh-ee",
+    okNotice: "This turn changed data in enterprise systems and has been logged in dsh-ee",
+    systemLabel: "“{{system}}”"
+  },
+  // votes.ts：助手消息尾的 👍👎 反馈
+  votes: {
+    notePrompt: "What was unhelpful about this answer? (Optional; grouped by question for the app author.)",
+    helpful: "Helpful",
+    notHelpful: "Not helpful",
+    label: "Rate this answer"
+  },
+  // write-log.ts：本机写操作日志
+  writeLog: {
+    invalidSessionId: "Invalid session id"
+  },
+  // overview.ts：读取企业账号失败原因
+  overview: {
+    timeout: "Connection timed out",
+    toolFailed: "Enterprise tool call failed",
+    toolNoJson: "Enterprise tool returned no JSON"
+  },
+  // config.ts：插件配置默认值与校验
+  config: {
+    badBase: "[dsh-ee] base must be an http(s) URL",
+    defaultOrg: "Enterprise"
+  },
+  // app-launcher.ts：启动微应用时的发送结果不确定提示
+  appLauncher: {
+    sendUnknown: "The message may not have been sent. Check the session and try again."
+  },
+  // host-session.ts：宿主会话兼容层的失败提示
+  hostSession: {
+    switchUnsupported: "The host does not support switching sessions",
+    noCwd: "The current session has no working directory for a new session",
+    createWorkspaceUnsupported: "The host does not support creating workspaces",
+    noWorkspace: "Could not get a workspace for the new session",
+    createSessionUnsupported: "The host does not support creating sessions",
+    rejected: "The host rejected the message",
+    sendUnsupported: "The host does not support sending messages"
+  },
+  // device.ts：设备码登录
+  device: {
+    startFailed: "Failed to start device sign-in: {{error}}",
+    startHttpFailed: "Failed to start device sign-in: HTTP {{status}}",
+    cancelled: "Device sign-in cancelled",
+    failed: "Device sign-in failed: HTTP {{status}}",
+    timeout: "Device sign-in timed out"
+  },
+  // connect-update.ts：一键更新接入插件
+  connectUpdate: {
+    noManager: "This DSH has no plugin management API. Update the connect plugin manually on the plugins page.",
+    noLatest: "Could not get the enterprise connect plugin version: {{why}}{{hint}}",
+    signInHint: "; sign in to your enterprise account and try again",
+    notPublished: "The enterprise server has not published the connect plugin yet. Ask your administrator to publish it in the system settings first.",
+    upToDate: "Already up to date ({{version}})",
+    installed: "Installed {{pkg}}@{{latest}}; takes effect after DSH restarts",
+    installFailed: "Install failed: {{error}}"
+  },
+  // upload.ts：ee_plugins.upload 上传 .tgz
+  upload: {
+    missingPath: "Missing path: local path of the .tgz file",
+    notTarball: "Only .tgz files produced by npm pack can be uploaded",
+    fileNotFound: "File not found: {{file}}",
+    notAFile: "Not a file: {{file}}",
+    tooLarge: "File is too large",
+    timeout: "Upload timed out. Try again, or upload on the web if your network is slow.",
+    unreachable: "Cannot reach dsh-ee. Check your network or VPN.",
+    httpFailed: "Upload failed (HTTP {{status}})"
+  },
+  // ee-save.ts：/ee-save 命令描述（提炼请求正文本身保留中文，e2e 按原文比对）
+  eeSave: {
+    description: "Turn this conversation into a capability (prompt / skill / app draft)"
+  },
+  // app-bindings.ts：微应用会话绑定文件
+  appBindings: {
+    invalidAppName: "Invalid micro-app name",
+    invalidSessionId: "Invalid session id",
+    corruptFile: "The micro-app session binding file is corrupt; treated as empty bindings ({{file}})"
+  },
+  // app-subscription.ts：启用/停用自选微应用
+  appSubscription: {
+    invalidAppName: "Invalid micro-app name",
+    invalidSkillName: "Invalid skill name",
+    invalidConnectionName: "Invalid connector name",
+    invalidKind: "Invalid capability type"
+  },
+  // apps-view.ts：企业应用侧栏/首屏横排/「查看更多」浮层/进行中
+  appsView: {
+    startersTitle: "Start from an example question",
+    confirmDisable: "Confirm disable",
+    disable: "Disable",
+    newSession: "Start a new session",
+    openWorkbench: "Open workbench",
+    fillInput: "Fill into input box",
+    unbind: "Unbind",
+    moreActions: "More actions for {{title}}",
+    missingList: "Unavailable: {{missing}}",
+    missing: "Some capabilities unavailable",
+    missingHint: "{{title}}. Click to view and request access",
+    missingApply: "Some capabilities unavailable · Request",
+    todoBadge: "{{count}} pending",
+    openArrow: "Open →",
+    enable: "Enable",
+    gallerySubtitle: "{{count}} apps · Click one to start; the AI opens the workbench with it",
+    searchAppsAria: "Search enterprise apps",
+    searchAppsPlaceholder: "Search apps…",
+    noMatches: "No matching apps",
+    availableCount: "Available ({{count}})",
+    showInSidebar: "Show enterprise apps in the sidebar",
+    loginToSee: "Sign in to see enterprise apps",
+    expandApps: "Expand enterprise apps",
+    collapseApps: "Collapse enterprise apps",
+    hideSidebar: "Hide enterprise apps from the sidebar (turn them back on in View more or Settings → dsh-ee)",
+    collapsedCount: " ({{count}})",
+    allApps: "All apps",
+    availablePlus: "＋ Available ({{count}})",
+    heroSearchPlaceholder: "Search…",
+    itemTitle: "{{title}}: {{label}}",
+    todosNeed: "{{count}} items need your attention",
+    startHint: "Click one to start; the workbench opens on the right"
+  },
+  // workbench-client.ts：业务工作台标签页（面板/原文窗格、写表、清单、继续追问）
+  workbenchClient: {
+    fallbackTitle: "Workbench",
+    noSession: "No current session found. Open the app's session first.",
+    sentToAi: "Sent to the AI: {{label}}",
+    networkError: "Network error",
+    noSessionCheck: "No current session found; the check will not be saved",
+    checkNotSaved: "The check was not saved. Try again later.",
+    updatePlugin: "Update the connect plugin to the latest version",
+    saved: "Saved: {{label}}",
+    saveFailedNetwork: "Not saved. Check your network and try again.",
+    writeFailed: "Could not {{action}}: {{error}}",
+    deletedRow: "Row deleted",
+    updated: "Updated: {{label}}",
+    docLabel: "Document {{doc}}",
+    askPrompt: "Continue with knowledge base document “{{title}}” (document {{doc}}), around lines {{from}}–{{to}}: what other relevant rules or exceptions apply in that part? Answer with citations.",
+    ask: "Ask more in this document",
+    saveFailedDefault: "Not saved. Update the connect plugin to the latest version."
+  },
+  // settings-view.ts：DSH 设置里的「dsh-ee」页（地址、测试、更新、侧栏开关）
+  settingsView: {
+    title: "dsh-ee connection",
+    description: "The connect plugin uses this address to sign in to your enterprise account, sync enterprise skills and micro-apps, and call enterprise models. If it cannot connect, first open the dsh-ee website in your browser, then enter the address that works here.",
+    reading: "Reading…",
+    addressLabel: "dsh-ee address",
+    packagedOverridden: "The address in the plugin package is {{packaged}}; you changed it to the current one.",
+    packagedDefault: "This is the address your administrator wrote when publishing the connect plugin.",
+    testing: "Testing…",
+    testConnection: "Test connection",
+    resetAddress: "Restore the address from the plugin package",
+    plugin: "Connect plugin",
+    currentVersion: "Current version {{version}}",
+    updating: "Updating…",
+    updateLatest: "Update to latest",
+    updateHint: "Update to the latest version published by the enterprise server; restart DSH for it to take effect.",
+    changeHint: "Changing the address only affects this machine. If nobody can connect, ask your administrator to fill in the access address in the dsh-ee website's system settings and publish the connect plugin again.",
+    readFailed: "Failed to read settings: {{error}}",
+    testFailed: "Test failed: {{error}}",
+    saveFailed: "Save failed: {{error}}",
+    updateFailed: "Update failed: {{error}}",
+    savedNotice: "Saved and applied. Enterprise skills, micro-apps and tools are syncing to the new address; if the sign-in is no longer valid, sign in again from the sidebar enterprise panel.",
+    sidebarHint: "The sidebar lists only the first 3 apps; the rest are under View more. When hidden, enterprise apps can still be opened below the composer on the home screen and from the enterprise panel on the right.",
+    saving: "Saving…"
+  },
+  // server-settings.ts：dsh-ee 地址的保存与连接测试
+  serverSettings: {
+    reasonTimeout: "Connection timed out: this machine cannot reach that address (internal address, VPN not connected, or blocked by a firewall)",
+    reasonRefused: "Connection refused: the address resolves, but nothing is listening on that port",
+    reasonDns: "Domain not found: check the spelling, or whether you need to connect to a VPN",
+    reasonTls: "HTTPS certificate problem ({{code}})",
+    badAddress: "Invalid address format",
+    badAddressDetail: "Enter a full http:// or https:// address, for example https://ee.example.com, with no parameters other than the path",
+    unreachable: "Unreachable",
+    reachable: "Reachable ({{ms}} ms)",
+    notDshEe: "That address does not serve dsh-ee",
+    notDshEeDetail: "GET /healthz returned HTTP {{status}}; make sure the address is the dsh-ee website address",
+    isDshEe: "This is dsh-ee{{version}}",
+    versionSuffix: " ({{version}})",
+    noLogin: "This machine has not signed in to an enterprise account",
+    noLoginDetail: "After saving the address, click “Log in” in the sidebar enterprise panel, or type /ee-login in the chat.",
+    signedIn: "Signed in as {{username}}{{department}}",
+    departmentSuffix: " ({{department}})",
+    loginInvalid: "The local sign-in is not valid for this dsh-ee server",
+    loginInvalidDetail: "Save the address and sign in again (the token is issued per dsh-ee server; switching servers requires a new sign-in).",
+    loginCheckFailed: "Sign-in check failed",
+    saveBadAddress: "Invalid address format: enter a full http:// or https:// address"
+  },
+  // workbench.ts：工作台数据格式化、占位符、表单与看板校验（纯函数）
+  workbench: {
+    unitHundredMillion: " hundred million",
+    unitTenThousand: " ten thousand",
+    unitBillion: "B",
+    unitMillion: "M",
+    flat: "Flat",
+    allKbs: "All knowledge bases",
+    scopePicked: "Knowledge bases {{titles}} (ids {{ids}})",
+    kbTitle: "“{{title}}”",
+    formRequired: "Fill in “{{label}}”",
+    formNumber: "“{{label}}” must be a number",
+    formSelect: "Choose “{{label}}” from the options",
+    blocksRequired: "blocks must be a non-empty array",
+    blocksTooMany: "A board can have at most 20 blocks",
+    boardTooLarge: "Board content cannot exceed 32 KB",
+    blockWhere: "Block {{index}}",
+    textEmpty: "{{where}}: text cannot be empty",
+    itemsRange: "{{where}}: items must contain 1–50 entries",
+    columnsRange: "{{where}}: columns must contain 1–12 columns",
+    rowsRange: "{{where}}: rows must be a 2-D array with at most 50 rows",
+    citationsRange: "{{where}}: items must contain 1–30 citations",
+    citationAt: "{{where}}, citation {{index}}",
+    citationNumbers: "{{at}}: doc, from and to must be positive integers, and to must not be less than from",
+    citationVersion: "{{at}}: version must be a positive integer",
+    citationQuote: "{{at}}: quote must be a 1–500 character excerpt from the source",
+    blockType: "{{where}}: type must be text, list, table or citations"
+  },
+  // workbench-host.ts：ee_workbench 工具与面板取数/写表
+  workbenchHost: {
+    noComponent: "No such component in the catalog",
+    notReadOnly: "This data source is not a read-only tool; the panel cannot use it for data",
+    formNoTable: "This form is not configured to submit to a table",
+    rowNoAction: "This button cannot modify the table",
+    rowNoId: "This row has no id",
+    badDoc: "Invalid document id",
+    invalidAppName: "Invalid micro-app name",
+    invalidSessionId: "Invalid session id",
+    invalidChecklistKey: "Invalid checklist key",
+    actionInvalid: "action must be board or checklist",
+    appNotFound: "No micro-app {{app}}, or it is not in your available scope",
+    noBoard: "The workbench of micro-app {{app}} has no AI board",
+    noBoardSession: "Cannot find the session whose board should be updated",
+    boardUpdated: "Workbench board updated",
+    badCitations: "Citation(s) {{numbers}} do not match the source: re-read those lines with kb__read, correct them, write the board again, and correct the user in the conversation.",
+    staleCitations: "The document(s) for citation(s) {{numbers}} have been updated; read the latest version to confirm the conclusions still hold.",
+    checklistUnsupported: "This version of the connect plugin does not support checklists",
+    noChecklist: "The workbench of micro-app {{app}} has no checklist",
+    checklistNotFound: "No checklist titled “{{title}}”. Available: {{options}}",
+    checklistAmbiguous: "There are {{count}} checklists; specify one with title: {{options}}",
+    checklistOption: "“{{title}}”",
+    doneOrUndone: "Fill in at least one of done and undone",
+    itemsNotFound: "Checklist “{{title}}” has no entries {{unknown}}; entry ids: {{known}}",
+    noChecklistSession: "Cannot find the session whose checklist should be updated",
+    checklistUpdated: "Checklist “{{title}}” updated: {{done}}/{{total}} done",
+    checklistMarked: "Checklist “{{title}}” updated: {{count}} entries done",
+    description: "Update the current micro-app workbench: action=board writes this turn's results to the AI board (replacing it entirely; knowledge base citations in citations blocks are verified automatically); action=checklist checks or unchecks entries in a workbench checklist (fill entry ids in done / undone). Changes no business data.",
+    paramApp: "Micro-app name, i.e. the name in /name",
+    paramTitle: "checklist: title of the checklist; optional when the workbench has only one checklist",
+    paramDone: "checklist: entry ids to mark as done",
+    paramUndone: "checklist: entry ids to unmark as done",
+    paramBlocks: "Board content, shown top to bottom; rendered as text only, HTML not supported",
+    paramItems: "list: one text per entry; citations: one knowledge base citation per entry {doc, version, from, to, quote, title}"
+  },
+  // workbench-view.ts：业务工作台面板（指标/表格/图表/清单/表单/看板/原文）
+  workbenchView: {
+    widgetMetric: "Metric",
+    widgetTable: "Table",
+    widgetChart: "Chart",
+    widgetChecklist: "Checklist",
+    widgetForm: "Form",
+    widgetActions: "Quick actions",
+    widgetMarkdown: "Description",
+    widgetBoard: "AI board",
+    widgetKbScope: "Knowledge bases to search",
+    confirmDelete: "Confirm delete",
+    forbidden: "No access: you do not have permission to use this data source",
+    fetchFailed: "Failed to load data: {{error}}",
+    forbiddenDetail: "No access: you do not have permission to use “{{tool}}” in “{{connection}}”.",
+    thisDataSource: "this data source",
+    requestAccess: "Request access ↗",
+    contactAdmin: "Ask your administrator for access.",
+    countRows: "{{total}} rows",
+    expandDetail: "Show details",
+    collapseDetail: "Hide details",
+    truncatedRows: "{{total}} rows total; showing the first {{shown}}",
+    pointTip: "{{label}} · {{series}}: {{value}}",
+    pieTip: "{{label}}: {{value}} ({{percent}}%)",
+    selectPlaceholder: "Select",
+    citationOk: "✔ Verified against source",
+    citationStale: "Source updated",
+    citationMismatch: "✖ Does not match source",
+    citationMissing: "✖ Document not found",
+    citationUnchecked: "Not verified",
+    citationWhere: "{{title}} · line {{range}}",
+    citationTip: "{{where}}\n“{{quote}}”",
+    webSourceTip: "{{tip}}\nView the source on the dsh-ee website",
+    quoteText: "“{{quote}}”",
+    viewSource: "View source: {{where}}",
+    nearSkippedTip: "That page is scanned or garbled and was not indexed in the knowledge base; the answer may be missing its content. Check the original document.",
+    nearSkipped: "⚠ Page {{page}} not indexed",
+    noKbs: "You have no knowledge bases to search yet",
+    kbDocs: "{{count}} docs",
+    scopeOnly: "Search only the {{count}} selected knowledge bases",
+    scopeAllHint: "All are searched when nothing is selected",
+    boardEmpty: "The AI writes its results here when it finishes.",
+    updatedAt: "Updated {{time}}",
+    unavailable: "This workbench is no longer available: the app may be disabled or its configuration changed. You can close this tab.",
+    openCitationHint: "Click a citation in Answers and sources to open the source here.",
+    versionLine: "Version {{version}} · lines {{from}}–{{to}} of {{total}}",
+    staleNotice: "{{stale}}; the highlight shows the version at citation time.",
+    prevPage: "Previous page",
+    nextPage: "Next page",
+    readView: "Reading view",
+    rawView: "View source (with line numbers)",
+    quotedSource: "Quoted source: “{{quote}}”"
+  },
+  // local-mcp.ts：/ee-local 命令与本机扩展 MCP 注册
+  localMcp: {
+    missingPackage: "An npm package name is required, for example /ee-local add @acme/legacy-oa-local@0.1.0",
+    notNpmPackage: "“{{text}}” is not an npm package name: local extensions are installed only from the enterprise npm registry; URLs, local paths and git addresses are not accepted",
+    invalidPackage: "“{{pkg}}” is not a valid npm package name (expected @scope/name or name)",
+    invalidVersion: "“{{version}}” is not a valid version",
+    unknownSubcommand: "Subcommands are list / add / remove / snippet; received “{{action}}”",
+    idHint: "--id must be followed by an extension id, for example acme/legacy-oa",
+    invalidId: "“{{value}}” is not a valid extension id (expected acme/legacy-oa)",
+    unknownFlag: "Unknown option “{{token}}”",
+    missingTarget: "{{action}} must be followed by a package name or extension id",
+    extraArgs: "Unexpected extra arguments “{{args}}”",
+    duplicateService: "An MCP service named {{name}} already exists; not overwriting",
+    noManagerHint: "\nThis DSH has no MCP management API (@deepseek-ai/dsh-mcp-manager), so automatic registration is unavailable; use /ee-local snippet <package> to generate a config snippet.\n",
+    noExtensions: "No local extensions added yet.\nUsage: /ee-local add <package>[@version] [--id author/name]\n{{hint}}",
+    registered: "Registered",
+    unregistered: "Not registered",
+    unregisteredNoManager: "Not registered (no MCP management API)",
+    listHeader: "Local extensions ({{count}}):\n{{lines}}\n{{hint}}\nRemove: /ee-local remove <extension id or package name>",
+    alreadyAdded: "{{spec}} has already been added; to change the id or version, run /ee-local remove first.",
+    idTaken: "Extension id {{id}} is already used by {{pkg}}; run /ee-local remove {{id}} first, or use another --id.",
+    packageBound: "This package was already added under extension id {{id}}; to change the id, run /ee-local remove {{id}} first.",
+    noManagerAdd: "This DSH has no MCP management API (@deepseek-ai/dsh-mcp-manager is not mounted; older DSH versions or minimal compositions lack it), so automatic registration is unavailable.\nAdd the snippet below to the end of the profile's cordis.patch.yml (or upgrade DSH to 0.2.2 and try again):\n\n{{snippet}}\n",
+    serviceConflict: "An MCP service named {{name}} already exists (configured by the employee, registered by another plugin, or added earlier); not overwriting.\nUsing a different --id yields another service name, for example: /ee-local add {{spec}} --id {{scope}}/<another name>\n",
+    confirmPlan: "{{update}}register the local extension as a local MCP service (writes this machine only, does not change dsh-ee, does not overwrite existing services):\n  Extension    {{id}}\n  Package      {{pkg}}{{latest}}\n  MCP service  {{server}} (tool names mcp__{{server}}__<tool>)\n  env          DSH_EE_URL, DSH_EE_TOKEN (from the DSH credential store), DSH_EE_HARNESS=dsh, enterprise npm registry\n\nRun after confirming: /ee-local add {{spec}}{{idFlag}} --yes\n",
+    updateSuffix: "After updating it to the new version, ",
+    latestVersion: " (latest version)",
+    registerFailed: "Registration failed: {{error}}",
+    registeredText: "Registered (restored automatically on the next DSH start):\n  {{id}} → {{spec}}, service name {{server}}\nTool names start with mcp__{{server}}__; if the extension requires sign-in on first use, the system's own sign-in window appears.\nRemove: /ee-local remove {{id}}\n",
+    notFound: "“{{target}}” not found; run /ee-local list to see added extensions.",
+    removed: "Removed {{id}} ({{pkg}}); MCP service {{server}} unregistered.",
+    snippetIntro: "Add the snippet below to the end of the corresponding profile's cordis.patch.yml (DSH has no mcpServers config file; this is the official configuration method):\n\n{{snippet}}\n\n{{hint}}\n",
+    snippetHint: "This DSH has the MCP management API; /ee-local add can also register it automatically.",
+    description: "Local extensions: register / list / remove MCP services for local extensions (writes this machine only)",
+    inputHint: "[list|add|remove|snippet] [package[@version]] [--id author/name] [--yes]"
+  },
+  // index.ts（宿主端）：远程方法里的兜底错误
+  serverIndex: {
+    microAppNotFound: "No such micro-app in the catalog",
+    notLoggedIn: "Not signed in to an enterprise account",
+    feedbackFailed: "Feedback failed: HTTP {{status}}",
+    invalidEntryId: "Invalid entry id"
+  },
+  // kb-doc-render.ts：知识库原文阅读视图（分页标签）
+  kbDocRender: {
+    page: "Page {{page}}"
+  },
+  // bridge.ts：MCP 工具结果文字
+  bridge: {
+    error: "Error: {{text}}"
+  },
+  // brand-view.ts：没有 logo 时的首字母兜底
+  brandView: {
+    fallbackLetter: "e"
+  }
+};
+var en_default = en;
+
+// src/i18n/es.ts
+var es = {
+  // 多个模块共用的词（视图标题/按钮/空态）；页面专属文案放各自命名空间
+  common: {
+    login: "Iniciar sesión",
+    refresh: "Actualizar",
+    retry: "Reintentar",
+    save: "Guardar",
+    submit: "Enviar",
+    close: "Cerrar",
+    hide: "Ocultar",
+    loading: "Cargando…",
+    noData: "No hay datos",
+    notSet: "Sin definir",
+    viewInWeb: "Ver en la web",
+    delete: "Eliminar",
+    newBadge: "Nuevo",
+    inProgress: "En curso",
+    pendingDecision: "Pendiente de tu decisión",
+    working: "Trabajando",
+    turnEnded: "Turno finalizado",
+    viewMoreCount: "Ver más ({{n}})",
+    listSeparator: ", "
+  },
+  // client.ts：客户端插件入口（远程调用兜底、登录/诊断提示、默认企业名）
+  client: {
+    remoteFailed: "Falló la llamada remota a la empresa",
+    overviewTimeout: "Se agotó el tiempo al leer la cuenta de empresa",
+    brandTimeout: "Se agotó el tiempo al leer la marca de la empresa",
+    defaultOrg: "Empresa",
+    loginInBrowser: "Completa el inicio de sesión de empresa en el navegador.",
+    loginStartFailed: "No se pudo iniciar sesión. Comprueba la red y vuelve a intentarlo.",
+    diagnoseFailed: "El diagnóstico falló. Comprueba la red y vuelve a intentarlo."
+  },
+  // apps-client.ts：企业应用目录的客户端状态与操作提示
+  apps: {
+    copied: "Se copió {{command}}. Pégalo en el cuadro de texto y envíalo.",
+    filled: "Se rellenó el cuadro de texto. Revisa y envía.",
+    loginInBrowser: "Completa el inicio de sesión de empresa en el navegador.",
+    loginStartFailed: "No se pudo iniciar sesión. Vuelve a intentarlo más tarde.",
+    openWorkbenchFirst: "Haz clic en la aplicación para volver a su sesión y luego abre el banco de trabajo.",
+    workbenchNotOpen: "El banco de trabajo no se abrió. Vuelve a intentarlo más tarde.",
+    enableFailed: "No se pudo habilitar: {{error}}",
+    enabled: "Se habilitó “{{title}}”. Haz clic para empezar a usarla.",
+    retryLater: "Vuelve a intentarlo más tarde",
+    enableFailedNetwork: "No se pudo habilitar. Comprueba la red y vuelve a intentarlo.",
+    disableFailed: "No se pudo deshabilitar: {{error}}",
+    disabled: "Se deshabilitó “{{title}}”.",
+    disableFailedNetwork: "No se pudo deshabilitar. Comprueba la red y vuelve a intentarlo.",
+    unbound: "Se desvinculó",
+    unbindFailed: "No se pudo desvincular. Vuelve a intentarlo más tarde.",
+    enterpriseApps: "Aplicaciones de empresa"
+  },
+  // commands.ts：/ee-login /ee-status /ee-logout 的对话文案与命令描述
+  commands: {
+    pending: "Confirma en el navegador. Código de confirmación {{code}}, enlace {{url}}",
+    starting: "Iniciando sesión de empresa…",
+    badSetupCode: "El código de acceso no tiene el formato correcto: debe ser como ABCD-EFGH; también puedes ejecutar /ee-login sin código.",
+    setupConfirm: "Vuelve a la página «Empezar» del sitio web de dsh-ee, comprueba el código {{code}} y haz clic en “Autorizar” (si la página está cerrada, abre {{url}}). Después vuelve aquí para continuar la conversación.",
+    loginDescription: "Iniciar sesión en la cuenta de empresa (opcionalmente con el código de acceso de la página «Empezar» de la web)",
+    setupCodeHint: "[código de acceso]",
+    statusDescription: "Ver el estado del inicio de sesión de empresa",
+    notLoggedIn: "No has iniciado sesión. Escribe /ee-login en el chat.",
+    unreachable: "No se puede conectar con dsh-ee. Comprueba la red o la VPN y vuelve a intentarlo.",
+    sessionExpired: "La sesión ha caducado. Escribe /ee-login en el chat.",
+    httpError: "dsh-ee devolvió HTTP {{status}}. Reinténtalo más tarde (no es un fallo de inicio de sesión).",
+    expiresOn: " · caduca el {{date}}",
+    neverExpires: " · sin caducidad",
+    statusLine: "Sesión iniciada como {{username}} ({{department}}) · token {{token}}{{expiry}} · plugin {{version}} · npmrc {{npmrc}}",
+    npmrcMatch: "coincide",
+    npmrcMismatch: "no coincide",
+    logoutDescription: "Cerrar la sesión de la cuenta de empresa",
+    noAccount: "No hay ninguna cuenta de empresa con sesión iniciada",
+    revokedPrefix: "El token se revocó en el servidor, ",
+    envToken: "pero procede de una variable de entorno o de $DSH_HOME/.env ({{ref}}). Elimínalo manualmente y reinicia DSH.",
+    loggedOut: "Se cerró la sesión de la cuenta de empresa",
+    loggedOutOffline: "La sesión se cerró en este equipo; no se pudo conectar con dsh-ee, así que el token no se pudo revocar en el servidor. Puedes revocarlo en “Mis tokens” de la web."
+  },
+  // doctor.ts：ee_local_doctor 诊断项与修复建议
+  doctor: {
+    appBindingsFix: "Volver a abrir la microaplicación crea una nueva vinculación; el archivo dañado no hay que eliminarlo manualmente.",
+    noCredential: "No hay credenciales de inicio de sesión de empresa en este equipo",
+    loginFix: "Escribe /ee-login en el chat para iniciar sesión",
+    hasCredential: "Se encontraron credenciales de inicio de sesión de empresa en este equipo",
+    source: "Origen: {{source}}",
+    expiringSoon: "La sesión caduca en {{days}} día(s)",
+    reLoginFix: "Ejecuta /ee-login antes de que caduque para volver a iniciar sesión",
+    signedInAs: "Sesión iniciada como {{username}} ({{department}})",
+    loginExpired: "La sesión de empresa ha caducado",
+    reLoginFix2: "Escribe /ee-login en el chat para volver a iniciar sesión",
+    readAccountFailed: "No se pudo leer la cuenta de empresa (HTTP {{status}})",
+    serverRestarting: "Es posible que dsh-ee se esté reiniciando o no esté disponible temporalmente. No es un fallo de inicio de sesión; vuelve a intentarlo más tarde.",
+    retryDiagnose: "Vuelve a ejecutar el diagnóstico en un momento; si sigue fallando, revisa el estado del servidor.",
+    unreachable: "No se puede conectar con dsh-ee ({{base}})",
+    unreachableFix: "Comprueba la red o la VPN; si la dirección no es correcta, cámbiala en «Ajustes → dsh-ee» de DSH por una dirección de dsh-ee que se abra en el navegador y pruébala.",
+    npmrcOk: "La configuración del registro npm de empresa en el .npmrc de DSH coincide con la sesión actual",
+    npmrcMissing: "Al .npmrc de DSH le falta la configuración del registro npm de empresa",
+    npmrcMismatch: "El token del registro npm de empresa en el .npmrc de DSH no coincide con la sesión actual",
+    npmrcDetail: "{{path}}; la instalación de plugins de empresa fallará con 401",
+    npmrcFix: "Reiniciar DSH o volver a iniciar sesión lo sincroniza automáticamente",
+    modelsAvailable: "Modelos disponibles: {{models}}",
+    noModels: "No hay modelos disponibles",
+    readModelsFailed: "No se pudo leer la lista de modelos",
+    readModelsHttp: "No se pudo leer la lista de modelos (HTTP {{status}})",
+    modelPermissionFix: "Pide a tu administrador que habilite el acceso a los modelos",
+    defaultModelMissing: "El modelo predeterminado de empresa {{model}} no está en tu lista de disponibles",
+    chooseModelFix: "Elige un modelo disponible en DSH",
+    pluginNewer: "Hay una versión más reciente del plugin de conexión: {{latest}} (actual {{version}})",
+    updateFix: "Haz clic en “Actualizar a la última versión” en «Ajustes → dsh-ee» de DSH y reinicia DSH cuando termine la instalación.",
+    pluginLatest: "El plugin de conexión {{version}} está actualizado",
+    missingPlugins: "Faltan plugins obligatorios: {{plugins}}",
+    missingPluginsFix: "Instálalos en la página de plugins de DSH o reinicia DSH para que el plugin de conexión los instale automáticamente.",
+    pluginsOk: "Todos los plugins obligatorios están instalados",
+    bridgeFailed: "Falló la sincronización de herramientas de empresa",
+    bridgeFix: "Comprueba la red; escribe /ee-status para ver el estado de la sesión.",
+    bridgeOk: "Herramientas de empresa sincronizadas ({{count}} herramienta(s))",
+    summaryFail: "{{fails}} con error, {{warns}} requieren atención",
+    summaryWarn: "{{warns}} requieren atención",
+    summaryOk: "Todo correcto",
+    description: "Comprueba cómo se conecta DSH en este equipo con el banco de trabajo de empresa dsh-ee: credenciales de inicio de sesión, validez del token, .npmrc, versión del plugin de conexión, plugins obligatorios, modelos, sincronización de herramientas de empresa y comprobaciones del servidor. Solo lectura; no modifica nada."
+  },
+  // status-view.ts：右侧企业面板标题栏与头部按钮
+  statusView: {
+    adminOn: "Activado",
+    adminOff: "Desactivado",
+    adminRemainingHours: "Quedan {{hours}} h {{minutes}} min",
+    adminRemainingMinutes: "Quedan {{minutes}} min",
+    failureAuth: "No has iniciado sesión en la cuenta de empresa o la sesión ha caducado. Inicia sesión.",
+    failureServer: "dsh-ee devolvió un error ({{detail}}). Actualiza más tarde.",
+    failureUnreachable: "No se puede conectar con dsh-ee ({{base}}, {{detail}}). Asegúrate de que este equipo pueda abrir esa dirección en el navegador; si la dirección no es correcta, cámbiala en «Ajustes → dsh-ee» de DSH por una que se abra y pruébala.",
+    failureDefault: "No has iniciado sesión o la conexión no está disponible. Vuelve a iniciar sesión.",
+    reading: "Leyendo la cuenta de empresa…",
+    startingLogin: "Iniciando sesión…",
+    account: "Cuenta",
+    department: "Departamento",
+    tokenExpiry: "Caducidad del token",
+    adminMode: "Modo administrador",
+    expiresOn: "Caduca el {{date}}",
+    neverExpires: "Sin caducidad",
+    quota: "Cuota de este mes",
+    quotaUnavailable: "Información de cuota no disponible",
+    quotaUnlimited: "Ilimitada",
+    quotaRemaining: "Queda {{percent}}%",
+    models: "Modelos de empresa",
+    defaultModel: "Predeterminado: {{model}}",
+    modelsUnavailable: "No hay modelos disponibles o la lista de modelos no está disponible",
+    status: "Estado de la conexión",
+    pluginVersion: "Plugin {{version}}{{latest}}",
+    pluginNewVersion: " · nueva versión {{version}}",
+    pluginUpToDate: " · actualizado",
+    diagnosing: "Diagnosticando…",
+    diagnose: "Diagnóstico",
+    diagnoseResult: "Diagnóstico: {{summary}}",
+    checkLine: "{{title}}{{fix}}",
+    checkFixSeparator: "; ",
+    headerDisconnected: "Empresa · Sin sesión",
+    headerChecking: "Empresa · Comprobando",
+    headerAdmin: "Modo administrador · {{remaining}}",
+    headerQuota: "Modelos de empresa · queda {{percent}}%",
+    headerUser: "Modelos de empresa · {{username}}",
+    headerTitleUser: "{{username}}{{department}}",
+    headerDepartment: " ({{department}})",
+    headerTitle: "Volver a iniciar sesión en la cuenta de empresa",
+    guideDescription: "Ver la cuenta de empresa, la cuota, los modelos y el estado de la conexión"
+  },
+  // turn-writes-view.ts：一轮末尾「已留痕」提示
+  turnWrites: {
+    failedOp: "{{label}} falló{{count}}",
+    failedCount: " ×{{count}}",
+    failedNotice: "Las operaciones de escritura de este turno en los sistemas de empresa (algunas fallidas) se han registrado en dsh-ee",
+    okNotice: "Este turno modificó datos de los sistemas de empresa y se ha registrado en dsh-ee",
+    systemLabel: "“{{system}}”"
+  },
+  // votes.ts：助手消息尾的 👍👎 反馈
+  votes: {
+    notePrompt: "¿Qué no resultó útil de esta respuesta? (Opcional; se agrupa por pregunta para el autor de la aplicación).",
+    helpful: "Útil",
+    notHelpful: "No útil",
+    label: "Valorar esta respuesta"
+  },
+  // write-log.ts：本机写操作日志
+  writeLog: {
+    invalidSessionId: "El id de sesión no es válido"
+  },
+  // overview.ts：读取企业账号失败原因
+  overview: {
+    timeout: "Se agotó el tiempo de conexión",
+    toolFailed: "Falló la llamada a la herramienta de empresa",
+    toolNoJson: "La herramienta de empresa no devolvió JSON"
+  },
+  // config.ts：插件配置默认值与校验
+  config: {
+    badBase: "[dsh-ee] base debe ser una dirección http(s)",
+    defaultOrg: "Empresa"
+  },
+  // app-launcher.ts：启动微应用时的发送结果不确定提示
+  appLauncher: {
+    sendUnknown: "Es posible que el mensaje no se haya enviado. Revisa la sesión y vuelve a intentarlo."
+  },
+  // host-session.ts：宿主会话兼容层的失败提示
+  hostSession: {
+    switchUnsupported: "El host no permite cambiar de sesión",
+    noCwd: "La sesión actual no tiene un directorio de trabajo para crear una nueva sesión",
+    createWorkspaceUnsupported: "El host no permite crear espacios de trabajo",
+    noWorkspace: "No se pudo obtener un espacio de trabajo para la nueva sesión",
+    createSessionUnsupported: "El host no permite crear sesiones",
+    rejected: "El host rechazó el mensaje",
+    sendUnsupported: "El host no permite enviar mensajes"
+  },
+  // device.ts：设备码登录
+  device: {
+    startFailed: "No se pudo iniciar la sesión con código de dispositivo: {{error}}",
+    startHttpFailed: "No se pudo iniciar la sesión con código de dispositivo: HTTP {{status}}",
+    cancelled: "Se canceló el inicio de sesión con código de dispositivo",
+    failed: "Falló el inicio de sesión con código de dispositivo: HTTP {{status}}",
+    timeout: "Se agotó el tiempo de espera del inicio de sesión con código de dispositivo"
+  },
+  // connect-update.ts：一键更新接入插件
+  connectUpdate: {
+    noManager: "Este DSH no tiene API de gestión de plugins. Actualiza el plugin de conexión manualmente en la página de plugins.",
+    noLatest: "No se pudo obtener la versión del plugin de conexión de empresa: {{why}}{{hint}}",
+    signInHint: "; inicia sesión en la cuenta de empresa y vuelve a intentarlo",
+    notPublished: "El servidor de empresa aún no ha publicado el plugin de conexión. Pide a tu administrador que lo publique primero en los ajustes del sistema.",
+    upToDate: "Ya está actualizado ({{version}})",
+    installed: "Se instaló {{pkg}}@{{latest}}; se aplicará al reiniciar DSH",
+    installFailed: "Falló la instalación: {{error}}"
+  },
+  // upload.ts：ee_plugins.upload 上传 .tgz
+  upload: {
+    missingPath: "Falta path: la ruta local del archivo .tgz",
+    notTarball: "Solo se pueden subir archivos .tgz generados por npm pack",
+    fileNotFound: "No se encontró el archivo: {{file}}",
+    notAFile: "No es un archivo: {{file}}",
+    tooLarge: "El archivo es demasiado grande",
+    timeout: "Se agotó el tiempo de subida. Vuelve a intentarlo; si la red es lenta, puedes subirlo desde la web.",
+    unreachable: "No se puede conectar con dsh-ee. Comprueba la red o la VPN.",
+    httpFailed: "Falló la subida (HTTP {{status}})"
+  },
+  // ee-save.ts：/ee-save 命令描述（提炼请求正文本身保留中文，e2e 按原文比对）
+  eeSave: {
+    description: "Convertir esta conversación en una capacidad (borrador de prompt / habilidad / aplicación)"
+  },
+  // app-bindings.ts：微应用会话绑定文件
+  appBindings: {
+    invalidAppName: "El nombre de la microaplicación no es válido",
+    invalidSessionId: "El id de sesión no es válido",
+    corruptFile: "El archivo de vinculación de sesión de la microaplicación está dañado; se trató como vinculaciones vacías ({{file}})"
+  },
+  // app-subscription.ts：启用/停用自选微应用
+  appSubscription: {
+    invalidAppName: "El nombre de la microaplicación no es válido",
+    invalidSkillName: "El nombre de la habilidad no es válido",
+    invalidConnectionName: "El nombre del conector no es válido",
+    invalidKind: "El tipo de capacidad no es válido"
+  },
+  // apps-view.ts：企业应用侧栏/首屏横排/「查看更多」浮层/进行中
+  appsView: {
+    startersTitle: "Empieza con una pregunta de ejemplo",
+    confirmDisable: "Confirmar deshabilitación",
+    disable: "Deshabilitar",
+    newSession: "Iniciar una sesión nueva",
+    openWorkbench: "Abrir banco de trabajo",
+    fillInput: "Rellenar en el cuadro de texto",
+    unbind: "Desvincular",
+    moreActions: "Más acciones de {{title}}",
+    missingList: "No disponibles: {{missing}}",
+    missing: "Algunas capacidades no están disponibles",
+    missingHint: "{{title}}. Haz clic para ver y solicitar acceso",
+    missingApply: "Algunas capacidades no disponibles · Solicitar",
+    todoBadge: "{{count}} pendientes",
+    openArrow: "Abrir →",
+    enable: "Habilitar",
+    gallerySubtitle: "{{count}} aplicaciones · Haz clic en una para empezar; la IA abrirá el banco de trabajo junto con ella",
+    searchAppsAria: "Buscar aplicaciones de empresa",
+    searchAppsPlaceholder: "Buscar aplicaciones…",
+    noMatches: "No hay aplicaciones coincidentes",
+    availableCount: "Disponibles ({{count}})",
+    showInSidebar: "Mostrar las aplicaciones de empresa en la barra lateral",
+    loginToSee: "Inicia sesión para ver las aplicaciones de empresa",
+    expandApps: "Expandir las aplicaciones de empresa",
+    collapseApps: "Contraer las aplicaciones de empresa",
+    hideSidebar: "Ocultar las aplicaciones de empresa de la barra lateral (puedes volver a mostrarlas en “Ver más” o en «Ajustes → dsh-ee»)",
+    collapsedCount: " ({{count}})",
+    allApps: "Todas las aplicaciones",
+    availablePlus: "＋ Disponibles ({{count}})",
+    heroSearchPlaceholder: "Buscar…",
+    itemTitle: "{{title}}: {{label}}",
+    todosNeed: "{{count}} elementos requieren tu atención",
+    startHint: "Haz clic en una para empezar; el banco de trabajo se abrirá a la derecha"
+  },
+  // workbench-client.ts：业务工作台标签页（面板/原文窗格、写表、清单、继续追问）
+  workbenchClient: {
+    fallbackTitle: "Banco de trabajo",
+    noSession: "No se encontró la sesión actual. Abre primero la sesión de esta aplicación.",
+    sentToAi: "Enviado a la IA: {{label}}",
+    networkError: "Error de red",
+    noSessionCheck: "No se encontró la sesión actual; la selección no se guardará",
+    checkNotSaved: "La selección no se guardó. Vuelve a intentarlo más tarde.",
+    updatePlugin: "Actualiza el plugin de conexión a la última versión",
+    saved: "Guardado: {{label}}",
+    saveFailedNetwork: "No se guardó. Comprueba la red y vuelve a intentarlo.",
+    writeFailed: "No se pudo {{action}}: {{error}}",
+    deletedRow: "Se eliminó esta fila",
+    updated: "Actualizado: {{label}}",
+    docLabel: "Documento {{doc}}",
+    askPrompt: "Continúa con el documento de la base de conocimiento “{{title}}” (documento {{doc}}), alrededor de las líneas {{from}}–{{to}}: ¿qué otras normas o excepciones se aplican en esa parte? Responde indicando las fuentes.",
+    ask: "Preguntar más en este documento",
+    saveFailedDefault: "No se guardó. Actualiza el plugin de conexión a la última versión."
+  },
+  // settings-view.ts：DSH 设置里的「dsh-ee」页（地址、测试、更新、侧栏开关）
+  settingsView: {
+    title: "Conexión con dsh-ee",
+    description: "El plugin de conexión usa esta dirección para iniciar sesión en tu cuenta de empresa, sincronizar habilidades y microaplicaciones de empresa y llamar a los modelos de empresa. Si no se puede conectar, abre primero el sitio web de dsh-ee en el navegador y escribe aquí la dirección que funcione.",
+    reading: "Leyendo…",
+    addressLabel: "Dirección de dsh-ee",
+    packagedOverridden: "La dirección del paquete del plugin es {{packaged}}; la cambiaste por la actual.",
+    packagedDefault: "Esta es la dirección que escribió tu administrador al publicar el plugin de conexión.",
+    testing: "Probando…",
+    testConnection: "Probar conexión",
+    resetAddress: "Restaurar la dirección del paquete del plugin",
+    plugin: "Plugin de conexión",
+    currentVersion: "Versión actual {{version}}",
+    updating: "Actualizando…",
+    updateLatest: "Actualizar a la última versión",
+    updateHint: "Actualiza a la última versión publicada por el servidor de empresa; reinicia DSH para que se aplique.",
+    changeHint: "Cambiar la dirección solo afecta a este equipo. Si nadie puede conectarse, pide a tu administrador que indique la dirección de acceso en los ajustes del sistema del sitio web de dsh-ee y vuelva a publicar el plugin de conexión.",
+    readFailed: "No se pudo leer la configuración: {{error}}",
+    testFailed: "La prueba falló: {{error}}",
+    saveFailed: "No se pudo guardar: {{error}}",
+    updateFailed: "La actualización falló: {{error}}",
+    savedNotice: "Guardado y aplicado. Las habilidades, microaplicaciones y herramientas de empresa se están sincronizando con la nueva dirección; si la sesión ya no es válida, vuelve a iniciarla desde el panel de empresa de la barra lateral.",
+    sidebarHint: "La barra lateral solo muestra las 3 primeras aplicaciones; el resto está en “Ver más”. Si las ocultas, las aplicaciones de empresa se pueden abrir igualmente debajo del cuadro de texto de la pantalla de inicio y desde el panel de empresa de la derecha.",
+    saving: "Guardando…"
+  },
+  // server-settings.ts：dsh-ee 地址的保存与连接测试
+  serverSettings: {
+    reasonTimeout: "Se agotó el tiempo de conexión: este equipo no puede acceder a esa dirección (dirección interna, VPN sin conectar o bloqueada por el cortafuegos)",
+    reasonRefused: "Conexión rechazada: la dirección se resuelve, pero no hay ningún servicio en ese puerto",
+    reasonDns: "No se encontró el dominio: comprueba la ortografía o si necesitas conectarte a una VPN",
+    reasonTls: "Problema con el certificado HTTPS ({{code}})",
+    badAddress: "El formato de la dirección no es válido",
+    badAddressDetail: "Escribe una dirección completa http:// o https://, por ejemplo https://ee.example.com, sin parámetros más allá de la ruta",
+    unreachable: "No se puede conectar",
+    reachable: "Se puede conectar ({{ms}} ms)",
+    notDshEe: "Esa dirección no corresponde a dsh-ee",
+    notDshEeDetail: "GET /healthz devolvió HTTP {{status}}; confirma que la dirección es la del sitio web de dsh-ee",
+    isDshEe: "Es dsh-ee{{version}}",
+    versionSuffix: " ({{version}})",
+    noLogin: "Este equipo aún no ha iniciado sesión en una cuenta de empresa",
+    noLoginDetail: "Después de guardar la dirección, haz clic en “Iniciar sesión” en el panel de empresa de la barra lateral o escribe /ee-login en el chat.",
+    signedIn: "Sesión iniciada como {{username}}{{department}}",
+    departmentSuffix: " ({{department}})",
+    loginInvalid: "La sesión de este equipo no es válida en este servidor dsh-ee",
+    loginInvalidDetail: "Guarda la dirección y vuelve a iniciar sesión (el token se emite por servidor dsh-ee; al cambiar de servidor hay que iniciar sesión de nuevo).",
+    loginCheckFailed: "La comprobación de la sesión falló",
+    saveBadAddress: "El formato de la dirección no es válido: escribe una dirección completa http:// o https://"
+  },
+  // workbench.ts：工作台数据格式化、占位符、表单与看板校验（纯函数）
+  workbench: {
+    unitHundredMillion: " cien millones",
+    unitTenThousand: " diez mil",
+    unitBillion: " mil millones",
+    unitMillion: " millones",
+    flat: "Sin cambios",
+    allKbs: "Todas las bases de conocimiento",
+    scopePicked: "Bases de conocimiento {{titles}} (ids {{ids}})",
+    kbTitle: "“{{title}}”",
+    formRequired: "Rellena “{{label}}”",
+    formNumber: "“{{label}}” debe ser un número",
+    formSelect: "Elige “{{label}}” entre las opciones",
+    blocksRequired: "blocks debe ser una lista no vacía",
+    blocksTooMany: "Un tablero puede tener como máximo 20 bloques",
+    boardTooLarge: "El contenido del tablero no puede superar 32 KB",
+    blockWhere: "Bloque {{index}}",
+    textEmpty: "{{where}}: text no puede estar vacío",
+    itemsRange: "{{where}}: items debe tener de 1 a 50 entradas",
+    columnsRange: "{{where}}: columns debe tener de 1 a 12 columnas",
+    rowsRange: "{{where}}: rows debe ser una matriz de como máximo 50 filas",
+    citationsRange: "{{where}}: items debe tener de 1 a 30 citas",
+    citationAt: "{{where}}, cita {{index}}",
+    citationNumbers: "{{at}}: doc, from y to deben ser enteros positivos, y to no puede ser menor que from",
+    citationVersion: "{{at}}: version debe ser un entero positivo",
+    citationQuote: "{{at}}: quote debe ser un fragmento del texto original de 1 a 500 caracteres",
+    blockType: "{{where}}: type solo puede ser text, list, table o citations"
+  },
+  // workbench-host.ts：ee_workbench 工具与面板取数/写表
+  workbenchHost: {
+    noComponent: "No hay ningún componente con ese nombre en el directorio",
+    notReadOnly: "Esta fuente de datos no es una herramienta de solo lectura; el panel no puede usarla para obtener datos",
+    formNoTable: "Este formulario no está configurado para enviarse a una tabla",
+    rowNoAction: "Este botón no puede modificar la tabla",
+    rowNoId: "Esta fila no tiene id",
+    badDoc: "El id del documento no es válido",
+    invalidAppName: "El nombre de la microaplicación no es válido",
+    invalidSessionId: "El id de sesión no es válido",
+    invalidChecklistKey: "La clave de la lista de verificación no es válida",
+    actionInvalid: "action solo puede ser board o checklist",
+    appNotFound: "No existe la microaplicación {{app}} o no está en tu ámbito disponible",
+    noBoard: "El banco de trabajo de la microaplicación {{app}} no tiene tablero de IA",
+    noBoardSession: "No se encuentra la sesión cuyo tablero hay que actualizar",
+    boardUpdated: "Se actualizó el tablero del banco de trabajo",
+    badCitations: "Las citas {{numbers}} no coinciden con el original: vuelve a leer esas líneas con kb__read, corrígelas, vuelve a escribir el tablero y corrige al usuario en la conversación.",
+    staleCitations: "Los documentos de las citas {{numbers}} se han actualizado; lee la última versión para confirmar que las conclusiones siguen siendo válidas.",
+    checklistUnsupported: "Esta versión del plugin de conexión no admite listas de verificación",
+    noChecklist: "El banco de trabajo de la microaplicación {{app}} no tiene lista de verificación",
+    checklistNotFound: "No hay ninguna lista de verificación titulada “{{title}}”. Disponibles: {{options}}",
+    checklistAmbiguous: "Hay {{count}} listas de verificación; especifica una con title: {{options}}",
+    checklistOption: "“{{title}}”",
+    doneOrUndone: "Rellena al menos uno de done y undone",
+    itemsNotFound: "La lista de verificación “{{title}}” no tiene las entradas {{unknown}}; ids de entrada: {{known}}",
+    noChecklistSession: "No se encuentra la sesión cuya lista de verificación hay que actualizar",
+    checklistUpdated: "Lista de verificación “{{title}}” actualizada: {{done}}/{{total}} completadas",
+    checklistMarked: "Lista de verificación “{{title}}” actualizada: {{count}} entradas completadas",
+    description: "Actualiza el banco de trabajo de la microaplicación actual: action=board escribe los resultados de este turno en el tablero de IA (lo reemplaza por completo; las citas de la base de conocimiento de los bloques citations se verifican automáticamente); action=checklist marca o desmarca entradas de una lista de verificación del banco de trabajo (indica los ids de entrada en done / undone). No modifica ningún dato de negocio.",
+    paramApp: "Nombre de la microaplicación, es decir, el nombre que se escribe después de /",
+    paramTitle: "checklist: título de la lista de verificación; opcional cuando el banco de trabajo solo tiene una",
+    paramDone: "checklist: ids de las entradas que se marcan como completadas",
+    paramUndone: "checklist: ids de las entradas a las que se retira la marca de completadas",
+    paramBlocks: "Contenido del tablero, de arriba abajo; solo se muestra como texto, HTML no admitido",
+    paramItems: "list: un texto por entrada; citations: una cita de la base de conocimiento por entrada {doc, version, from, to, quote, title}"
+  },
+  // workbench-view.ts：业务工作台面板（指标/表格/图表/清单/表单/看板/原文）
+  workbenchView: {
+    widgetMetric: "Indicador",
+    widgetTable: "Tabla",
+    widgetChart: "Gráfico",
+    widgetChecklist: "Lista de verificación",
+    widgetForm: "Formulario",
+    widgetActions: "Acciones rápidas",
+    widgetMarkdown: "Descripción",
+    widgetBoard: "Tablero de IA",
+    widgetKbScope: "Bases de conocimiento a consultar",
+    confirmDelete: "Confirmar eliminación",
+    forbidden: "Sin permiso: no tienes permiso para usar esta fuente de datos",
+    fetchFailed: "No se pudieron obtener los datos: {{error}}",
+    forbiddenDetail: "Sin permiso: aún no tienes permiso para usar “{{tool}}” en “{{connection}}”.",
+    thisDataSource: "esta fuente de datos",
+    requestAccess: "Solicitar acceso ↗",
+    contactAdmin: "Pide acceso a tu administrador.",
+    countRows: "{{total}} filas",
+    expandDetail: "Ver detalles",
+    collapseDetail: "Ocultar detalles",
+    truncatedRows: "{{total}} filas en total; se muestran las primeras {{shown}}",
+    pointTip: "{{label}} · {{series}}: {{value}}",
+    pieTip: "{{label}}: {{value}} ({{percent}}%)",
+    selectPlaceholder: "Selecciona",
+    citationOk: "✔ Verificado con el original",
+    citationStale: "El original se ha actualizado",
+    citationMismatch: "✖ No coincide con el original",
+    citationMissing: "✖ No se encontró el documento",
+    citationUnchecked: "Sin verificar",
+    citationWhere: "{{title}} · línea {{range}}",
+    citationTip: "{{where}}\n“{{quote}}”",
+    webSourceTip: "{{tip}}\nVer el original en el sitio web de dsh-ee",
+    quoteText: "“{{quote}}”",
+    viewSource: "Ver el original: {{where}}",
+    nearSkippedTip: "Esa página está escaneada o es ilegible y no se indexó en la base de conocimiento; puede que la respuesta no incluya su contenido. Consulta el documento original.",
+    nearSkipped: "⚠ Página {{page}} no indexada",
+    noKbs: "Aún no tienes bases de conocimiento que consultar",
+    kbDocs: "{{count}} documentos",
+    scopeOnly: "Consultar solo las {{count}} bases de conocimiento seleccionadas",
+    scopeAllHint: "Si no seleccionas ninguna, se consultan todas",
+    boardEmpty: "La IA escribirá aquí sus resultados cuando termine.",
+    updatedAt: "Actualizado el {{time}}",
+    unavailable: "Este banco de trabajo ya no está disponible: puede que la aplicación esté deshabilitada o que su configuración haya cambiado. Puedes cerrar esta pestaña.",
+    openCitationHint: "Haz clic en una cita de “Respuestas y fuentes” para abrir el original aquí.",
+    versionLine: "Versión {{version}} · líneas {{from}}–{{to}} de {{total}}",
+    staleNotice: "{{stale}}; el resaltado muestra la versión del momento de la cita.",
+    prevPage: "Página anterior",
+    nextPage: "Página siguiente",
+    readView: "Vista de lectura",
+    rawView: "Ver original (con números de línea)",
+    quotedSource: "Texto original citado: “{{quote}}”"
+  },
+  // local-mcp.ts：/ee-local 命令与本机扩展 MCP 注册
+  localMcp: {
+    missingPackage: "Hay que indicar el nombre del paquete npm, por ejemplo /ee-local add @acme/legacy-oa-local@0.1.0",
+    notNpmPackage: "“{{text}}” no es un nombre de paquete npm: las extensiones locales solo se instalan desde el registro npm de empresa; no se aceptan URL, rutas locales ni direcciones git",
+    invalidPackage: "“{{pkg}}” no es un nombre de paquete npm válido (debe tener el formato @scope/name o name)",
+    invalidVersion: "“{{version}}” no es una versión válida",
+    unknownSubcommand: "Los subcomandos son list / add / remove / snippet; se recibió “{{action}}”",
+    idHint: "--id debe ir seguido de un id de extensión, por ejemplo acme/legacy-oa",
+    invalidId: "“{{value}}” no es un id de extensión válido (debe tener el formato acme/legacy-oa)",
+    unknownFlag: "Parámetro desconocido “{{token}}”",
+    missingTarget: "{{action}} debe ir seguido de un nombre de paquete o un id de extensión",
+    extraArgs: "Se pasaron argumentos de más “{{args}}”",
+    duplicateService: "Ya existe un servicio MCP llamado {{name}}; no se sobrescribe",
+    noManagerHint: "\nEste DSH no tiene API de gestión de MCP (@deepseek-ai/dsh-mcp-manager), así que no se puede registrar automáticamente; usa /ee-local snippet <paquete> para generar un fragmento de configuración.\n",
+    noExtensions: "Aún no se han añadido extensiones locales.\nUso: /ee-local add <paquete>[@versión] [--id autor/nombre]\n{{hint}}",
+    registered: "Registrado",
+    unregistered: "No registrado",
+    unregisteredNoManager: "No registrado (sin API de gestión de MCP)",
+    listHeader: "Extensiones locales ({{count}}):\n{{lines}}\n{{hint}}\nEliminar: /ee-local remove <id de extensión o nombre del paquete>",
+    alreadyAdded: "{{spec}} ya se añadió; para cambiar el id o la versión, ejecuta /ee-local remove primero.",
+    idTaken: "El id de extensión {{id}} ya lo usa {{pkg}}; ejecuta /ee-local remove {{id}} primero o usa otro --id.",
+    packageBound: "Este paquete ya se añadió con el id de extensión {{id}}; para cambiar el id, ejecuta /ee-local remove {{id}} primero.",
+    noManagerAdd: "Este DSH no tiene API de gestión de MCP (@deepseek-ai/dsh-mcp-manager no está montado; las versiones antiguas de DSH o las composiciones mínimas no lo incluyen), así que no se puede registrar automáticamente.\nAñade el fragmento siguiente al final del cordis.patch.yml del perfil (o actualiza DSH a 0.2.2 y vuelve a intentarlo):\n\n{{snippet}}\n",
+    serviceConflict: "Ya existe un servicio MCP llamado {{name}} (configurado por el empleado, registrado por otro plugin o añadido antes); no se sobrescribe.\nCon otro --id se obtiene otro nombre de servicio, por ejemplo: /ee-local add {{spec}} --id {{scope}}/<otro nombre>\n",
+    confirmPlan: "{{update}}Registrar la extensión local como servicio MCP local (solo escribe en este equipo, no modifica dsh-ee ni sobrescribe servicios existentes):\n  Extensión    {{id}}\n  Paquete      {{pkg}}{{latest}}\n  Servicio MCP {{server}} (nombres de herramienta mcp__{{server}}__<herramienta>)\n  env          DSH_EE_URL, DSH_EE_TOKEN (desde el almacén de credenciales de DSH), DSH_EE_HARNESS=dsh, registro npm de empresa\n\nCuando confirmes, ejecuta: /ee-local add {{spec}}{{idFlag}} --yes\n",
+    updateSuffix: "Para actualizarla a la nueva versión y ",
+    latestVersion: " (última versión)",
+    registerFailed: "No se pudo registrar: {{error}}",
+    registeredText: "Registrado (se restaura automáticamente en el próximo inicio de DSH):\n  {{id}} → {{spec}}, nombre de servicio {{server}}\nLos nombres de herramienta empiezan por mcp__{{server}}__; si la extensión requiere iniciar sesión la primera vez, aparecerá la ventana de inicio de sesión del sistema.\nEliminar: /ee-local remove {{id}}\n",
+    notFound: "No se encontró “{{target}}”; ejecuta /ee-local list para ver las extensiones añadidas.",
+    removed: "Se eliminó {{id}} ({{pkg}}); el servicio MCP {{server}} se ha dado de baja.",
+    snippetIntro: "Añade el fragmento siguiente al final del cordis.patch.yml del perfil correspondiente (DSH no tiene un archivo de configuración mcpServers; esta es la forma oficial de configurarlo):\n\n{{snippet}}\n\n{{hint}}\n",
+    snippetHint: "Este DSH tiene API de gestión de MCP; también puedes registrarlo automáticamente con /ee-local add.",
+    description: "Extensiones locales: registrar / ver / eliminar servicios MCP de extensiones locales (solo escribe en este equipo)",
+    inputHint: "[list|add|remove|snippet] [paquete[@versión]] [--id autor/nombre] [--yes]"
+  },
+  // index.ts（宿主端）：远程方法里的兜底错误
+  serverIndex: {
+    microAppNotFound: "No existe esa microaplicación en el directorio",
+    notLoggedIn: "No has iniciado sesión en ninguna cuenta de empresa",
+    feedbackFailed: "Falló el envío de la valoración: HTTP {{status}}",
+    invalidEntryId: "El id de entrada no es válido"
+  },
+  // kb-doc-render.ts：知识库原文阅读视图（分页标签）
+  kbDocRender: {
+    page: "Página {{page}}"
+  },
+  // bridge.ts：MCP 工具结果文字
+  bridge: {
+    error: "Error: {{text}}"
+  },
+  // brand-view.ts：没有 logo 时的首字母兜底
+  brandView: {
+    fallbackLetter: "E"
+  }
+};
+var es_default = es;
+
+// src/i18n/pt.ts
+var pt = {
+  // Palavras compartilhadas por vários módulos (títulos de view, botões, estado vazio); textos de página ficam no namespace próprio
+  common: {
+    login: "Entrar",
+    refresh: "Atualizar",
+    retry: "Tentar novamente",
+    save: "Salvar",
+    submit: "Enviar",
+    close: "Fechar",
+    hide: "Ocultar",
+    loading: "Carregando…",
+    noData: "Nenhum dado",
+    notSet: "Não definido",
+    viewInWeb: "Ver na web",
+    delete: "Excluir",
+    newBadge: "Novo",
+    inProgress: "Em andamento",
+    pendingDecision: "Aguardando sua decisão",
+    working: "Trabalhando",
+    turnEnded: "Rodada encerrada",
+    viewMoreCount: "Ver mais ({{n}})",
+    listSeparator: ", "
+  },
+  // client.ts: entrada do plugin de cliente (fallback de chamada remota, avisos de login/diagnóstico, nome padrão da empresa)
+  client: {
+    remoteFailed: "Falha na chamada remota da empresa",
+    overviewTimeout: "Tempo esgotado ao ler a conta da empresa",
+    brandTimeout: "Tempo esgotado ao ler a marca da empresa",
+    defaultOrg: "Empresa",
+    loginInBrowser: "Conclua o login da empresa no navegador.",
+    loginStartFailed: "Falha ao iniciar o login. Verifique a rede e tente novamente.",
+    diagnoseFailed: "Falha no diagnóstico. Verifique a rede e tente novamente."
+  },
+  // apps-client.ts: estado do cliente e avisos de ação do catálogo de aplicativos da empresa
+  apps: {
+    copied: "{{command}} copiado. Cole no campo de entrada e envie.",
+    filled: "Preenchido no campo de entrada. Confirme e envie.",
+    loginInBrowser: "Conclua o login da empresa no navegador.",
+    loginStartFailed: "Falha ao iniciar o login. Tente novamente mais tarde.",
+    openWorkbenchFirst: "Abra primeiro a sessão do aplicativo e depois a área de trabalho.",
+    workbenchNotOpen: "A área de trabalho não abriu. Tente novamente mais tarde.",
+    enableFailed: "Falha ao ativar: {{error}}",
+    enabled: "“{{title}}” ativado. Clique para começar a usar.",
+    retryLater: "Tente novamente mais tarde",
+    enableFailedNetwork: "Falha ao ativar. Verifique a rede e tente novamente.",
+    disableFailed: "Falha ao desativar: {{error}}",
+    disabled: "“{{title}}” desativado.",
+    disableFailedNetwork: "Falha ao desativar. Verifique a rede e tente novamente.",
+    unbound: "Vínculo removido",
+    unbindFailed: "Falha ao desvincular. Tente novamente mais tarde.",
+    enterpriseApps: "Aplicativos da empresa"
+  },
+  // commands.ts: textos de conversa e descrições dos comandos /ee-login /ee-status /ee-logout
+  commands: {
+    pending: "Confirme no navegador. Código {{code}}, link {{url}}",
+    starting: "Iniciando o login da empresa…",
+    badSetupCode: "Formato de código de acesso inválido. Use algo como ABCD-EFGH; também é possível executar /ee-login sem código de acesso.",
+    setupConfirm: "Volte à página “Primeiros passos” do site dsh-ee, confira o código {{code}} e clique em “Autorizar” (se a página estiver fechada, abra {{url}}). Depois volte aqui para continuar a conversa.",
+    loginDescription: "Entrar na conta da empresa (opcionalmente com o código de acesso da página “Primeiros passos” da web)",
+    setupCodeHint: "[código de acesso]",
+    statusDescription: "Ver o status do login da empresa",
+    notLoggedIn: "Sem login. Digite /ee-login na conversa.",
+    unreachable: "Não foi possível conectar ao dsh-ee. Verifique a rede ou a VPN e tente novamente.",
+    sessionExpired: "Sessão expirada. Digite /ee-login na conversa.",
+    httpError: "O dsh-ee retornou HTTP {{status}}. Tente novamente mais tarde (não é falha de login).",
+    expiresOn: " · expira em {{date}}",
+    neverExpires: " · sem validade",
+    statusLine: "Conectado como {{username}} ({{department}}) · token {{token}}{{expiry}} · plugin {{version}} · npmrc {{npmrc}}",
+    npmrcMatch: "consistente",
+    npmrcMismatch: "inconsistente",
+    logoutDescription: "Sair da conta da empresa",
+    noAccount: "Nenhuma conta da empresa está conectada",
+    revokedPrefix: "O token foi revogado no servidor, ",
+    envToken: "mas ele vem de uma variável de ambiente ou de $DSH_HOME/.env ({{ref}}). Remova-o manualmente e reinicie o DSH.",
+    loggedOut: "Você saiu da conta da empresa",
+    loggedOutOffline: "Sessão encerrada nesta máquina; não foi possível conectar ao dsh-ee, então o token não pôde ser revogado no servidor. Você pode revogá-lo em “Meus tokens” na web."
+  },
+  // doctor.ts: itens de diagnóstico do ee_local_doctor e sugestões de correção
+  doctor: {
+    appBindingsFix: "Reabrir o microapp cria um novo vínculo; o arquivo corrompido não precisa ser removido manualmente.",
+    noCredential: "Não há credencial de login da empresa nesta máquina",
+    loginFix: "Digite /ee-login na conversa para entrar",
+    hasCredential: "Há credencial de login da empresa nesta máquina",
+    source: "Origem: {{source}}",
+    expiringSoon: "O login expira em {{days}} dia(s)",
+    reLoginFix: "Execute /ee-login antes do vencimento para entrar novamente",
+    signedInAs: "Conectado como {{username}} ({{department}})",
+    loginExpired: "O login da empresa expirou",
+    reLoginFix2: "Digite /ee-login na conversa para entrar novamente",
+    readAccountFailed: "Falha ao ler a conta da empresa (HTTP {{status}})",
+    serverRestarting: "O dsh-ee pode estar reiniciando ou temporariamente indisponível. Não é falha de login; tente novamente mais tarde.",
+    retryDiagnose: "Execute o diagnóstico novamente em instantes; se continuar falhando, verifique o status do servidor.",
+    unreachable: "Não foi possível conectar ao dsh-ee ({{base}})",
+    unreachableFix: "Verifique a rede ou a VPN. Se o endereço estiver errado, altere em Configurações → dsh-ee no DSH para um endereço dsh-ee que abra no navegador e teste.",
+    npmrcOk: "A configuração do registry da empresa no .npmrc do DSH corresponde ao login atual",
+    npmrcMissing: "Falta a configuração do registry npm da empresa no .npmrc do DSH",
+    npmrcMismatch: "O token do registry da empresa no .npmrc do DSH não corresponde ao login atual",
+    npmrcDetail: "{{path}}; instalar plugins da empresa falhará com 401",
+    npmrcFix: "Reiniciar o DSH ou entrar novamente sincroniza automaticamente",
+    modelsAvailable: "Modelos disponíveis: {{models}}",
+    noModels: "Nenhum modelo disponível",
+    readModelsFailed: "Falha ao ler a lista de modelos",
+    readModelsHttp: "Falha ao ler a lista de modelos (HTTP {{status}})",
+    modelPermissionFix: "Peça ao administrador para liberar o acesso aos modelos",
+    defaultModelMissing: "O modelo padrão da empresa {{model}} não está na sua lista de modelos disponíveis",
+    chooseModelFix: "Escolha um modelo disponível no DSH",
+    pluginNewer: "Há uma nova versão do plugin de conexão: {{latest}} (atual {{version}})",
+    updateFix: "Em Configurações → dsh-ee no DSH, clique em “Atualizar para a versão mais recente” e reinicie o DSH depois de instalar.",
+    pluginLatest: "O plugin de conexão {{version}} está atualizado",
+    missingPlugins: "Plugins obrigatórios ausentes: {{plugins}}",
+    missingPluginsFix: "Instale-os na página de plugins do DSH, ou reinicie o DSH para que o plugin de conexão os instale automaticamente.",
+    pluginsOk: "Todos os plugins obrigatórios estão instalados",
+    bridgeFailed: "Falha na sincronização das ferramentas da empresa",
+    bridgeFix: "Verifique a rede; digite /ee-status para ver o status do login.",
+    bridgeOk: "Ferramentas da empresa sincronizadas ({{count}})",
+    summaryFail: "{{fails}} com falha, {{warns}} exigem atenção",
+    summaryWarn: "{{warns}} exigem atenção",
+    summaryOk: "Tudo certo",
+    description: "Verifica a conexão do DSH desta máquina com a área de trabalho da empresa dsh-ee: credencial de login, validade do token, .npmrc, versão do plugin de conexão, plugins obrigatórios, modelos, sincronização das ferramentas da empresa, além de verificações no servidor. Somente leitura; não altera nada."
+  },
+  // status-view.ts: barra de título e botões do cabeçalho do painel da empresa à direita
+  statusView: {
+    adminOn: "Ativado",
+    adminOff: "Desativado",
+    adminRemainingHours: "restam {{hours}} h {{minutes}} min",
+    adminRemainingMinutes: "restam {{minutes}} min",
+    failureAuth: "Sem login na conta da empresa, ou o login expirou. Faça login.",
+    failureServer: "O dsh-ee retornou um erro ({{detail}}). Atualize mais tarde.",
+    failureUnreachable: "Não foi possível conectar ao dsh-ee ({{base}}, {{detail}}). Confirme que esta máquina consegue abrir esse endereço no navegador; se o endereço estiver errado, altere em Configurações → dsh-ee no DSH para um que abra e teste.",
+    failureDefault: "Sem login ou conexão indisponível. Faça login novamente.",
+    reading: "Lendo a conta da empresa…",
+    startingLogin: "Iniciando o login…",
+    account: "Conta",
+    department: "Departamento",
+    tokenExpiry: "Validade do token",
+    adminMode: "Modo de administração",
+    expiresOn: "expira em {{date}}",
+    neverExpires: "Sem validade",
+    quota: "Cota do mês",
+    quotaUnavailable: "Informação de cota indisponível",
+    quotaUnlimited: "Ilimitado",
+    quotaRemaining: "Restam {{percent}}%",
+    models: "Modelos da empresa",
+    defaultModel: "Padrão: {{model}}",
+    modelsUnavailable: "Nenhum modelo disponível, ou a lista de modelos está indisponível",
+    status: "Status da conexão",
+    pluginVersion: "Plugin {{version}}{{latest}}",
+    pluginNewVersion: " · nova versão {{version}}",
+    pluginUpToDate: " · atualizado",
+    diagnosing: "Diagnosticando…",
+    diagnose: "Diagnóstico",
+    diagnoseResult: "Diagnóstico: {{summary}}",
+    checkLine: "{{title}}{{fix}}",
+    checkFixSeparator: "; ",
+    headerDisconnected: "Empresa · Sem login",
+    headerChecking: "Empresa · Verificando",
+    headerAdmin: "Modo de administração · {{remaining}}",
+    headerQuota: "Modelos da empresa · Restam {{percent}}%",
+    headerUser: "Modelos da empresa · {{username}}",
+    headerTitleUser: "{{username}}{{department}}",
+    headerDepartment: " ({{department}})",
+    headerTitle: "Entrar novamente na conta da empresa",
+    guideDescription: "Ver a conta da empresa, a cota, os modelos e o status da conexão"
+  },
+  // turn-writes-view.ts: aviso de “registrado” no fim da rodada
+  turnWrites: {
+    failedOp: "{{label}} falhou{{count}}",
+    failedCount: " ×{{count}}",
+    failedNotice: "As operações de escrita desta rodada nos sistemas da empresa (algumas com falha) foram registradas no dsh-ee",
+    okNotice: "Esta rodada alterou dados nos sistemas da empresa e foi registrada no dsh-ee",
+    systemLabel: "“{{system}}”"
+  },
+  // votes.ts: feedback 👍👎 no fim da mensagem do assistente
+  votes: {
+    notePrompt: "O que não ajudou nesta resposta? (Opcional; agrupado por pergunta para o autor do aplicativo.)",
+    helpful: "Ajudou",
+    notHelpful: "Não ajudou",
+    label: "Avaliar esta resposta"
+  },
+  // write-log.ts: log local de operações de escrita
+  writeLog: {
+    invalidSessionId: "ID de sessão inválido"
+  },
+  // overview.ts: motivos de falha ao ler a conta da empresa
+  overview: {
+    timeout: "Tempo de conexão esgotado",
+    toolFailed: "Falha na chamada da ferramenta da empresa",
+    toolNoJson: "A ferramenta da empresa não retornou JSON"
+  },
+  // config.ts: valores padrão e validação da configuração do plugin
+  config: {
+    badBase: "[dsh-ee] base deve ser um endereço http(s)",
+    defaultOrg: "Empresa"
+  },
+  // app-launcher.ts: aviso de resultado incerto ao iniciar um microapp
+  appLauncher: {
+    sendUnknown: "A mensagem pode não ter sido enviada. Verifique a sessão e tente novamente."
+  },
+  // host-session.ts: avisos de falha da camada de compatibilidade de sessão do host
+  hostSession: {
+    switchUnsupported: "O host não suporta trocar de sessão",
+    noCwd: "A sessão atual não tem um diretório de trabalho para criar uma nova sessão",
+    createWorkspaceUnsupported: "O host não suporta criar espaços de trabalho",
+    noWorkspace: "Não foi possível obter um espaço de trabalho para a nova sessão",
+    createSessionUnsupported: "O host não suporta criar sessões",
+    rejected: "O host rejeitou a mensagem",
+    sendUnsupported: "O host não suporta enviar mensagens"
+  },
+  // device.ts: login por código de dispositivo
+  device: {
+    startFailed: "Falha ao iniciar o login por dispositivo: {{error}}",
+    startHttpFailed: "Falha ao iniciar o login por dispositivo: HTTP {{status}}",
+    cancelled: "Login por dispositivo cancelado",
+    failed: "Falha no login por dispositivo: HTTP {{status}}",
+    timeout: "Tempo esgotado no login por dispositivo"
+  },
+  // connect-update.ts: atualização do plugin de conexão em um clique
+  connectUpdate: {
+    noManager: "Este DSH não tem API de gerenciamento de plugins. Atualize o plugin de conexão manualmente na página de plugins.",
+    noLatest: "Não foi possível obter a versão do plugin de conexão da empresa: {{why}}{{hint}}",
+    signInHint: "; entre na conta da empresa e tente novamente",
+    notPublished: "O servidor da empresa ainda não publicou o plugin de conexão. Peça ao administrador para publicá-lo nas configurações do sistema primeiro.",
+    upToDate: "Já está atualizado ({{version}})",
+    installed: "{{pkg}}@{{latest}} instalado; entra em vigor após reiniciar o DSH",
+    installFailed: "Falha na instalação: {{error}}"
+  },
+  // upload.ts: envio de .tgz pelo ee_plugins.upload
+  upload: {
+    missingPath: "Falta path: caminho local do arquivo .tgz",
+    notTarball: "Só é possível enviar arquivos .tgz gerados por npm pack",
+    fileNotFound: "Arquivo não encontrado: {{file}}",
+    notAFile: "Não é um arquivo: {{file}}",
+    tooLarge: "Arquivo muito grande",
+    timeout: "Tempo esgotado no envio. Tente novamente; se a rede estiver lenta, envie pela web.",
+    unreachable: "Não foi possível conectar ao dsh-ee. Verifique a rede ou a VPN",
+    httpFailed: "Falha no envio (HTTP {{status}})"
+  },
+  // ee-save.ts: descrição do comando /ee-save (o corpo da solicitação extraída permanece em chinês; o e2e compara com o original)
+  eeSave: {
+    description: "Transformar esta conversa em uma capacidade (prompt / skill / rascunho de aplicativo)"
+  },
+  // app-bindings.ts: arquivo de vínculo de sessão do microapp
+  appBindings: {
+    invalidAppName: "Nome de microapp inválido",
+    invalidSessionId: "ID de sessão inválido",
+    corruptFile: "O arquivo de vínculo de sessão do microapp está corrompido; tratado como vínculo vazio ({{file}})"
+  },
+  // app-subscription.ts: ativar/desativar microapps escolhidos
+  appSubscription: {
+    invalidAppName: "Nome de microapp inválido",
+    invalidSkillName: "Nome de habilidade inválido",
+    invalidConnectionName: "Nome de conector inválido",
+    invalidKind: "Tipo de capacidade inválido"
+  },
+  // apps-view.ts: barra lateral de aplicativos da empresa, faixa da tela inicial, “Ver mais” e itens em andamento
+  appsView: {
+    startersTitle: "Comece com uma pergunta de exemplo",
+    confirmDisable: "Confirmar desativação",
+    disable: "Desativar",
+    newSession: "Iniciar uma nova sessão",
+    openWorkbench: "Abrir área de trabalho",
+    fillInput: "Preencher o campo de entrada",
+    unbind: "Desvincular",
+    moreActions: "Mais ações para {{title}}",
+    missingList: "Indisponível: {{missing}}",
+    missing: "Algumas capacidades indisponíveis",
+    missingHint: "{{title}}. Clique para ver e solicitar acesso",
+    missingApply: "Algumas capacidades indisponíveis · Solicitar",
+    todoBadge: "{{count}} pendentes",
+    openArrow: "Abrir →",
+    enable: "Ativar",
+    gallerySubtitle: "{{count}} aplicativos · Clique em um para começar; a IA abre a área de trabalho junto",
+    searchAppsAria: "Buscar aplicativos da empresa",
+    searchAppsPlaceholder: "Buscar aplicativos…",
+    noMatches: "Nenhum aplicativo correspondente",
+    availableCount: "Disponíveis ({{count}})",
+    showInSidebar: "Mostrar aplicativos da empresa na barra lateral",
+    loginToSee: "Entre para ver os aplicativos da empresa",
+    expandApps: "Expandir aplicativos da empresa",
+    collapseApps: "Recolher aplicativos da empresa",
+    hideSidebar: "Ocultar os aplicativos da empresa da barra lateral (para mostrar de novo, use “Ver mais” ou Configurações → dsh-ee)",
+    collapsedCount: " ({{count}})",
+    allApps: "Todos os aplicativos",
+    availablePlus: "+ Disponíveis ({{count}})",
+    heroSearchPlaceholder: "Buscar…",
+    itemTitle: "{{title}}: {{label}}",
+    todosNeed: "{{count}} itens precisam da sua atenção",
+    startHint: "Clique em um para começar; a área de trabalho abre à direita"
+  },
+  // workbench-client.ts: aba da área de trabalho de negócio (painel/fonte, escrita em tabela, lista de verificação, continuar perguntando)
+  workbenchClient: {
+    fallbackTitle: "Área de trabalho",
+    noSession: "Nenhuma sessão atual encontrada. Abra primeiro a sessão deste aplicativo.",
+    sentToAi: "Enviado à IA: {{label}}",
+    networkError: "Erro de rede",
+    noSessionCheck: "Nenhuma sessão atual encontrada; a marcação não será salva",
+    checkNotSaved: "A marcação não foi salva. Tente novamente mais tarde.",
+    updatePlugin: "Atualize o plugin de conexão para a versão mais recente",
+    saved: "Salvo: {{label}}",
+    saveFailedNetwork: "Não foi salvo. Verifique a rede e tente novamente.",
+    writeFailed: "Não foi possível {{action}}: {{error}}",
+    deletedRow: "Linha excluída",
+    updated: "Atualizado: {{label}}",
+    docLabel: "Documento {{doc}}",
+    askPrompt: "Continuar com o documento “{{title}}” da base de conhecimento (documento {{doc}}), nas linhas {{from}}–{{to}} e arredores: quais outras regras ou exceções se aplicam a essa parte? Responda com as fontes.",
+    ask: "Perguntar mais neste documento",
+    saveFailedDefault: "Não foi salvo. Atualize o plugin de conexão para a versão mais recente."
+  },
+  // settings-view.ts: página “dsh-ee” nas configurações do DSH (endereço, teste, atualização, barra lateral)
+  settingsView: {
+    title: "Conexão dsh-ee",
+    description: "O plugin de conexão usa este endereço para entrar na conta da empresa, sincronizar skills e microapps da empresa e chamar modelos da empresa. Se não conectar, primeiro abra o site do dsh-ee no navegador e insira aqui o endereço que funciona.",
+    reading: "Lendo…",
+    addressLabel: "Endereço do dsh-ee",
+    packagedOverridden: "O endereço no pacote do plugin é {{packaged}}; você o alterou para o atual.",
+    packagedDefault: "Este é o endereço que o administrador gravou ao publicar o plugin de conexão.",
+    testing: "Testando…",
+    testConnection: "Testar conexão",
+    resetAddress: "Restaurar o endereço do pacote do plugin",
+    plugin: "Plugin de conexão",
+    currentVersion: "Versão atual {{version}}",
+    updating: "Atualizando…",
+    updateLatest: "Atualizar para a versão mais recente",
+    updateHint: "Atualiza para a versão mais recente publicada pelo servidor da empresa; reinicie o DSH para entrar em vigor.",
+    changeHint: "Alterar o endereço afeta apenas esta máquina. Se ninguém conseguir conectar, peça ao administrador para preencher o endereço de acesso nas configurações do sistema do site dsh-ee e publicar o plugin de conexão novamente.",
+    readFailed: "Falha ao ler as configurações: {{error}}",
+    testFailed: "Falha no teste: {{error}}",
+    saveFailed: "Falha ao salvar: {{error}}",
+    updateFailed: "Falha na atualização: {{error}}",
+    savedNotice: "Salvo e aplicado. As skills, os microapps e as ferramentas da empresa estão sendo sincronizados com o novo endereço; se o login não for mais válido, entre novamente pelo painel da empresa na barra lateral.",
+    sidebarHint: "A barra lateral lista apenas os 3 primeiros aplicativos; os demais ficam em “Ver mais”. Quando ocultos, os aplicativos da empresa ainda podem ser abertos abaixo do campo de entrada na tela inicial e no painel da empresa à direita.",
+    saving: "Salvando…"
+  },
+  // server-settings.ts: salvamento e teste de conexão do endereço dsh-ee
+  serverSettings: {
+    reasonTimeout: "Tempo de conexão esgotado: esta máquina não alcança esse endereço (endereço interno, VPN desconectada ou bloqueio por firewall)",
+    reasonRefused: "Conexão recusada: o endereço resolve, mas nenhum serviço escuta nessa porta",
+    reasonDns: "Domínio não encontrado: verifique a grafia ou se é preciso conectar uma VPN",
+    reasonTls: "Problema no certificado HTTPS ({{code}})",
+    badAddress: "Formato de endereço inválido",
+    badAddressDetail: "Informe um endereço completo http:// ou https://, por exemplo https://ee.example.com, sem parâmetros além do caminho",
+    unreachable: "Sem conexão",
+    reachable: "Conectável ({{ms}} ms)",
+    notDshEe: "Esse endereço não serve o dsh-ee",
+    notDshEeDetail: "GET /healthz retornou HTTP {{status}}; confirme se o endereço é o do site do dsh-ee",
+    isDshEe: "É o dsh-ee{{version}}",
+    versionSuffix: " ({{version}})",
+    noLogin: "Esta máquina ainda não entrou em uma conta da empresa",
+    noLoginDetail: "Depois de salvar o endereço, clique em “Entrar” no painel da empresa da barra lateral, ou digite /ee-login na conversa.",
+    signedIn: "Conectado como {{username}}{{department}}",
+    departmentSuffix: " ({{department}})",
+    loginInvalid: "O login local não é válido neste servidor dsh-ee",
+    loginInvalidDetail: "Salve o endereço e entre novamente (o token é emitido por servidor dsh-ee; trocar de servidor exige um novo login).",
+    loginCheckFailed: "Falha ao verificar o login",
+    saveBadAddress: "Formato de endereço inválido: informe um endereço completo http:// ou https://"
+  },
+  // workbench.ts: formatação de dados, placeholders, validação de formulários e do painel (funções puras)
+  workbench: {
+    unitHundredMillion: " ×100 mi",
+    unitTenThousand: " mil",
+    unitBillion: " bi",
+    unitMillion: " mi",
+    flat: "Estável",
+    allKbs: "Todas as bases de conhecimento",
+    scopePicked: "Bases de conhecimento {{titles}} (IDs {{ids}})",
+    kbTitle: "“{{title}}”",
+    formRequired: "Preencha “{{label}}”",
+    formNumber: "“{{label}}” deve ser um número",
+    formSelect: "Escolha “{{label}}” entre as opções",
+    blocksRequired: "blocks deve ser um array não vazio",
+    blocksTooMany: "O painel de IA pode ter no máximo 20 blocos",
+    boardTooLarge: "O conteúdo do painel não pode exceder 32 KB",
+    blockWhere: "Bloco {{index}}",
+    textEmpty: "{{where}}: text não pode ficar vazio",
+    itemsRange: "{{where}}: items deve ter de 1 a 50 itens",
+    columnsRange: "{{where}}: columns deve ter de 1 a 12 colunas",
+    rowsRange: "{{where}}: rows deve ser um array bidimensional com no máximo 50 linhas",
+    citationsRange: "{{where}}: items deve ter de 1 a 30 citações",
+    citationAt: "{{where}}, citação {{index}}",
+    citationNumbers: "{{at}}: doc, from e to devem ser inteiros positivos, e to não pode ser menor que from",
+    citationVersion: "{{at}}: version deve ser um inteiro positivo",
+    citationQuote: "{{at}}: quote deve ser um trecho do texto original com 1 a 500 caracteres",
+    blockType: "{{where}}: type só pode ser text, list, table ou citations"
+  },
+  // workbench-host.ts: ferramenta ee_workbench e leitura/escrita do painel e da lista de verificação
+  workbenchHost: {
+    noComponent: "Não existe este componente no catálogo",
+    notReadOnly: "Esta fonte de dados não é uma ferramenta somente leitura; o painel não pode usá-la para obter dados",
+    formNoTable: "Este formulário não está configurado para enviar para uma tabela",
+    rowNoAction: "Este botão não pode alterar a tabela",
+    rowNoId: "Esta linha não tem ID",
+    badDoc: "ID de documento inválido",
+    invalidAppName: "Nome de microapp inválido",
+    invalidSessionId: "ID de sessão inválido",
+    invalidChecklistKey: "Chave da lista de verificação inválida",
+    actionInvalid: "action só pode ser board ou checklist",
+    appNotFound: "Não existe o microapp {{app}}, ou ele não está no seu escopo disponível",
+    noBoard: "A área de trabalho do microapp {{app}} não tem painel de IA",
+    noBoardSession: "Não foi possível encontrar a sessão cujo painel deve ser atualizado",
+    boardUpdated: "Painel de IA da área de trabalho atualizado",
+    badCitations: "As citações {{numbers}} não correspondem ao texto original: releia essas linhas com kb__read, corrija e escreva o painel novamente, e corrija o usuário na conversa.",
+    staleCitations: "Os documentos das citações {{numbers}} foram atualizados; leia a versão mais recente para confirmar que as conclusões não mudaram.",
+    checklistUnsupported: "Esta versão do plugin de conexão não suporta listas de verificação",
+    noChecklist: "A área de trabalho do microapp {{app}} não tem lista de verificação",
+    checklistNotFound: "Não há lista de verificação com o título “{{title}}”. Disponíveis: {{options}}",
+    checklistAmbiguous: "Há {{count}} listas de verificação; especifique uma com title: {{options}}",
+    checklistOption: "“{{title}}”",
+    doneOrUndone: "Preencha pelo menos um de done e undone",
+    itemsNotFound: "A lista de verificação “{{title}}” não tem os itens {{unknown}}; IDs dos itens: {{known}}",
+    noChecklistSession: "Não foi possível encontrar a sessão cuja lista de verificação deve ser atualizada",
+    checklistUpdated: "Lista de verificação “{{title}}” atualizada: {{done}}/{{total}} concluídos",
+    checklistMarked: "Lista de verificação “{{title}}” atualizada: {{count}} itens concluídos",
+    description: "Atualiza a área de trabalho do microapp atual: action=board grava o resultado desta rodada no “Painel de IA” (substituindo todo o conteúdo; as citações de base de conhecimento nos blocos citations são verificadas automaticamente); action=checklist marca ou desmarca itens da lista de verificação da área de trabalho (preencha os IDs dos itens em done / undone). Não altera nenhum dado de negócio.",
+    paramApp: "Nome do microapp, ou seja, o nome em /nome",
+    paramTitle: "checklist: título da lista de verificação; pode ser omitido quando a área de trabalho tem só uma",
+    paramDone: "checklist: IDs dos itens a marcar como concluídos",
+    paramUndone: "checklist: IDs dos itens a desmarcar",
+    paramBlocks: "Conteúdo do painel, exibido de cima para baixo; aparece apenas como texto, sem suporte a HTML",
+    paramItems: "list: um texto por item; citations: uma citação de base de conhecimento por item {doc, version, from, to, quote, title}"
+  },
+  // workbench-view.ts: painel da área de trabalho de negócio (métrica/tabela/gráfico/lista de verificação/formulário/painel/texto original)
+  workbenchView: {
+    widgetMetric: "Métrica",
+    widgetTable: "Tabela",
+    widgetChart: "Gráfico",
+    widgetChecklist: "Lista de verificação",
+    widgetForm: "Formulário",
+    widgetActions: "Botões de ação",
+    widgetMarkdown: "Notas",
+    widgetBoard: "Painel de IA",
+    widgetKbScope: "Quais bases de conhecimento",
+    confirmDelete: "Confirmar exclusão",
+    forbidden: "Sem permissão: você não tem acesso a esta fonte de dados",
+    fetchFailed: "Falha ao obter dados: {{error}}",
+    forbiddenDetail: "Sem permissão: você ainda não tem acesso a “{{tool}}” em “{{connection}}”.",
+    thisDataSource: "esta fonte de dados",
+    requestAccess: "Solicitar acesso ↗",
+    contactAdmin: "Fale com o administrador para liberar o acesso.",
+    countRows: "{{total}} linhas",
+    expandDetail: "Expandir detalhes",
+    collapseDetail: "Recolher detalhes",
+    truncatedRows: "{{total}} linhas no total; exibindo as primeiras {{shown}}",
+    pointTip: "{{label}} · {{series}}: {{value}}",
+    pieTip: "{{label}}: {{value}} ({{percent}}%)",
+    selectPlaceholder: "Selecione",
+    citationOk: "✔ Confere com o texto original",
+    citationStale: "Texto original atualizado",
+    citationMismatch: "✖ Não corresponde ao texto original",
+    citationMissing: "✖ Documento não encontrado",
+    citationUnchecked: "Sem verificação",
+    citationWhere: "{{title}} · linhas {{range}}",
+    citationTip: "{{where}}\n“{{quote}}”",
+    webSourceTip: "{{tip}}\nVer o texto original no site do dsh-ee",
+    quoteText: "“{{quote}}”",
+    viewSource: "Ver texto original: {{where}}",
+    nearSkippedTip: "Essa página é digitalizada ou está ilegível e não foi indexada na base de conhecimento; a resposta pode estar sem o conteúdo dela. Consulte o documento original.",
+    nearSkipped: "⚠ Página {{page}} não indexada",
+    noKbs: "Você ainda não tem bases de conhecimento para pesquisar",
+    kbDocs: "{{count}} documentos",
+    scopeOnly: "Pesquisar apenas as {{count}} bases selecionadas",
+    scopeAllHint: "Quando nada está selecionado, pesquisa todas",
+    boardEmpty: "A IA escreve o resultado aqui quando terminar.",
+    updatedAt: "Atualizado em {{time}}",
+    unavailable: "Esta área de trabalho não está mais disponível: o aplicativo pode ter sido desativado ou a configuração da área de trabalho mudou. Você pode fechar esta aba.",
+    openCitationHint: "Clique em uma citação em “Respostas e fontes” para abrir o texto original aqui.",
+    versionLine: "Versão {{version}} · linhas {{from}}–{{to}} de {{total}}",
+    staleNotice: "{{stale}}; o destaque mostra a versão no momento da citação.",
+    prevPage: "Página anterior",
+    nextPage: "Próxima página",
+    readView: "Modo leitura",
+    rawView: "Ver o texto original (com números de linha)",
+    quotedSource: "Texto original citado: “{{quote}}”"
+  },
+  // local-mcp.ts: comando /ee-local e registro MCP de extensões locais
+  localMcp: {
+    missingPackage: "É preciso informar o nome do pacote npm, por exemplo /ee-local add @acme/legacy-oa-local@0.1.0",
+    notNpmPackage: "“{{text}}” não é um nome de pacote npm: as extensões locais são instaladas apenas a partir do registry npm da empresa; URLs, caminhos locais e endereços git não são aceitos",
+    invalidPackage: "“{{pkg}}” não é um nome de pacote npm válido (deve ser @scope/name ou name)",
+    invalidVersion: "“{{version}}” não é uma versão válida",
+    unknownSubcommand: "Os subcomandos são list / add / remove / snippet; recebido “{{action}}”",
+    idHint: "--id deve ser seguido de um ID de extensão, por exemplo acme/legacy-oa",
+    invalidId: "“{{value}}” não é um ID de extensão válido (deve ser acme/legacy-oa)",
+    unknownFlag: "Opção desconhecida “{{token}}”",
+    missingTarget: "{{action}} deve ser seguido de um nome de pacote ou ID de extensão",
+    extraArgs: "Argumentos extras inesperados “{{args}}”",
+    duplicateService: "Já existe um serviço MCP com o nome {{name}}; não será sobrescrito",
+    noManagerHint: "\nEste DSH não tem API de gerenciamento de MCP (@deepseek-ai/dsh-mcp-manager), então o registro automático não está disponível; use /ee-local snippet <pacote> para gerar o trecho de configuração.\n",
+    noExtensions: "Ainda não há extensões locais.\nUso: /ee-local add <pacote>[@versão] [--id autor/nome]\n{{hint}}",
+    registered: "Registrado",
+    unregistered: "Não registrado",
+    unregisteredNoManager: "Não registrado (sem API de gerenciamento de MCP)",
+    listHeader: "Extensões locais ({{count}}):\n{{lines}}\n{{hint}}\nRemover: /ee-local remove <ID de extensão ou nome do pacote>",
+    alreadyAdded: "{{spec}} já foi adicionado; para alterar o ID ou a versão, execute /ee-local remove primeiro.",
+    idTaken: "O ID de extensão {{id}} já está em uso por {{pkg}}; execute /ee-local remove {{id}} primeiro, ou use outro --id.",
+    packageBound: "Este pacote já foi adicionado com o ID de extensão {{id}}; para trocar o ID, execute /ee-local remove {{id}} primeiro.",
+    noManagerAdd: "Este DSH não tem API de gerenciamento de MCP (@deepseek-ai/dsh-mcp-manager não está montado; versões antigas do DSH ou composições mínimas não o têm), então o registro automático não está disponível.\nAcrescente o trecho abaixo ao fim do cordis.patch.yml do profile (ou atualize o DSH para a 0.2.2 e tente novamente):\n\n{{snippet}}\n",
+    serviceConflict: "Já existe aqui um serviço MCP com o nome {{name}} (configurado pelo próprio funcionário, registrado por outro plugin ou adicionado antes); não será sobrescrito.\nUsar outro --id gera outro nome de serviço, por exemplo: /ee-local add {{spec}} --id {{scope}}/<outro nome>\n",
+    confirmPlan: "{{update}}registrar a extensão local como serviço MCP nesta máquina (grava apenas esta máquina, não altera o dsh-ee e não sobrescreve serviços existentes):\n  Extensão      {{id}}\n  Pacote        {{pkg}}{{latest}}\n  Serviço MCP   {{server}} (nomes de ferramenta mcp__{{server}}__<ferramenta>)\n  env           DSH_EE_URL, DSH_EE_TOKEN (via cofre de credenciais do DSH), DSH_EE_HARNESS=dsh, registry npm da empresa\n\nApós confirmar, execute: /ee-local add {{spec}}{{idFlag}} --yes\n",
+    updateSuffix: "Depois de atualizar para a nova versão, ",
+    latestVersion: " (versão mais recente)",
+    registerFailed: "Falha no registro: {{error}}",
+    registeredText: "Registrado (restaurado automaticamente na próxima inicialização do DSH):\n  {{id}} → {{spec}}, nome do serviço {{server}}\nOs nomes das ferramentas começam com mcp__{{server}}__; se a extensão exigir login na primeira chamada, aparecerá a janela de login do próprio sistema.\nRemover: /ee-local remove {{id}}\n",
+    notFound: "“{{target}}” não encontrado; execute /ee-local list para ver as extensões adicionadas.",
+    removed: "{{id}} ({{pkg}}) removido; o serviço MCP {{server}} foi removido do registro.",
+    snippetIntro: "Acrescente o trecho abaixo ao fim do cordis.patch.yml do profile correspondente (o DSH não tem arquivo de configuração mcpServers; esta é a forma oficial de configuração):\n\n{{snippet}}\n\n{{hint}}\n",
+    snippetHint: "Este DSH tem API de gerenciamento de MCP; também é possível registrar automaticamente com /ee-local add.",
+    description: "Extensões locais: registrar / listar / remover serviços MCP de extensões locais (grava apenas esta máquina)",
+    inputHint: "[list|add|remove|snippet] [pacote[@versão]] [--id autor/nome] [--yes]"
+  },
+  // index.ts (lado do host): erros de fallback dos métodos remotos
+  serverIndex: {
+    microAppNotFound: "Não existe este microapp no catálogo",
+    notLoggedIn: "Sem login na conta da empresa",
+    feedbackFailed: "Falha no feedback: HTTP {{status}}",
+    invalidEntryId: "ID de entrada inválido"
+  },
+  // kb-doc-render.ts: leitura do texto original da base de conhecimento (rótulo de paginação)
+  kbDocRender: {
+    page: "Página {{page}}"
+  },
+  // bridge.ts: texto do resultado das ferramentas MCP
+  bridge: {
+    error: "Erro: {{text}}"
+  },
+  // brand-view.ts: letra inicial de fallback quando não há logo
+  brandView: {
+    fallbackLetter: "E"
+  }
+};
+var pt_default = pt;
+
+// src/i18n/hi.ts
+var hi = {
+  // words shared by several modules (view titles / buttons / empty states)
+  common: {
+    login: "साइन इन करें",
+    refresh: "रीफ़्रेश करें",
+    retry: "फिर से प्रयास करें",
+    save: "सहेजें",
+    submit: "सबमिट करें",
+    close: "बंद करें",
+    hide: "छिपाएँ",
+    loading: "लोड हो रहा है…",
+    noData: "कोई डेटा नहीं",
+    notSet: "सेट नहीं है",
+    viewInWeb: "वेब पर देखें",
+    delete: "हटाएँ",
+    newBadge: "नया",
+    inProgress: "प्रगति पर",
+    pendingDecision: "आपका निर्णय लंबित",
+    working: "काम जारी है",
+    turnEnded: "टर्न समाप्त",
+    viewMoreCount: "और देखें ({{n}})",
+    listSeparator: ", "
+  },
+  // client.ts: client plugin entry (remote-call fallbacks, sign-in / diagnostics hints, default org name)
+  client: {
+    remoteFailed: "एंटरप्राइज़ रिमोट कॉल विफल रहा",
+    overviewTimeout: "एंटरप्राइज़ खाता पढ़ने में समय समाप्त",
+    brandTimeout: "एंटरप्राइज़ ब्रांड पढ़ने में समय समाप्त",
+    defaultOrg: "एंटरप्राइज़",
+    loginInBrowser: "कृपया ब्राउज़र में एंटरप्राइज़ साइन इन पूरा करें।",
+    loginStartFailed: "साइन इन शुरू नहीं हो सका। नेटवर्क जाँचें और फिर से प्रयास करें।",
+    diagnoseFailed: "निदान विफल रहा। नेटवर्क जाँचें और फिर से प्रयास करें।"
+  },
+  // apps-client.ts: client-side state and action hints for the enterprise app catalog
+  apps: {
+    copied: "{{command}} कॉपी किया गया। इसे इनपुट बॉक्स में पेस्ट करके भेजें।",
+    filled: "इनपुट बॉक्स में भर दिया गया है, जाँचकर भेजें।",
+    loginInBrowser: "कृपया ब्राउज़र में एंटरप्राइज़ साइन इन पूरा करें।",
+    loginStartFailed: "साइन इन शुरू नहीं हो सका। थोड़ी देर बाद फिर से प्रयास करें।",
+    openWorkbenchFirst: "पहले ऐप पर क्लिक करके उसका सत्र खोलें, फिर वर्कबेंच खोलें",
+    workbenchNotOpen: "वर्कबेंच नहीं खुला, थोड़ी देर बाद फिर से प्रयास करें",
+    enableFailed: "सक्षम करने में विफल: {{error}}",
+    enabled: "“{{title}}” सक्षम कर दिया गया, शुरू करने के लिए उस पर क्लिक करें",
+    retryLater: "थोड़ी देर बाद प्रयास करें",
+    enableFailedNetwork: "सक्षम नहीं हो सका, नेटवर्क जाँचें और फिर से प्रयास करें।",
+    disableFailed: "अक्षम करने में विफल: {{error}}",
+    disabled: "“{{title}}” अक्षम कर दिया गया",
+    disableFailedNetwork: "अक्षम नहीं हो सका, नेटवर्क जाँचें और फिर से प्रयास करें।",
+    unbound: "अनबाइंड कर दिया गया",
+    unbindFailed: "अनबाइंड नहीं हो सका, थोड़ी देर बाद फिर से प्रयास करें।",
+    enterpriseApps: "एंटरप्राइज़ ऐप्स"
+  },
+  // commands.ts: chat messages and command descriptions for /ee-login /ee-status /ee-logout
+  commands: {
+    pending: "कृपया ब्राउज़र में पुष्टि करें, पुष्टि कोड {{code}}, लिंक {{url}}",
+    starting: "एंटरप्राइज़ साइन इन शुरू हो रहा है, कृपया प्रतीक्षा करें…",
+    badSetupCode: "एक्सेस कोड का प्रारूप गलत है, यह ABCD-EFGH जैसा होना चाहिए; आप बिना एक्सेस कोड के भी सीधे /ee-login चला सकते हैं",
+    setupConfirm: "dsh-ee वेबसाइट के “शुरू करें” पृष्ठ पर लौटें, पुष्टि कोड {{code}} जाँचें और “अधिकृत करें” पर क्लिक करें (पृष्ठ बंद हो तो {{url}} खोलें)। इसके बाद बातचीत जारी रखने के लिए यहाँ वापस आएँ।",
+    loginDescription: "एंटरप्राइज़ खाते में साइन इन करें (वेब के “शुरू करें” पृष्ठ से मिला एक्सेस कोड भी दे सकते हैं)",
+    setupCodeHint: "[एक्सेस कोड]",
+    statusDescription: "एंटरप्राइज़ साइन इन स्थिति देखें",
+    notLoggedIn: "साइन इन नहीं है, चैट में /ee-login टाइप करें",
+    unreachable: "dsh-ee से कनेक्ट नहीं हो सका, नेटवर्क या VPN जाँचें और फिर से प्रयास करें",
+    sessionExpired: "साइन इन समाप्त हो गया, चैट में /ee-login टाइप करें",
+    httpError: "dsh-ee ने HTTP {{status}} लौटाया, बाद में प्रयास करें (यह साइन इन विफलता नहीं है)",
+    expiresOn: " · {{date}} को समाप्त",
+    neverExpires: " · कभी समाप्त नहीं होता",
+    statusLine: "{{username}} ({{department}}) के रूप में साइन इन · टोकन {{token}}{{expiry}} · प्लगइन {{version}} · npmrc {{npmrc}}",
+    npmrcMatch: "मेल खाता है",
+    npmrcMismatch: "मेल नहीं खाता",
+    logoutDescription: "एंटरप्राइज़ खाते से साइन आउट करें",
+    noAccount: "कोई एंटरप्राइज़ खाता साइन इन नहीं है",
+    revokedPrefix: "टोकन सर्वर पर रद्द कर दिया गया है, ",
+    envToken: "लेकिन यह एनवायरनमेंट वेरिएबल या $DSH_HOME/.env ({{ref}}) से आता है, कृपया इसे मैन्युअल रूप से हटाएँ और फिर DSH को पुनः आरंभ करें",
+    loggedOut: "एंटरप्राइज़ खाते से साइन आउट कर दिया गया",
+    loggedOutOffline: "इस मशीन पर साइन आउट हो गया; dsh-ee से कनेक्ट नहीं हो सका, इसलिए टोकन सर्वर पर रद्द नहीं किया जा सका; आप इसे वेब के “मेरे टोकन” में रद्द कर सकते हैं"
+  },
+  // doctor.ts: ee_local_doctor checks and suggested fixes
+  doctor: {
+    appBindingsFix: "माइक्रो-ऐप फिर से खोलने पर नई बाइंडिंग बन जाएगी; क्षतिग्रस्त फ़ाइल को मैन्युअल रूप से हटाने की आवश्यकता नहीं है",
+    noCredential: "इस मशीन पर एंटरप्राइज़ साइन इन क्रेडेंशियल नहीं है",
+    loginFix: "साइन इन करने के लिए चैट में /ee-login टाइप करें",
+    hasCredential: "इस मशीन पर एंटरप्राइज़ साइन इन क्रेडेंशियल मौजूद है",
+    source: "स्रोत: {{source}}",
+    expiringSoon: "साइन इन {{days}} दिनों में समाप्त हो जाएगा",
+    reLoginFix: "समाप्त होने से पहले /ee-login चलाकर फिर से साइन इन करें",
+    signedInAs: "{{username}} ({{department}}) के रूप में साइन इन",
+    loginExpired: "एंटरप्राइज़ साइन इन समाप्त हो गया है",
+    reLoginFix2: "फिर से साइन इन करने के लिए चैट में /ee-login टाइप करें",
+    readAccountFailed: "एंटरप्राइज़ खाता पढ़ने में विफल (HTTP {{status}})",
+    serverRestarting: "dsh-ee पुनः आरंभ हो रहा हो सकता है या अस्थायी रूप से उपलब्ध नहीं है; यह साइन इन विफलता नहीं है, बाद में प्रयास करें",
+    retryDiagnose: "थोड़ी देर बाद निदान फिर चलाएँ; लगातार विफल हो तो सर्वर की स्थिति जाँचें",
+    unreachable: "dsh-ee से कनेक्ट नहीं हो सका ({{base}})",
+    unreachableFix: "नेटवर्क या VPN जाँचें; पता गलत हो तो DSH में “सेटिंग्स → dsh-ee” के अंतर्गत इसे ऐसे dsh-ee पते में बदलें जो ब्राउज़र में खुल जाए और फिर जाँचें",
+    npmrcOk: "DSH की .npmrc में एंटरप्राइज़ रजिस्ट्री कॉन्फ़िग वर्तमान साइन इन से मेल खाता है",
+    npmrcMissing: "DSH की .npmrc में एंटरप्राइज़ npm रजिस्ट्री कॉन्फ़िग नहीं है",
+    npmrcMismatch: "DSH की .npmrc में एंटरप्राइज़ रजिस्ट्री टोकन वर्तमान साइन इन से मेल नहीं खाता",
+    npmrcDetail: "{{path}}; एंटरप्राइज़ प्लगइन इंस्टॉल करने पर 401 त्रुटि आएगी",
+    npmrcFix: "DSH पुनः आरंभ करने या फिर से साइन इन करने पर यह अपने आप सिंक हो जाएगा",
+    modelsAvailable: "उपलब्ध मॉडल: {{models}}",
+    noModels: "कोई मॉडल उपलब्ध नहीं है",
+    readModelsFailed: "मॉडल सूची पढ़ने में विफल",
+    readModelsHttp: "मॉडल सूची पढ़ने में विफल (HTTP {{status}})",
+    modelPermissionFix: "मॉडल तक पहुँच के लिए प्रशासक से संपर्क करें",
+    defaultModelMissing: "एंटरप्राइज़ डिफ़ॉल्ट मॉडल {{model}} आपकी उपलब्ध सूची में नहीं है",
+    chooseModelFix: "DSH में उपलब्ध कोई मॉडल चुनें",
+    pluginNewer: "कनेक्ट प्लगइन का नया संस्करण उपलब्ध है {{latest}} (वर्तमान {{version}})",
+    updateFix: "DSH में “सेटिंग्स → dsh-ee” के अंतर्गत “नवीनतम में अपडेट करें” पर क्लिक करें, इंस्टॉल होने पर DSH पुनः आरंभ करें",
+    pluginLatest: "कनेक्ट प्लगइन {{version}} नवीनतम है",
+    missingPlugins: "आवश्यक प्लगइन गायब हैं: {{plugins}}",
+    missingPluginsFix: "DSH के प्लगइन पृष्ठ पर इंस्टॉल करें, या DSH पुनः आरंभ करें ताकि कनेक्ट प्लगइन उन्हें अपने आप इंस्टॉल कर दे",
+    pluginsOk: "सभी आवश्यक प्लगइन इंस्टॉल हैं",
+    bridgeFailed: "एंटरप्राइज़ टूल सिंक विफल",
+    bridgeFix: "नेटवर्क जाँचें; साइन इन स्थिति देखने के लिए /ee-status टाइप करें",
+    bridgeOk: "एंटरप्राइज़ टूल सिंक हो गए ({{count}})",
+    summaryFail: "{{fails}} विफल, {{warns}} पर ध्यान दें",
+    summaryWarn: "{{warns}} पर ध्यान दें",
+    summaryOk: "सब ठीक है",
+    description: "इस मशीन पर DSH और एंटरप्राइज़ वर्कबेंच dsh-ee के कनेक्शन की जाँच करें: साइन इन क्रेडेंशियल, टोकन की वैधता, .npmrc, कनेक्ट प्लगइन संस्करण, आवश्यक प्लगइन, मॉडल, एंटरप्राइज़ टूल सिंक, साथ ही सर्वर-साइड जाँच। केवल पढ़ता है, कुछ भी नहीं बदलता।"
+  },
+  // status-view.ts: enterprise panel title bar and header buttons
+  statusView: {
+    adminOn: "चालू",
+    adminOff: "बंद",
+    adminRemainingHours: "{{hours}} घंटे {{minutes}} मिनट शेष",
+    adminRemainingMinutes: "{{minutes}} मिनट शेष",
+    failureAuth: "एंटरप्राइज़ खाते में साइन इन नहीं है, या साइन इन समाप्त हो गया है। कृपया साइन इन करें।",
+    failureServer: "dsh-ee ने त्रुटि लौटाई ({{detail}}), बाद में रीफ़्रेश करें।",
+    failureUnreachable: "dsh-ee से कनेक्ट नहीं हो सका ({{base}}, {{detail}})। सुनिश्चित करें कि यह मशीन ब्राउज़र में उस पते को खोल सकती है; पता गलत हो तो DSH में “सेटिंग्स → dsh-ee” के अंतर्गत इसे खुलने वाले पते में बदलें और जाँचें।",
+    failureDefault: "साइन इन नहीं है या कनेक्शन उपलब्ध नहीं है, कृपया फिर से साइन इन करें।",
+    reading: "एंटरप्राइज़ खाता पढ़ा जा रहा है…",
+    startingLogin: "साइन इन शुरू हो रहा है…",
+    account: "खाता",
+    department: "विभाग",
+    tokenExpiry: "टोकन की वैधता",
+    adminMode: "प्रशासन मोड",
+    expiresOn: "{{date}} को समाप्त",
+    neverExpires: "कभी समाप्त नहीं होता",
+    quota: "इस माह का कोटा",
+    quotaUnavailable: "कोटा जानकारी उपलब्ध नहीं है",
+    quotaUnlimited: "असीमित",
+    quotaRemaining: "{{percent}}% शेष",
+    models: "एंटरप्राइज़ मॉडल",
+    defaultModel: "डिफ़ॉल्ट: {{model}}",
+    modelsUnavailable: "कोई मॉडल उपलब्ध नहीं है या मॉडल सूची उपलब्ध नहीं है",
+    status: "कनेक्शन स्थिति",
+    pluginVersion: "प्लगइन {{version}}{{latest}}",
+    pluginNewVersion: " · नया संस्करण {{version}}",
+    pluginUpToDate: " · नवीनतम",
+    diagnosing: "निदान जारी है…",
+    diagnose: "निदान",
+    diagnoseResult: "निदान: {{summary}}",
+    checkLine: "{{title}}{{fix}}",
+    checkFixSeparator: "; ",
+    headerDisconnected: "एंटरप्राइज़ · साइन इन नहीं",
+    headerChecking: "एंटरप्राइज़ · जाँच जारी",
+    headerAdmin: "प्रशासन मोड · {{remaining}}",
+    headerQuota: "एंटरप्राइज़ मॉडल · {{percent}}% शेष",
+    headerUser: "एंटरप्राइज़ मॉडल · {{username}}",
+    headerTitleUser: "{{username}}{{department}}",
+    headerDepartment: " ({{department}})",
+    headerTitle: "एंटरप्राइज़ खाते में फिर से साइन इन करें",
+    guideDescription: "एंटरप्राइज़ खाता, कोटा, मॉडल और कनेक्शन स्थिति देखें"
+  },
+  // turn-writes-view.ts: the "logged in dsh-ee" notice at the end of a turn
+  turnWrites: {
+    failedOp: "{{label}} विफल{{count}}",
+    failedCount: " ×{{count}}",
+    failedNotice: "इस टर्न में एंटरप्राइज़ सिस्टम में किए गए लेखन कार्य (कुछ विफल) dsh-ee में दर्ज कर दिए गए हैं",
+    okNotice: "इस टर्न में एंटरप्राइज़ सिस्टम का डेटा बदला गया, dsh-ee में दर्ज कर दिया गया है",
+    systemLabel: "“{{system}}”"
+  },
+  // votes.ts: 👍👎 feedback at the end of assistant messages
+  votes: {
+    notePrompt: "इस उत्तर में कौन-सी बात सहायक नहीं रही? (खाली छोड़ सकते हैं, प्रश्न के अनुसार समूहित कर ऐप लेखक को दी जाएगी)",
+    helpful: "सहायक",
+    notHelpful: "सहायक नहीं",
+    label: "इस उत्तर को रेट करें"
+  },
+  // write-log.ts: local write-operation log
+  writeLog: {
+    invalidSessionId: "अमान्य सत्र id"
+  },
+  // overview.ts: reasons an enterprise account read can fail
+  overview: {
+    timeout: "कनेक्शन का समय समाप्त",
+    toolFailed: "एंटरप्राइज़ टूल कॉल विफल",
+    toolNoJson: "एंटरप्राइज़ टूल ने JSON नहीं लौटाया"
+  },
+  // config.ts: plugin config defaults and validation
+  config: {
+    badBase: "[dsh-ee] base एक http(s) पता होना चाहिए",
+    defaultOrg: "एंटरप्राइज़"
+  },
+  // app-launcher.ts: uncertain send result when launching a micro-app
+  appLauncher: {
+    sendUnknown: "संभव है कि संदेश न भेजा गया हो, सत्र देखकर फिर से प्रयास करें"
+  },
+  // host-session.ts: failure hints from the host session compatibility layer
+  hostSession: {
+    switchUnsupported: "होस्ट सत्र बदलने का समर्थन नहीं करता",
+    noCwd: "वर्तमान सत्र में नए सत्र के लिए कोई कार्य निर्देशिका नहीं है",
+    createWorkspaceUnsupported: "होस्ट वर्कस्पेस बनाने का समर्थन नहीं करता",
+    noWorkspace: "नए सत्र के लिए वर्कस्पेस प्राप्त नहीं हो सका",
+    createSessionUnsupported: "होस्ट नया सत्र बनाने का समर्थन नहीं करता",
+    rejected: "होस्ट ने संदेश अस्वीकार कर दिया",
+    sendUnsupported: "होस्ट संदेश भेजने का समर्थन नहीं करता"
+  },
+  // device.ts: device-code sign-in
+  device: {
+    startFailed: "डिवाइस कोड साइन इन शुरू करने में विफल: {{error}}",
+    startHttpFailed: "डिवाइस कोड साइन इन शुरू करने में विफल: HTTP {{status}}",
+    cancelled: "डिवाइस कोड साइन इन रद्द कर दिया गया",
+    failed: "डिवाइस कोड साइन इन विफल: HTTP {{status}}",
+    timeout: "डिवाइस कोड साइन इन का समय समाप्त"
+  },
+  // connect-update.ts: one-click update of the connect plugin
+  connectUpdate: {
+    noManager: "इस DSH में प्लगइन प्रबंधन API नहीं है, कृपया प्लगइन पृष्ठ पर कनेक्ट प्लगइन मैन्युअल रूप से अपडेट करें",
+    noLatest: "एंटरप्राइज़ का कनेक्ट प्लगइन संस्करण नहीं मिला: {{why}}{{hint}}",
+    signInHint: "; पहले एंटरप्राइज़ खाते में साइन इन करके फिर प्रयास करें",
+    notPublished: "एंटरप्राइज़ ने अभी तक कनेक्ट प्लगइन प्रकाशित नहीं किया है, कृपया प्रशासक पहले सिस्टम सेटिंग्स में इसे प्रकाशित करें",
+    upToDate: "पहले से नवीनतम ({{version}})",
+    installed: "{{pkg}}@{{latest}} इंस्टॉल हो गया, DSH पुनः आरंभ करने के बाद प्रभावी होगा",
+    installFailed: "इंस्टॉल विफल: {{error}}"
+  },
+  // upload.ts: ee_plugins.upload of .tgz files
+  upload: {
+    missingPath: "path गायब है: .tgz फ़ाइल का स्थानीय पथ",
+    notTarball: "केवल npm pack से बनी .tgz फ़ाइलें अपलोड की जा सकती हैं",
+    fileNotFound: "फ़ाइल नहीं मिली: {{file}}",
+    notAFile: "यह फ़ाइल नहीं है: {{file}}",
+    tooLarge: "फ़ाइल बहुत बड़ी है",
+    timeout: "अपलोड का समय समाप्त, फिर से प्रयास करें; नेटवर्क धीमा हो तो वेब से अपलोड करें",
+    unreachable: "dsh-ee से कनेक्ट नहीं हो सका, नेटवर्क या VPN जाँचें",
+    httpFailed: "अपलोड विफल (HTTP {{status}})"
+  },
+  // ee-save.ts: /ee-save command description (the distilled request body stays Chinese; e2e compares it)
+  eeSave: {
+    description: "इस बातचीत को क्षमता में बदलें (प्रॉम्प्ट / स्किल / ऐप ड्राफ़्ट)"
+  },
+  // app-bindings.ts: micro-app session binding file
+  appBindings: {
+    invalidAppName: "अमान्य माइक्रो-ऐप नाम",
+    invalidSessionId: "अमान्य सत्र id",
+    corruptFile: "माइक्रो-ऐप सत्र बाइंडिंग फ़ाइल क्षतिग्रस्त है, इसे खाली बाइंडिंग मानकर संभाला गया ({{file}})"
+  },
+  // app-subscription.ts: enabling / disabling self-selected micro-apps
+  appSubscription: {
+    invalidAppName: "अमान्य माइक्रो-ऐप नाम",
+    invalidSkillName: "अमान्य स्किल नाम",
+    invalidConnectionName: "अमान्य कनेक्टर नाम",
+    invalidKind: "अमान्य क्षमता प्रकार"
+  },
+  // apps-view.ts: enterprise app sidebar / home row / "view more" flyout / in-progress
+  appsView: {
+    startersTitle: "उदाहरण प्रश्न से शुरू करें",
+    confirmDisable: "अक्षम करने की पुष्टि करें",
+    disable: "अक्षम करें",
+    newSession: "नया सत्र शुरू करें",
+    openWorkbench: "वर्कबेंच खोलें",
+    fillInput: "इनपुट बॉक्स में भरें",
+    unbind: "अनबाइंड करें",
+    moreActions: "{{title}} के लिए और क्रियाएँ",
+    missingList: "अनुपलब्ध: {{missing}}",
+    missing: "कुछ क्षमताएँ अनुपलब्ध हैं",
+    missingHint: "{{title}}। देखने और अनुरोध करने के लिए क्लिक करें",
+    missingApply: "कुछ क्षमताएँ अनुपलब्ध · अनुरोध करें",
+    todoBadge: "{{count}} लंबित",
+    openArrow: "खोलें →",
+    enable: "सक्षम करें",
+    gallerySubtitle: "{{count}} ऐप्स · किसी एक पर क्लिक करके शुरू करें, AI उसे वर्कबेंच के साथ खोलेगा",
+    searchAppsAria: "एंटरप्राइज़ ऐप्स खोजें",
+    searchAppsPlaceholder: "ऐप्स खोजें…",
+    noMatches: "कोई मेल खाता ऐप नहीं",
+    availableCount: "सक्षम करने योग्य ({{count}})",
+    showInSidebar: "साइडबार में एंटरप्राइज़ ऐप्स दिखाएँ",
+    loginToSee: "एंटरप्राइज़ ऐप्स देखने के लिए साइन इन करें",
+    expandApps: "एंटरप्राइज़ ऐप्स विस्तारित करें",
+    collapseApps: "एंटरप्राइज़ ऐप्स संक्षिप्त करें",
+    hideSidebar: "साइडबार से एंटरप्राइज़ ऐप्स छिपाएँ (“और देखें” या सेटिंग्स → dsh-ee में इन्हें फिर से चालू किया जा सकता है)",
+    collapsedCount: " ({{count}})",
+    allApps: "सभी ऐप्स",
+    availablePlus: "+ सक्षम करने योग्य ({{count}})",
+    heroSearchPlaceholder: "खोजें…",
+    itemTitle: "{{title}}: {{label}}",
+    todosNeed: "आपके लिए {{count}} आइटम लंबित",
+    startHint: "शुरू करने के लिए किसी एक पर क्लिक करें, वर्कबेंच दाईं ओर खुलेगा"
+  },
+  // workbench-client.ts: business workbench tab (panel / source pane, row writes, checklists, follow-up)
+  workbenchClient: {
+    fallbackTitle: "वर्कबेंच",
+    noSession: "वर्तमान सत्र नहीं मिला, कृपया पहले इस ऐप का सत्र खोलें",
+    sentToAi: "AI को भेजा गया: {{label}}",
+    networkError: "नेटवर्क त्रुटि",
+    noSessionCheck: "वर्तमान सत्र नहीं मिला, चयन सहेजा नहीं जाएगा",
+    checkNotSaved: "चयन सहेजा नहीं गया, थोड़ी देर बाद फिर से प्रयास करें",
+    updatePlugin: "कृपया कनेक्ट प्लगइन को नवीनतम संस्करण में अपडेट करें",
+    saved: "सहेजा गया: {{label}}",
+    saveFailedNetwork: "सहेजा नहीं गया, नेटवर्क जाँचें और फिर से प्रयास करें",
+    writeFailed: "कार्रवाई “{{action}}” विफल: {{error}}",
+    deletedRow: "यह पंक्ति हटा दी गई",
+    updated: "अपडेट किया गया: {{label}}",
+    docLabel: "दस्तावेज़ {{doc}}",
+    askPrompt: "ज्ञान आधार दस्तावेज़ “{{title}}” (दस्तावेज़ {{doc}}) की पंक्ति {{from}}–{{to}} के आसपास के भाग पर आगे बताएँ: उस भाग में और कौन-से संबंधित नियम या अपवाद लागू होते हैं? कृपया स्रोत का उल्लेख करके उत्तर दें।",
+    ask: "इस दस्तावेज़ में और पूछें",
+    saveFailedDefault: "सहेजा नहीं गया, कृपया कनेक्ट प्लगइन को नवीनतम संस्करण में अपडेट करें"
+  },
+  // settings-view.ts: the "dsh-ee" page in DSH settings (address, test, update, sidebar toggle)
+  settingsView: {
+    title: "dsh-ee कनेक्शन",
+    description: "कनेक्ट प्लगइन इस पते से एंटरप्राइज़ खाते में साइन इन करता है, एंटरप्राइज़ स्किल और माइक्रो-ऐप्स सिंक करता है, और एंटरप्राइज़ मॉडल कॉल करता है। कनेक्ट न हो तो पहले ब्राउज़र में dsh-ee वेबसाइट खोलें, फिर जो पता खुलता हो उसे यहाँ भरें।",
+    reading: "पढ़ा जा रहा है…",
+    addressLabel: "dsh-ee पता",
+    packagedOverridden: "प्लगइन पैकेज में पता {{packaged}} है, आपने इसे बदलकर यह वर्तमान पता बना दिया है।",
+    packagedDefault: "यह वह पता है जो प्रशासक ने कनेक्ट प्लगइन प्रकाशित करते समय लिखा था।",
+    testing: "जाँच जारी है…",
+    testConnection: "कनेक्शन जाँचें",
+    resetAddress: "प्लगइन पैकेज का पता बहाल करें",
+    plugin: "कनेक्ट प्लगइन",
+    currentVersion: "वर्तमान संस्करण {{version}}",
+    updating: "अपडेट हो रहा है…",
+    updateLatest: "नवीनतम में अपडेट करें",
+    updateHint: "एंटरप्राइज़ द्वारा प्रकाशित नवीनतम संस्करण में अपडेट करें; इंस्टॉल होने के बाद प्रभावी होने के लिए DSH पुनः आरंभ करना होगा।",
+    changeHint: "पता बदलने का असर केवल इस मशीन पर होता है। यदि सभी कनेक्ट नहीं कर पा रहे हैं, तो प्रशासक को dsh-ee वेबसाइट की सिस्टम सेटिंग्स में “एक्सेस पता” भरने और कनेक्ट प्लगइन फिर से प्रकाशित करने के लिए कहें।",
+    readFailed: "सेटिंग्स पढ़ने में विफल: {{error}}",
+    testFailed: "जाँच विफल: {{error}}",
+    saveFailed: "सहेजने में विफल: {{error}}",
+    updateFailed: "अपडेट विफल: {{error}}",
+    savedNotice: "सहेजा और लागू कर दिया गया। एंटरप्राइज़ स्किल, माइक्रो-ऐप्स और टूल नए पते पर सिंक हो रहे हैं; साइन इन अमान्य हो तो साइडबार के एंटरप्राइज़ पैनल से फिर से साइन इन करें।",
+    sidebarHint: "साइडबार में केवल पहले 3 ऐप्स दिखाई देते हैं, बाकी “और देखें” में हैं; छिपाने के बाद भी होम स्क्रीन पर इनपुट बॉक्स के नीचे और दाईं ओर के एंटरप्राइज़ पैनल से एंटरप्राइज़ ऐप्स खोले जा सकते हैं।",
+    saving: "सहेजा जा रहा है…"
+  },
+  // server-settings.ts: saving the dsh-ee address and testing the connection
+  serverSettings: {
+    reasonTimeout: "कनेक्शन का समय समाप्त: यह मशीन उस पते तक नहीं पहुँच सकती (आंतरिक पता, VPN कनेक्ट नहीं, या फ़ायरवॉल द्वारा अवरुद्ध)",
+    reasonRefused: "कनेक्शन अस्वीकृत: पता मिल गया, लेकिन उस पोर्ट पर कोई सेवा नहीं है",
+    reasonDns: "डोमेन नहीं मिला: वर्तनी जाँचें, या देखें कि VPN कनेक्ट करना आवश्यक है या नहीं",
+    reasonTls: "HTTPS प्रमाणपत्र में समस्या ({{code}})",
+    badAddress: "पते का प्रारूप गलत है",
+    badAddressDetail: "पूरा http:// या https:// पता लिखें, जैसे https://ee.example.com, पथ के अलावा कोई पैरामीटर न जोड़ें",
+    unreachable: "कनेक्ट नहीं हो सका",
+    reachable: "कनेक्ट हो सका ({{ms}} ms)",
+    notDshEe: "इस पते पर dsh-ee नहीं है",
+    notDshEeDetail: "/healthz पर जाने से HTTP {{status}} लौटा; सुनिश्चित करें कि पता dsh-ee वेबसाइट का है",
+    isDshEe: "यह dsh-ee है{{version}}",
+    versionSuffix: " ({{version}})",
+    noLogin: "इस मशीन पर अभी एंटरप्राइज़ खाते में साइन इन नहीं है",
+    noLoginDetail: "पता सहेजने के बाद साइडबार के एंटरप्राइज़ पैनल में “साइन इन करें” पर क्लिक करें, या चैट में /ee-login टाइप करें",
+    signedIn: "{{username}}{{department}} के रूप में साइन इन",
+    departmentSuffix: " ({{department}})",
+    loginInvalid: "इस मशीन का साइन इन इस dsh-ee पर मान्य नहीं है",
+    loginInvalidDetail: "पता सहेजें और फिर से साइन इन करें (टोकन प्रति dsh-ee सर्वर जारी होता है, सर्वर बदलने पर फिर से साइन इन करना होगा)",
+    loginCheckFailed: "साइन इन जाँच विफल",
+    saveBadAddress: "पते का प्रारूप गलत है: पूरा http:// या https:// पता लिखें"
+  },
+  // workbench.ts: workbench data formatting, placeholders, form and board validation (pure functions)
+  workbench: {
+    unitHundredMillion: " सौ मिलियन",
+    unitTenThousand: " दस हज़ार",
+    unitBillion: " अरब",
+    unitMillion: " मिलियन",
+    flat: "स्थिर",
+    allKbs: "सभी ज्ञान आधार",
+    scopePicked: "ज्ञान आधार {{titles}} (आईडी {{ids}})",
+    kbTitle: "“{{title}}”",
+    formRequired: "“{{label}}” भरें",
+    formNumber: "“{{label}}” में संख्या भरनी होगी",
+    formSelect: "“{{label}}” विकल्पों में से चुनें",
+    blocksRequired: "blocks एक खाली न होने वाली सूची होनी चाहिए",
+    blocksTooMany: "बोर्ड में अधिकतम 20 ब्लॉक हो सकते हैं",
+    boardTooLarge: "बोर्ड सामग्री 32 KB से अधिक नहीं हो सकती",
+    blockWhere: "ब्लॉक {{index}}",
+    textEmpty: "{{where}}: text खाली नहीं हो सकता",
+    itemsRange: "{{where}}: items में 1–50 प्रविष्टियाँ होनी चाहिए",
+    columnsRange: "{{where}}: columns में 1–12 कॉलम होने चाहिए",
+    rowsRange: "{{where}}: rows अधिकतम 50 पंक्तियों वाली द्वि-आयामी सूची होनी चाहिए",
+    citationsRange: "{{where}}: items में 1–30 उद्धरण होने चाहिए",
+    citationAt: "{{where}}, उद्धरण {{index}}",
+    citationNumbers: "{{at}}: doc, from और to धनात्मक पूर्णांक होने चाहिए, और to from से छोटा नहीं होना चाहिए",
+    citationVersion: "{{at}}: version धनात्मक पूर्णांक होना चाहिए",
+    citationQuote: "{{at}}: quote स्रोत से 1–500 अक्षरों का अंश होना चाहिए",
+    blockType: "{{where}}: type केवल text, list, table या citations हो सकता है"
+  },
+  // workbench-host.ts: ee_workbench tool and panel data reads / row writes
+  workbenchHost: {
+    noComponent: "निर्देशिका में यह घटक नहीं है",
+    notReadOnly: "यह डेटा स्रोत केवल-पढ़ने वाला टूल नहीं है, पैनल इसे डेटा लाने के लिए उपयोग नहीं कर सकता",
+    formNoTable: "यह फ़ॉर्म तालिका में सबमिट करने के लिए कॉन्फ़िगर नहीं है",
+    rowNoAction: "यह बटन तालिका नहीं बदल सकता",
+    rowNoId: "इस पंक्ति में आईडी नहीं है",
+    badDoc: "दस्तावेज़ आईडी गलत है",
+    invalidAppName: "अमान्य माइक्रो-ऐप नाम",
+    invalidSessionId: "अमान्य सत्र id",
+    invalidChecklistKey: "अमान्य चेकलिस्ट आईडी",
+    actionInvalid: "action केवल board या checklist हो सकता है",
+    appNotFound: "माइक्रो-ऐप {{app}} नहीं है, या यह आपकी उपलब्ध सीमा में नहीं है",
+    noBoard: "माइक्रो-ऐप {{app}} के वर्कबेंच में AI बोर्ड नहीं है",
+    noBoardSession: "बोर्ड अपडेट करने वाला सत्र नहीं मिला",
+    boardUpdated: "वर्कबेंच बोर्ड अपडेट कर दिया गया",
+    badCitations: "उद्धरण {{numbers}} मूल से मेल नहीं खाते: कृपया kb__read से उन पंक्तियों को फिर से पढ़ें, सुधारें, बोर्ड फिर से लिखें, और बातचीत में उपयोगकर्ता को सुधार बताएँ।",
+    staleCitations: "उद्धरण {{numbers}} के दस्तावेज़ अपडेट हो गए हैं, कृपया नवीनतम संस्करण पढ़कर पुष्टि करें कि निष्कर्ष नहीं बदले।",
+    checklistUnsupported: "कनेक्ट प्लगइन का यह संस्करण चेकलिस्ट का समर्थन नहीं करता",
+    noChecklist: "माइक्रो-ऐप {{app}} के वर्कबेंच में चेकलिस्ट नहीं है",
+    checklistNotFound: "“{{title}}” शीर्षक वाली कोई चेकलिस्ट नहीं है; उपलब्ध: {{options}}",
+    checklistAmbiguous: "{{count}} चेकलिस्ट हैं, कृपया title से एक निर्दिष्ट करें: {{options}}",
+    checklistOption: "“{{title}}”",
+    doneOrUndone: "done और undone में से कम-से-कम एक भरें",
+    itemsNotFound: "चेकलिस्ट “{{title}}” में प्रविष्टियाँ {{unknown}} नहीं हैं; प्रविष्टि आईडी: {{known}}",
+    noChecklistSession: "चेकलिस्ट अपडेट करने वाला सत्र नहीं मिला",
+    checklistUpdated: "चेकलिस्ट “{{title}}” अपडेट हो गई: {{done}}/{{total}} पूर्ण",
+    checklistMarked: "चेकलिस्ट “{{title}}” अपडेट हो गई: {{count}} प्रविष्टियाँ पूर्ण",
+    description: "वर्तमान माइक्रो-ऐप वर्कबेंच अपडेट करें: action=board इस टर्न के परिणाम “AI बोर्ड” में लिखता है (हर बार पूरी तरह बदलता है, citations ब्लॉकों में ज्ञान आधार उद्धरण अपने आप सत्यापित होते हैं); action=checklist वर्कबेंच चेकलिस्ट की प्रविष्टियों पर चेक लगाता या हटाता है (done / undone में प्रविष्टि आईडी भरें)। कोई व्यावसायिक डेटा नहीं बदलता।",
+    paramApp: "माइक्रो-ऐप नाम, यानी /नाम में दिया गया नाम",
+    paramTitle: "checklist: चेकलिस्ट का शीर्षक; वर्कबेंच में केवल एक चेकलिस्ट हो तो खाली छोड़ सकते हैं",
+    paramDone: "checklist: पूर्ण के रूप में चिह्नित करने वाली प्रविष्टियों की आईडी",
+    paramUndone: "checklist: पूर्ण का चिह्न हटाने वाली प्रविष्टियों की आईडी",
+    paramBlocks: "बोर्ड सामग्री, ऊपर से नीचे दिखाई जाती है; केवल पाठ के रूप में प्रदर्शित होती है, HTML समर्थित नहीं है",
+    paramItems: "list: प्रत्येक प्रविष्टि के लिए एक पाठ; citations: प्रत्येक प्रविष्टि के लिए एक ज्ञान आधार उद्धरण {doc, version, from, to, quote, title}"
+  },
+  // workbench-view.ts: business workbench panel (metrics / tables / charts / checklists / forms / board / source)
+  workbenchView: {
+    widgetMetric: "मीट्रिक",
+    widgetTable: "तालिका",
+    widgetChart: "चार्ट",
+    widgetChecklist: "चेकलिस्ट",
+    widgetForm: "फ़ॉर्म",
+    widgetActions: "त्वरित बटन",
+    widgetMarkdown: "विवरण",
+    widgetBoard: "AI बोर्ड",
+    widgetKbScope: "किन ज्ञान आधारों में खोजें",
+    confirmDelete: "हटाने की पुष्टि करें",
+    forbidden: "अनुमति नहीं: आपके पास इस डेटा स्रोत के उपयोग की अनुमति नहीं है",
+    fetchFailed: "डेटा लाने में विफल: {{error}}",
+    forbiddenDetail: "अनुमति नहीं: आपके पास “{{connection}}” में “{{tool}}” के उपयोग की अभी अनुमति नहीं है।",
+    thisDataSource: "इस डेटा स्रोत",
+    requestAccess: "अनुमति के लिए अनुरोध करें ↗",
+    contactAdmin: "कृपया प्रशासक से संपर्क करके पहुँच प्राप्त करें।",
+    countRows: "{{total}} पंक्तियाँ",
+    expandDetail: "विवरण विस्तारित करें",
+    collapseDetail: "विवरण संक्षिप्त करें",
+    truncatedRows: "कुल {{total}} पंक्तियाँ, पहली {{shown}} पंक्तियाँ दिखाई जा रही हैं",
+    pointTip: "{{label}} · {{series}}: {{value}}",
+    pieTip: "{{label}}: {{value}} ({{percent}}%)",
+    selectPlaceholder: "चुनें",
+    citationOk: "✔ मूल से सत्यापित",
+    citationStale: "मूल अपडेट हो गया है",
+    citationMismatch: "✖ मूल से मेल नहीं खाता",
+    citationMissing: "✖ यह दस्तावेज़ नहीं मिला",
+    citationUnchecked: "सत्यापित नहीं",
+    citationWhere: "{{title}} · पंक्ति {{range}}",
+    citationTip: "{{where}}\n“{{quote}}”",
+    webSourceTip: "{{tip}}\ndsh-ee वेबसाइट पर मूल देखें",
+    quoteText: "“{{quote}}”",
+    viewSource: "मूल देखें: {{where}}",
+    nearSkippedTip: "वह पृष्ठ स्कैन किया गया या विकृत है, ज्ञान आधार में शामिल नहीं है; उत्तर में उस पृष्ठ की सामग्री छूट सकती है, कृपया मूल दस्तावेज़ देखें",
+    nearSkipped: "⚠ पृष्ठ {{page}} शामिल नहीं",
+    noKbs: "आपके पास अभी खोजने के लिए कोई ज्ञान आधार नहीं है",
+    kbDocs: "{{count}} दस्तावेज़",
+    scopeOnly: "केवल चयनित {{count}} ज्ञान आधारों में खोजें",
+    scopeAllHint: "कुछ भी चयनित न हो तो सभी में खोजा जाता है",
+    boardEmpty: "AI काम पूरा करने पर परिणाम यहाँ लिखेगा।",
+    updatedAt: "{{time}} पर अपडेट",
+    unavailable: "यह वर्कबेंच अब उपलब्ध नहीं है: ऐप अक्षम हो सकता है, या वर्कबेंच कॉन्फ़िगरेशन बदल गया है। आप यह टैब बंद कर सकते हैं।",
+    openCitationHint: "“उत्तर और स्रोत” में उद्धरण पर क्लिक करने से मूल यहाँ खुलेगा।",
+    versionLine: "संस्करण {{version}} · पंक्तियाँ {{from}}–{{to}} / कुल {{total}}",
+    staleNotice: "{{stale}}; हाइलाइट उद्धरण के समय का संस्करण दिखाता है।",
+    prevPage: "पिछला पृष्ठ",
+    nextPage: "अगला पृष्ठ",
+    readView: "पठन दृश्य",
+    rawView: "मूल देखें (पंक्ति संख्याओं के साथ)",
+    quotedSource: "उद्धृत मूल: “{{quote}}”"
+  },
+  // local-mcp.ts: /ee-local command and local extension MCP registration
+  localMcp: {
+    missingPackage: "npm पैकेज नाम आवश्यक है, जैसे /ee-local add @acme/legacy-oa-local@0.1.0",
+    notNpmPackage: "“{{text}}” npm पैकेज नाम नहीं है: स्थानीय एक्सटेंशन केवल एंटरप्राइज़ npm रजिस्ट्री से इंस्टॉल होते हैं, URL, स्थानीय पथ या git पता स्वीकार नहीं किए जाते",
+    invalidPackage: "“{{pkg}}” मान्य npm पैकेज नाम नहीं है (@scope/name या name जैसा होना चाहिए)",
+    invalidVersion: "“{{version}}” मान्य संस्करण नहीं है",
+    unknownSubcommand: "उप-कमांड केवल list / add / remove / snippet हो सकते हैं; प्राप्त हुआ “{{action}}”",
+    idHint: "--id के बाद एक्सटेंशन id होना चाहिए, जैसे acme/legacy-oa",
+    invalidId: "“{{value}}” मान्य एक्सटेंशन id नहीं है (acme/legacy-oa जैसा होना चाहिए)",
+    unknownFlag: "अज्ञात पैरामीटर “{{token}}”",
+    missingTarget: "{{action}} के बाद पैकेज नाम या एक्सटेंशन id होना चाहिए",
+    extraArgs: "अतिरिक्त पैरामीटर “{{args}}” दिए गए हैं",
+    duplicateService: "{{name}} नाम की MCP सेवा पहले से है, उसे ओवरराइट नहीं किया जाएगा",
+    noManagerHint: "\nइस DSH में MCP प्रबंधन API (@deepseek-ai/dsh-mcp-manager) नहीं है, इसलिए स्वतः पंजीकरण संभव नहीं; कॉन्फ़िग स्निपेट बनाने के लिए /ee-local snippet <पैकेज> चलाएँ।\n",
+    noExtensions: "अभी कोई स्थानीय एक्सटेंशन नहीं जोड़ा गया।\nउपयोग: /ee-local add <पैकेज>[@संस्करण] [--id लेखक/नाम]\n{{hint}}",
+    registered: "पंजीकृत",
+    unregistered: "पंजीकृत नहीं",
+    unregisteredNoManager: "पंजीकृत नहीं (MCP प्रबंधन API नहीं है)",
+    listHeader: "स्थानीय एक्सटेंशन ({{count}}):\n{{lines}}\n{{hint}}\nहटाएँ: /ee-local remove <एक्सटेंशन id या पैकेज नाम>",
+    alreadyAdded: "{{spec}} पहले ही जोड़ा जा चुका है; id या संस्करण बदलने के लिए पहले /ee-local remove चलाएँ।",
+    idTaken: "एक्सटेंशन id {{id}} पहले से {{pkg}} पर उपयोग में है; पहले /ee-local remove {{id}} चलाएँ, या दूसरा --id चुनें।",
+    packageBound: "यह पैकेज एक्सटेंशन id {{id}} के अंतर्गत पहले ही जोड़ा जा चुका है; id बदलने के लिए पहले /ee-local remove {{id}} चलाएँ।",
+    noManagerAdd: "इस DSH में MCP प्रबंधन API नहीं है (@deepseek-ai/dsh-mcp-manager माउंट नहीं है, पुराने DSH संस्करणों या न्यूनतम संयोजनों में यह नहीं होता), इसलिए स्वतः पंजीकरण संभव नहीं।\nनीचे दिया स्निपेट profile की cordis.patch.yml में जोड़ें (या DSH को 0.2.2 में अपग्रेड करके फिर प्रयास करें):\n\n{{snippet}}\n",
+    serviceConflict: "यहाँ पहले से {{name}} नाम की MCP सेवा है (कर्मचारी द्वारा कॉन्फ़िगर, किसी अन्य प्लगइन द्वारा पंजीकृत, या पहले जोड़ी गई), उसे ओवरराइट नहीं किया जाएगा।\nदूसरा --id लेने पर दूसरा सेवा नाम मिलेगा, जैसे: /ee-local add {{spec}} --id {{scope}}/<दूसरा नाम>\n",
+    confirmPlan: "{{update}}स्थानीय एक्सटेंशन को स्थानीय MCP सेवा के रूप में पंजीकृत करने की तैयारी (केवल इस मशीन पर लिखता है, dsh-ee नहीं बदलता, मौजूदा सेवाओं को ओवरराइट नहीं करता):\n  एक्सटेंशन  {{id}}\n  पैकेज      {{pkg}}{{latest}}\n  MCP सेवा  {{server}} (टूल नाम mcp__{{server}}__<टूल>)\n  env        DSH_EE_URL, DSH_EE_TOKEN (DSH क्रेडेंशियल स्टोर से), DSH_EE_HARNESS=dsh, एंटरप्राइज़ npm रजिस्ट्री\n\nपुष्टि के बाद चलाएँ: /ee-local add {{spec}}{{idFlag}} --yes\n",
+    updateSuffix: "नए संस्करण में अपडेट करने के बाद ",
+    latestVersion: " (नवीनतम संस्करण)",
+    registerFailed: "पंजीकरण विफल: {{error}}",
+    registeredText: "पंजीकृत (अगली बार DSH शुरू होने पर अपने आप बहाल हो जाएगा):\n  {{id}} → {{spec}}, सेवा नाम {{server}}\nटूल नाम mcp__{{server}}__ से शुरू होते हैं; पहली बार कॉल करने पर यदि एक्सटेंशन साइन इन माँगता है तो सिस्टम की अपनी साइन इन विंडो खुलेगी।\nहटाएँ: /ee-local remove {{id}}\n",
+    notFound: "“{{target}}” नहीं मिला; जोड़े गए एक्सटेंशन देखने के लिए /ee-local list चलाएँ।",
+    removed: "{{id}} ({{pkg}}) हटा दिया गया। MCP सेवा {{server}} अपंजीकृत कर दी गई।",
+    snippetIntro: "नीचे दिया स्निपेट संबंधित profile की cordis.patch.yml के अंत में जोड़ें (DSH में mcpServers कॉन्फ़िग फ़ाइल नहीं होती, यही आधिकारिक तरीका है):\n\n{{snippet}}\n\n{{hint}}\n",
+    snippetHint: "इस DSH में MCP प्रबंधन API है, /ee-local add से स्वतः पंजीकरण भी किया जा सकता है।",
+    description: "स्थानीय एक्सटेंशन: स्थानीय एक्सटेंशन की MCP सेवाएँ पंजीकृत / देखें / हटाएँ (केवल इस मशीन पर लिखता है)",
+    inputHint: "[list|add|remove|snippet] [पैकेज[@संस्करण]] [--id लेखक/नाम] [--yes]"
+  },
+  // index.ts (host side): fallback errors for remote methods
+  serverIndex: {
+    microAppNotFound: "निर्देशिका में यह माइक्रो-ऐप नहीं है",
+    notLoggedIn: "एंटरप्राइज़ खाते में साइन इन नहीं है",
+    feedbackFailed: "फ़ीडबैक विफल: HTTP {{status}}",
+    invalidEntryId: "अमान्य प्रविष्टि आईडी"
+  },
+  // kb-doc-render.ts: knowledge base source reading view (pagination tabs)
+  kbDocRender: {
+    page: "पृष्ठ {{page}}"
+  },
+  // bridge.ts: MCP tool result text
+  bridge: {
+    error: "त्रुटि: {{text}}"
+  },
+  // brand-view.ts: initial-letter fallback when there is no logo
+  brandView: {
+    fallbackLetter: "ए"
+  }
+};
+var hi_default = hi;
+
+// src/i18n/langs.ts
+var DEFAULT_LANG = "zh-CN";
+var PRIMARY_LANG = { zh: "zh-CN", en: "en", es: "es", pt: "pt", hi: "hi" };
+function normalizeLang(tag2) {
+  if (typeof tag2 !== "string") return void 0;
+  const primary = tag2.trim().toLowerCase().replace(/_/g, "-").split("-")[0];
+  return primary ? PRIMARY_LANG[primary] : void 0;
+}
+function detectLang(sources) {
+  for (const source of [sources.host, sources.browser, sources.env]) {
+    if (source === void 0) continue;
+    for (const tag2 of typeof source === "string" ? [source] : source) {
+      const lang = normalizeLang(tag2);
+      if (lang) return lang;
+    }
+  }
+  return DEFAULT_LANG;
+}
+function hostLocaleId(ctx) {
+  try {
+    const service = typeof ctx?.get === "function" ? ctx.get("locale") : void 0;
+    const snapshot = typeof service?.getSnapshot === "function" ? service.getSnapshot() : typeof service?.getLocale === "function" ? service.getLocale() : void 0;
+    return typeof snapshot?.active === "string" ? snapshot.active : void 0;
+  } catch {
+    return void 0;
+  }
+}
+function browserLanguages() {
+  if (typeof window === "undefined") return [];
+  try {
+    const nav = globalThis.navigator;
+    const list = [...Array.isArray(nav?.languages) ? nav.languages : [], nav?.language];
+    return list.filter((tag2) => typeof tag2 === "string" && tag2 !== "");
+  } catch {
+    return [];
+  }
+}
+function envLanguages(env = typeof process === "undefined" ? void 0 : process.env) {
+  if (!env) return [];
+  return [env.DSH_EE_LANG, env.LC_ALL, env.LC_MESSAGES, env.LANG];
+}
+
+// src/i18n/index.ts
+var TABLES = { "zh-CN": zh_default, en: en_default, es: es_default, pt: pt_default, hi: hi_default };
+var active;
+var listeners = /* @__PURE__ */ new Set();
+function t(key, params) {
+  const template = lookup(getLang(), key) ?? lookup("en", key) ?? key;
+  if (!params) return template;
+  return template.replace(/\{\{(\w+)\}\}/g, (match, name) => {
+    const value = params[name];
+    return value === void 0 || value === null ? match : String(value);
+  });
+}
+function getLang() {
+  if (active === void 0) active = detectLang({ browser: browserLanguages(), env: envLanguages() });
+  return active;
+}
+function setLang(lang) {
+  const next = normalizeLang(lang) ?? DEFAULT_LANG;
+  if (next === getLang()) return next;
+  active = next;
+  for (const listener of [...listeners]) {
+    try {
+      listener();
+    } catch {
+    }
+  }
+  return next;
+}
+function localeTag(lang = getLang()) {
+  return lang;
+}
+function initI18n(ctx) {
+  active = detectLang({ host: hostLocaleId(ctx), browser: browserLanguages(), env: envLanguages() });
+  watchHostLang(ctx);
+  return active;
+}
+function watchHostLang(ctx) {
+  try {
+    const service = typeof ctx?.get === "function" ? ctx.get("locale") : void 0;
+    if (typeof service?.subscribe !== "function") return;
+    const sync = () => {
+      const lang = normalizeLang(hostLocaleId(ctx));
+      if (lang) setLang(lang);
+    };
+    if (typeof ctx?.effect === "function") {
+      ctx.effect(() => {
+        const off = service.subscribe(sync);
+        sync();
+        return () => {
+          try {
+            off?.();
+          } catch {
+          }
+        };
+      });
+    } else {
+      sync();
+    }
+  } catch {
+  }
+}
+function lookup(lang, key) {
+  let node2 = TABLES[lang];
+  for (const part of key.split(".")) {
+    if (node2 === null || typeof node2 !== "object") return void 0;
+    node2 = node2[part];
+  }
+  return typeof node2 === "string" ? node2 : void 0;
+}
 
 // node_modules/@deepseek-ai/dsh-typert-protocol/lib/index.js
 var TYPERT_OWNED_VALUE = Symbol.for("dsh.typert.owned-value");
@@ -1082,8 +3854,8 @@ function numKeys(data) {
   return keyCount;
 }
 var getParsedType = (data) => {
-  const t = typeof data;
-  switch (t) {
+  const t2 = typeof data;
+  switch (t2) {
     case "undefined":
       return "undefined";
     case "string":
@@ -1122,7 +3894,7 @@ var getParsedType = (data) => {
       }
       return "object";
     default:
-      throw new Error(`Unknown data type: ${t}`);
+      throw new Error(`Unknown data type: ${t2}`);
   }
 };
 var propertyKeyTypes = /* @__PURE__ */ new Set(["string", "number", "symbol"]);
@@ -1422,8 +4194,8 @@ function getLengthableOrigin(input2) {
   return "unknown";
 }
 function parsedType(data) {
-  const t = typeof data;
-  switch (t) {
+  const t2 = typeof data;
+  switch (t2) {
     case "number": {
       return Number.isNaN(data) ? "nan" : "number";
     }
@@ -1440,7 +4212,7 @@ function parsedType(data) {
       }
     }
   }
-  return t;
+  return t2;
 }
 function issue(...args) {
   const [iss, input2, inst] = args;
@@ -1921,9 +4693,9 @@ function prettifyError(error62) {
   const lines = [];
   const issues = [...error62.issues].sort((a, b) => (a.path ?? []).length - (b.path ?? []).length);
   for (const issue2 of issues) {
-    lines.push(`\u2716 ${issue2.message}`);
+    lines.push(`✖ ${issue2.message}`);
     if (issue2.path?.length)
-      lines.push(`  \u2192 at ${toDotPath(issue2.path)}`);
+      lines.push(`  → at ${toDotPath(issue2.path)}`);
   }
   return lines.join("\n");
 }
@@ -3664,7 +6436,7 @@ function handleCatchall(proms, input2, payload, ctx, def, inst, abortEarly) {
   const unrecognized = [];
   const keySet = def.keySet;
   const _catchall = def.catchall._zod;
-  const t = _catchall.def.type;
+  const t2 = _catchall.def.type;
   const optin = _catchall.optin;
   const optout = _catchall.optout;
   let seen = 0;
@@ -3677,11 +6449,11 @@ function handleCatchall(proms, input2, payload, ctx, def, inst, abortEarly) {
     if (keySet.has(key))
       continue;
     if (key === "__proto__") {
-      if (t === "never")
+      if (t2 === "never")
         unrecognized.push(key);
       continue;
     }
-    if (t === "never") {
+    if (t2 === "never") {
       unrecognized.push(key);
       continue;
     }
@@ -5017,11 +7789,11 @@ function leafPattern(schema) {
       pattern = d.pattern;
     isInt || (isInt = !!d.format?.includes("int"));
     const lo = d.minimum ?? d.length;
-    const hi = d.maximum ?? d.length;
+    const hi2 = d.maximum ?? d.length;
     if (lo !== void 0 && (minimum === void 0 || lo > minimum))
       minimum = lo;
-    if (hi !== void 0 && (maximum === void 0 || hi < maximum))
-      maximum = hi;
+    if (hi2 !== void 0 && (maximum === void 0 || hi2 < maximum))
+      maximum = hi2;
   }
   if (pattern)
     return pattern.source;
@@ -5517,16 +8289,16 @@ __export(locales_exports, {
   da: () => da_default,
   de: () => de_default,
   el: () => el_default,
-  en: () => en_default,
+  en: () => en_default2,
   eo: () => eo_default,
-  es: () => es_default,
+  es: () => es_default2,
   fa: () => fa_default,
   fi: () => fi_default,
   fr: () => fr_default,
   frCA: () => fr_CA_default,
   gu: () => gu_default,
   he: () => he_default,
-  hi: () => hi_default,
+  hi: () => hi_default2,
   hr: () => hr_default,
   hu: () => hu_default,
   hy: () => hy_default,
@@ -5549,7 +8321,7 @@ __export(locales_exports, {
   ota: () => ota_default,
   pl: () => pl_default,
   ps: () => ps_default,
-  pt: () => pt_default,
+  pt: () => pt_default2,
   ptBR: () => pt_BR_default,
   ro: () => ro_default,
   ru: () => ru_default,
@@ -5574,20 +8346,20 @@ __export(locales_exports, {
 // node_modules/zod/v4/locales/ar.js
 var error = () => {
   const Sizable = {
-    string: { unit: "\u062D\u0631\u0641", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
-    file: { unit: "\u0628\u0627\u064A\u062A", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
-    array: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
-    set: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" },
-    map: { unit: "\u0639\u0646\u0635\u0631", verb: "\u0623\u0646 \u064A\u062D\u0648\u064A" }
+    string: { unit: "حرف", verb: "أن يحوي" },
+    file: { unit: "بايت", verb: "أن يحوي" },
+    array: { unit: "عنصر", verb: "أن يحوي" },
+    set: { unit: "عنصر", verb: "أن يحوي" },
+    map: { unit: "عنصر", verb: "أن يحوي" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0645\u062F\u062E\u0644",
-    email: "\u0628\u0631\u064A\u062F \u0625\u0644\u0643\u062A\u0631\u0648\u0646\u064A",
-    url: "\u0631\u0627\u0628\u0637",
-    emoji: "\u0625\u064A\u0645\u0648\u062C\u064A",
+    regex: "مدخل",
+    email: "بريد إلكتروني",
+    url: "رابط",
+    emoji: "إيموجي",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -5598,24 +8370,24 @@ var error = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u062A\u0627\u0631\u064A\u062E \u0648\u0648\u0642\u062A \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
-    date: "\u062A\u0627\u0631\u064A\u062E \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
-    time: "\u0648\u0642\u062A \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
-    duration: "\u0645\u062F\u0629 \u0628\u0645\u0639\u064A\u0627\u0631 ISO",
-    ipv4: "\u0639\u0646\u0648\u0627\u0646 IPv4",
-    ipv6: "\u0639\u0646\u0648\u0627\u0646 IPv6",
-    mac: "\u0639\u0646\u0648\u0627\u0646 MAC",
-    cidrv4: "\u0645\u062F\u0649 \u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0635\u064A\u063A\u0629 IPv4",
-    cidrv6: "\u0645\u062F\u0649 \u0639\u0646\u0627\u0648\u064A\u0646 \u0628\u0635\u064A\u063A\u0629 IPv6",
-    base64: "\u0646\u064E\u0635 \u0628\u062A\u0631\u0645\u064A\u0632 base64-encoded",
-    base64url: "\u0646\u064E\u0635 \u0628\u062A\u0631\u0645\u064A\u0632 base64url-encoded",
-    json_string: "\u0646\u064E\u0635 \u0639\u0644\u0649 \u0647\u064A\u0626\u0629 JSON",
-    e164: "\u0631\u0642\u0645 \u0647\u0627\u062A\u0641 \u0628\u0645\u0639\u064A\u0627\u0631 E.164",
-    credit_card: "\u0631\u0642\u0645 \u0628\u0637\u0627\u0642\u0629 \u0627\u0644\u0627\u0626\u062A\u0645\u0627\u0646",
-    currency_code: "\u0631\u0645\u0632 \u0627\u0644\u0639\u0645\u0644\u0629",
+    datetime: "تاريخ ووقت بمعيار ISO",
+    date: "تاريخ بمعيار ISO",
+    time: "وقت بمعيار ISO",
+    duration: "مدة بمعيار ISO",
+    ipv4: "عنوان IPv4",
+    ipv6: "عنوان IPv6",
+    mac: "عنوان MAC",
+    cidrv4: "مدى عناوين بصيغة IPv4",
+    cidrv6: "مدى عناوين بصيغة IPv6",
+    base64: "نَص بترميز base64-encoded",
+    base64url: "نَص بترميز base64url-encoded",
+    json_string: "نَص على هيئة JSON",
+    e164: "رقم هاتف بمعيار E.164",
+    credit_card: "رقم بطاقة الائتمان",
+    currency_code: "رمز العملة",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0645\u062F\u062E\u0644"
+    template_literal: "مدخل"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -5627,53 +8399,53 @@ var error = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 instanceof ${issue2.expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
+          return `مدخلات غير مقبولة: يفترض إدخال instanceof ${issue2.expected}، ولكن تم إدخال ${received}`;
         }
-        return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${expected}\u060C \u0648\u0644\u0643\u0646 \u062A\u0645 \u0625\u062F\u062E\u0627\u0644 ${received}`;
+        return `مدخلات غير مقبولة: يفترض إدخال ${expected}، ولكن تم إدخال ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0645\u062F\u062E\u0644\u0627\u062A \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644\u0629: \u064A\u0641\u062A\u0631\u0636 \u0625\u062F\u062E\u0627\u0644 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0627\u062E\u062A\u064A\u0627\u0631 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062A\u0648\u0642\u0639 \u0627\u0646\u062A\u0642\u0627\u0621 \u0623\u062D\u062F \u0647\u0630\u0647 \u0627\u0644\u062E\u064A\u0627\u0631\u0627\u062A: ${joinValues(issue2.values, "|")}`;
+          return `مدخلات غير مقبولة: يفترض إدخال ${stringifyPrimitive(issue2.values[0])}`;
+        return `اختيار غير مقبول: يتوقع انتقاء أحد هذه الخيارات: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return ` \u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"}`;
-        return `\u0623\u0643\u0628\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0623\u0646 \u062A\u0643\u0648\u0646 ${issue2.origin ?? "\u0627\u0644\u0642\u064A\u0645\u0629"} ${adj} ${issue2.maximum.toString()}`;
+          return ` أكبر من اللازم: يفترض أن تكون ${issue2.origin ?? "القيمة"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "عنصر"}`;
+        return `أكبر من اللازم: يفترض أن تكون ${issue2.origin ?? "القيمة"} ${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `أصغر من اللازم: يفترض لـ ${issue2.origin} أن يكون ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0623\u0635\u063A\u0631 \u0645\u0646 \u0627\u0644\u0644\u0627\u0632\u0645: \u064A\u0641\u062A\u0631\u0636 \u0644\u0640 ${issue2.origin} \u0623\u0646 \u064A\u0643\u0648\u0646 ${adj} ${issue2.minimum.toString()}`;
+        return `أصغر من اللازم: يفترض لـ ${issue2.origin} أن يكون ${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0628\u062F\u0623 \u0628\u0640 "${issue2.prefix}"`;
+          return `نَص غير مقبول: يجب أن يبدأ بـ "${issue2.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0646\u062A\u0647\u064A \u0628\u0640 "${_issue.suffix}"`;
+          return `نَص غير مقبول: يجب أن ينتهي بـ "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u062A\u0636\u0645\u0651\u064E\u0646 "${_issue.includes}"`;
+          return `نَص غير مقبول: يجب أن يتضمَّن "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u0646\u064E\u0635 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0637\u0627\u0628\u0642 \u0627\u0644\u0646\u0645\u0637 ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644`;
+          return `نَص غير مقبول: يجب أن يطابق النمط ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} غير مقبول`;
       }
       case "not_multiple_of":
-        return `\u0631\u0642\u0645 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644: \u064A\u062C\u0628 \u0623\u0646 \u064A\u0643\u0648\u0646 \u0645\u0646 \u0645\u0636\u0627\u0639\u0641\u0627\u062A ${issue2.divisor}`;
+        return `رقم غير مقبول: يجب أن يكون من مضاعفات ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u0645\u0639\u0631\u0641${issue2.keys.length > 1 ? "\u0627\u062A" : ""} \u063A\u0631\u064A\u0628${issue2.keys.length > 1 ? "\u0629" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+        return `معرف${issue2.keys.length > 1 ? "ات" : ""} غريب${issue2.keys.length > 1 ? "ة" : ""}: ${joinValues(issue2.keys, "، ")}`;
       case "invalid_key":
-        return `\u0645\u0639\u0631\u0641 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+        return `معرف غير مقبول في ${issue2.origin}`;
       case "invalid_union":
-        return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
+        return "مدخل غير مقبول";
       case "invalid_element":
-        return `\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644 \u0641\u064A ${issue2.origin}`;
+        return `مدخل غير مقبول في ${issue2.origin}`;
       default:
-        return "\u0645\u062F\u062E\u0644 \u063A\u064A\u0631 \u0645\u0642\u0628\u0648\u0644";
+        return "مدخل غير مقبول";
     }
   };
 };
@@ -5686,11 +8458,11 @@ function ar_default() {
 // node_modules/zod/v4/locales/az.js
 var error2 = () => {
   const Sizable = {
-    string: { unit: "simvol", verb: "olmal\u0131d\u0131r" },
-    file: { unit: "bayt", verb: "olmal\u0131d\u0131r" },
-    array: { unit: "element", verb: "olmal\u0131d\u0131r" },
-    set: { unit: "element", verb: "olmal\u0131d\u0131r" },
-    map: { unit: "element", verb: "olmal\u0131d\u0131r" }
+    string: { unit: "simvol", verb: "olmalıdır" },
+    file: { unit: "bayt", verb: "olmalıdır" },
+    array: { unit: "element", verb: "olmalıdır" },
+    set: { unit: "element", verb: "olmalıdır" },
+    map: { unit: "element", verb: "olmalıdır" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -5723,7 +8495,7 @@ var error2 = () => {
     base64url: "base64url-encoded string",
     json_string: "JSON string",
     e164: "E.164 number",
-    credit_card: "kredit kart\u0131 n\xF6mr\u0259si",
+    credit_card: "kredit kartı nömrəsi",
     currency_code: "valyuta kodu",
     iban: "IBAN",
     jwt: "JWT",
@@ -5739,52 +8511,52 @@ var error2 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n instanceof ${issue2.expected}, daxil olan ${received}`;
+          return `Yanlış dəyər: gözlənilən instanceof ${issue2.expected}, daxil olan ${received}`;
         }
-        return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${expected}, daxil olan ${received}`;
+        return `Yanlış dəyər: gözlənilən ${expected}, daxil olan ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Yanl\u0131\u015F d\u0259y\u0259r: g\xF6zl\u0259nil\u0259n ${stringifyPrimitive(issue2.values[0])}`;
-        return `Yanl\u0131\u015F se\xE7im: a\u015Fa\u011F\u0131dak\u0131lardan biri olmal\u0131d\u0131r: ${joinValues(issue2.values, "|")}`;
+          return `Yanlış dəyər: gözlənilən ${stringifyPrimitive(issue2.values[0])}`;
+        return `Yanlış seçim: aşağıdakılardan biri olmalıdır: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
-        return `\xC7ox b\xF6y\xFCk: g\xF6zl\u0259nil\u0259n ${issue2.origin ?? "d\u0259y\u0259r"} ${adj}${issue2.maximum.toString()}`;
+          return `Çox böyük: gözlənilən ${issue2.origin ?? "dəyər"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+        return `Çox böyük: gözlənilən ${issue2.origin ?? "dəyər"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
-        return `\xC7ox ki\xE7ik: g\xF6zl\u0259nil\u0259n ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+          return `Çox kiçik: gözlənilən ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        return `Çox kiçik: gözlənilən ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Yanl\u0131\u015F m\u0259tn: "${_issue.prefix}" il\u0259 ba\u015Flamal\u0131d\u0131r`;
+          return `Yanlış mətn: "${_issue.prefix}" ilə başlamalıdır`;
         if (_issue.format === "ends_with")
-          return `Yanl\u0131\u015F m\u0259tn: "${_issue.suffix}" il\u0259 bitm\u0259lidir`;
+          return `Yanlış mətn: "${_issue.suffix}" ilə bitməlidir`;
         if (_issue.format === "includes")
-          return `Yanl\u0131\u015F m\u0259tn: "${_issue.includes}" daxil olmal\u0131d\u0131r`;
+          return `Yanlış mətn: "${_issue.includes}" daxil olmalıdır`;
         if (_issue.format === "regex")
-          return `Yanl\u0131\u015F m\u0259tn: ${_issue.pattern} \u015Fablonuna uy\u011Fun olmal\u0131d\u0131r`;
-        return `Yanl\u0131\u015F ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Yanlış mətn: ${_issue.pattern} şablonuna uyğun olmalıdır`;
+        return `Yanlış ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Yanl\u0131\u015F \u0259d\u0259d: ${issue2.divisor} il\u0259 b\xF6l\xFCn\u0259 bil\u0259n olmal\u0131d\u0131r`;
+        return `Yanlış ədəd: ${issue2.divisor} ilə bölünə bilən olmalıdır`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan a\xE7ar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tanınmayan açar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F a\xE7ar`;
+        return `${issue2.origin} daxilində yanlış açar`;
       case "invalid_union":
-        return "Yanl\u0131\u015F d\u0259y\u0259r";
+        return "Yanlış dəyər";
       case "invalid_element":
-        return `${issue2.origin} daxilind\u0259 yanl\u0131\u015F d\u0259y\u0259r`;
+        return `${issue2.origin} daxilində yanlış dəyər`;
       default:
-        return `Yanl\u0131\u015F d\u0259y\u0259r`;
+        return `Yanlış dəyər`;
     }
   };
 };
@@ -5814,53 +8586,53 @@ var error3 = () => {
   const Sizable = {
     string: {
       unit: {
-        one: "\u0441\u0456\u043C\u0432\u0430\u043B",
-        few: "\u0441\u0456\u043C\u0432\u0430\u043B\u044B",
-        many: "\u0441\u0456\u043C\u0432\u0430\u043B\u0430\u045E"
+        one: "сімвал",
+        few: "сімвалы",
+        many: "сімвалаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     },
     array: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+        one: "элемент",
+        few: "элементы",
+        many: "элементаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     },
     set: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+        one: "элемент",
+        few: "элементы",
+        many: "элементаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     },
     map: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u044B",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430\u045E"
+        one: "элемент",
+        few: "элементы",
+        many: "элементаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     },
     file: {
       unit: {
-        one: "\u0431\u0430\u0439\u0442",
-        few: "\u0431\u0430\u0439\u0442\u044B",
-        many: "\u0431\u0430\u0439\u0442\u0430\u045E"
+        one: "байт",
+        few: "байты",
+        many: "байтаў"
       },
-      verb: "\u043C\u0435\u0446\u044C"
+      verb: "мець"
     }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0443\u0432\u043E\u0434",
-    email: "email \u0430\u0434\u0440\u0430\u0441",
+    regex: "увод",
+    email: "email адрас",
     url: "URL",
-    emoji: "\u044D\u043C\u043E\u0434\u0437\u0456",
+    emoji: "эмодзі",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -5871,29 +8643,29 @@ var error3 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0434\u0430\u0442\u0430 \u0456 \u0447\u0430\u0441",
-    date: "ISO \u0434\u0430\u0442\u0430",
-    time: "ISO \u0447\u0430\u0441",
-    duration: "ISO \u043F\u0440\u0430\u0446\u044F\u0433\u043B\u0430\u0441\u0446\u044C",
-    ipv4: "IPv4 \u0430\u0434\u0440\u0430\u0441",
-    ipv6: "IPv6 \u0430\u0434\u0440\u0430\u0441",
-    mac: "MAC \u0430\u0434\u0440\u0430\u0441",
-    cidrv4: "IPv4 \u0434\u044B\u044F\u043F\u0430\u0437\u043E\u043D",
-    cidrv6: "IPv6 \u0434\u044B\u044F\u043F\u0430\u0437\u043E\u043D",
-    base64: "\u0440\u0430\u0434\u043E\u043A \u0443 \u0444\u0430\u0440\u043C\u0430\u0446\u0435 base64",
-    base64url: "\u0440\u0430\u0434\u043E\u043A \u0443 \u0444\u0430\u0440\u043C\u0430\u0446\u0435 base64url",
-    json_string: "JSON \u0440\u0430\u0434\u043E\u043A",
-    e164: "\u043D\u0443\u043C\u0430\u0440 E.164",
-    credit_card: "\u043D\u0443\u043C\u0430\u0440 \u043A\u0440\u044D\u0434\u044B\u0442\u043D\u0430\u0439 \u043A\u0430\u0440\u0442\u044B",
-    currency_code: "\u043A\u043E\u0434 \u0432\u0430\u043B\u044E\u0442\u044B",
+    datetime: "ISO дата і час",
+    date: "ISO дата",
+    time: "ISO час",
+    duration: "ISO працягласць",
+    ipv4: "IPv4 адрас",
+    ipv6: "IPv6 адрас",
+    mac: "MAC адрас",
+    cidrv4: "IPv4 дыяпазон",
+    cidrv6: "IPv6 дыяпазон",
+    base64: "радок у фармаце base64",
+    base64url: "радок у фармаце base64url",
+    json_string: "JSON радок",
+    e164: "нумар E.164",
+    credit_card: "нумар крэдытнай карты",
+    currency_code: "код валюты",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0443\u0432\u043E\u0434"
+    template_literal: "увод"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u043B\u0456\u043A",
-    array: "\u043C\u0430\u0441\u0456\u045E"
+    number: "лік",
+    array: "масіў"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -5902,23 +8674,23 @@ var error3 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F instanceof ${issue2.expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
+          return `Няправільны ўвод: чакаўся instanceof ${issue2.expected}, атрымана ${received}`;
         }
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u045E\u0441\u044F ${expected}, \u0430\u0442\u0440\u044B\u043C\u0430\u043D\u0430 ${received}`;
+        return `Няправільны ўвод: чакаўся ${expected}, атрымана ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0432\u0430\u0440\u044B\u044F\u043D\u0442: \u0447\u0430\u043A\u0430\u045E\u0441\u044F \u0430\u0434\u0437\u0456\u043D \u0437 ${joinValues(issue2.values, "|")}`;
+          return `Няправільны ўвод: чакалася ${stringifyPrimitive(issue2.values[0])}`;
+        return `Няправільны варыянт: чакаўся адзін з ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
           const maxValue = Number(issue2.maximum);
           const unit = getBelarusianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.maximum.toString()} ${unit}`;
+          return `Занадта вялікі: чакалася, што ${issue2.origin ?? "значэнне"} павінна ${sizing.verb} ${adj}${issue2.maximum.toString()} ${unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u0432\u044F\u043B\u0456\u043A\u0456: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435"} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.maximum.toString()}`;
+        return `Занадта вялікі: чакалася, што ${issue2.origin ?? "значэнне"} павінна быць ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
@@ -5926,34 +8698,34 @@ var error3 = () => {
         if (sizing) {
           const minValue = Number(issue2.minimum);
           const unit = getBelarusianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 ${sizing.verb} ${adj}${issue2.minimum.toString()} ${unit}`;
+          return `Занадта малы: чакалася, што ${issue2.origin} павінна ${sizing.verb} ${adj}${issue2.minimum.toString()} ${unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u0430 \u043C\u0430\u043B\u044B: \u0447\u0430\u043A\u0430\u043B\u0430\u0441\u044F, \u0448\u0442\u043E ${issue2.origin} \u043F\u0430\u0432\u0456\u043D\u043D\u0430 \u0431\u044B\u0446\u044C ${adj}${issue2.minimum.toString()}`;
+        return `Занадта малы: чакалася, што ${issue2.origin} павінна быць ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u043F\u0430\u0447\u044B\u043D\u0430\u0446\u0446\u0430 \u0437 "${_issue.prefix}"`;
+          return `Няправільны радок: павінен пачынацца з "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u0430\u043A\u0430\u043D\u0447\u0432\u0430\u0446\u0446\u0430 \u043D\u0430 "${_issue.suffix}"`;
+          return `Няправільны радок: павінен заканчвацца на "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0437\u043C\u044F\u0448\u0447\u0430\u0446\u044C "${_issue.includes}"`;
+          return `Няправільны радок: павінен змяшчаць "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u0440\u0430\u0434\u043E\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0430\u0434\u043F\u0430\u0432\u044F\u0434\u0430\u0446\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Няправільны радок: павінен адпавядаць шаблону ${_issue.pattern}`;
+        return `Няправільны ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043B\u0456\u043A: \u043F\u0430\u0432\u0456\u043D\u0435\u043D \u0431\u044B\u0446\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+        return `Няправільны лік: павінен быць кратным ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u0430\u0441\u043F\u0430\u0437\u043D\u0430\u043D\u044B ${issue2.keys.length > 1 ? "\u043A\u043B\u044E\u0447\u044B" : "\u043A\u043B\u044E\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Нераспазнаны ${issue2.keys.length > 1 ? "ключы" : "ключ"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+        return `Няправільны ключ у ${issue2.origin}`;
       case "invalid_union":
-        return "\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434";
+        return "Няправільны ўвод";
       case "invalid_element":
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u0430\u0435 \u0437\u043D\u0430\u0447\u044D\u043D\u043D\u0435 \u045E ${issue2.origin}`;
+        return `Няправільнае значэнне ў ${issue2.origin}`;
       default:
-        return `\u041D\u044F\u043F\u0440\u0430\u0432\u0456\u043B\u044C\u043D\u044B \u045E\u0432\u043E\u0434`;
+        return `Няправільны ўвод`;
     }
   };
 };
@@ -5966,20 +8738,20 @@ function be_default() {
 // node_modules/zod/v4/locales/bg.js
 var error4 = () => {
   const Sizable = {
-    string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
-    file: { unit: "\u0431\u0430\u0439\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
-    array: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
-    set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" },
-    map: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430", verb: "\u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430" }
+    string: { unit: "символа", verb: "да съдържа" },
+    file: { unit: "байта", verb: "да съдържа" },
+    array: { unit: "елемента", verb: "да съдържа" },
+    set: { unit: "елемента", verb: "да съдържа" },
+    map: { unit: "елемента", verb: "да съдържа" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0432\u0445\u043E\u0434",
-    email: "\u0438\u043C\u0435\u0439\u043B \u0430\u0434\u0440\u0435\u0441",
+    regex: "вход",
+    email: "имейл адрес",
     url: "URL",
-    emoji: "\u0435\u043C\u043E\u0434\u0436\u0438",
+    emoji: "емоджи",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -5990,29 +8762,29 @@ var error4 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0432\u0440\u0435\u043C\u0435",
-    date: "ISO \u0434\u0430\u0442\u0430",
-    time: "ISO \u0432\u0440\u0435\u043C\u0435",
-    duration: "ISO \u043F\u0440\u043E\u0434\u044A\u043B\u0436\u0438\u0442\u0435\u043B\u043D\u043E\u0441\u0442",
-    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441",
-    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441",
-    mac: "MAC \u0430\u0434\u0440\u0435\u0441",
-    cidrv4: "IPv4 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
-    cidrv6: "IPv6 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
-    base64: "base64-\u043A\u043E\u0434\u0438\u0440\u0430\u043D \u043D\u0438\u0437",
-    base64url: "base64url-\u043A\u043E\u0434\u0438\u0440\u0430\u043D \u043D\u0438\u0437",
-    json_string: "JSON \u043D\u0438\u0437",
-    e164: "E.164 \u043D\u043E\u043C\u0435\u0440",
-    credit_card: "\u043D\u043E\u043C\u0435\u0440 \u043D\u0430 \u043A\u0440\u0435\u0434\u0438\u0442\u043D\u0430 \u043A\u0430\u0440\u0442\u0430",
-    currency_code: "\u043A\u043E\u0434 \u043D\u0430 \u0432\u0430\u043B\u0443\u0442\u0430",
+    datetime: "ISO време",
+    date: "ISO дата",
+    time: "ISO време",
+    duration: "ISO продължителност",
+    ipv4: "IPv4 адрес",
+    ipv6: "IPv6 адрес",
+    mac: "MAC адрес",
+    cidrv4: "IPv4 диапазон",
+    cidrv6: "IPv6 диапазон",
+    base64: "base64-кодиран низ",
+    base64url: "base64url-кодиран низ",
+    json_string: "JSON низ",
+    e164: "E.164 номер",
+    credit_card: "номер на кредитна карта",
+    currency_code: "код на валута",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0432\u0445\u043E\u0434"
+    template_literal: "вход"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0447\u0438\u0441\u043B\u043E",
-    array: "\u043C\u0430\u0441\u0438\u0432"
+    number: "число",
+    array: "масив"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -6021,65 +8793,65 @@ var error4 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D instanceof ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
+          return `Невалиден вход: очакван instanceof ${issue2.expected}, получен ${received}`;
         }
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D ${received}`;
+        return `Невалиден вход: очакван ${expected}, получен ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434: \u043E\u0447\u0430\u043A\u0432\u0430\u043D ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u043E\u043F\u0446\u0438\u044F: \u043E\u0447\u0430\u043A\u0432\u0430\u043D\u043E \u0435\u0434\u043D\u043E \u043E\u0442 ${joinValues(issue2.values, "|")}`;
+          return `Невалиден вход: очакван ${stringifyPrimitive(issue2.values[0])}`;
+        return `Невалидна опция: очаквано едно от ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0430"}`;
-        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u0433\u043E\u043B\u044F\u043C\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin ?? "\u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442"} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+          return `Твърде голямо: очаква се ${issue2.origin ?? "стойност"} да съдържа ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "елемента"}`;
+        return `Твърде голямо: очаква се ${issue2.origin ?? "стойност"} да бъде ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin} \u0434\u0430 \u0441\u044A\u0434\u044A\u0440\u0436\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Твърде малко: очаква се ${issue2.origin} да съдържа ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0422\u0432\u044A\u0440\u0434\u0435 \u043C\u0430\u043B\u043A\u043E: \u043E\u0447\u0430\u043A\u0432\u0430 \u0441\u0435 ${issue2.origin} \u0434\u0430 \u0431\u044A\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+        return `Твърде малко: очаква се ${issue2.origin} да бъде ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u0432\u0430 \u0441 "${_issue.prefix}"`;
+          return `Невалиден низ: трябва да започва с "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0437\u0430\u0432\u044A\u0440\u0448\u0432\u0430 \u0441 "${_issue.suffix}"`;
+          return `Невалиден низ: трябва да завършва с "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0432\u043A\u043B\u044E\u0447\u0432\u0430 "${_issue.includes}"`;
+          return `Невалиден низ: трябва да включва "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043D\u0438\u0437: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0441\u044A\u0432\u043F\u0430\u0434\u0430 \u0441 ${_issue.pattern}`;
-        let invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D";
+          return `Невалиден низ: трябва да съвпада с ${_issue.pattern}`;
+        let invalid_adj = "Невалиден";
         if (_issue.format === "emoji")
-          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+          invalid_adj = "Невалидно";
         if (_issue.format === "datetime")
-          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+          invalid_adj = "Невалидно";
         if (_issue.format === "date")
-          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430";
+          invalid_adj = "Невалидна";
         if (_issue.format === "time")
-          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E";
+          invalid_adj = "Невалидно";
         if (_issue.format === "duration")
-          invalid_adj = "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430";
+          invalid_adj = "Невалидна";
         return `${invalid_adj} ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u043E \u0447\u0438\u0441\u043B\u043E: \u0442\u0440\u044F\u0431\u0432\u0430 \u0434\u0430 \u0431\u044A\u0434\u0435 \u043A\u0440\u0430\u0442\u043D\u043E \u043D\u0430 ${issue2.divisor}`;
+        return `Невалидно число: трябва да бъде кратно на ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u0430\u0437\u043F\u043E\u0437\u043D\u0430\u0442${issue2.keys.length > 1 ? "\u0438" : ""} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u043E\u0432\u0435" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Неразпознат${issue2.keys.length > 1 ? "и" : ""} ключ${issue2.keys.length > 1 ? "ове" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+        return `Невалиден ключ в ${issue2.origin}`;
       case "invalid_union":
-        return "\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434";
+        return "Невалиден вход";
       case "invalid_element":
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u043D\u0430 \u0441\u0442\u043E\u0439\u043D\u043E\u0441\u0442 \u0432 ${issue2.origin}`;
+        return `Невалидна стойност в ${issue2.origin}`;
       default:
-        return `\u041D\u0435\u0432\u0430\u043B\u0438\u0434\u0435\u043D \u0432\u0445\u043E\u0434`;
+        return `Невалиден вход`;
     }
   };
 };
@@ -6092,20 +8864,20 @@ function bg_default() {
 // node_modules/zod/v4/locales/bn.js
 var error5 = () => {
   const Sizable = {
-    string: { unit: "\u0985\u0995\u09CD\u09B7\u09B0", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" },
-    file: { unit: "\u09AC\u09BE\u0987\u099F", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" },
-    array: { unit: "\u0986\u0987\u099F\u09C7\u09AE", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" },
-    set: { unit: "\u0986\u0987\u099F\u09C7\u09AE", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" },
-    map: { unit: "\u098F\u09A8\u09CD\u099F\u09CD\u09B0\u09BF", verb: "\u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7" }
+    string: { unit: "অক্ষর", verb: "থাকতে হবে" },
+    file: { unit: "বাইট", verb: "থাকতে হবে" },
+    array: { unit: "আইটেম", verb: "থাকতে হবে" },
+    set: { unit: "আইটেম", verb: "থাকতে হবে" },
+    map: { unit: "এন্ট্রি", verb: "থাকতে হবে" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0987\u09A8\u09AA\u09C1\u099F",
-    email: "\u0987\u09AE\u09C7\u0987\u09B2 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE",
+    regex: "ইনপুট",
+    email: "ইমেইল ঠিকানা",
     url: "URL",
-    emoji: "\u0987\u09AE\u09CB\u099C\u09BF",
+    emoji: "ইমোজি",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -6116,24 +8888,24 @@ var error5 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u09A4\u09BE\u09B0\u09BF\u0996 \u0993 \u09B8\u09AE\u09AF\u09BC",
-    date: "ISO \u09A4\u09BE\u09B0\u09BF\u0996",
-    time: "ISO \u09B8\u09AE\u09AF\u09BC",
-    duration: "ISO \u09B8\u09AE\u09AF\u09BC\u0995\u09BE\u09B2",
-    ipv4: "IPv4 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE",
-    ipv6: "IPv6 \u09A0\u09BF\u0995\u09BE\u09A8\u09BE",
-    mac: "MAC \u09A0\u09BF\u0995\u09BE\u09A8\u09BE",
-    cidrv4: "IPv4 \u09B0\u09C7\u099E\u09CD\u099C",
-    cidrv6: "IPv6 \u09B0\u09C7\u099E\u09CD\u099C",
-    base64: "base64-\u098F\u09A8\u0995\u09CB\u09A1\u09C7\u09A1 \u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0982",
-    base64url: "base64url-\u098F\u09A8\u0995\u09CB\u09A1\u09C7\u09A1 \u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0982",
-    json_string: "JSON \u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0982",
-    e164: "E.164 \u09A8\u09AE\u09CD\u09AC\u09B0",
-    credit_card: "\u0995\u09CD\u09B0\u09C7\u09A1\u09BF\u099F \u0995\u09BE\u09B0\u09CD\u09A1 \u09A8\u09AE\u09CD\u09AC\u09B0",
-    currency_code: "\u09AE\u09C1\u09A6\u09CD\u09B0\u09BE \u0995\u09CB\u09A1",
+    datetime: "ISO তারিখ ও সময়",
+    date: "ISO তারিখ",
+    time: "ISO সময়",
+    duration: "ISO সময়কাল",
+    ipv4: "IPv4 ঠিকানা",
+    ipv6: "IPv6 ঠিকানা",
+    mac: "MAC ঠিকানা",
+    cidrv4: "IPv4 রেঞ্জ",
+    cidrv6: "IPv6 রেঞ্জ",
+    base64: "base64-এনকোডেড স্ট্রিং",
+    base64url: "base64url-এনকোডেড স্ট্রিং",
+    json_string: "JSON স্ট্রিং",
+    e164: "E.164 নম্বর",
+    credit_card: "ক্রেডিট কার্ড নম্বর",
+    currency_code: "মুদ্রা কোড",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0987\u09A8\u09AA\u09C1\u099F"
+    template_literal: "ইনপুট"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -6144,56 +8916,56 @@ var error5 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        return `\u0985\u09AC\u09C8\u09A7 \u0987\u09A8\u09AA\u09C1\u099F: \u09AA\u09CD\u09B0\u09A4\u09CD\u09AF\u09BE\u09B6\u09BF\u09A4 ${expected}, \u09AA\u09CD\u09B0\u09BE\u09AA\u09CD\u09A4 ${received}`;
+        return `অবৈধ ইনপুট: প্রত্যাশিত ${expected}, প্রাপ্ত ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0985\u09AC\u09C8\u09A7 \u0987\u09A8\u09AA\u09C1\u099F: \u09AA\u09CD\u09B0\u09A4\u09CD\u09AF\u09BE\u09B6\u09BF\u09A4 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0985\u09AC\u09C8\u09A7 \u0985\u09AA\u09B6\u09A8: ${joinValues(issue2.values, " | ")} \u098F\u09B0 \u09AE\u09A7\u09CD\u09AF\u09C7 \u098F\u0995\u099F\u09BF \u09AA\u09CD\u09B0\u09A4\u09CD\u09AF\u09BE\u09B6\u09BF\u09A4`;
+          return `অবৈধ ইনপুট: প্রত্যাশিত ${stringifyPrimitive(issue2.values[0])}`;
+        return `অবৈধ অপশন: ${joinValues(issue2.values, " | ")} এর মধ্যে একটি প্রত্যাশিত`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0985\u09A8\u09C7\u0995 \u09AC\u09A1\u09BC: ${issue2.origin ?? "\u09AE\u09BE\u09A8"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u098F\u09B2\u09BF\u09AE\u09C7\u09A8\u09CD\u099F"} \u09B9\u09A4\u09C7 \u09B9\u09AC\u09C7`;
-        return `\u0985\u09A8\u09C7\u0995 \u09AC\u09A1\u09BC: ${issue2.origin ?? "\u09AE\u09BE\u09A8"} ${adj}${issue2.maximum.toString()} \u09B9\u09A4\u09C7 \u09B9\u09AC\u09C7`;
+          return `অনেক বড়: ${issue2.origin ?? "মান"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "এলিমেন্ট"} হতে হবে`;
+        return `অনেক বড়: ${issue2.origin ?? "মান"} ${adj}${issue2.maximum.toString()} হতে হবে`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0985\u09A8\u09C7\u0995 \u099B\u09CB\u099F: ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} \u09B9\u09A4\u09C7 \u09B9\u09AC\u09C7`;
+          return `অনেক ছোট: ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} হতে হবে`;
         }
-        return `\u0985\u09A8\u09C7\u0995 \u099B\u09CB\u099F: ${issue2.origin} ${adj}${issue2.minimum.toString()} \u09B9\u09A4\u09C7 \u09B9\u09AC\u09C7`;
+        return `অনেক ছোট: ${issue2.origin} ${adj}${issue2.minimum.toString()} হতে হবে`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0985\u09AC\u09C8\u09A7 \u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0982: "${_issue.prefix}" \u09A6\u09BF\u09AF\u09BC\u09C7 \u09B6\u09C1\u09B0\u09C1 \u09B9\u09A4\u09C7 \u09B9\u09AC\u09C7`;
+          return `অবৈধ স্ট্রিং: "${_issue.prefix}" দিয়ে শুরু হতে হবে`;
         }
         if (_issue.format === "ends_with")
-          return `\u0985\u09AC\u09C8\u09A7 \u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0982: "${_issue.suffix}" \u09A6\u09BF\u09AF\u09BC\u09C7 \u09B6\u09C7\u09B7 \u09B9\u09A4\u09C7 \u09B9\u09AC\u09C7`;
+          return `অবৈধ স্ট্রিং: "${_issue.suffix}" দিয়ে শেষ হতে হবে`;
         if (_issue.format === "includes")
-          return `\u0985\u09AC\u09C8\u09A7 \u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0982: "${_issue.includes}" \u0985\u09A8\u09CD\u09A4\u09B0\u09CD\u09AD\u09C1\u0995\u09CD\u09A4 \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7`;
+          return `অবৈধ স্ট্রিং: "${_issue.includes}" অন্তর্ভুক্ত থাকতে হবে`;
         if (_issue.format === "regex")
-          return `\u0985\u09AC\u09C8\u09A7 \u09B8\u09CD\u099F\u09CD\u09B0\u09BF\u0982: ${_issue.pattern} \u09AA\u09CD\u09AF\u09BE\u099F\u09BE\u09B0\u09CD\u09A8 \u09AE\u09BF\u09B2\u09A4\u09C7 \u09B9\u09AC\u09C7`;
-        return `\u0985\u09AC\u09C8\u09A7 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `অবৈধ স্ট্রিং: ${_issue.pattern} প্যাটার্ন মিলতে হবে`;
+        return `অবৈধ ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0985\u09AC\u09C8\u09A7 \u09A8\u09AE\u09CD\u09AC\u09B0: ${issue2.divisor} \u098F\u09B0 \u0997\u09C1\u09A3\u09BF\u09A4\u0995 \u09B9\u09A4\u09C7 \u09B9\u09AC\u09C7`;
+        return `অবৈধ নম্বর: ${issue2.divisor} এর গুণিতক হতে হবে`;
       case "unrecognized_keys":
-        return `\u0985\u099A\u09C7\u09A8\u09BE \u0995\u09C0${issue2.keys.length > 1 ? "\u0997\u09C1\u09B2\u09CB" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `অচেনা কী${issue2.keys.length > 1 ? "গুলো" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u098F \u0985\u09AC\u09C8\u09A7 \u0995\u09C0`;
+        return `${issue2.origin} এ অবৈধ কী`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `\u0985\u09AC\u09C8\u09A7 \u09A1\u09BF\u09B8\u0995\u09CD\u09B0\u09BF\u09AE\u09BF\u09A8\u09C7\u099F\u09B0 \u09AE\u09BE\u09A8\u0964 \u09AA\u09CD\u09B0\u09A4\u09CD\u09AF\u09BE\u09B6\u09BF\u09A4 ${opts}`;
+          return `অবৈধ ডিসক্রিমিনেটর মান। প্রত্যাশিত ${opts}`;
         }
-        return "\u0985\u09AC\u09C8\u09A7 \u0987\u09A8\u09AA\u09C1\u099F";
+        return "অবৈধ ইনপুট";
       case "invalid_element":
-        return `${issue2.origin} \u098F \u0985\u09AC\u09C8\u09A7 \u09AE\u09BE\u09A8`;
+        return `${issue2.origin} এ অবৈধ মান`;
       default:
-        return "\u0985\u09AC\u09C8\u09A7 \u0987\u09A8\u09AA\u09C1\u099F";
+        return "অবৈধ ইনপুট";
     }
   };
 };
@@ -6206,7 +8978,7 @@ function bn_default() {
 // node_modules/zod/v4/locales/ca.js
 var error6 = () => {
   const Sizable = {
-    string: { unit: "car\xE0cters", verb: "contenir" },
+    string: { unit: "caràcters", verb: "contenir" },
     file: { unit: "bytes", verb: "contenir" },
     array: { unit: "elements", verb: "contenir" },
     set: { unit: "elements", verb: "contenir" },
@@ -6217,7 +8989,7 @@ var error6 = () => {
   }
   const FormatDictionary = {
     regex: "entrada",
-    email: "adre\xE7a electr\xF2nica",
+    email: "adreça electrònica",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -6234,16 +9006,16 @@ var error6 = () => {
     date: "data ISO",
     time: "hora ISO",
     duration: "durada ISO",
-    ipv4: "adre\xE7a IPv4",
-    ipv6: "adre\xE7a IPv6",
-    mac: "adre\xE7a MAC",
+    ipv4: "adreça IPv4",
+    ipv6: "adreça IPv6",
+    mac: "adreça MAC",
     cidrv4: "rang IPv4",
     cidrv6: "rang IPv6",
     base64: "cadena codificada en base64",
     base64url: "cadena codificada en base64url",
     json_string: "cadena JSON",
-    e164: "n\xFAmero E.164",
-    credit_card: "n\xFAmero de targeta de cr\xE8dit",
+    e164: "número E.164",
+    credit_card: "número de targeta de crèdit",
     currency_code: "codi de moneda",
     iban: "IBAN",
     jwt: "JWT",
@@ -6259,55 +9031,55 @@ var error6 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Tipus inv\xE0lid: s'esperava instanceof ${issue2.expected}, s'ha rebut ${received}`;
+          return `Tipus invàlid: s'esperava instanceof ${issue2.expected}, s'ha rebut ${received}`;
         }
-        return `Tipus inv\xE0lid: s'esperava ${expected}, s'ha rebut ${received}`;
+        return `Tipus invàlid: s'esperava ${expected}, s'ha rebut ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Valor inv\xE0lid: s'esperava ${stringifyPrimitive(issue2.values[0])}`;
-        return `Opci\xF3 inv\xE0lida: s'esperava una de ${joinValues(issue2.values, " o ")}`;
+          return `Valor invàlid: s'esperava ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opció invàlida: s'esperava una de ${joinValues(issue2.values, " o ")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "com a m\xE0xim" : "menys de";
+        const adj = issue2.inclusive ? "com a màxim" : "menys de";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} contingu\xE9s ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
+          return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} contingués ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "elements"}`;
         return `Massa gran: s'esperava que ${issue2.origin ?? "el valor"} fos ${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "com a m\xEDnim" : "m\xE9s de";
+        const adj = issue2.inclusive ? "com a mínim" : "més de";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Massa petit: s'esperava que ${issue2.origin} contingu\xE9s ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Massa petit: s'esperava que ${issue2.origin} contingués ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
         }
         return `Massa petit: s'esperava que ${issue2.origin} fos ${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Format inv\xE0lid: ha de comen\xE7ar amb "${_issue.prefix}"`;
+          return `Format invàlid: ha de començar amb "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Format inv\xE0lid: ha d'acabar amb "${_issue.suffix}"`;
+          return `Format invàlid: ha d'acabar amb "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Format inv\xE0lid: ha d'incloure "${_issue.includes}"`;
+          return `Format invàlid: ha d'incloure "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Format inv\xE0lid: ha de coincidir amb el patr\xF3 ${_issue.pattern}`;
-        return `Format inv\xE0lid per a ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Format invàlid: ha de coincidir amb el patró ${_issue.pattern}`;
+        return `Format invàlid per a ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE0lid: ha de ser m\xFAltiple de ${issue2.divisor}`;
+        return `Número invàlid: ha de ser múltiple de ${issue2.divisor}`;
       case "unrecognized_keys":
         return `Clau${issue2.keys.length > 1 ? "s" : ""} no reconeguda${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Clau inv\xE0lida a ${issue2.origin}`;
+        return `Clau invàlida a ${issue2.origin}`;
       case "invalid_union":
-        return "Entrada inv\xE0lida";
+        return "Entrada invàlida";
       // Could also be "Tipus d'unió invàlid" but "Entrada invàlida" is more general
       case "invalid_element":
-        return `Element inv\xE0lid a ${issue2.origin}`;
+        return `Element invàlid a ${issue2.origin}`;
       default:
-        return `Entrada inv\xE0lida`;
+        return `Entrada invàlida`;
     }
   };
 };
@@ -6320,20 +9092,20 @@ function ca_default() {
 // node_modules/zod/v4/locales/ckb.js
 var error7 = () => {
   const Sizable = {
-    string: { unit: "\u067E\u06CC\u062A", verb: "\u0628\u06CE\u062A" },
-    file: { unit: "\u0628\u0627\u06CC\u062A", verb: "\u0628\u06CE\u062A" },
-    array: { unit: "\u062F\u0627\u0646\u06D5", verb: "\u0628\u06CE\u062A" },
-    set: { unit: "\u062F\u0627\u0646\u06D5", verb: "\u0628\u06CE\u062A" },
-    map: { unit: "\u062F\u0627\u0646\u06D5", verb: "\u0628\u06CE\u062A" }
+    string: { unit: "پیت", verb: "بێت" },
+    file: { unit: "بایت", verb: "بێت" },
+    array: { unit: "دانە", verb: "بێت" },
+    set: { unit: "دانە", verb: "بێت" },
+    map: { unit: "دانە", verb: "بێت" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
     regex: "regex",
-    email: "\u0626\u06CC\u0645\u06D5\u06CC\u06B5",
-    url: "\u0628\u06D5\u0633\u062A\u06D5\u0631 (URL)",
-    emoji: "\u0626\u06CC\u0645\u06C6\u062C\u06CC",
+    email: "ئیمەیڵ",
+    url: "بەستەر (URL)",
+    emoji: "ئیمۆجی",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -6344,35 +9116,35 @@ var error7 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u0695\u06CE\u06A9\u06D5\u0648\u062A \u0648 \u06A9\u0627\u062A",
-    date: "\u0695\u06CE\u06A9\u06D5\u0648\u062A",
-    time: "\u06A9\u0627\u062A",
-    duration: "\u0645\u0627\u0648\u06D5",
-    ipv4: "\u0646\u0627\u0648\u0646\u06CC\u0634\u0627\u0646\u06CC IPv4",
-    ipv6: "\u0646\u0627\u0648\u0646\u06CC\u0634\u0627\u0646\u06CC IPv6",
-    mac: "\u0646\u0627\u0648\u0646\u06CC\u0634\u0627\u0646\u06CC MAC",
-    cidrv4: "\u0645\u06D5\u0648\u062F\u0627\u06CC IPv4",
-    cidrv6: "\u0645\u06D5\u0648\u062F\u0627\u06CC IPv6",
-    base64: "\u062F\u06D5\u0642\u06CC base64",
-    base64url: "\u062F\u06D5\u0642\u06CC base64url",
-    json_string: "\u062F\u06D5\u0642\u06CC JSON",
-    e164: "\u0698\u0645\u0627\u0631\u06D5\u06CC E.164",
-    credit_card: "\u0698\u0645\u0627\u0631\u06D5\u06CC \u06A9\u0627\u0631\u062A\u06CC \u06A9\u0631\u06CE\u062F\u06CC\u062A",
-    currency_code: "\u06A9\u06C6\u062F\u06CC \u062F\u0631\u0627\u0648",
+    datetime: "ڕێکەوت و کات",
+    date: "ڕێکەوت",
+    time: "کات",
+    duration: "ماوە",
+    ipv4: "ناونیشانی IPv4",
+    ipv6: "ناونیشانی IPv6",
+    mac: "ناونیشانی MAC",
+    cidrv4: "مەودای IPv4",
+    cidrv6: "مەودای IPv6",
+    base64: "دەقی base64",
+    base64url: "دەقی base64url",
+    json_string: "دەقی JSON",
+    e164: "ژمارەی E.164",
+    credit_card: "ژمارەی کارتی کرێدیت",
+    currency_code: "کۆدی دراو",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u062A\u06CE\u06A9\u0631\u062F\u06D5"
+    template_literal: "تێکردە"
   };
   const TypeDictionary = {
     nan: "NaN",
-    string: "\u0646\u0648\u0648\u0633\u06CC\u0646",
-    number: "\u0698\u0645\u0627\u0631\u06D5",
+    string: "نووسین",
+    number: "ژمارە",
     boolean: "boolean",
     array: "array",
     object: "object",
-    date: "\u0695\u06CE\u06A9\u06D5\u0648\u062A",
-    integer: "\u0698\u0645\u0627\u0631\u06D5",
-    float: "\u0698\u0645\u0627\u0631\u06D5",
+    date: "ڕێکەوت",
+    integer: "ژمارە",
+    float: "ژمارە",
     null: "null",
     undefined: "undefined",
     function: "function",
@@ -6390,57 +9162,57 @@ var error7 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        const postfix = ["\u0627", "\u0648", "\u06C6", "\u0648\u0648", "\u06D5", "\u06CC", "\u06CE"].some((p) => received.endsWith(p)) ? "\u06CC\u06D5" : "\u06D5";
+        const postfix = ["ا", "و", "ۆ", "وو", "ە", "ی", "ێ"].some((p) => received.endsWith(p)) ? "یە" : "ە";
         const isEnglish = /^[a-zA-Z]+$/.test(received);
         if (receivedType === "null" || receivedType === "undefined")
-          return `\u062F\u0627\u0648\u0627\u06A9\u0631\u0627\u0648\u06D5`;
-        return `\u0686\u0627\u0648\u06D5\u0695\u0648\u0627\u0646\u06A9\u0631\u0627\u0648\u06D5 ${expected} \u0628\u06CE\u062A\u060C \u0628\u06D5\u06B5\u0627\u0645 ${received}${isEnglish ? "" : postfix}`;
+          return `داواکراوە`;
+        return `چاوەڕوانکراوە ${expected} بێت، بەڵام ${received}${isEnglish ? "" : postfix}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0628\u06D5\u0647\u0627\u06A9\u06D5 \u0646\u0627\u062F\u0631\u0648\u0648\u0633\u062A\u06D5: \u0686\u0627\u0648\u06D5\u0695\u0648\u0627\u0646\u06A9\u0631\u0627\u0648\u06D5 ${stringifyPrimitive(issue2.values[0])} \u0628\u06CE\u062A`;
-        return `\u0647\u06D5\u06B5\u0628\u0698\u0627\u0631\u062F\u06D5\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A: \u0686\u0627\u0648\u06D5\u0695\u0648\u0627\u0646\u06A9\u0631\u0627\u0648\u06D5 \u06CC\u06D5\u06A9\u06CE\u06A9 \u0628\u06CE\u062A \u0644\u06D5 ${joinValues(issue2.values, "|")}`;
+          return `بەهاکە نادرووستە: چاوەڕوانکراوە ${stringifyPrimitive(issue2.values[0])} بێت`;
+        return `هەڵبژاردەی نادروست: چاوەڕوانکراوە یەکێک بێت لە ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u067E\u06CE\u0648\u06CC\u0633\u062A\u06D5 \u0628\u06D5 \u0644\u0627\u06CC\u06D5\u0646\u06CC \u0632\u06C6\u0631\u06D5\u0648\u06D5 ${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
-        return `\u067E\u06CE\u0648\u06CC\u0633\u062A\u06D5 \u0628\u06D5 \u0644\u0627\u06CC\u06D5\u0646\u06CC \u0632\u06C6\u0631\u06D5\u0648\u06D5 ${issue2.maximum.toString()} \u0628\u06CE\u062A`;
+          return `پێویستە بە لایەنی زۆرەوە ${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `پێویستە بە لایەنی زۆرەوە ${issue2.maximum.toString()} بێت`;
       }
       case "too_small": {
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u067E\u06CE\u0648\u06CC\u0633\u062A\u06D5 \u0628\u06D5 \u0644\u0627\u06CC\u06D5\u0646\u06CC \u06A9\u06D5\u0645\u06D5\u0648\u06D5 ${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
-        return `\u067E\u06CE\u0648\u06CC\u0633\u062A\u06D5 \u0628\u06D5 \u0644\u0627\u06CC\u06D5\u0646\u06CC \u06A9\u06D5\u0645\u06D5\u0648\u06D5 ${issue2.minimum.toString()} \u0628\u06CE\u062A`;
+          return `پێویستە بە لایەنی کەمەوە ${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `پێویستە بە لایەنی کەمەوە ${issue2.minimum.toString()} بێت`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u062F\u06D5\u0642\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A: \u067E\u06CE\u0648\u06CC\u0633\u062A\u06D5 \u062F\u06D5\u0633\u062A\u067E\u06CE\u0628\u06A9\u0627\u062A \u0628\u06D5 "${_issue.prefix}"`;
+          return `دەقی نادروست: پێویستە دەستپێبکات بە "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u062F\u06D5\u0642\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A: \u067E\u06CE\u0648\u06CC\u0633\u062A\u06D5 \u06A9\u06C6\u062A\u0627\u06CC\u06CC\u0628\u06CE\u062A \u0628\u06D5 "${_issue.suffix}"`;
+          return `دەقی نادروست: پێویستە کۆتاییبێت بە "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u062F\u06D5\u0642\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A: \u067E\u06CE\u0648\u06CC\u0633\u062A\u06D5 "${_issue.includes}" \u0644\u06D5\u062E\u06C6\u0628\u06AF\u0631\u06CE\u062A`;
+          return `دەقی نادروست: پێویستە "${_issue.includes}" لەخۆبگرێت`;
         if (_issue.format === "regex")
-          return `\u062F\u06D5\u0642\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A: \u067E\u06CE\u0648\u06CC\u0633\u062A\u06D5 \u0644\u06D5\u06AF\u06D5\u06B5 \u067E\u0627\u062A\u06CE\u0631\u0646\u06CC ${_issue.pattern} \u0628\u06AF\u0648\u0646\u062C\u06CE\u062A`;
-        return `\u0628\u06D5\u0647\u0627\u06CC ${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u062F\u0631\u0648\u0633\u062A\u06D5`;
+          return `دەقی نادروست: پێویستە لەگەڵ پاتێرنی ${_issue.pattern} بگونجێت`;
+        return `بەهای ${FormatDictionary[_issue.format] ?? issue2.format} نادروستە`;
       }
       case "not_multiple_of":
-        return `\u0698\u0645\u0627\u0631\u06D5\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A: \u062F\u06D5\u0628\u06CE\u062A \u0686\u06D5\u0646\u062F \u0647\u06CE\u0646\u062F\u06D5 \u0628\u06CE\u062A \u0628\u06C6 ${issue2.divisor}`;
+        return `ژمارەی نادروست: دەبێت چەند هێندە بێت بۆ ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u06A9\u0644\u06CC\u0644\u06CC \u0646\u06D5\u0646\u0627\u0633\u0631\u0627\u0648: ${joinValues(issue2.keys, ", ")}`;
+        return `کلیلی نەناسراو: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u06A9\u0644\u06CC\u0644\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A \u0644\u06D5 ${issue2.origin}`;
+        return `کلیلی نادروست لە ${issue2.origin}`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `\u0628\u06D5\u0647\u0627\u06CC \u0646\u06D5\u0646\u0627\u0633\u0631\u0627\u0648 \u0647\u06D5\u06CC\u06D5. \u0628\u06D5\u0647\u0627\u06CC \u0686\u0627\u0648\u06D5\u0695\u0648\u0627\u0646\u06A9\u0631\u0627\u0648: ${opts}`;
+          return `بەهای نەناسراو هەیە. بەهای چاوەڕوانکراو: ${opts}`;
         }
-        return "\u06CC\u06D5\u06A9\u06AF\u0631\u062A\u0646\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A";
+        return "یەکگرتنی نادروست";
       case "invalid_element":
-        return `${issue2.origin} \u0628\u06D5\u0647\u0627\u06A9\u06D5 \u0646\u0627\u062F\u0631\u0648\u0633\u062A\u06D5`;
+        return `${issue2.origin} بەهاکە نادروستە`;
       default:
-        return `\u062A\u06CE\u06A9\u0631\u062F\u06D5\u06CC \u0646\u0627\u062F\u0631\u0648\u0633\u062A`;
+        return `تێکردەی نادروست`;
     }
   };
 };
@@ -6453,18 +9225,18 @@ function ckb_default() {
 // node_modules/zod/v4/locales/cs.js
 var error8 = () => {
   const Sizable = {
-    string: { unit: "znak\u016F", verb: "m\xEDt" },
-    file: { unit: "bajt\u016F", verb: "m\xEDt" },
-    array: { unit: "prvk\u016F", verb: "m\xEDt" },
-    set: { unit: "prvk\u016F", verb: "m\xEDt" },
-    map: { unit: "prvk\u016F", verb: "m\xEDt" }
+    string: { unit: "znaků", verb: "mít" },
+    file: { unit: "bajtů", verb: "mít" },
+    array: { unit: "prvků", verb: "mít" },
+    set: { unit: "prvků", verb: "mít" },
+    map: { unit: "prvků", verb: "mít" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "regul\xE1rn\xED v\xFDraz",
-    email: "e-mailov\xE1 adresa",
+    regex: "regulární výraz",
+    email: "e-mailová adresa",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -6477,29 +9249,29 @@ var error8 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "datum a \u010Das ve form\xE1tu ISO",
-    date: "datum ve form\xE1tu ISO",
-    time: "\u010Das ve form\xE1tu ISO",
-    duration: "doba trv\xE1n\xED ISO",
+    datetime: "datum a čas ve formátu ISO",
+    date: "datum ve formátu ISO",
+    time: "čas ve formátu ISO",
+    duration: "doba trvání ISO",
     ipv4: "IPv4 adresa",
     ipv6: "IPv6 adresa",
     mac: "MAC adresa",
     cidrv4: "rozsah IPv4",
     cidrv6: "rozsah IPv6",
-    base64: "\u0159et\u011Bzec zak\xF3dovan\xFD ve form\xE1tu base64",
-    base64url: "\u0159et\u011Bzec zak\xF3dovan\xFD ve form\xE1tu base64url",
-    json_string: "\u0159et\u011Bzec ve form\xE1tu JSON",
-    e164: "\u010D\xEDslo E.164",
-    credit_card: "\u010D\xEDslo kreditn\xED karty",
-    currency_code: "k\xF3d m\u011Bny",
+    base64: "řetězec zakódovaný ve formátu base64",
+    base64url: "řetězec zakódovaný ve formátu base64url",
+    json_string: "řetězec ve formátu JSON",
+    e164: "číslo E.164",
+    credit_card: "číslo kreditní karty",
+    currency_code: "kód měny",
     iban: "IBAN",
     jwt: "JWT",
     template_literal: "vstup"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u010D\xEDslo",
-    string: "\u0159et\u011Bzec",
+    number: "číslo",
+    string: "řetězec",
     function: "funkce",
     array: "pole"
   };
@@ -6510,54 +9282,54 @@ var error8 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no instanceof ${issue2.expected}, obdr\u017Eeno ${received}`;
+          return `Neplatný vstup: očekáváno instanceof ${issue2.expected}, obdrženo ${received}`;
         }
-        return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${expected}, obdr\u017Eeno ${received}`;
+        return `Neplatný vstup: očekáváno ${expected}, obdrženo ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Neplatn\xFD vstup: o\u010Dek\xE1v\xE1no ${stringifyPrimitive(issue2.values[0])}`;
-        return `Neplatn\xE1 mo\u017Enost: o\u010Dek\xE1v\xE1na jedna z hodnot ${joinValues(issue2.values, "|")}`;
+          return `Neplatný vstup: očekáváno ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neplatná možnost: očekávána jedna z hodnot ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+          return `Hodnota je příliš velká: ${issue2.origin ?? "hodnota"} musí mít ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvků"}`;
         }
-        return `Hodnota je p\u0159\xEDli\u0161 velk\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.maximum.toString()}`;
+        return `Hodnota je příliš velká: ${issue2.origin ?? "hodnota"} musí být ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED m\xEDt ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvk\u016F"}`;
+          return `Hodnota je příliš malá: ${issue2.origin ?? "hodnota"} musí mít ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvků"}`;
         }
-        return `Hodnota je p\u0159\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED b\xFDt ${adj}${issue2.minimum.toString()}`;
+        return `Hodnota je příliš malá: ${issue2.origin ?? "hodnota"} musí být ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED za\u010D\xEDnat na "${_issue.prefix}"`;
+          return `Neplatný řetězec: musí začínat na "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED kon\u010Dit na "${_issue.suffix}"`;
+          return `Neplatný řetězec: musí končit na "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED obsahovat "${_issue.includes}"`;
+          return `Neplatný řetězec: musí obsahovat "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Neplatn\xFD \u0159et\u011Bzec: mus\xED odpov\xEDdat vzoru ${_issue.pattern}`;
-        return `Neplatn\xFD form\xE1t ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Neplatný řetězec: musí odpovídat vzoru ${_issue.pattern}`;
+        return `Neplatný formát ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Neplatn\xE9 \u010D\xEDslo: mus\xED b\xFDt n\xE1sobkem ${issue2.divisor}`;
+        return `Neplatné číslo: musí být násobkem ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Nezn\xE1m\xE9 kl\xED\u010De: ${joinValues(issue2.keys, ", ")}`;
+        return `Neznámé klíče: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Neplatn\xFD kl\xED\u010D v ${issue2.origin}`;
+        return `Neplatný klíč v ${issue2.origin}`;
       case "invalid_union":
-        return "Neplatn\xFD vstup";
+        return "Neplatný vstup";
       case "invalid_element":
-        return `Neplatn\xE1 hodnota v ${issue2.origin}`;
+        return `Neplatná hodnota v ${issue2.origin}`;
       default:
-        return `Neplatn\xFD vstup`;
+        return `Neplatný vstup`;
     }
   };
 };
@@ -6594,9 +9366,9 @@ var error9 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO dato- og klokkesl\xE6t",
+    datetime: "ISO dato- og klokkeslæt",
     date: "ISO-dato",
-    time: "ISO-klokkesl\xE6t",
+    time: "ISO-klokkeslæt",
     duration: "ISO-varighed",
     ipv4: "IPv4-adresse",
     ipv6: "IPv6-adresse",
@@ -6620,7 +9392,7 @@ var error9 = () => {
     boolean: "boolean",
     array: "liste",
     object: "objekt",
-    set: "s\xE6t",
+    set: "sæt",
     file: "fil"
   };
   return (issue2) => {
@@ -6636,8 +9408,8 @@ var error9 = () => {
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Ugyldig v\xE6rdi: forventede ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ugyldigt valg: forventede en af f\xF8lgende ${joinValues(issue2.values, "|")}`;
+          return `Ugyldig værdi: forventede ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ugyldigt valg: forventede en af følgende ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -6664,19 +9436,19 @@ var error9 = () => {
         if (_issue.format === "includes")
           return `Ugyldig streng: skal indeholde "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Ugyldig streng: skal matche m\xF8nsteret ${_issue.pattern}`;
+          return `Ugyldig streng: skal matche mønsteret ${_issue.pattern}`;
         return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ugyldigt tal: skal v\xE6re deleligt med ${issue2.divisor}`;
+        return `Ugyldigt tal: skal være deleligt med ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ukendte n\xF8gler" : "Ukendt n\xF8gle"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Ukendte nøgler" : "Ukendt nøgle"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ugyldig n\xF8gle i ${issue2.origin}`;
+        return `Ugyldig nøgle i ${issue2.origin}`;
       case "invalid_union":
         return "Ugyldigt input: matcher ingen af de tilladte typer";
       case "invalid_element":
-        return `Ugyldig v\xE6rdi i ${issue2.origin}`;
+        return `Ugyldig værdi i ${issue2.origin}`;
       default:
         return `Ugyldigt input`;
     }
@@ -6729,7 +9501,7 @@ var error10 = () => {
     json_string: "JSON-String",
     e164: "E.164-Nummer",
     credit_card: "Kreditkartennummer",
-    currency_code: "W\xE4hrungscode",
+    currency_code: "Währungscode",
     iban: "IBAN",
     jwt: "JWT",
     template_literal: "Eingabe"
@@ -6746,20 +9518,20 @@ var error10 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ung\xFCltige Eingabe: erwartet instanceof ${issue2.expected}, erhalten ${received}`;
+          return `Ungültige Eingabe: erwartet instanceof ${issue2.expected}, erhalten ${received}`;
         }
-        return `Ung\xFCltige Eingabe: erwartet ${expected}, erhalten ${received}`;
+        return `Ungültige Eingabe: erwartet ${expected}, erhalten ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Ung\xFCltige Eingabe: erwartet ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ung\xFCltige Option: erwartet eine von ${joinValues(issue2.values, "|")}`;
+          return `Ungültige Eingabe: erwartet ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ungültige Option: erwartet eine von ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "Elemente"} hat`;
-        return `Zu gro\xDF: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ist`;
+          return `Zu groß: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "Elemente"} hat`;
+        return `Zu groß: erwartet, dass ${issue2.origin ?? "Wert"} ${adj}${issue2.maximum.toString()} ist`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
@@ -6772,27 +9544,27 @@ var error10 = () => {
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Ung\xFCltiger String: muss mit "${_issue.prefix}" beginnen`;
+          return `Ungültiger String: muss mit "${_issue.prefix}" beginnen`;
         if (_issue.format === "ends_with")
-          return `Ung\xFCltiger String: muss mit "${_issue.suffix}" enden`;
+          return `Ungültiger String: muss mit "${_issue.suffix}" enden`;
         if (_issue.format === "includes")
-          return `Ung\xFCltiger String: muss "${_issue.includes}" enthalten`;
+          return `Ungültiger String: muss "${_issue.includes}" enthalten`;
         if (_issue.format === "regex")
-          return `Ung\xFCltiger String: muss dem Muster ${_issue.pattern} entsprechen`;
-        return `Ung\xFCltig: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Ungültiger String: muss dem Muster ${_issue.pattern} entsprechen`;
+        return `Ungültig: ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ung\xFCltige Zahl: muss ein Vielfaches von ${issue2.divisor} sein`;
+        return `Ungültige Zahl: muss ein Vielfaches von ${issue2.divisor} sein`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Unbekannte Schl\xFCssel" : "Unbekannter Schl\xFCssel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Unbekannte Schlüssel" : "Unbekannter Schlüssel"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ung\xFCltiger Schl\xFCssel in ${issue2.origin}`;
+        return `Ungültiger Schlüssel in ${issue2.origin}`;
       case "invalid_union":
-        return "Ung\xFCltige Eingabe";
+        return "Ungültige Eingabe";
       case "invalid_element":
-        return `Ung\xFCltiger Wert in ${issue2.origin}`;
+        return `Ungültiger Wert in ${issue2.origin}`;
       default:
-        return `Ung\xFCltige Eingabe`;
+        return `Ungültige Eingabe`;
     }
   };
 };
@@ -6805,18 +9577,18 @@ function de_default() {
 // node_modules/zod/v4/locales/el.js
 var error11 = () => {
   const Sizable = {
-    string: { unit: "\u03C7\u03B1\u03C1\u03B1\u03BA\u03C4\u03AE\u03C1\u03B5\u03C2", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
-    file: { unit: "bytes", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
-    array: { unit: "\u03C3\u03C4\u03BF\u03B9\u03C7\u03B5\u03AF\u03B1", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
-    set: { unit: "\u03C3\u03C4\u03BF\u03B9\u03C7\u03B5\u03AF\u03B1", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" },
-    map: { unit: "\u03BA\u03B1\u03C4\u03B1\u03C7\u03C9\u03C1\u03AE\u03C3\u03B5\u03B9\u03C2", verb: "\u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9" }
+    string: { unit: "χαρακτήρες", verb: "να έχει" },
+    file: { unit: "bytes", verb: "να έχει" },
+    array: { unit: "στοιχεία", verb: "να έχει" },
+    set: { unit: "στοιχεία", verb: "να έχει" },
+    map: { unit: "καταχωρήσεις", verb: "να έχει" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u03B5\u03AF\u03C3\u03BF\u03B4\u03BF\u03C2",
-    email: "\u03B4\u03B9\u03B5\u03CD\u03B8\u03C5\u03BD\u03C3\u03B7 email",
+    regex: "είσοδος",
+    email: "διεύθυνση email",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -6829,24 +9601,24 @@ var error11 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u03B7\u03BC\u03B5\u03C1\u03BF\u03BC\u03B7\u03BD\u03AF\u03B1 \u03BA\u03B1\u03B9 \u03CE\u03C1\u03B1",
-    date: "ISO \u03B7\u03BC\u03B5\u03C1\u03BF\u03BC\u03B7\u03BD\u03AF\u03B1",
-    time: "ISO \u03CE\u03C1\u03B1",
-    duration: "ISO \u03B4\u03B9\u03AC\u03C1\u03BA\u03B5\u03B9\u03B1",
-    ipv4: "\u03B4\u03B9\u03B5\u03CD\u03B8\u03C5\u03BD\u03C3\u03B7 IPv4",
-    ipv6: "\u03B4\u03B9\u03B5\u03CD\u03B8\u03C5\u03BD\u03C3\u03B7 IPv6",
-    mac: "\u03B4\u03B9\u03B5\u03CD\u03B8\u03C5\u03BD\u03C3\u03B7 MAC",
-    cidrv4: "\u03B5\u03CD\u03C1\u03BF\u03C2 IPv4",
-    cidrv6: "\u03B5\u03CD\u03C1\u03BF\u03C2 IPv6",
-    base64: "\u03C3\u03C5\u03BC\u03B2\u03BF\u03BB\u03BF\u03C3\u03B5\u03B9\u03C1\u03AC \u03BA\u03C9\u03B4\u03B9\u03BA\u03BF\u03C0\u03BF\u03B9\u03B7\u03BC\u03AD\u03BD\u03B7 \u03C3\u03B5 base64",
-    base64url: "\u03C3\u03C5\u03BC\u03B2\u03BF\u03BB\u03BF\u03C3\u03B5\u03B9\u03C1\u03AC \u03BA\u03C9\u03B4\u03B9\u03BA\u03BF\u03C0\u03BF\u03B9\u03B7\u03BC\u03AD\u03BD\u03B7 \u03C3\u03B5 base64url",
-    json_string: "\u03C3\u03C5\u03BC\u03B2\u03BF\u03BB\u03BF\u03C3\u03B5\u03B9\u03C1\u03AC JSON",
-    e164: "\u03B1\u03C1\u03B9\u03B8\u03BC\u03CC\u03C2 E.164",
-    credit_card: "\u03B1\u03C1\u03B9\u03B8\u03BC\u03CC\u03C2 \u03C0\u03B9\u03C3\u03C4\u03C9\u03C4\u03B9\u03BA\u03AE\u03C2 \u03BA\u03AC\u03C1\u03C4\u03B1\u03C2",
-    currency_code: "\u03BA\u03C9\u03B4\u03B9\u03BA\u03CC\u03C2 \u03BD\u03BF\u03BC\u03AF\u03C3\u03BC\u03B1\u03C4\u03BF\u03C2",
+    datetime: "ISO ημερομηνία και ώρα",
+    date: "ISO ημερομηνία",
+    time: "ISO ώρα",
+    duration: "ISO διάρκεια",
+    ipv4: "διεύθυνση IPv4",
+    ipv6: "διεύθυνση IPv6",
+    mac: "διεύθυνση MAC",
+    cidrv4: "εύρος IPv4",
+    cidrv6: "εύρος IPv6",
+    base64: "συμβολοσειρά κωδικοποιημένη σε base64",
+    base64url: "συμβολοσειρά κωδικοποιημένη σε base64url",
+    json_string: "συμβολοσειρά JSON",
+    e164: "αριθμός E.164",
+    credit_card: "αριθμός πιστωτικής κάρτας",
+    currency_code: "κωδικός νομίσματος",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u03B5\u03AF\u03C3\u03BF\u03B4\u03BF\u03C2"
+    template_literal: "είσοδος"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -6858,54 +9630,54 @@ var error11 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (typeof issue2.expected === "string" && /^[A-Z]/.test(issue2.expected)) {
-          return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03B5\u03AF\u03C3\u03BF\u03B4\u03BF\u03C2: \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03C4\u03B1\u03BD instanceof ${issue2.expected}, \u03BB\u03AE\u03C6\u03B8\u03B7\u03BA\u03B5 ${received}`;
+          return `Μη έγκυρη είσοδος: αναμενόταν instanceof ${issue2.expected}, λήφθηκε ${received}`;
         }
-        return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03B5\u03AF\u03C3\u03BF\u03B4\u03BF\u03C2: \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03C4\u03B1\u03BD ${expected}, \u03BB\u03AE\u03C6\u03B8\u03B7\u03BA\u03B5 ${received}`;
+        return `Μη έγκυρη είσοδος: αναμενόταν ${expected}, λήφθηκε ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03B5\u03AF\u03C3\u03BF\u03B4\u03BF\u03C2: \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03C4\u03B1\u03BD ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03B5\u03C0\u03B9\u03BB\u03BF\u03B3\u03AE: \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03C4\u03B1\u03BD \u03AD\u03BD\u03B1 \u03B1\u03C0\u03CC ${joinValues(issue2.values, "|")}`;
+          return `Μη έγκυρη είσοδος: αναμενόταν ${stringifyPrimitive(issue2.values[0])}`;
+        return `Μη έγκυρη επιλογή: αναμενόταν ένα από ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u03A0\u03BF\u03BB\u03CD \u03BC\u03B5\u03B3\u03AC\u03BB\u03BF: \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03C4\u03B1\u03BD ${issue2.origin ?? "\u03C4\u03B9\u03BC\u03AE"} \u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u03C3\u03C4\u03BF\u03B9\u03C7\u03B5\u03AF\u03B1"}`;
-        return `\u03A0\u03BF\u03BB\u03CD \u03BC\u03B5\u03B3\u03AC\u03BB\u03BF: \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03C4\u03B1\u03BD ${issue2.origin ?? "\u03C4\u03B9\u03BC\u03AE"} \u03BD\u03B1 \u03B5\u03AF\u03BD\u03B1\u03B9 ${adj}${issue2.maximum.toString()}`;
+          return `Πολύ μεγάλο: αναμενόταν ${issue2.origin ?? "τιμή"} να έχει ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "στοιχεία"}`;
+        return `Πολύ μεγάλο: αναμενόταν ${issue2.origin ?? "τιμή"} να είναι ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u03A0\u03BF\u03BB\u03CD \u03BC\u03B9\u03BA\u03C1\u03CC: \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03C4\u03B1\u03BD ${issue2.origin} \u03BD\u03B1 \u03AD\u03C7\u03B5\u03B9 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Πολύ μικρό: αναμενόταν ${issue2.origin} να έχει ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u03A0\u03BF\u03BB\u03CD \u03BC\u03B9\u03BA\u03C1\u03CC: \u03B1\u03BD\u03B1\u03BC\u03B5\u03BD\u03CC\u03C4\u03B1\u03BD ${issue2.origin} \u03BD\u03B1 \u03B5\u03AF\u03BD\u03B1\u03B9 ${adj}${issue2.minimum.toString()}`;
+        return `Πολύ μικρό: αναμενόταν ${issue2.origin} να είναι ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03C3\u03C5\u03BC\u03B2\u03BF\u03BB\u03BF\u03C3\u03B5\u03B9\u03C1\u03AC: \u03C0\u03C1\u03AD\u03C0\u03B5\u03B9 \u03BD\u03B1 \u03BE\u03B5\u03BA\u03B9\u03BD\u03AC \u03BC\u03B5 "${_issue.prefix}"`;
+          return `Μη έγκυρη συμβολοσειρά: πρέπει να ξεκινά με "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03C3\u03C5\u03BC\u03B2\u03BF\u03BB\u03BF\u03C3\u03B5\u03B9\u03C1\u03AC: \u03C0\u03C1\u03AD\u03C0\u03B5\u03B9 \u03BD\u03B1 \u03C4\u03B5\u03BB\u03B5\u03B9\u03CE\u03BD\u03B5\u03B9 \u03BC\u03B5 "${_issue.suffix}"`;
+          return `Μη έγκυρη συμβολοσειρά: πρέπει να τελειώνει με "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03C3\u03C5\u03BC\u03B2\u03BF\u03BB\u03BF\u03C3\u03B5\u03B9\u03C1\u03AC: \u03C0\u03C1\u03AD\u03C0\u03B5\u03B9 \u03BD\u03B1 \u03C0\u03B5\u03C1\u03B9\u03AD\u03C7\u03B5\u03B9 "${_issue.includes}"`;
+          return `Μη έγκυρη συμβολοσειρά: πρέπει να περιέχει "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03C3\u03C5\u03BC\u03B2\u03BF\u03BB\u03BF\u03C3\u03B5\u03B9\u03C1\u03AC: \u03C0\u03C1\u03AD\u03C0\u03B5\u03B9 \u03BD\u03B1 \u03C4\u03B1\u03B9\u03C1\u03B9\u03AC\u03B6\u03B5\u03B9 \u03BC\u03B5 \u03C4\u03BF \u03BC\u03BF\u03C4\u03AF\u03B2\u03BF ${_issue.pattern}`;
-        return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03BF: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Μη έγκυρη συμβολοσειρά: πρέπει να ταιριάζει με το μοτίβο ${_issue.pattern}`;
+        return `Μη έγκυρο: ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03BF\u03C2 \u03B1\u03C1\u03B9\u03B8\u03BC\u03CC\u03C2: \u03C0\u03C1\u03AD\u03C0\u03B5\u03B9 \u03BD\u03B1 \u03B5\u03AF\u03BD\u03B1\u03B9 \u03C0\u03BF\u03BB\u03BB\u03B1\u03C0\u03BB\u03AC\u03C3\u03B9\u03BF \u03C4\u03BF\u03C5 ${issue2.divisor}`;
+        return `Μη έγκυρος αριθμός: πρέπει να είναι πολλαπλάσιο του ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u0386\u03B3\u03BD\u03C9\u03C3\u03C4${issue2.keys.length > 1 ? "\u03B1" : "\u03BF"} \u03BA\u03BB\u03B5\u03B9\u03B4${issue2.keys.length > 1 ? "\u03B9\u03AC" : "\u03AF"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Άγνωστ${issue2.keys.length > 1 ? "α" : "ο"} κλειδ${issue2.keys.length > 1 ? "ιά" : "ί"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03BF \u03BA\u03BB\u03B5\u03B9\u03B4\u03AF \u03C3\u03C4\u03BF ${issue2.origin}`;
+        return `Μη έγκυρο κλειδί στο ${issue2.origin}`;
       case "invalid_union":
-        return "\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03B5\u03AF\u03C3\u03BF\u03B4\u03BF\u03C2";
+        return "Μη έγκυρη είσοδος";
       case "invalid_element":
-        return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03C4\u03B9\u03BC\u03AE \u03C3\u03C4\u03BF ${issue2.origin}`;
+        return `Μη έγκυρη τιμή στο ${issue2.origin}`;
       default:
-        return `\u039C\u03B7 \u03AD\u03B3\u03BA\u03C5\u03C1\u03B7 \u03B5\u03AF\u03C3\u03BF\u03B4\u03BF\u03C2`;
+        return `Μη έγκυρη είσοδος`;
     }
   };
 };
@@ -7034,7 +9806,7 @@ var error12 = () => {
     }
   };
 };
-function en_default() {
+function en_default2() {
   return {
     localeError: error12()
   };
@@ -7056,7 +9828,7 @@ var error13 = () => {
     regex: "enigo",
     email: "retadreso",
     url: "URL",
-    emoji: "emo\u011Dio",
+    emoji: "emoĝio",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -7070,7 +9842,7 @@ var error13 = () => {
     datetime: "ISO-datotempo",
     date: "ISO-dato",
     time: "ISO-tempo",
-    duration: "ISO-da\u016Dro",
+    duration: "ISO-daŭro",
     ipv4: "IPv4-adreso",
     ipv6: "IPv6-adreso",
     mac: "MAC-adreso",
@@ -7099,35 +9871,35 @@ var error13 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Nevalida enigo: atendi\u011Dis instanceof ${issue2.expected}, ricevi\u011Dis ${received}`;
+          return `Nevalida enigo: atendiĝis instanceof ${issue2.expected}, riceviĝis ${received}`;
         }
-        return `Nevalida enigo: atendi\u011Dis ${expected}, ricevi\u011Dis ${received}`;
+        return `Nevalida enigo: atendiĝis ${expected}, riceviĝis ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Nevalida enigo: atendi\u011Dis ${stringifyPrimitive(issue2.values[0])}`;
-        return `Nevalida opcio: atendi\u011Dis unu el ${joinValues(issue2.values, "|")}`;
+          return `Nevalida enigo: atendiĝis ${stringifyPrimitive(issue2.values[0])}`;
+        return `Nevalida opcio: atendiĝis unu el ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementojn"}`;
-        return `Tro granda: atendi\u011Dis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()}`;
+          return `Tro granda: atendiĝis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementojn"}`;
+        return `Tro granda: atendiĝis ke ${issue2.origin ?? "valoro"} havu ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} havu ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Tro malgranda: atendiĝis ke ${issue2.origin} havu ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Tro malgranda: atendi\u011Dis ke ${issue2.origin} estu ${adj}${issue2.minimum.toString()}`;
+        return `Tro malgranda: atendiĝis ke ${issue2.origin} estu ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Nevalida karaktraro: devas komenci\u011Di per "${_issue.prefix}"`;
+          return `Nevalida karaktraro: devas komenciĝi per "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Nevalida karaktraro: devas fini\u011Di per "${_issue.suffix}"`;
+          return `Nevalida karaktraro: devas finiĝi per "${_issue.suffix}"`;
         if (_issue.format === "includes")
           return `Nevalida karaktraro: devas inkluzivi "${_issue.includes}"`;
         if (_issue.format === "regex")
@@ -7137,9 +9909,9 @@ var error13 = () => {
       case "not_multiple_of":
         return `Nevalida nombro: devas esti oblo de ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Nekonata${issue2.keys.length > 1 ? "j" : ""} \u015Dlosilo${issue2.keys.length > 1 ? "j" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Nekonata${issue2.keys.length > 1 ? "j" : ""} ŝlosilo${issue2.keys.length > 1 ? "j" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Nevalida \u015Dlosilo en ${issue2.origin}`;
+        return `Nevalida ŝlosilo en ${issue2.origin}`;
       case "invalid_union":
         return "Nevalida enigo";
       case "invalid_element":
@@ -7168,7 +9940,7 @@ var error14 = () => {
   }
   const FormatDictionary = {
     regex: "entrada",
-    email: "direcci\xF3n de correo electr\xF3nico",
+    email: "dirección de correo electrónico",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -7184,18 +9956,18 @@ var error14 = () => {
     datetime: "fecha y hora ISO",
     date: "fecha ISO",
     time: "hora ISO",
-    duration: "duraci\xF3n ISO",
-    ipv4: "direcci\xF3n IPv4",
-    ipv6: "direcci\xF3n IPv6",
-    mac: "direcci\xF3n MAC",
+    duration: "duración ISO",
+    ipv4: "dirección IPv4",
+    ipv6: "dirección IPv6",
+    mac: "dirección MAC",
     cidrv4: "rango IPv4",
     cidrv6: "rango IPv6",
     base64: "cadena codificada en base64",
     base64url: "URL codificada en base64",
     json_string: "cadena JSON",
-    e164: "n\xFAmero E.164",
-    credit_card: "n\xFAmero de tarjeta de cr\xE9dito",
-    currency_code: "c\xF3digo de moneda",
+    e164: "número E.164",
+    credit_card: "número de tarjeta de crédito",
+    currency_code: "código de moneda",
     iban: "IBAN",
     jwt: "JWT",
     template_literal: "entrada"
@@ -7203,26 +9975,26 @@ var error14 = () => {
   const TypeDictionary = {
     nan: "NaN",
     string: "texto",
-    number: "n\xFAmero",
+    number: "número",
     boolean: "booleano",
     array: "arreglo",
     object: "objeto",
     set: "conjunto",
     file: "archivo",
     date: "fecha",
-    bigint: "n\xFAmero grande",
-    symbol: "s\xEDmbolo",
+    bigint: "número grande",
+    symbol: "símbolo",
     undefined: "indefinido",
     null: "nulo",
-    function: "funci\xF3n",
+    function: "función",
     map: "mapa",
     record: "registro",
     tuple: "tupla",
-    enum: "enumeraci\xF3n",
-    union: "uni\xF3n",
+    enum: "enumeración",
+    union: "unión",
     literal: "literal",
     promise: "promesa",
-    void: "vac\xEDo",
+    void: "vacío",
     never: "nunca",
     unknown: "desconocido",
     any: "cualquiera"
@@ -7234,14 +10006,14 @@ var error14 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Entrada inv\xE1lida: se esperaba instanceof ${issue2.expected}, recibido ${received}`;
+          return `Entrada inválida: se esperaba instanceof ${issue2.expected}, recibido ${received}`;
         }
-        return `Entrada inv\xE1lida: se esperaba ${expected}, recibido ${received}`;
+        return `Entrada inválida: se esperaba ${expected}, recibido ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entrada inv\xE1lida: se esperaba ${stringifyPrimitive(issue2.values[0])}`;
-        return `Opci\xF3n inv\xE1lida: se esperaba una de ${joinValues(issue2.values, "|")}`;
+          return `Entrada inválida: se esperaba ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opción inválida: se esperaba una de ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -7255,38 +10027,38 @@ var error14 = () => {
         const sizing = getSizing(issue2.origin);
         const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
         if (sizing) {
-          return `Demasiado peque\xF1o: se esperaba que ${origin} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Demasiado pequeño: se esperaba que ${origin} tuviera ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Demasiado peque\xF1o: se esperaba que ${origin} fuera ${adj}${issue2.minimum.toString()}`;
+        return `Demasiado pequeño: se esperaba que ${origin} fuera ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Cadena inv\xE1lida: debe comenzar con "${_issue.prefix}"`;
+          return `Cadena inválida: debe comenzar con "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Cadena inv\xE1lida: debe terminar en "${_issue.suffix}"`;
+          return `Cadena inválida: debe terminar en "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Cadena inv\xE1lida: debe incluir "${_issue.includes}"`;
+          return `Cadena inválida: debe incluir "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Cadena inv\xE1lida: debe coincidir con el patr\xF3n ${_issue.pattern}`;
-        return `Inv\xE1lido ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Cadena inválida: debe coincidir con el patrón ${_issue.pattern}`;
+        return `Inválido ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE1lido: debe ser m\xFAltiplo de ${issue2.divisor}`;
+        return `Número inválido: debe ser múltiplo de ${issue2.divisor}`;
       case "unrecognized_keys":
         return `Llave${issue2.keys.length > 1 ? "s" : ""} desconocida${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Llave inv\xE1lida en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+        return `Llave inválida en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
       case "invalid_union":
-        return "Entrada inv\xE1lida";
+        return "Entrada inválida";
       case "invalid_element":
-        return `Valor inv\xE1lido en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+        return `Valor inválido en ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
       default:
-        return `Entrada inv\xE1lida`;
+        return `Entrada inválida`;
     }
   };
 };
-function es_default() {
+function es_default2() {
   return {
     localeError: error14()
   };
@@ -7295,20 +10067,20 @@ function es_default() {
 // node_modules/zod/v4/locales/fa.js
 var error15 = () => {
   const Sizable = {
-    string: { unit: "\u06A9\u0627\u0631\u0627\u06A9\u062A\u0631", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
-    file: { unit: "\u0628\u0627\u06CC\u062A", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
-    array: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
-    set: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" },
-    map: { unit: "\u0622\u06CC\u062A\u0645", verb: "\u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F" }
+    string: { unit: "کاراکتر", verb: "داشته باشد" },
+    file: { unit: "بایت", verb: "داشته باشد" },
+    array: { unit: "آیتم", verb: "داشته باشد" },
+    set: { unit: "آیتم", verb: "داشته باشد" },
+    map: { unit: "آیتم", verb: "داشته باشد" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0648\u0631\u0648\u062F\u06CC",
-    email: "\u0622\u062F\u0631\u0633 \u0627\u06CC\u0645\u06CC\u0644",
+    regex: "ورودی",
+    email: "آدرس ایمیل",
     url: "URL",
-    emoji: "\u0627\u06CC\u0645\u0648\u062C\u06CC",
+    emoji: "ایموجی",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -7319,29 +10091,29 @@ var error15 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u062A\u0627\u0631\u06CC\u062E \u0648 \u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
-    date: "\u062A\u0627\u0631\u06CC\u062E \u0627\u06CC\u0632\u0648",
-    time: "\u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
-    duration: "\u0645\u062F\u062A \u0632\u0645\u0627\u0646 \u0627\u06CC\u0632\u0648",
-    ipv4: "IPv4 \u0622\u062F\u0631\u0633",
-    ipv6: "IPv6 \u0622\u062F\u0631\u0633",
-    mac: "MAC \u0622\u062F\u0631\u0633",
-    cidrv4: "IPv4 \u062F\u0627\u0645\u0646\u0647",
-    cidrv6: "IPv6 \u062F\u0627\u0645\u0646\u0647",
-    base64: "base64-encoded \u0631\u0634\u062A\u0647",
-    base64url: "base64url-encoded \u0631\u0634\u062A\u0647",
-    json_string: "JSON \u0631\u0634\u062A\u0647",
-    e164: "E.164 \u0639\u062F\u062F",
-    credit_card: "\u0634\u0645\u0627\u0631\u0647 \u06A9\u0627\u0631\u062A \u0627\u0639\u062A\u0628\u0627\u0631\u06CC",
-    currency_code: "\u06A9\u062F \u0627\u0631\u0632",
+    datetime: "تاریخ و زمان ایزو",
+    date: "تاریخ ایزو",
+    time: "زمان ایزو",
+    duration: "مدت زمان ایزو",
+    ipv4: "IPv4 آدرس",
+    ipv6: "IPv6 آدرس",
+    mac: "MAC آدرس",
+    cidrv4: "IPv4 دامنه",
+    cidrv6: "IPv6 دامنه",
+    base64: "base64-encoded رشته",
+    base64url: "base64url-encoded رشته",
+    json_string: "JSON رشته",
+    e164: "E.164 عدد",
+    credit_card: "شماره کارت اعتباری",
+    currency_code: "کد ارز",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0648\u0631\u0648\u062F\u06CC"
+    template_literal: "ورودی"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0639\u062F\u062F",
-    array: "\u0622\u0631\u0627\u06CC\u0647"
+    number: "عدد",
+    array: "آرایه"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -7350,59 +10122,59 @@ var error15 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A instanceof ${issue2.expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
+          return `ورودی نامعتبر: می‌بایست instanceof ${issue2.expected} می‌بود، ${received} دریافت شد`;
         }
-        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${expected} \u0645\u06CC\u200C\u0628\u0648\u062F\u060C ${received} \u062F\u0631\u06CC\u0627\u0641\u062A \u0634\u062F`;
+        return `ورودی نامعتبر: می‌بایست ${expected} می‌بود، ${received} دریافت شد`;
       }
       case "invalid_value":
         if (issue2.values.length === 1) {
-          return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A ${stringifyPrimitive(issue2.values[0])} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+          return `ورودی نامعتبر: می‌بایست ${stringifyPrimitive(issue2.values[0])} می‌بود`;
         }
-        return `\u06AF\u0632\u06CC\u0646\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0645\u06CC\u200C\u0628\u0627\u06CC\u0633\u062A \u06CC\u06A9\u06CC \u0627\u0632 ${joinValues(issue2.values, "|")} \u0645\u06CC\u200C\u0628\u0648\u062F`;
+        return `گزینه نامعتبر: می‌بایست یکی از ${joinValues(issue2.values, "|")} می‌بود`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631"} \u0628\u0627\u0634\u062F`;
+          return `خیلی بزرگ: ${issue2.origin ?? "مقدار"} باید ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "عنصر"} باشد`;
         }
-        return `\u062E\u06CC\u0644\u06CC \u0628\u0632\u0631\u06AF: ${issue2.origin ?? "\u0645\u0642\u062F\u0627\u0631"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0628\u0627\u0634\u062F`;
+        return `خیلی بزرگ: ${issue2.origin ?? "مقدار"} باید ${adj}${issue2.maximum.toString()} باشد`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0628\u0627\u0634\u062F`;
+          return `خیلی کوچک: ${issue2.origin} باید ${adj}${issue2.minimum.toString()} ${sizing.unit} باشد`;
         }
-        return `\u062E\u06CC\u0644\u06CC \u06A9\u0648\u0686\u06A9: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0628\u0627\u0634\u062F`;
+        return `خیلی کوچک: ${issue2.origin} باید ${adj}${issue2.minimum.toString()} باشد`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.prefix}" \u0634\u0631\u0648\u0639 \u0634\u0648\u062F`;
+          return `رشته نامعتبر: باید با "${_issue.prefix}" شروع شود`;
         }
         if (_issue.format === "ends_with") {
-          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 "${_issue.suffix}" \u062A\u0645\u0627\u0645 \u0634\u0648\u062F`;
+          return `رشته نامعتبر: باید با "${_issue.suffix}" تمام شود`;
         }
         if (_issue.format === "includes") {
-          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0634\u0627\u0645\u0644 "${_issue.includes}" \u0628\u0627\u0634\u062F`;
+          return `رشته نامعتبر: باید شامل "${_issue.includes}" باشد`;
         }
         if (_issue.format === "regex") {
-          return `\u0631\u0634\u062A\u0647 \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0628\u0627 \u0627\u0644\u06AF\u0648\u06CC ${_issue.pattern} \u0645\u0637\u0627\u0628\u0642\u062A \u062F\u0627\u0634\u062A\u0647 \u0628\u0627\u0634\u062F`;
+          return `رشته نامعتبر: باید با الگوی ${_issue.pattern} مطابقت داشته باشد`;
         }
-        return `${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} نامعتبر`;
       }
       case "not_multiple_of":
-        return `\u0639\u062F\u062F \u0646\u0627\u0645\u0639\u062A\u0628\u0631: \u0628\u0627\u06CC\u062F \u0645\u0636\u0631\u0628 ${issue2.divisor} \u0628\u0627\u0634\u062F`;
+        return `عدد نامعتبر: باید مضرب ${issue2.divisor} باشد`;
       case "unrecognized_keys":
-        return `\u06A9\u0644\u06CC\u062F${issue2.keys.length > 1 ? "\u0647\u0627\u06CC" : ""} \u0646\u0627\u0634\u0646\u0627\u0633: ${joinValues(issue2.keys, ", ")}`;
+        return `کلید${issue2.keys.length > 1 ? "های" : ""} ناشناس: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u06A9\u0644\u06CC\u062F \u0646\u0627\u0634\u0646\u0627\u0633 \u062F\u0631 ${issue2.origin}`;
+        return `کلید ناشناس در ${issue2.origin}`;
       case "invalid_union":
-        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+        return `ورودی نامعتبر`;
       case "invalid_element":
-        return `\u0645\u0642\u062F\u0627\u0631 \u0646\u0627\u0645\u0639\u062A\u0628\u0631 \u062F\u0631 ${issue2.origin}`;
+        return `مقدار نامعتبر در ${issue2.origin}`;
       default:
-        return `\u0648\u0631\u0648\u062F\u06CC \u0646\u0627\u0645\u0639\u062A\u0628\u0631`;
+        return `ورودی نامعتبر`;
     }
   };
 };
@@ -7415,7 +10187,7 @@ function fa_default() {
 // node_modules/zod/v4/locales/fi.js
 var error16 = () => {
   const Sizable = {
-    string: { unit: "merkki\xE4", subject: "merkkijonon" },
+    string: { unit: "merkkiä", subject: "merkkijonon" },
     file: { unit: "tavua", subject: "tiedoston" },
     array: { unit: "alkiota", subject: "listan" },
     set: { unit: "alkiota", subject: "joukon" },
@@ -7423,14 +10195,14 @@ var error16 = () => {
     number: { unit: "", subject: "luvun" },
     bigint: { unit: "", subject: "suuren kokonaisluvun" },
     int: { unit: "", subject: "kokonaisluvun" },
-    date: { unit: "", subject: "p\xE4iv\xE4m\xE4\xE4r\xE4n" }
+    date: { unit: "", subject: "päivämäärän" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "s\xE4\xE4nn\xF6llinen lauseke",
-    email: "s\xE4hk\xF6postiosoite",
+    regex: "säännöllinen lauseke",
+    email: "sähköpostiosoite",
     url: "URL-osoite",
     emoji: "emoji",
     uuid: "UUID",
@@ -7444,7 +10216,7 @@ var error16 = () => {
     xid: "XID",
     ksuid: "KSUID",
     datetime: "ISO-aikaleima",
-    date: "ISO-p\xE4iv\xE4m\xE4\xE4r\xE4",
+    date: "ISO-päivämäärä",
     time: "ISO-aika",
     duration: "ISO-kesto",
     ipv4: "IPv4-osoite",
@@ -7478,39 +10250,39 @@ var error16 = () => {
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Virheellinen sy\xF6te: t\xE4ytyy olla ${stringifyPrimitive(issue2.values[0])}`;
-        return `Virheellinen valinta: t\xE4ytyy olla yksi seuraavista: ${joinValues(issue2.values, "|")}`;
+          return `Virheellinen syöte: täytyy olla ${stringifyPrimitive(issue2.values[0])}`;
+        return `Virheellinen valinta: täytyy olla yksi seuraavista: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Liian suuri: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.maximum.toString()} ${sizing.unit}`.trim();
+          return `Liian suuri: ${sizing.subject} täytyy olla ${adj}${issue2.maximum.toString()} ${sizing.unit}`.trim();
         }
-        return `Liian suuri: arvon t\xE4ytyy olla ${adj}${issue2.maximum.toString()}`;
+        return `Liian suuri: arvon täytyy olla ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Liian pieni: ${sizing.subject} t\xE4ytyy olla ${adj}${issue2.minimum.toString()} ${sizing.unit}`.trim();
+          return `Liian pieni: ${sizing.subject} täytyy olla ${adj}${issue2.minimum.toString()} ${sizing.unit}`.trim();
         }
-        return `Liian pieni: arvon t\xE4ytyy olla ${adj}${issue2.minimum.toString()}`;
+        return `Liian pieni: arvon täytyy olla ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Virheellinen sy\xF6te: t\xE4ytyy alkaa "${_issue.prefix}"`;
+          return `Virheellinen syöte: täytyy alkaa "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Virheellinen sy\xF6te: t\xE4ytyy loppua "${_issue.suffix}"`;
+          return `Virheellinen syöte: täytyy loppua "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Virheellinen sy\xF6te: t\xE4ytyy sis\xE4lt\xE4\xE4 "${_issue.includes}"`;
+          return `Virheellinen syöte: täytyy sisältää "${_issue.includes}"`;
         if (_issue.format === "regex") {
-          return `Virheellinen sy\xF6te: t\xE4ytyy vastata s\xE4\xE4nn\xF6llist\xE4 lauseketta ${_issue.pattern}`;
+          return `Virheellinen syöte: täytyy vastata säännöllistä lauseketta ${_issue.pattern}`;
         }
         return `Virheellinen ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Virheellinen luku: t\xE4ytyy olla luvun ${issue2.divisor} monikerta`;
+        return `Virheellinen luku: täytyy olla luvun ${issue2.divisor} monikerta`;
       case "unrecognized_keys":
         return `${issue2.keys.length > 1 ? "Tuntemattomat avaimet" : "Tuntematon avain"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
@@ -7520,7 +10292,7 @@ var error16 = () => {
       case "invalid_element":
         return "Virheellinen arvo joukossa";
       default:
-        return `Virheellinen sy\xF6te`;
+        return `Virheellinen syöte`;
     }
   };
 };
@@ -7533,16 +10305,16 @@ function fi_default() {
 // node_modules/zod/v4/locales/fr.js
 var error17 = () => {
   const Sizable = {
-    string: { unit: "caract\xE8res", verb: "avoir" },
+    string: { unit: "caractères", verb: "avoir" },
     file: { unit: "octets", verb: "avoir" },
-    array: { unit: "\xE9l\xE9ments", verb: "avoir" },
-    set: { unit: "\xE9l\xE9ments", verb: "avoir" }
+    array: { unit: "éléments", verb: "avoir" },
+    set: { unit: "éléments", verb: "avoir" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "expression r\xE9guli\xE8re",
+    regex: "expression régulière",
     email: "adresse e-mail",
     url: "URL",
     emoji: "emoji",
@@ -7559,30 +10331,30 @@ var error17 = () => {
     datetime: "date et heure ISO",
     date: "date ISO",
     time: "heure ISO",
-    duration: "dur\xE9e ISO",
+    duration: "durée ISO",
     ipv4: "adresse IPv4",
     ipv6: "adresse IPv6",
     mac: "adresse MAC",
     cidrv4: "plage IPv4",
     cidrv6: "plage IPv6",
-    base64: "cha\xEEne de caract\xE8res encod\xE9e en base64",
-    base64url: "cha\xEEne de caract\xE8res encod\xE9e en base64url",
-    json_string: "cha\xEEne de caract\xE8res JSON",
-    e164: "num\xE9ro au format E.164",
-    credit_card: "num\xE9ro de carte de cr\xE9dit",
+    base64: "chaîne de caractères encodée en base64",
+    base64url: "chaîne de caractères encodée en base64url",
+    json_string: "chaîne de caractères JSON",
+    e164: "numéro au format E.164",
+    credit_card: "numéro de carte de crédit",
     currency_code: "code de devise",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "entr\xE9e"
+    template_literal: "entrée"
   };
   const TypeDictionary = {
-    string: "cha\xEEne de caract\xE8res",
+    string: "chaîne de caractères",
     number: "nombre",
     int: "entier",
-    boolean: "bool\xE9en",
+    boolean: "booléen",
     bigint: "grand entier",
     symbol: "symbole",
-    undefined: "ind\xE9fini",
+    undefined: "indéfini",
     null: "null",
     never: "jamais",
     void: "vide",
@@ -7605,52 +10377,52 @@ var error17 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Entr\xE9e invalide : instance de ${issue2.expected} attendu, ${received} re\xE7u`;
+          return `Entrée invalide : instance de ${issue2.expected} attendu, ${received} reçu`;
         }
-        return `Entr\xE9e invalide : ${expected} attendu, ${received} re\xE7u`;
+        return `Entrée invalide : ${expected} attendu, ${received} reçu`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entr\xE9e invalide : ${stringifyPrimitive(issue2.values[0])} attendu`;
+          return `Entrée invalide : ${stringifyPrimitive(issue2.values[0])} attendu`;
         return `Option invalide : une valeur parmi ${joinValues(issue2.values, "|")} attendue`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Trop grand : ${TypeDictionary[issue2.origin] ?? "valeur"} doit ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xE9l\xE9ment(s)"}`;
-        return `Trop grand : ${TypeDictionary[issue2.origin] ?? "valeur"} doit \xEAtre ${adj}${issue2.maximum.toString()}`;
+          return `Trop grand : ${TypeDictionary[issue2.origin] ?? "valeur"} doit ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "élément(s)"}`;
+        return `Trop grand : ${TypeDictionary[issue2.origin] ?? "valeur"} doit être ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
           return `Trop petit : ${TypeDictionary[issue2.origin] ?? "valeur"} doit ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
-        return `Trop petit : ${TypeDictionary[issue2.origin] ?? "valeur"} doit \xEAtre ${adj}${issue2.minimum.toString()}`;
+        return `Trop petit : ${TypeDictionary[issue2.origin] ?? "valeur"} doit être ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Cha\xEEne de caract\xE8res invalide : doit commencer par "${_issue.prefix}"`;
+          return `Chaîne de caractères invalide : doit commencer par "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Cha\xEEne de caract\xE8res invalide : doit se terminer par "${_issue.suffix}"`;
+          return `Chaîne de caractères invalide : doit se terminer par "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Cha\xEEne de caract\xE8res invalide : doit inclure "${_issue.includes}"`;
+          return `Chaîne de caractères invalide : doit inclure "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Cha\xEEne de caract\xE8res invalide : doit correspondre au motif ${_issue.pattern}`;
+          return `Chaîne de caractères invalide : doit correspondre au motif ${_issue.pattern}`;
         return `${FormatDictionary[_issue.format] ?? issue2.format} invalide`;
       }
       case "not_multiple_of":
-        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+        return `Nombre invalide : doit être un multiple de ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+        return `Clé${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Cl\xE9 invalide dans ${issue2.origin}`;
+        return `Clé invalide dans ${issue2.origin}`;
       case "invalid_union":
-        return "Entr\xE9e invalide";
+        return "Entrée invalide";
       case "invalid_element":
         return `Valeur invalide dans ${issue2.origin}`;
       default:
-        return `Entr\xE9e invalide`;
+        return `Entrée invalide`;
     }
   };
 };
@@ -7663,17 +10435,17 @@ function fr_default() {
 // node_modules/zod/v4/locales/fr-CA.js
 var error18 = () => {
   const Sizable = {
-    string: { unit: "caract\xE8res", verb: "avoir" },
+    string: { unit: "caractères", verb: "avoir" },
     file: { unit: "octets", verb: "avoir" },
-    array: { unit: "\xE9l\xE9ments", verb: "avoir" },
-    set: { unit: "\xE9l\xE9ments", verb: "avoir" },
-    map: { unit: "\xE9l\xE9ments", verb: "avoir" }
+    array: { unit: "éléments", verb: "avoir" },
+    set: { unit: "éléments", verb: "avoir" },
+    map: { unit: "éléments", verb: "avoir" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "entr\xE9e",
+    regex: "entrée",
     email: "adresse courriel",
     url: "URL",
     emoji: "emoji",
@@ -7690,21 +10462,21 @@ var error18 = () => {
     datetime: "date-heure ISO",
     date: "date ISO",
     time: "heure ISO",
-    duration: "dur\xE9e ISO",
+    duration: "durée ISO",
     ipv4: "adresse IPv4",
     ipv6: "adresse IPv6",
     mac: "adresse MAC",
     cidrv4: "plage IPv4",
     cidrv6: "plage IPv6",
-    base64: "cha\xEEne encod\xE9e en base64",
-    base64url: "cha\xEEne encod\xE9e en base64url",
-    json_string: "cha\xEEne JSON",
-    e164: "num\xE9ro E.164",
-    credit_card: "num\xE9ro de carte de cr\xE9dit",
+    base64: "chaîne encodée en base64",
+    base64url: "chaîne encodée en base64url",
+    json_string: "chaîne JSON",
+    e164: "numéro E.164",
+    credit_card: "numéro de carte de crédit",
     currency_code: "code de devise",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "entr\xE9e"
+    template_literal: "entrée"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -7716,23 +10488,23 @@ var error18 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Entr\xE9e invalide : attendu instanceof ${issue2.expected}, re\xE7u ${received}`;
+          return `Entrée invalide : attendu instanceof ${issue2.expected}, reçu ${received}`;
         }
-        return `Entr\xE9e invalide : attendu ${expected}, re\xE7u ${received}`;
+        return `Entrée invalide : attendu ${expected}, reçu ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entr\xE9e invalide : attendu ${stringifyPrimitive(issue2.values[0])}`;
+          return `Entrée invalide : attendu ${stringifyPrimitive(issue2.values[0])}`;
         return `Option invalide : attendu l'une des valeurs suivantes ${joinValues(issue2.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u2264" : "<";
+        const adj = issue2.inclusive ? "≤" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
           return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} ait ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
         return `Trop grand : attendu que ${issue2.origin ?? "la valeur"} soit ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u2265" : ">";
+        const adj = issue2.inclusive ? "≥" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
           return `Trop petit : attendu que ${issue2.origin} ait ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
@@ -7742,28 +10514,28 @@ var error18 = () => {
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Cha\xEEne invalide : doit commencer par "${_issue.prefix}"`;
+          return `Chaîne invalide : doit commencer par "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Cha\xEEne invalide : doit se terminer par "${_issue.suffix}"`;
+          return `Chaîne invalide : doit se terminer par "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Cha\xEEne invalide : doit inclure "${_issue.includes}"`;
+          return `Chaîne invalide : doit inclure "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Cha\xEEne invalide : doit correspondre au motif ${_issue.pattern}`;
+          return `Chaîne invalide : doit correspondre au motif ${_issue.pattern}`;
         return `${FormatDictionary[_issue.format] ?? issue2.format} invalide`;
       }
       case "not_multiple_of":
-        return `Nombre invalide : doit \xEAtre un multiple de ${issue2.divisor}`;
+        return `Nombre invalide : doit être un multiple de ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Cl\xE9${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
+        return `Clé${issue2.keys.length > 1 ? "s" : ""} non reconnue${issue2.keys.length > 1 ? "s" : ""} : ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Cl\xE9 invalide dans ${issue2.origin}`;
+        return `Clé invalide dans ${issue2.origin}`;
       case "invalid_union":
-        return "Entr\xE9e invalide";
+        return "Entrée invalide";
       case "invalid_element":
         return `Valeur invalide dans ${issue2.origin}`;
       default:
-        return `Entr\xE9e invalide`;
+        return `Entrée invalide`;
     }
   };
 };
@@ -7776,20 +10548,20 @@ function fr_CA_default() {
 // node_modules/zod/v4/locales/gu.js
 var error19 = () => {
   const Sizable = {
-    string: { unit: "\u0A85\u0A95\u0ACD\u0AB7\u0AB0", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" },
-    file: { unit: "\u0AAC\u0ABE\u0AAF\u0A9F", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" },
-    array: { unit: "\u0A86\u0A87\u0A9F\u0AAE", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" },
-    set: { unit: "\u0A86\u0A87\u0A9F\u0AAE", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" },
-    map: { unit: "\u0A8F\u0AA8\u0ACD\u0A9F\u0ACD\u0AB0\u0AC0", verb: "\u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F" }
+    string: { unit: "અક્ષર", verb: "હોવા જોઈએ" },
+    file: { unit: "બાયટ", verb: "હોવા જોઈએ" },
+    array: { unit: "આઇટમ", verb: "હોવા જોઈએ" },
+    set: { unit: "આઇટમ", verb: "હોવા જોઈએ" },
+    map: { unit: "એન્ટ્રી", verb: "હોવા જોઈએ" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0A87\u0AA8\u0AAA\u0AC1\u0A9F",
-    email: "\u0A88\u0AAE\u0AC7\u0A87\u0AB2 \u0A8F\u0AA1\u0ACD\u0AB0\u0AC7\u0AB8",
+    regex: "ઇનપુટ",
+    email: "ઈમેઇલ એડ્રેસ",
     url: "URL",
-    emoji: "\u0A87\u0AAE\u0ACB\u0A9C\u0AC0",
+    emoji: "ઇમોજી",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -7800,24 +10572,24 @@ var error19 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0AA4\u0ABE\u0AB0\u0AC0\u0A96 \u0A85\u0AA8\u0AC7 \u0AB8\u0AAE\u0AAF",
-    date: "ISO \u0AA4\u0ABE\u0AB0\u0AC0\u0A96",
-    time: "ISO \u0AB8\u0AAE\u0AAF",
-    duration: "ISO \u0A85\u0AB5\u0AA7\u0ABF",
-    ipv4: "IPv4 \u0A8F\u0AA1\u0ACD\u0AB0\u0AC7\u0AB8",
-    ipv6: "IPv6 \u0A8F\u0AA1\u0ACD\u0AB0\u0AC7\u0AB8",
-    mac: "MAC \u0A8F\u0AA1\u0ACD\u0AB0\u0AC7\u0AB8",
-    cidrv4: "IPv4 \u0AB6\u0ACD\u0AB0\u0AC7\u0AA3\u0AC0",
-    cidrv6: "IPv6 \u0AB6\u0ACD\u0AB0\u0AC7\u0AA3\u0AC0",
-    base64: "base64-\u0A8F\u0AA8\u0ACD\u0A95\u0ACB\u0AA1\u0AC7\u0AA1 \u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABF\u0A82\u0A97",
-    base64url: "base64url-\u0A8F\u0AA8\u0ACD\u0A95\u0ACB\u0AA1\u0AC7\u0AA1 \u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABF\u0A82\u0A97",
-    json_string: "JSON \u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABF\u0A82\u0A97",
-    e164: "E.164 \u0AA8\u0A82\u0AAC\u0AB0",
-    credit_card: "\u0A95\u0ACD\u0AB0\u0AC7\u0AA1\u0ABF\u0A9F \u0A95\u0ABE\u0AB0\u0ACD\u0AA1 \u0AA8\u0A82\u0AAC\u0AB0",
-    currency_code: "\u0A9A\u0AB2\u0AA3 \u0A95\u0ACB\u0AA1",
+    datetime: "ISO તારીખ અને સમય",
+    date: "ISO તારીખ",
+    time: "ISO સમય",
+    duration: "ISO અવધિ",
+    ipv4: "IPv4 એડ્રેસ",
+    ipv6: "IPv6 એડ્રેસ",
+    mac: "MAC એડ્રેસ",
+    cidrv4: "IPv4 શ્રેણી",
+    cidrv6: "IPv6 શ્રેણી",
+    base64: "base64-એન્કોડેડ સ્ટ્રિંગ",
+    base64url: "base64url-એન્કોડેડ સ્ટ્રિંગ",
+    json_string: "JSON સ્ટ્રિંગ",
+    e164: "E.164 નંબર",
+    credit_card: "ક્રેડિટ કાર્ડ નંબર",
+    currency_code: "ચલણ કોડ",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0A87\u0AA8\u0AAA\u0AC1\u0A9F"
+    template_literal: "ઇનપુટ"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -7828,56 +10600,56 @@ var error19 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0A87\u0AA8\u0AAA\u0AC1\u0A9F: \u0A85\u0AAA\u0AC7\u0A95\u0ACD\u0AB7\u0ABF\u0AA4 ${expected}, \u0AAA\u0ACD\u0AB0\u0ABE\u0AAA\u0ACD\u0AA4 ${received}`;
+        return `અમાન્ય ઇનપુટ: અપેક્ષિત ${expected}, પ્રાપ્ત ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0A87\u0AA8\u0AAA\u0AC1\u0A9F: \u0A85\u0AAA\u0AC7\u0A95\u0ACD\u0AB7\u0ABF\u0AA4 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0AB5\u0ABF\u0A95\u0AB2\u0ACD\u0AAA: ${joinValues(issue2.values, " | ")} \u0AAE\u0ABE\u0AA7\u0ACD\u0AAF\u0AAE\u0AA5\u0AC0 \u0A8F\u0A95 \u0A85\u0AAA\u0AC7\u0A95\u0ACD\u0AB7\u0ABF\u0AA4`;
+          return `અમાન્ય ઇનપુટ: અપેક્ષિત ${stringifyPrimitive(issue2.values[0])}`;
+        return `અમાન્ય વિકલ્પ: ${joinValues(issue2.values, " | ")} માધ્યમથી એક અપેક્ષિત`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0A96\u0AC2\u0AAC \u0AAE\u0ACB\u0A9F\u0AC1\u0A82: ${issue2.origin ?? "\u0AAE\u0AC2\u0AB2\u0ACD\u0AAF"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0A8F\u0AB2\u0ABF\u0AAE\u0AC7\u0AA8\u0ACD\u0A9F"} \u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F`;
-        return `\u0A96\u0AC2\u0AAC \u0AAE\u0ACB\u0A9F\u0AC1\u0A82: ${issue2.origin ?? "\u0AAE\u0AC2\u0AB2\u0ACD\u0AAF"} ${adj}${issue2.maximum.toString()} \u0AB9\u0ACB\u0AB5\u0AC1\u0A82 \u0A9C\u0ACB\u0A88\u0A8F`;
+          return `ખૂબ મોટું: ${issue2.origin ?? "મૂલ્ય"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "એલિમેન્ટ"} હોવા જોઈએ`;
+        return `ખૂબ મોટું: ${issue2.origin ?? "મૂલ્ય"} ${adj}${issue2.maximum.toString()} હોવું જોઈએ`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0A96\u0AC2\u0AAC \u0AA8\u0ABE\u0AA8\u0AC1\u0A82: ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0AB9\u0ACB\u0AB5\u0ABE \u0A9C\u0ACB\u0A88\u0A8F`;
+          return `ખૂબ નાનું: ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} હોવા જોઈએ`;
         }
-        return `\u0A96\u0AC2\u0AAC \u0AA8\u0ABE\u0AA8\u0AC1\u0A82: ${issue2.origin} ${adj}${issue2.minimum.toString()} \u0AB9\u0ACB\u0AB5\u0AC1\u0A82 \u0A9C\u0ACB\u0A88\u0A8F`;
+        return `ખૂબ નાનું: ${issue2.origin} ${adj}${issue2.minimum.toString()} હોવું જોઈએ`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABF\u0A82\u0A97: "${_issue.prefix}" \u0AA5\u0AC0 \u0AB6\u0AB0\u0AC2 \u0AA5\u0AB5\u0AC1\u0A82 \u0A9C\u0ACB\u0A88\u0A8F`;
+          return `અમાન્ય સ્ટ્રિંગ: "${_issue.prefix}" થી શરૂ થવું જોઈએ`;
         }
         if (_issue.format === "ends_with")
-          return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABF\u0A82\u0A97: "${_issue.suffix}" \u0AAA\u0AB0 \u0AB8\u0AAE\u0ABE\u0AAA\u0ACD\u0AA4 \u0AA5\u0AB5\u0AC1\u0A82 \u0A9C\u0ACB\u0A88\u0A8F`;
+          return `અમાન્ય સ્ટ્રિંગ: "${_issue.suffix}" પર સમાપ્ત થવું જોઈએ`;
         if (_issue.format === "includes")
-          return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABF\u0A82\u0A97: "${_issue.includes}" \u0AB6\u0ABE\u0AAE\u0AC7\u0AB2 \u0AB9\u0ACB\u0AB5\u0AC1\u0A82 \u0A9C\u0ACB\u0A88\u0A8F`;
+          return `અમાન્ય સ્ટ્રિંગ: "${_issue.includes}" શામેલ હોવું જોઈએ`;
         if (_issue.format === "regex")
-          return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0AB8\u0ACD\u0A9F\u0ACD\u0AB0\u0ABF\u0A82\u0A97: \u0AAA\u0AC7\u0A9F\u0AB0\u0ACD\u0AA8 ${_issue.pattern} \u0AB8\u0ABE\u0AA5\u0AC7 \u0AAE\u0AC7\u0AB3 \u0A96\u0ABE\u0AB5\u0AC1\u0A82 \u0A9C\u0ACB\u0A88\u0A8F`;
-        return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `અમાન્ય સ્ટ્રિંગ: પેટર્ન ${_issue.pattern} સાથે મેળ ખાવું જોઈએ`;
+        return `અમાન્ય ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0AA8\u0A82\u0AAC\u0AB0: ${issue2.divisor} \u0AA8\u0ACB \u0A97\u0AC1\u0AA3\u0ABE\u0A82\u0A95 \u0AB9\u0ACB\u0AB5\u0ACB \u0A9C\u0ACB\u0A88\u0A8F`;
+        return `અમાન્ય નંબર: ${issue2.divisor} નો ગુણાંક હોવો જોઈએ`;
       case "unrecognized_keys":
-        return `\u0A93\u0AB3\u0A96\u0AC0 \u0AB6\u0A95\u0ABE\u0AA4\u0ABE \u0AA8\u0AB9\u0AC0\u0A82 \u0AA4\u0AC7 \u0A95\u0AC0${issue2.keys.length > 1 ? "\u0A93" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `ઓળખી શકાતા નહીં તે કી${issue2.keys.length > 1 ? "ઓ" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u0AAE\u0ABE\u0A82 \u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0A95\u0AC0`;
+        return `${issue2.origin} માં અમાન્ય કી`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0AA1\u0ABF\u0AB8\u0ACD\u0A95\u0ACD\u0AB0\u0ABF\u0AAE\u0ABF\u0AA8\u0AC7\u0A9F\u0AB0 \u0AAE\u0AC2\u0AB2\u0ACD\u0AAF. \u0A85\u0AAA\u0AC7\u0A95\u0ACD\u0AB7\u0ABF\u0AA4 ${opts}`;
+          return `અમાન્ય ડિસ્ક્રિમિનેટર મૂલ્ય. અપેક્ષિત ${opts}`;
         }
-        return "\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0A87\u0AA8\u0AAA\u0AC1\u0A9F";
+        return "અમાન્ય ઇનપુટ";
       case "invalid_element":
-        return `${issue2.origin} \u0AAE\u0ABE\u0A82 \u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0AAE\u0AC2\u0AB2\u0ACD\u0AAF`;
+        return `${issue2.origin} માં અમાન્ય મૂલ્ય`;
       default:
-        return "\u0A85\u0AAE\u0ABE\u0AA8\u0ACD\u0AAF \u0A87\u0AA8\u0AAA\u0AC1\u0A9F";
+        return "અમાન્ય ઇનપુટ";
     }
   };
 };
@@ -7890,45 +10662,45 @@ function gu_default() {
 // node_modules/zod/v4/locales/he.js
 var error20 = () => {
   const TypeNames = {
-    string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA", gender: "f" },
-    number: { label: "\u05DE\u05E1\u05E4\u05E8", gender: "m" },
-    boolean: { label: "\u05E2\u05E8\u05DA \u05D1\u05D5\u05DC\u05D9\u05D0\u05E0\u05D9", gender: "m" },
+    string: { label: "מחרוזת", gender: "f" },
+    number: { label: "מספר", gender: "m" },
+    boolean: { label: "ערך בוליאני", gender: "m" },
     bigint: { label: "BigInt", gender: "m" },
-    date: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA", gender: "m" },
-    array: { label: "\u05DE\u05E2\u05E8\u05DA", gender: "m" },
-    object: { label: "\u05D0\u05D5\u05D1\u05D9\u05D9\u05E7\u05D8", gender: "m" },
-    null: { label: "\u05E2\u05E8\u05DA \u05E8\u05D9\u05E7 (null)", gender: "m" },
-    undefined: { label: "\u05E2\u05E8\u05DA \u05DC\u05D0 \u05DE\u05D5\u05D2\u05D3\u05E8 (undefined)", gender: "m" },
-    symbol: { label: "\u05E1\u05D9\u05DE\u05D1\u05D5\u05DC (Symbol)", gender: "m" },
-    function: { label: "\u05E4\u05D5\u05E0\u05E7\u05E6\u05D9\u05D4", gender: "f" },
-    map: { label: "\u05DE\u05E4\u05D4 (Map)", gender: "f" },
-    set: { label: "\u05E7\u05D1\u05D5\u05E6\u05D4 (Set)", gender: "f" },
-    file: { label: "\u05E7\u05D5\u05D1\u05E5", gender: "m" },
+    date: { label: "תאריך", gender: "m" },
+    array: { label: "מערך", gender: "m" },
+    object: { label: "אובייקט", gender: "m" },
+    null: { label: "ערך ריק (null)", gender: "m" },
+    undefined: { label: "ערך לא מוגדר (undefined)", gender: "m" },
+    symbol: { label: "סימבול (Symbol)", gender: "m" },
+    function: { label: "פונקציה", gender: "f" },
+    map: { label: "מפה (Map)", gender: "f" },
+    set: { label: "קבוצה (Set)", gender: "f" },
+    file: { label: "קובץ", gender: "m" },
     promise: { label: "Promise", gender: "m" },
     NaN: { label: "NaN", gender: "m" },
-    unknown: { label: "\u05E2\u05E8\u05DA \u05DC\u05D0 \u05D9\u05D3\u05D5\u05E2", gender: "m" },
-    value: { label: "\u05E2\u05E8\u05DA", gender: "m" }
+    unknown: { label: "ערך לא ידוע", gender: "m" },
+    value: { label: "ערך", gender: "m" }
   };
   const Sizable = {
-    string: { unit: "\u05EA\u05D5\u05D5\u05D9\u05DD", shortLabel: "\u05E7\u05E6\u05E8", longLabel: "\u05D0\u05E8\u05D5\u05DA" },
-    file: { unit: "\u05D1\u05D9\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
-    array: { unit: "\u05E4\u05E8\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
-    set: { unit: "\u05E4\u05E8\u05D9\u05D8\u05D9\u05DD", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" },
-    number: { unit: "", shortLabel: "\u05E7\u05D8\u05DF", longLabel: "\u05D2\u05D3\u05D5\u05DC" }
+    string: { unit: "תווים", shortLabel: "קצר", longLabel: "ארוך" },
+    file: { unit: "בייטים", shortLabel: "קטן", longLabel: "גדול" },
+    array: { unit: "פריטים", shortLabel: "קטן", longLabel: "גדול" },
+    set: { unit: "פריטים", shortLabel: "קטן", longLabel: "גדול" },
+    number: { unit: "", shortLabel: "קטן", longLabel: "גדול" }
     // no unit
   };
-  const typeEntry = (t) => t ? TypeNames[t] : void 0;
-  const typeLabel = (t) => {
-    const e = typeEntry(t);
+  const typeEntry = (t2) => t2 ? TypeNames[t2] : void 0;
+  const typeLabel = (t2) => {
+    const e = typeEntry(t2);
     if (e)
       return e.label;
-    return t ?? TypeNames.unknown.label;
+    return t2 ?? TypeNames.unknown.label;
   };
-  const withDefinite = (t) => `\u05D4${typeLabel(t)}`;
-  const verbFor = (t) => {
-    const e = typeEntry(t);
+  const withDefinite = (t2) => `ה${typeLabel(t2)}`;
+  const verbFor = (t2) => {
+    const e = typeEntry(t2);
     const gender = e?.gender ?? "m";
-    return gender === "f" ? "\u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05D9\u05D5\u05EA" : "\u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA";
+    return gender === "f" ? "צריכה להיות" : "צריך להיות";
   };
   const getSizing = (origin) => {
     if (!origin)
@@ -7936,10 +10708,10 @@ var error20 = () => {
     return Sizable[origin] ?? null;
   };
   const FormatDictionary = {
-    regex: { label: "\u05E7\u05DC\u05D8", gender: "m" },
-    email: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA \u05D0\u05D9\u05DE\u05D9\u05D9\u05DC", gender: "f" },
-    url: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA \u05E8\u05E9\u05EA", gender: "f" },
-    emoji: { label: "\u05D0\u05D9\u05DE\u05D5\u05D2'\u05D9", gender: "m" },
+    regex: { label: "קלט", gender: "m" },
+    email: { label: "כתובת אימייל", gender: "f" },
+    url: { label: "כתובת רשת", gender: "f" },
+    emoji: { label: "אימוג'י", gender: "m" },
     uuid: { label: "UUID", gender: "m" },
     uuidv4: { label: "UUIDv4", gender: "m" },
     uuidv6: { label: "UUIDv6", gender: "m" },
@@ -7950,29 +10722,29 @@ var error20 = () => {
     ulid: { label: "ULID", gender: "m" },
     xid: { label: "XID", gender: "m" },
     ksuid: { label: "KSUID", gender: "m" },
-    datetime: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA \u05D5\u05D6\u05DE\u05DF ISO", gender: "m" },
-    date: { label: "\u05EA\u05D0\u05E8\u05D9\u05DA ISO", gender: "m" },
-    time: { label: "\u05D6\u05DE\u05DF ISO", gender: "m" },
-    duration: { label: "\u05DE\u05E9\u05DA \u05D6\u05DE\u05DF ISO", gender: "m" },
-    ipv4: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA IPv4", gender: "f" },
-    ipv6: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA IPv6", gender: "f" },
-    mac: { label: "\u05DB\u05EA\u05D5\u05D1\u05EA MAC", gender: "f" },
-    cidrv4: { label: "\u05D8\u05D5\u05D5\u05D7 IPv4", gender: "m" },
-    cidrv6: { label: "\u05D8\u05D5\u05D5\u05D7 IPv6", gender: "m" },
-    base64: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D1\u05D1\u05E1\u05D9\u05E1 64", gender: "f" },
-    base64url: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D1\u05D1\u05E1\u05D9\u05E1 64 \u05DC\u05DB\u05EA\u05D5\u05D1\u05D5\u05EA \u05E8\u05E9\u05EA", gender: "f" },
-    json_string: { label: "\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA JSON", gender: "f" },
-    e164: { label: "\u05DE\u05E1\u05E4\u05E8 E.164", gender: "m" },
-    credit_card: { label: "\u05DE\u05E1\u05E4\u05E8 \u05DB\u05E8\u05D8\u05D9\u05E1 \u05D0\u05E9\u05E8\u05D0\u05D9", gender: "m" },
-    currency_code: { label: "\u05E7\u05D5\u05D3 \u05DE\u05D8\u05D1\u05E2", gender: "m" },
+    datetime: { label: "תאריך וזמן ISO", gender: "m" },
+    date: { label: "תאריך ISO", gender: "m" },
+    time: { label: "זמן ISO", gender: "m" },
+    duration: { label: "משך זמן ISO", gender: "m" },
+    ipv4: { label: "כתובת IPv4", gender: "f" },
+    ipv6: { label: "כתובת IPv6", gender: "f" },
+    mac: { label: "כתובת MAC", gender: "f" },
+    cidrv4: { label: "טווח IPv4", gender: "m" },
+    cidrv6: { label: "טווח IPv6", gender: "m" },
+    base64: { label: "מחרוזת בבסיס 64", gender: "f" },
+    base64url: { label: "מחרוזת בבסיס 64 לכתובות רשת", gender: "f" },
+    json_string: { label: "מחרוזת JSON", gender: "f" },
+    e164: { label: "מספר E.164", gender: "m" },
+    credit_card: { label: "מספר כרטיס אשראי", gender: "m" },
+    currency_code: { label: "קוד מטבע", gender: "m" },
     iban: { label: "IBAN", gender: "m" },
     jwt: { label: "JWT", gender: "m" },
-    template_literal: { label: "\u05E7\u05DC\u05D8", gender: "m" },
-    ends_with: { label: "\u05E7\u05DC\u05D8", gender: "m" },
-    includes: { label: "\u05E7\u05DC\u05D8", gender: "m" },
-    lowercase: { label: "\u05E7\u05DC\u05D8", gender: "m" },
-    starts_with: { label: "\u05E7\u05DC\u05D8", gender: "m" },
-    uppercase: { label: "\u05E7\u05DC\u05D8", gender: "m" }
+    template_literal: { label: "קלט", gender: "m" },
+    ends_with: { label: "קלט", gender: "m" },
+    includes: { label: "קלט", gender: "m" },
+    lowercase: { label: "קלט", gender: "m" },
+    starts_with: { label: "קלט", gender: "m" },
+    uppercase: { label: "קלט", gender: "m" }
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -7985,101 +10757,101 @@ var error20 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? TypeNames[receivedType]?.label ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA instanceof ${issue2.expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
+          return `קלט לא תקין: צריך להיות instanceof ${issue2.expected}, התקבל ${received}`;
         }
-        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${expected}, \u05D4\u05EA\u05E7\u05D1\u05DC ${received}`;
+        return `קלט לא תקין: צריך להיות ${expected}, התקבל ${received}`;
       }
       case "invalid_value": {
         if (issue2.values.length === 1) {
-          return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05E2\u05E8\u05DA \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA ${stringifyPrimitive(issue2.values[0])}`;
+          return `ערך לא תקין: הערך חייב להיות ${stringifyPrimitive(issue2.values[0])}`;
         }
         const stringified = issue2.values.map((v) => stringifyPrimitive(v));
         if (issue2.values.length === 2) {
-          return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${stringified[0]} \u05D0\u05D5 ${stringified[1]}`;
+          return `ערך לא תקין: האפשרויות המתאימות הן ${stringified[0]} או ${stringified[1]}`;
         }
         const lastValue = stringified[stringified.length - 1];
         const restValues = stringified.slice(0, -1).join(", ");
-        return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D4\u05D0\u05E4\u05E9\u05E8\u05D5\u05D9\u05D5\u05EA \u05D4\u05DE\u05EA\u05D0\u05D9\u05DE\u05D5\u05EA \u05D4\u05DF ${restValues} \u05D0\u05D5 ${lastValue}`;
+        return `ערך לא תקין: האפשרויות המתאימות הן ${restValues} או ${lastValue}`;
       }
       case "too_big": {
         const sizing = getSizing(issue2.origin);
         const subject = withDefinite(issue2.origin ?? "value");
         if (issue2.origin === "string") {
-          return `${sizing?.longLabel ?? "\u05D0\u05E8\u05D5\u05DA"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue2.maximum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "\u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA" : "\u05DC\u05DB\u05DC \u05D4\u05D9\u05D5\u05EA\u05E8"}`.trim();
+          return `${sizing?.longLabel ?? "ארוך"} מדי: ${subject} צריכה להכיל ${issue2.maximum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "או פחות" : "לכל היותר"}`.trim();
         }
         if (issue2.origin === "number") {
-          const comparison = issue2.inclusive ? `\u05E7\u05D8\u05DF \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue2.maximum}` : `\u05E7\u05D8\u05DF \u05DE-${issue2.maximum}`;
-          return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${comparison}`;
+          const comparison = issue2.inclusive ? `קטן או שווה ל-${issue2.maximum}` : `קטן מ-${issue2.maximum}`;
+          return `גדול מדי: ${subject} צריך להיות ${comparison}`;
         }
         if (issue2.origin === "array" || issue2.origin === "set") {
-          const verb = issue2.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
-          const comparison = issue2.inclusive ? `${issue2.maximum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05E4\u05D7\u05D5\u05EA` : `\u05E4\u05D7\u05D5\u05EA \u05DE-${issue2.maximum} ${sizing?.unit ?? ""}`;
-          return `\u05D2\u05D3\u05D5\u05DC \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${comparison}`.trim();
+          const verb = issue2.origin === "set" ? "צריכה" : "צריך";
+          const comparison = issue2.inclusive ? `${issue2.maximum} ${sizing?.unit ?? ""} או פחות` : `פחות מ-${issue2.maximum} ${sizing?.unit ?? ""}`;
+          return `גדול מדי: ${subject} ${verb} להכיל ${comparison}`.trim();
         }
         const adj = issue2.inclusive ? "<=" : "<";
         const be = verbFor(issue2.origin ?? "value");
         if (sizing?.unit) {
-          return `${sizing.longLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+          return `${sizing.longLabel} מדי: ${subject} ${be} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
         }
-        return `${sizing?.longLabel ?? "\u05D2\u05D3\u05D5\u05DC"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.maximum.toString()}`;
+        return `${sizing?.longLabel ?? "גדול"} מדי: ${subject} ${be} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const sizing = getSizing(issue2.origin);
         const subject = withDefinite(issue2.origin ?? "value");
         if (issue2.origin === "string") {
-          return `${sizing?.shortLabel ?? "\u05E7\u05E6\u05E8"} \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DB\u05D4 \u05DC\u05D4\u05DB\u05D9\u05DC ${issue2.minimum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "\u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8" : "\u05DC\u05E4\u05D7\u05D5\u05EA"}`.trim();
+          return `${sizing?.shortLabel ?? "קצר"} מדי: ${subject} צריכה להכיל ${issue2.minimum.toString()} ${sizing?.unit ?? ""} ${issue2.inclusive ? "או יותר" : "לפחות"}`.trim();
         }
         if (issue2.origin === "number") {
-          const comparison = issue2.inclusive ? `\u05D2\u05D3\u05D5\u05DC \u05D0\u05D5 \u05E9\u05D5\u05D5\u05D4 \u05DC-${issue2.minimum}` : `\u05D2\u05D3\u05D5\u05DC \u05DE-${issue2.minimum}`;
-          return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} \u05E6\u05E8\u05D9\u05DA \u05DC\u05D4\u05D9\u05D5\u05EA ${comparison}`;
+          const comparison = issue2.inclusive ? `גדול או שווה ל-${issue2.minimum}` : `גדול מ-${issue2.minimum}`;
+          return `קטן מדי: ${subject} צריך להיות ${comparison}`;
         }
         if (issue2.origin === "array" || issue2.origin === "set") {
-          const verb = issue2.origin === "set" ? "\u05E6\u05E8\u05D9\u05DB\u05D4" : "\u05E6\u05E8\u05D9\u05DA";
+          const verb = issue2.origin === "set" ? "צריכה" : "צריך";
           if (issue2.minimum === 1 && issue2.inclusive) {
-            const singularPhrase = issue2.origin === "set" ? "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3" : "\u05DC\u05E4\u05D7\u05D5\u05EA \u05E4\u05E8\u05D9\u05D8 \u05D0\u05D7\u05D3";
-            return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${singularPhrase}`;
+            const singularPhrase = issue2.origin === "set" ? "לפחות פריט אחד" : "לפחות פריט אחד";
+            return `קטן מדי: ${subject} ${verb} להכיל ${singularPhrase}`;
           }
-          const comparison = issue2.inclusive ? `${issue2.minimum} ${sizing?.unit ?? ""} \u05D0\u05D5 \u05D9\u05D5\u05EA\u05E8` : `\u05D9\u05D5\u05EA\u05E8 \u05DE-${issue2.minimum} ${sizing?.unit ?? ""}`;
-          return `\u05E7\u05D8\u05DF \u05DE\u05D3\u05D9: ${subject} ${verb} \u05DC\u05D4\u05DB\u05D9\u05DC ${comparison}`.trim();
+          const comparison = issue2.inclusive ? `${issue2.minimum} ${sizing?.unit ?? ""} או יותר` : `יותר מ-${issue2.minimum} ${sizing?.unit ?? ""}`;
+          return `קטן מדי: ${subject} ${verb} להכיל ${comparison}`.trim();
         }
         const adj = issue2.inclusive ? ">=" : ">";
         const be = verbFor(issue2.origin ?? "value");
         if (sizing?.unit) {
-          return `${sizing.shortLabel} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `${sizing.shortLabel} מדי: ${subject} ${be} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `${sizing?.shortLabel ?? "\u05E7\u05D8\u05DF"} \u05DE\u05D3\u05D9: ${subject} ${be} ${adj}${issue2.minimum.toString()}`;
+        return `${sizing?.shortLabel ?? "קטן"} מדי: ${subject} ${be} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D7\u05D9\u05DC \u05D1 "${_issue.prefix}"`;
+          return `המחרוזת חייבת להתחיל ב "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05E1\u05EA\u05D9\u05D9\u05DD \u05D1 "${_issue.suffix}"`;
+          return `המחרוזת חייבת להסתיים ב "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05DB\u05DC\u05D5\u05DC "${_issue.includes}"`;
+          return `המחרוזת חייבת לכלול "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u05D4\u05DE\u05D7\u05E8\u05D5\u05D6\u05EA \u05D7\u05D9\u05D9\u05D1\u05EA \u05DC\u05D4\u05EA\u05D0\u05D9\u05DD \u05DC\u05EA\u05D1\u05E0\u05D9\u05EA ${_issue.pattern}`;
+          return `המחרוזת חייבת להתאים לתבנית ${_issue.pattern}`;
         const nounEntry = FormatDictionary[_issue.format];
         const noun = nounEntry?.label ?? _issue.format;
         const gender = nounEntry?.gender ?? "m";
-        const adjective = gender === "f" ? "\u05EA\u05E7\u05D9\u05E0\u05D4" : "\u05EA\u05E7\u05D9\u05DF";
-        return `${noun} \u05DC\u05D0 ${adjective}`;
+        const adjective = gender === "f" ? "תקינה" : "תקין";
+        return `${noun} לא ${adjective}`;
       }
       case "not_multiple_of":
-        return `\u05DE\u05E1\u05E4\u05E8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF: \u05D7\u05D9\u05D9\u05D1 \u05DC\u05D4\u05D9\u05D5\u05EA \u05DE\u05DB\u05E4\u05DC\u05D4 \u05E9\u05DC ${issue2.divisor}`;
+        return `מספר לא תקין: חייב להיות מכפלה של ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u05DE\u05E4\u05EA\u05D7${issue2.keys.length > 1 ? "\u05D5\u05EA" : ""} \u05DC\u05D0 \u05DE\u05D6\u05D5\u05D4${issue2.keys.length > 1 ? "\u05D9\u05DD" : "\u05D4"}: ${joinValues(issue2.keys, ", ")}`;
+        return `מפתח${issue2.keys.length > 1 ? "ות" : ""} לא מזוה${issue2.keys.length > 1 ? "ים" : "ה"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key": {
-        return `\u05E9\u05D3\u05D4 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1\u05D0\u05D5\u05D1\u05D9\u05D9\u05E7\u05D8`;
+        return `שדה לא תקין באובייקט`;
       }
       case "invalid_union":
-        return "\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF";
+        return "קלט לא תקין";
       case "invalid_element": {
         const place = withDefinite(issue2.origin ?? "array");
-        return `\u05E2\u05E8\u05DA \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF \u05D1${place}`;
+        return `ערך לא תקין ב${place}`;
       }
       default:
-        return `\u05E7\u05DC\u05D8 \u05DC\u05D0 \u05EA\u05E7\u05D9\u05DF`;
+        return `קלט לא תקין`;
     }
   };
 };
@@ -8092,20 +10864,20 @@ function he_default() {
 // node_modules/zod/v4/locales/hi.js
 var error21 = () => {
   const Sizable = {
-    string: { unit: "\u0905\u0915\u094D\u0937\u0930", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" },
-    file: { unit: "\u092C\u093E\u0907\u091F\u094D\u0938", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" },
-    array: { unit: "\u0924\u0924\u094D\u0935", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" },
-    set: { unit: "\u0924\u0924\u094D\u0935", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" },
-    map: { unit: "\u092A\u094D\u0930\u0935\u093F\u0937\u094D\u091F\u093F\u092F\u093E\u0901", verb: "\u0930\u0916\u0928\u0947 \u0915\u0947 \u0932\u093F\u090F" }
+    string: { unit: "अक्षर", verb: "रखने के लिए" },
+    file: { unit: "बाइट्स", verb: "रखने के लिए" },
+    array: { unit: "तत्व", verb: "रखने के लिए" },
+    set: { unit: "तत्व", verb: "रखने के लिए" },
+    map: { unit: "प्रविष्टियाँ", verb: "रखने के लिए" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0907\u0928\u092A\u0941\u091F",
-    email: "\u0908\u092E\u0947\u0932 \u092A\u0924\u093E",
+    regex: "इनपुट",
+    email: "ईमेल पता",
     url: "URL",
-    emoji: "\u0907\u092E\u094B\u091C\u0940",
+    emoji: "इमोजी",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -8116,24 +10888,24 @@ var error21 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0924\u093F\u0925\u093F \u0914\u0930 \u0938\u092E\u092F",
-    date: "ISO \u0924\u093F\u0925\u093F",
-    time: "ISO \u0938\u092E\u092F",
-    duration: "ISO \u0905\u0935\u0927\u093F",
-    ipv4: "IPv4 \u092A\u0924\u093E",
-    ipv6: "IPv6 \u092A\u0924\u093E",
-    mac: "MAC \u092A\u0924\u093E",
-    cidrv4: "IPv4 \u0936\u094D\u0930\u0947\u0923\u0940",
-    cidrv6: "IPv6 \u0936\u094D\u0930\u0947\u0923\u0940",
-    base64: "Base64-\u090F\u0928\u094D\u0915\u094B\u0921\u0947\u0921 \u0938\u094D\u091F\u094D\u0930\u093F\u0902\u0917",
-    base64url: "Base64URL-\u090F\u0928\u094D\u0915\u094B\u0921\u0947\u0921 \u0938\u094D\u091F\u094D\u0930\u093F\u0902\u0917",
-    json_string: "JSON \u0938\u094D\u091F\u094D\u0930\u093F\u0902\u0917",
-    e164: "E.164 \u0938\u0902\u0916\u094D\u092F\u093E",
-    credit_card: "\u0915\u094D\u0930\u0947\u0921\u093F\u091F \u0915\u093E\u0930\u094D\u0921 \u0938\u0902\u0916\u094D\u092F\u093E",
-    currency_code: "\u092E\u0941\u0926\u094D\u0930\u093E \u0915\u094B\u0921",
+    datetime: "ISO तिथि और समय",
+    date: "ISO तिथि",
+    time: "ISO समय",
+    duration: "ISO अवधि",
+    ipv4: "IPv4 पता",
+    ipv6: "IPv6 पता",
+    mac: "MAC पता",
+    cidrv4: "IPv4 श्रेणी",
+    cidrv6: "IPv6 श्रेणी",
+    base64: "Base64-एन्कोडेड स्ट्रिंग",
+    base64url: "Base64URL-एन्कोडेड स्ट्रिंग",
+    json_string: "JSON स्ट्रिंग",
+    e164: "E.164 संख्या",
+    credit_card: "क्रेडिट कार्ड संख्या",
+    currency_code: "मुद्रा कोड",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0907\u0928\u092A\u0941\u091F"
+    template_literal: "इनपुट"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -8144,58 +10916,58 @@ var error21 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0907\u0928\u092A\u0941\u091F: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 ${expected}, \u092A\u094D\u0930\u093E\u092A\u094D\u0924 ${received}`;
+        return `अमान्य इनपुट: अपेक्षित ${expected}, प्राप्त ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0907\u0928\u092A\u0941\u091F: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0935\u093F\u0915\u0932\u094D\u092A: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 \u092E\u093E\u0928\u094B\u0902 \u092E\u0947\u0902 \u0938\u0947 \u090F\u0915 ${joinValues(issue2.values, "|")}`;
+          return `अमान्य इनपुट: अपेक्षित ${stringifyPrimitive(issue2.values[0])}`;
+        return `अमान्य विकल्प: अपेक्षित मानों में से एक ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u092C\u0939\u0941\u0924 \u092C\u0921\u093C\u093E: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 \u0925\u093E \u0915\u093F ${issue2.origin ?? "\u092E\u093E\u0928"} \u092E\u0947\u0902 ${adj}${issue2.maximum} ${sizing.unit} \u0939\u094B\u0902`;
-        return `\u092C\u0939\u0941\u0924 \u092C\u0921\u093C\u093E: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 \u0925\u093E \u0915\u093F ${issue2.origin ?? "\u092E\u093E\u0928"} ${adj}${issue2.maximum} \u0939\u094B`;
+          return `बहुत बड़ा: अपेक्षित था कि ${issue2.origin ?? "मान"} में ${adj}${issue2.maximum} ${sizing.unit} हों`;
+        return `बहुत बड़ा: अपेक्षित था कि ${issue2.origin ?? "मान"} ${adj}${issue2.maximum} हो`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u092C\u0939\u0941\u0924 \u091B\u094B\u091F\u093E: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 \u0925\u093E \u0915\u093F ${issue2.origin} \u092E\u0947\u0902 ${adj}${issue2.minimum} ${sizing.unit} \u0939\u094B\u0902`;
-        return `\u092C\u0939\u0941\u0924 \u091B\u094B\u091F\u093E: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 \u0925\u093E \u0915\u093F ${issue2.origin} ${adj}${issue2.minimum} \u0939\u094B`;
+          return `बहुत छोटा: अपेक्षित था कि ${issue2.origin} में ${adj}${issue2.minimum} ${sizing.unit} हों`;
+        return `बहुत छोटा: अपेक्षित था कि ${issue2.origin} ${adj}${issue2.minimum} हो`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u094D\u091F\u094D\u0930\u093F\u0902\u0917: "${_issue.prefix}" \u0938\u0947 \u0936\u0941\u0930\u0942 \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F`;
+          return `अमान्य स्ट्रिंग: "${_issue.prefix}" से शुरू होना चाहिए`;
         if (_issue.format === "ends_with")
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u094D\u091F\u094D\u0930\u093F\u0902\u0917: "${_issue.suffix}" \u092A\u0930 \u0938\u092E\u093E\u092A\u094D\u0924 \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F`;
+          return `अमान्य स्ट्रिंग: "${_issue.suffix}" पर समाप्त होना चाहिए`;
         if (_issue.format === "includes")
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u094D\u091F\u094D\u0930\u093F\u0902\u0917: \u0907\u0938\u092E\u0947\u0902 "${_issue.includes}" \u0936\u093E\u092E\u093F\u0932 \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F`;
+          return `अमान्य स्ट्रिंग: इसमें "${_issue.includes}" शामिल होना चाहिए`;
         if (_issue.format === "regex")
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u094D\u091F\u094D\u0930\u093F\u0902\u0917: \u092A\u0948\u091F\u0930\u094D\u0928 ${_issue.pattern} \u0938\u0947 \u092E\u0947\u0932 \u0916\u093E\u0928\u093E \u091A\u093E\u0939\u093F\u090F`;
-        return `\u0905\u092E\u093E\u0928\u094D\u092F ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `अमान्य स्ट्रिंग: पैटर्न ${_issue.pattern} से मेल खाना चाहिए`;
+        return `अमान्य ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u0902\u0916\u094D\u092F\u093E: \u092F\u0939 ${issue2.divisor} \u0915\u093E \u0917\u0941\u0923\u091C \u0939\u094B\u0928\u093E \u091A\u093E\u0939\u093F\u090F`;
+        return `अमान्य संख्या: यह ${issue2.divisor} का गुणज होना चाहिए`;
       case "unrecognized_keys":
-        return `\u0905\u092A\u0930\u093F\u091A\u093F\u0924 \u0915\u0941\u0902\u091C\u0940${issue2.keys.length > 1 ? "\u092F\u093E\u0901" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `अपरिचित कुंजी${issue2.keys.length > 1 ? "याँ" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0915\u0941\u0902\u091C\u0940: ${issue2.origin} \u092E\u0947\u0902`;
+        return `अमान्य कुंजी: ${issue2.origin} में`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0921\u093F\u0938\u094D\u0915\u094D\u0930\u093F\u092E\u093F\u0928\u0947\u091F\u0930 \u092E\u093E\u0928: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 ${opts}`;
+          return `अमान्य डिस्क्रिमिनेटर मान: अपेक्षित ${opts}`;
         }
-        return "\u0905\u092E\u093E\u0928\u094D\u092F \u0907\u0928\u092A\u0941\u091F";
+        return "अमान्य इनपुट";
       case "invalid_element":
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u092E\u093E\u0928: ${issue2.origin} \u092E\u0947\u0902`;
+        return `अमान्य मान: ${issue2.origin} में`;
       default:
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0907\u0928\u092A\u0941\u091F`;
+        return `अमान्य इनपुट`;
     }
   };
 };
-function hi_default() {
+function hi_default2() {
   return {
     localeError: error21()
   };
@@ -8270,49 +11042,49 @@ var error22 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Neispravan unos: o\u010Dekuje se instanceof ${issue2.expected}, a primljeno je ${received}`;
+          return `Neispravan unos: očekuje se instanceof ${issue2.expected}, a primljeno je ${received}`;
         }
-        return `Neispravan unos: o\u010Dekuje se ${expected}, a primljeno je ${received}`;
+        return `Neispravan unos: očekuje se ${expected}, a primljeno je ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Neispravna vrijednost: o\u010Dekivano ${stringifyPrimitive(issue2.values[0])}`;
-        return `Neispravna opcija: o\u010Dekivano jedno od ${joinValues(issue2.values, "|")}`;
+          return `Neispravna vrijednost: očekivano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neispravna opcija: očekivano jedno od ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
         if (sizing)
-          return `Preveliko: o\u010Dekivano da ${origin ?? "vrijednost"} ima ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemenata"}`;
-        return `Preveliko: o\u010Dekivano da ${origin ?? "vrijednost"} bude ${adj}${issue2.maximum.toString()}`;
+          return `Preveliko: očekivano da ${origin ?? "vrijednost"} ima ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemenata"}`;
+        return `Preveliko: očekivano da ${origin ?? "vrijednost"} bude ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
         if (sizing) {
-          return `Premalo: o\u010Dekivano da ${origin} ima ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Premalo: očekivano da ${origin} ima ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Premalo: o\u010Dekivano da ${origin} bude ${adj}${issue2.minimum.toString()}`;
+        return `Premalo: očekivano da ${origin} bude ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Neispravan tekst: mora zapo\u010Dinjati s "${_issue.prefix}"`;
+          return `Neispravan tekst: mora započinjati s "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Neispravan tekst: mora zavr\u0161avati s "${_issue.suffix}"`;
+          return `Neispravan tekst: mora završavati s "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Neispravan tekst: mora sadr\u017Eavati "${_issue.includes}"`;
+          return `Neispravan tekst: mora sadržavati "${_issue.includes}"`;
         if (_issue.format === "regex")
           return `Neispravan tekst: mora odgovarati uzorku ${_issue.pattern}`;
         return `Neispravna ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Neispravan broj: mora biti vi\u0161ekratnik od ${issue2.divisor}`;
+        return `Neispravan broj: mora biti višekratnik od ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Neprepoznat${issue2.keys.length > 1 ? "i klju\u010Devi" : " klju\u010D"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Neprepoznat${issue2.keys.length > 1 ? "i ključevi" : " ključ"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Neispravan klju\u010D u ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
+        return `Neispravan ključ u ${TypeDictionary[issue2.origin] ?? issue2.origin}`;
       case "invalid_union":
         return "Neispravan unos";
       case "invalid_element":
@@ -8342,7 +11114,7 @@ var error23 = () => {
   }
   const FormatDictionary = {
     regex: "bemenet",
-    email: "email c\xEDm",
+    email: "email cím",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -8355,29 +11127,29 @@ var error23 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO id\u0151b\xE9lyeg",
-    date: "ISO d\xE1tum",
-    time: "ISO id\u0151",
-    duration: "ISO id\u0151intervallum",
-    ipv4: "IPv4 c\xEDm",
-    ipv6: "IPv6 c\xEDm",
-    mac: "MAC c\xEDm",
-    cidrv4: "IPv4 tartom\xE1ny",
-    cidrv6: "IPv6 tartom\xE1ny",
-    base64: "base64-k\xF3dolt string",
-    base64url: "base64url-k\xF3dolt string",
+    datetime: "ISO időbélyeg",
+    date: "ISO dátum",
+    time: "ISO idő",
+    duration: "ISO időintervallum",
+    ipv4: "IPv4 cím",
+    ipv6: "IPv6 cím",
+    mac: "MAC cím",
+    cidrv4: "IPv4 tartomány",
+    cidrv6: "IPv6 tartomány",
+    base64: "base64-kódolt string",
+    base64url: "base64url-kódolt string",
     json_string: "JSON string",
-    e164: "E.164 sz\xE1m",
-    credit_card: "hitelk\xE1rtyasz\xE1m",
-    currency_code: "p\xE9nznemk\xF3d",
+    e164: "E.164 szám",
+    credit_card: "hitelkártyaszám",
+    currency_code: "pénznemkód",
     iban: "IBAN",
     jwt: "JWT",
     template_literal: "bemenet"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "sz\xE1m",
-    array: "t\xF6mb"
+    number: "szám",
+    array: "tömb"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -8386,53 +11158,53 @@ var error23 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k instanceof ${issue2.expected}, a kapott \xE9rt\xE9k ${received}`;
+          return `Érvénytelen bemenet: a várt érték instanceof ${issue2.expected}, a kapott érték ${received}`;
         }
-        return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${expected}, a kapott \xE9rt\xE9k ${received}`;
+        return `Érvénytelen bemenet: a várt érték ${expected}, a kapott érték ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\xC9rv\xE9nytelen bemenet: a v\xE1rt \xE9rt\xE9k ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xC9rv\xE9nytelen opci\xF3: valamelyik \xE9rt\xE9k v\xE1rt ${joinValues(issue2.values, "|")}`;
+          return `Érvénytelen bemenet: a várt érték ${stringifyPrimitive(issue2.values[0])}`;
+        return `Érvénytelen opció: valamelyik érték várt ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `T\xFAl nagy: ${issue2.origin ?? "\xE9rt\xE9k"} m\xE9rete t\xFAl nagy ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elem"}`;
-        return `T\xFAl nagy: a bemeneti \xE9rt\xE9k ${issue2.origin ?? "\xE9rt\xE9k"} t\xFAl nagy: ${adj}${issue2.maximum.toString()}`;
+          return `Túl nagy: ${issue2.origin ?? "érték"} mérete túl nagy ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elem"}`;
+        return `Túl nagy: a bemeneti érték ${issue2.origin ?? "érték"} túl nagy: ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} m\xE9rete t\xFAl kicsi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Túl kicsi: a bemeneti érték ${issue2.origin} mérete túl kicsi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `T\xFAl kicsi: a bemeneti \xE9rt\xE9k ${issue2.origin} t\xFAl kicsi ${adj}${issue2.minimum.toString()}`;
+        return `Túl kicsi: a bemeneti érték ${issue2.origin} túl kicsi ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\xC9rv\xE9nytelen string: "${_issue.prefix}" \xE9rt\xE9kkel kell kezd\u0151dnie`;
+          return `Érvénytelen string: "${_issue.prefix}" értékkel kell kezdődnie`;
         if (_issue.format === "ends_with")
-          return `\xC9rv\xE9nytelen string: "${_issue.suffix}" \xE9rt\xE9kkel kell v\xE9gz\u0151dnie`;
+          return `Érvénytelen string: "${_issue.suffix}" értékkel kell végződnie`;
         if (_issue.format === "includes")
-          return `\xC9rv\xE9nytelen string: "${_issue.includes}" \xE9rt\xE9ket kell tartalmaznia`;
+          return `Érvénytelen string: "${_issue.includes}" értéket kell tartalmaznia`;
         if (_issue.format === "regex")
-          return `\xC9rv\xE9nytelen string: ${_issue.pattern} mint\xE1nak kell megfelelnie`;
-        return `\xC9rv\xE9nytelen ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Érvénytelen string: ${_issue.pattern} mintának kell megfelelnie`;
+        return `Érvénytelen ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\xC9rv\xE9nytelen sz\xE1m: ${issue2.divisor} t\xF6bbsz\xF6r\xF6s\xE9nek kell lennie`;
+        return `Érvénytelen szám: ${issue2.divisor} többszörösének kell lennie`;
       case "unrecognized_keys":
         return `Ismeretlen kulcs${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\xC9rv\xE9nytelen kulcs ${issue2.origin}`;
+        return `Érvénytelen kulcs ${issue2.origin}`;
       case "invalid_union":
-        return "\xC9rv\xE9nytelen bemenet";
+        return "Érvénytelen bemenet";
       case "invalid_element":
-        return `\xC9rv\xE9nytelen \xE9rt\xE9k: ${issue2.origin}`;
+        return `Érvénytelen érték: ${issue2.origin}`;
       default:
-        return `\xC9rv\xE9nytelen bemenet`;
+        return `Érvénytelen bemenet`;
     }
   };
 };
@@ -8449,56 +11221,56 @@ function getArmenianPlural(count, one, many) {
 function withDefiniteArticle(word) {
   if (!word)
     return "";
-  const vowels = ["\u0561", "\u0565", "\u0568", "\u056B", "\u0578", "\u0578\u0582", "\u0585"];
+  const vowels = ["ա", "ե", "ը", "ի", "ո", "ու", "օ"];
   const lastChar = word[word.length - 1];
-  return word + (vowels.includes(lastChar) ? "\u0576" : "\u0568");
+  return word + (vowels.includes(lastChar) ? "ն" : "ը");
 }
 var error24 = () => {
   const Sizable = {
     string: {
       unit: {
-        one: "\u0576\u0577\u0561\u0576",
-        many: "\u0576\u0577\u0561\u0576\u0576\u0565\u0580"
+        one: "նշան",
+        many: "նշաններ"
       },
-      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+      verb: "ունենալ"
     },
     file: {
       unit: {
-        one: "\u0562\u0561\u0575\u0569",
-        many: "\u0562\u0561\u0575\u0569\u0565\u0580"
+        one: "բայթ",
+        many: "բայթեր"
       },
-      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+      verb: "ունենալ"
     },
     array: {
       unit: {
-        one: "\u057F\u0561\u0580\u0580",
-        many: "\u057F\u0561\u0580\u0580\u0565\u0580"
+        one: "տարր",
+        many: "տարրեր"
       },
-      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+      verb: "ունենալ"
     },
     set: {
       unit: {
-        one: "\u057F\u0561\u0580\u0580",
-        many: "\u057F\u0561\u0580\u0580\u0565\u0580"
+        one: "տարր",
+        many: "տարրեր"
       },
-      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+      verb: "ունենալ"
     },
     map: {
       unit: {
-        one: "\u057F\u0561\u0580\u0580",
-        many: "\u057F\u0561\u0580\u0580\u0565\u0580"
+        one: "տարր",
+        many: "տարրեր"
       },
-      verb: "\u0578\u0582\u0576\u0565\u0576\u0561\u056C"
+      verb: "ունենալ"
     }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0574\u0578\u0582\u057F\u0584",
-    email: "\u0567\u056C. \u0570\u0561\u057D\u0581\u0565",
+    regex: "մուտք",
+    email: "էլ. հասցե",
     url: "URL",
-    emoji: "\u0567\u0574\u0578\u057B\u056B",
+    emoji: "էմոջի",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -8509,29 +11281,29 @@ var error24 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0561\u0574\u057D\u0561\u0569\u056B\u057E \u0587 \u056A\u0561\u0574",
-    date: "ISO \u0561\u0574\u057D\u0561\u0569\u056B\u057E",
-    time: "ISO \u056A\u0561\u0574",
-    duration: "ISO \u057F\u0587\u0578\u0572\u0578\u0582\u0569\u0575\u0578\u0582\u0576",
-    ipv4: "IPv4 \u0570\u0561\u057D\u0581\u0565",
-    ipv6: "IPv6 \u0570\u0561\u057D\u0581\u0565",
-    mac: "MAC \u0570\u0561\u057D\u0581\u0565",
-    cidrv4: "IPv4 \u0574\u056B\u057B\u0561\u056F\u0561\u0575\u0584",
-    cidrv6: "IPv6 \u0574\u056B\u057B\u0561\u056F\u0561\u0575\u0584",
-    base64: "base64 \u0571\u0587\u0561\u0579\u0561\u0583\u0578\u057E \u057F\u0578\u0572",
-    base64url: "base64url \u0571\u0587\u0561\u0579\u0561\u0583\u0578\u057E \u057F\u0578\u0572",
-    json_string: "JSON \u057F\u0578\u0572",
-    e164: "E.164 \u0570\u0561\u0574\u0561\u0580",
-    credit_card: "\u056F\u0580\u0565\u0564\u056B\u057F \u0584\u0561\u0580\u057F\u056B \u0570\u0561\u0574\u0561\u0580",
-    currency_code: "\u0561\u0580\u056A\u0578\u0582\u0575\u0569\u056B \u056F\u0578\u0564",
+    datetime: "ISO ամսաթիվ և ժամ",
+    date: "ISO ամսաթիվ",
+    time: "ISO ժամ",
+    duration: "ISO տևողություն",
+    ipv4: "IPv4 հասցե",
+    ipv6: "IPv6 հասցե",
+    mac: "MAC հասցե",
+    cidrv4: "IPv4 միջակայք",
+    cidrv6: "IPv6 միջակայք",
+    base64: "base64 ձևաչափով տող",
+    base64url: "base64url ձևաչափով տող",
+    json_string: "JSON տող",
+    e164: "E.164 համար",
+    credit_card: "կրեդիտ քարտի համար",
+    currency_code: "արժույթի կոդ",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0574\u0578\u0582\u057F\u0584"
+    template_literal: "մուտք"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0569\u056B\u057E",
-    array: "\u0566\u0561\u0576\u0563\u057E\u0561\u056E"
+    number: "թիվ",
+    array: "զանգված"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -8540,23 +11312,23 @@ var error24 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 instanceof ${issue2.expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
+          return `Սխալ մուտքագրում․ սպասվում էր instanceof ${issue2.expected}, ստացվել է ${received}`;
         }
-        return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${expected}, \u057D\u057F\u0561\u0581\u057E\u0565\u056C \u0567 ${received}`;
+        return `Սխալ մուտքագրում․ սպասվում էր ${expected}, ստացվել է ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 ${stringifyPrimitive(issue2.values[1])}`;
-        return `\u054D\u056D\u0561\u056C \u057F\u0561\u0580\u0562\u0565\u0580\u0561\u056F\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567\u0580 \u0570\u0565\u057F\u0587\u0575\u0561\u056C\u0576\u0565\u0580\u056B\u0581 \u0574\u0565\u056F\u0568\u055D ${joinValues(issue2.values, "|")}`;
+          return `Սխալ մուտքագրում․ սպասվում էր ${stringifyPrimitive(issue2.values[1])}`;
+        return `Սխալ տարբերակ․ սպասվում էր հետևյալներից մեկը՝ ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
           const maxValue = Number(issue2.maximum);
           const unit = getArmenianPlural(maxValue, sizing.unit.one, sizing.unit.many);
-          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue2.maximum.toString()} ${unit}`;
+          return `Չափազանց մեծ արժեք․ սպասվում է, որ ${withDefiniteArticle(issue2.origin ?? "արժեք")} կունենա ${adj}${issue2.maximum.toString()} ${unit}`;
         }
-        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0574\u0565\u056E \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin ?? "\u0561\u0580\u056A\u0565\u0584")} \u056C\u056B\u0576\u056B ${adj}${issue2.maximum.toString()}`;
+        return `Չափազանց մեծ արժեք․ սպասվում է, որ ${withDefiniteArticle(issue2.origin ?? "արժեք")} լինի ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
@@ -8564,34 +11336,34 @@ var error24 = () => {
         if (sizing) {
           const minValue = Number(issue2.minimum);
           const unit = getArmenianPlural(minValue, sizing.unit.one, sizing.unit.many);
-          return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin)} \u056F\u0578\u0582\u0576\u0565\u0576\u0561 ${adj}${issue2.minimum.toString()} ${unit}`;
+          return `Չափազանց փոքր արժեք․ սպասվում է, որ ${withDefiniteArticle(issue2.origin)} կունենա ${adj}${issue2.minimum.toString()} ${unit}`;
         }
-        return `\u0549\u0561\u0583\u0561\u0566\u0561\u0576\u0581 \u0583\u0578\u0584\u0580 \u0561\u0580\u056A\u0565\u0584\u2024 \u057D\u057A\u0561\u057D\u057E\u0578\u0582\u0574 \u0567, \u0578\u0580 ${withDefiniteArticle(issue2.origin)} \u056C\u056B\u0576\u056B ${adj}${issue2.minimum.toString()}`;
+        return `Չափազանց փոքր արժեք․ սպասվում է, որ ${withDefiniteArticle(issue2.origin)} լինի ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u057D\u056F\u057D\u057E\u056B "${_issue.prefix}"-\u0578\u057E`;
+          return `Սխալ տող․ պետք է սկսվի "${_issue.prefix}"-ով`;
         if (_issue.format === "ends_with")
-          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0561\u057E\u0561\u0580\u057F\u057E\u056B "${_issue.suffix}"-\u0578\u057E`;
+          return `Սխալ տող․ պետք է ավարտվի "${_issue.suffix}"-ով`;
         if (_issue.format === "includes")
-          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u057A\u0561\u0580\u0578\u0582\u0576\u0561\u056F\u056B "${_issue.includes}"`;
+          return `Սխալ տող․ պետք է պարունակի "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u054D\u056D\u0561\u056C \u057F\u0578\u0572\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0570\u0561\u0574\u0561\u057A\u0561\u057F\u0561\u057D\u056D\u0561\u0576\u056B ${_issue.pattern} \u0571\u0587\u0561\u0579\u0561\u0583\u056B\u0576`;
-        return `\u054D\u056D\u0561\u056C ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Սխալ տող․ պետք է համապատասխանի ${_issue.pattern} ձևաչափին`;
+        return `Սխալ ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u054D\u056D\u0561\u056C \u0569\u056B\u057E\u2024 \u057A\u0565\u057F\u0584 \u0567 \u0562\u0561\u0566\u0574\u0561\u057A\u0561\u057F\u056B\u056F \u056C\u056B\u0576\u056B ${issue2.divisor}-\u056B`;
+        return `Սխալ թիվ․ պետք է բազմապատիկ լինի ${issue2.divisor}-ի`;
       case "unrecognized_keys":
-        return `\u0549\u0573\u0561\u0576\u0561\u0579\u057E\u0561\u056E \u0562\u0561\u0576\u0561\u056C\u056B${issue2.keys.length > 1 ? "\u0576\u0565\u0580" : ""}. ${joinValues(issue2.keys, ", ")}`;
+        return `Չճանաչված բանալի${issue2.keys.length > 1 ? "ներ" : ""}. ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u054D\u056D\u0561\u056C \u0562\u0561\u0576\u0561\u056C\u056B ${withDefiniteArticle(issue2.origin)}-\u0578\u0582\u0574`;
+        return `Սխալ բանալի ${withDefiniteArticle(issue2.origin)}-ում`;
       case "invalid_union":
-        return "\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574";
+        return "Սխալ մուտքագրում";
       case "invalid_element":
-        return `\u054D\u056D\u0561\u056C \u0561\u0580\u056A\u0565\u0584 ${withDefiniteArticle(issue2.origin)}-\u0578\u0582\u0574`;
+        return `Սխալ արժեք ${withDefiniteArticle(issue2.origin)}-ում`;
       default:
-        return `\u054D\u056D\u0561\u056C \u0574\u0578\u0582\u057F\u0584\u0561\u0563\u0580\u0578\u0582\u0574`;
+        return `Սխալ մուտքագրում`;
     }
   };
 };
@@ -8716,11 +11488,11 @@ function id_default() {
 // node_modules/zod/v4/locales/is.js
 var error26 = () => {
   const Sizable = {
-    string: { unit: "stafi", verb: "a\xF0 hafa" },
-    file: { unit: "b\xE6ti", verb: "a\xF0 hafa" },
-    array: { unit: "hluti", verb: "a\xF0 hafa" },
-    set: { unit: "hluti", verb: "a\xF0 hafa" },
-    map: { unit: "hluti", verb: "a\xF0 hafa" }
+    string: { unit: "stafi", verb: "að hafa" },
+    file: { unit: "bæti", verb: "að hafa" },
+    array: { unit: "hluti", verb: "að hafa" },
+    set: { unit: "hluti", verb: "að hafa" },
+    map: { unit: "hluti", verb: "að hafa" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -8728,7 +11500,7 @@ var error26 = () => {
   const FormatDictionary = {
     regex: "gildi",
     email: "netfang",
-    url: "vefsl\xF3\xF0",
+    url: "vefslóð",
     emoji: "emoji",
     uuid: "UUID",
     uuidv4: "UUIDv4",
@@ -8740,10 +11512,10 @@ var error26 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO dagsetning og t\xEDmi",
+    datetime: "ISO dagsetning og tími",
     date: "ISO dagsetning",
-    time: "ISO t\xEDmi",
-    duration: "ISO t\xEDmalengd",
+    time: "ISO tími",
+    duration: "ISO tímalengd",
     ipv4: "IPv4 address",
     ipv6: "IPv6 address",
     mac: "MAC address",
@@ -8752,16 +11524,16 @@ var error26 = () => {
     base64: "base64-encoded strengur",
     base64url: "base64url-encoded strengur",
     json_string: "JSON strengur",
-    e164: "E.164 t\xF6lugildi",
-    credit_card: "kreditkortan\xFAmer",
-    currency_code: "gjaldmi\xF0ilsk\xF3\xF0i",
+    e164: "E.164 tölugildi",
+    credit_card: "kreditkortanúmer",
+    currency_code: "gjaldmiðilskóði",
     iban: "IBAN",
     jwt: "JWT",
     template_literal: "gildi"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "n\xFAmer",
+    number: "númer",
     array: "fylki"
   };
   return (issue2) => {
@@ -8771,52 +11543,52 @@ var error26 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera instanceof ${issue2.expected}`;
+          return `Rangt gildi: Þú slóst inn ${received} þar sem á að vera instanceof ${issue2.expected}`;
         }
-        return `Rangt gildi: \xDE\xFA sl\xF3st inn ${received} \xFEar sem \xE1 a\xF0 vera ${expected}`;
+        return `Rangt gildi: Þú slóst inn ${received} þar sem á að vera ${expected}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Rangt gildi: gert r\xE1\xF0 fyrir ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xD3gilt val: m\xE1 vera eitt af eftirfarandi ${joinValues(issue2.values, "|")}`;
+          return `Rangt gildi: gert ráð fyrir ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ógilt val: má vera eitt af eftirfarandi ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} hafi ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "hluti"}`;
-        return `Of st\xF3rt: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin ?? "gildi"} s\xE9 ${adj}${issue2.maximum.toString()}`;
+          return `Of stórt: gert er ráð fyrir að ${issue2.origin ?? "gildi"} hafi ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "hluti"}`;
+        return `Of stórt: gert er ráð fyrir að ${issue2.origin ?? "gildi"} sé ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} hafi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Of lítið: gert er ráð fyrir að ${issue2.origin} hafi ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Of l\xEDti\xF0: gert er r\xE1\xF0 fyrir a\xF0 ${issue2.origin} s\xE9 ${adj}${issue2.minimum.toString()}`;
+        return `Of lítið: gert er ráð fyrir að ${issue2.origin} sé ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\xD3gildur strengur: ver\xF0ur a\xF0 byrja \xE1 "${_issue.prefix}"`;
+          return `Ógildur strengur: verður að byrja á "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\xD3gildur strengur: ver\xF0ur a\xF0 enda \xE1 "${_issue.suffix}"`;
+          return `Ógildur strengur: verður að enda á "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\xD3gildur strengur: ver\xF0ur a\xF0 innihalda "${_issue.includes}"`;
+          return `Ógildur strengur: verður að innihalda "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\xD3gildur strengur: ver\xF0ur a\xF0 fylgja mynstri ${_issue.pattern}`;
+          return `Ógildur strengur: verður að fylgja mynstri ${_issue.pattern}`;
         return `Rangt ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `R\xF6ng tala: ver\xF0ur a\xF0 vera margfeldi af ${issue2.divisor}`;
+        return `Röng tala: verður að vera margfeldi af ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\xD3\xFEekkt ${issue2.keys.length > 1 ? "ir lyklar" : "ur lykill"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Óþekkt ${issue2.keys.length > 1 ? "ir lyklar" : "ur lykill"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Rangur lykill \xED ${issue2.origin}`;
+        return `Rangur lykill í ${issue2.origin}`;
       case "invalid_union":
         return "Rangt gildi";
       case "invalid_element":
-        return `Rangt gildi \xED ${issue2.origin}`;
+        return `Rangt gildi í ${issue2.origin}`;
       default:
         return `Rangt gildi`;
     }
@@ -8945,20 +11717,20 @@ function it_default() {
 // node_modules/zod/v4/locales/ja.js
 var error28 = () => {
   const Sizable = {
-    string: { unit: "\u6587\u5B57", verb: "\u3067\u3042\u308B" },
-    file: { unit: "\u30D0\u30A4\u30C8", verb: "\u3067\u3042\u308B" },
-    array: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" },
-    set: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" },
-    map: { unit: "\u8981\u7D20", verb: "\u3067\u3042\u308B" }
+    string: { unit: "文字", verb: "である" },
+    file: { unit: "バイト", verb: "である" },
+    array: { unit: "要素", verb: "である" },
+    set: { unit: "要素", verb: "である" },
+    map: { unit: "要素", verb: "である" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u5165\u529B\u5024",
-    email: "\u30E1\u30FC\u30EB\u30A2\u30C9\u30EC\u30B9",
+    regex: "入力値",
+    email: "メールアドレス",
     url: "URL",
-    emoji: "\u7D75\u6587\u5B57",
+    emoji: "絵文字",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -8969,29 +11741,29 @@ var error28 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO\u65E5\u6642",
-    date: "ISO\u65E5\u4ED8",
-    time: "ISO\u6642\u523B",
-    duration: "ISO\u671F\u9593",
-    ipv4: "IPv4\u30A2\u30C9\u30EC\u30B9",
-    ipv6: "IPv6\u30A2\u30C9\u30EC\u30B9",
-    mac: "MAC\u30A2\u30C9\u30EC\u30B9",
-    cidrv4: "IPv4\u7BC4\u56F2",
-    cidrv6: "IPv6\u7BC4\u56F2",
-    base64: "base64\u30A8\u30F3\u30B3\u30FC\u30C9\u6587\u5B57\u5217",
-    base64url: "base64url\u30A8\u30F3\u30B3\u30FC\u30C9\u6587\u5B57\u5217",
-    json_string: "JSON\u6587\u5B57\u5217",
-    e164: "E.164\u756A\u53F7",
-    credit_card: "\u30AF\u30EC\u30B8\u30C3\u30C8\u30AB\u30FC\u30C9\u756A\u53F7",
-    currency_code: "\u901A\u8CA8\u30B3\u30FC\u30C9",
+    datetime: "ISO日時",
+    date: "ISO日付",
+    time: "ISO時刻",
+    duration: "ISO期間",
+    ipv4: "IPv4アドレス",
+    ipv6: "IPv6アドレス",
+    mac: "MACアドレス",
+    cidrv4: "IPv4範囲",
+    cidrv6: "IPv6範囲",
+    base64: "base64エンコード文字列",
+    base64url: "base64urlエンコード文字列",
+    json_string: "JSON文字列",
+    e164: "E.164番号",
+    credit_card: "クレジットカード番号",
+    currency_code: "通貨コード",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u5165\u529B\u5024"
+    template_literal: "入力値"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u6570\u5024",
-    array: "\u914D\u5217"
+    number: "数値",
+    array: "配列"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -9000,52 +11772,52 @@ var error28 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u7121\u52B9\u306A\u5165\u529B: instanceof ${issue2.expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
+          return `無効な入力: instanceof ${issue2.expected}が期待されましたが、${received}が入力されました`;
         }
-        return `\u7121\u52B9\u306A\u5165\u529B: ${expected}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F\u304C\u3001${received}\u304C\u5165\u529B\u3055\u308C\u307E\u3057\u305F`;
+        return `無効な入力: ${expected}が期待されましたが、${received}が入力されました`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u7121\u52B9\u306A\u5165\u529B: ${stringifyPrimitive(issue2.values[0])}\u304C\u671F\u5F85\u3055\u308C\u307E\u3057\u305F`;
-        return `\u7121\u52B9\u306A\u9078\u629E: ${joinValues(issue2.values, "\u3001")}\u306E\u3044\u305A\u308C\u304B\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `無効な入力: ${stringifyPrimitive(issue2.values[0])}が期待されました`;
+        return `無効な選択: ${joinValues(issue2.values, "、")}のいずれかである必要があります`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u4EE5\u4E0B\u3067\u3042\u308B" : "\u3088\u308A\u5C0F\u3055\u3044";
+        const adj = issue2.inclusive ? "以下である" : "より小さい";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${sizing.unit ?? "\u8981\u7D20"}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u5927\u304D\u3059\u304E\u308B\u5024: ${issue2.origin ?? "\u5024"}\u306F${issue2.maximum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `大きすぎる値: ${issue2.origin ?? "値"}は${issue2.maximum.toString()}${sizing.unit ?? "要素"}${adj}必要があります`;
+        return `大きすぎる値: ${issue2.origin ?? "値"}は${issue2.maximum.toString()}${adj}必要があります`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u4EE5\u4E0A\u3067\u3042\u308B" : "\u3088\u308A\u5927\u304D\u3044";
+        const adj = issue2.inclusive ? "以上である" : "より大きい";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${sizing.unit}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u5C0F\u3055\u3059\u304E\u308B\u5024: ${issue2.origin}\u306F${issue2.minimum.toString()}${adj}\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `小さすぎる値: ${issue2.origin}は${issue2.minimum.toString()}${sizing.unit}${adj}必要があります`;
+        return `小さすぎる値: ${issue2.origin}は${issue2.minimum.toString()}${adj}必要があります`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.prefix}"\u3067\u59CB\u307E\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `無効な文字列: "${_issue.prefix}"で始まる必要があります`;
         if (_issue.format === "ends_with")
-          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.suffix}"\u3067\u7D42\u308F\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `無効な文字列: "${_issue.suffix}"で終わる必要があります`;
         if (_issue.format === "includes")
-          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: "${_issue.includes}"\u3092\u542B\u3080\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+          return `無効な文字列: "${_issue.includes}"を含む必要があります`;
         if (_issue.format === "regex")
-          return `\u7121\u52B9\u306A\u6587\u5B57\u5217: \u30D1\u30BF\u30FC\u30F3${_issue.pattern}\u306B\u4E00\u81F4\u3059\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
-        return `\u7121\u52B9\u306A${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `無効な文字列: パターン${_issue.pattern}に一致する必要があります`;
+        return `無効な${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u7121\u52B9\u306A\u6570\u5024: ${issue2.divisor}\u306E\u500D\u6570\u3067\u3042\u308B\u5FC5\u8981\u304C\u3042\u308A\u307E\u3059`;
+        return `無効な数値: ${issue2.divisor}の倍数である必要があります`;
       case "unrecognized_keys":
-        return `\u8A8D\u8B58\u3055\u308C\u3066\u3044\u306A\u3044\u30AD\u30FC${issue2.keys.length > 1 ? "\u7FA4" : ""}: ${joinValues(issue2.keys, "\u3001")}`;
+        return `認識されていないキー${issue2.keys.length > 1 ? "群" : ""}: ${joinValues(issue2.keys, "、")}`;
       case "invalid_key":
-        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u30AD\u30FC`;
+        return `${issue2.origin}内の無効なキー`;
       case "invalid_union":
-        return "\u7121\u52B9\u306A\u5165\u529B";
+        return "無効な入力";
       case "invalid_element":
-        return `${issue2.origin}\u5185\u306E\u7121\u52B9\u306A\u5024`;
+        return `${issue2.origin}内の無効な値`;
       default:
-        return `\u7121\u52B9\u306A\u5165\u529B`;
+        return `無効な入力`;
     }
   };
 };
@@ -9058,20 +11830,20 @@ function ja_default() {
 // node_modules/zod/v4/locales/ka.js
 var error29 = () => {
   const Sizable = {
-    string: { unit: "\u10E1\u10D8\u10DB\u10D1\u10DD\u10DA\u10DD", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
-    file: { unit: "\u10D1\u10D0\u10D8\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
-    array: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
-    set: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" },
-    map: { unit: "\u10D4\u10DA\u10D4\u10DB\u10D4\u10DC\u10E2\u10D8", verb: "\u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1" }
+    string: { unit: "სიმბოლო", verb: "უნდა შეიცავდეს" },
+    file: { unit: "ბაიტი", verb: "უნდა შეიცავდეს" },
+    array: { unit: "ელემენტი", verb: "უნდა შეიცავდეს" },
+    set: { unit: "ელემენტი", verb: "უნდა შეიცავდეს" },
+    map: { unit: "ელემენტი", verb: "უნდა შეიცავდეს" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0",
-    email: "\u10D4\u10DA-\u10E4\u10DD\u10E1\u10E2\u10D8\u10E1 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
+    regex: "შეყვანა",
+    email: "ელ-ფოსტის მისამართი",
     url: "URL",
-    emoji: "\u10D4\u10DB\u10DD\u10EF\u10D8",
+    emoji: "ემოჯი",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -9082,32 +11854,32 @@ var error29 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8-\u10D3\u10E0\u10DD",
-    date: "\u10D7\u10D0\u10E0\u10D8\u10E6\u10D8",
-    time: "\u10D3\u10E0\u10DD",
-    duration: "\u10EE\u10D0\u10DC\u10D2\u10E0\u10EB\u10DA\u10D8\u10D5\u10DD\u10D1\u10D0",
-    ipv4: "IPv4 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
-    ipv6: "IPv6 \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
-    mac: "MAC \u10DB\u10D8\u10E1\u10D0\u10DB\u10D0\u10E0\u10D7\u10D8",
-    cidrv4: "IPv4 \u10D3\u10D8\u10D0\u10DE\u10D0\u10D6\u10DD\u10DC\u10D8",
-    cidrv6: "IPv6 \u10D3\u10D8\u10D0\u10DE\u10D0\u10D6\u10DD\u10DC\u10D8",
-    base64: "base64-\u10D9\u10DD\u10D3\u10D8\u10E0\u10D4\u10D1\u10E3\u10DA\u10D8 \u10D5\u10D4\u10DA\u10D8",
-    base64url: "base64url-\u10D9\u10DD\u10D3\u10D8\u10E0\u10D4\u10D1\u10E3\u10DA\u10D8 \u10D5\u10D4\u10DA\u10D8",
-    json_string: "JSON \u10D5\u10D4\u10DA\u10D8",
-    e164: "E.164 \u10DC\u10DD\u10DB\u10D4\u10E0\u10D8",
-    credit_card: "\u10E1\u10D0\u10D9\u10E0\u10D4\u10D3\u10D8\u10E2\u10DD \u10D1\u10D0\u10E0\u10D0\u10D7\u10D8\u10E1 \u10DC\u10DD\u10DB\u10D4\u10E0\u10D8",
-    currency_code: "\u10D5\u10D0\u10DA\u10E3\u10E2\u10D8\u10E1 \u10D9\u10DD\u10D3\u10D8",
+    datetime: "თარიღი-დრო",
+    date: "თარიღი",
+    time: "დრო",
+    duration: "ხანგრძლივობა",
+    ipv4: "IPv4 მისამართი",
+    ipv6: "IPv6 მისამართი",
+    mac: "MAC მისამართი",
+    cidrv4: "IPv4 დიაპაზონი",
+    cidrv6: "IPv6 დიაპაზონი",
+    base64: "base64-კოდირებული ველი",
+    base64url: "base64url-კოდირებული ველი",
+    json_string: "JSON ველი",
+    e164: "E.164 ნომერი",
+    credit_card: "საკრედიტო ბარათის ნომერი",
+    currency_code: "ვალუტის კოდი",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0"
+    template_literal: "შეყვანა"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u10E0\u10D8\u10EA\u10EE\u10D5\u10D8",
-    string: "\u10D5\u10D4\u10DA\u10D8",
-    boolean: "\u10D1\u10E3\u10DA\u10D4\u10D0\u10DC\u10D8",
-    function: "\u10E4\u10E3\u10DC\u10E5\u10EA\u10D8\u10D0",
-    array: "\u10DB\u10D0\u10E1\u10D8\u10D5\u10D8"
+    number: "რიცხვი",
+    string: "ველი",
+    boolean: "ბულეანი",
+    function: "ფუნქცია",
+    array: "მასივი"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -9116,54 +11888,54 @@ var error29 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 instanceof ${issue2.expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
+          return `არასწორი შეყვანა: მოსალოდნელი instanceof ${issue2.expected}, მიღებული ${received}`;
         }
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${expected}, \u10DB\u10D8\u10E6\u10D4\u10D1\u10E3\u10DA\u10D8 ${received}`;
+        return `არასწორი შეყვანა: მოსალოდნელი ${expected}, მიღებული ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D0\u10E0\u10D8\u10D0\u10DC\u10E2\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8\u10D0 \u10D4\u10E0\u10D7-\u10D4\u10E0\u10D7\u10D8 ${joinValues(issue2.values, "|")}-\u10D3\u10D0\u10DC`;
+          return `არასწორი შეყვანა: მოსალოდნელი ${stringifyPrimitive(issue2.values[0])}`;
+        return `არასწორი ვარიანტი: მოსალოდნელია ერთ-ერთი ${joinValues(issue2.values, "|")}-დან`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
-        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10D3\u10D8\u10D3\u10D8: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin ?? "\u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0"} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.maximum.toString()}`;
+          return `ზედმეტად დიდი: მოსალოდნელი ${issue2.origin ?? "მნიშვნელობა"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit}`;
+        return `ზედმეტად დიდი: მოსალოდნელი ${issue2.origin ?? "მნიშვნელობა"} იყოს ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `ზედმეტად პატარა: მოსალოდნელი ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u10D6\u10D4\u10D3\u10DB\u10D4\u10E2\u10D0\u10D3 \u10DE\u10D0\u10E2\u10D0\u10E0\u10D0: \u10DB\u10DD\u10E1\u10D0\u10DA\u10DD\u10D3\u10DC\u10D4\u10DA\u10D8 ${issue2.origin} \u10D8\u10E7\u10DD\u10E1 ${adj}${issue2.minimum.toString()}`;
+        return `ზედმეტად პატარა: მოსალოდნელი ${issue2.origin} იყოს ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D4\u10DA\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10EC\u10E7\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.prefix}"-\u10D8\u10D7`;
+          return `არასწორი ველი: უნდა იწყებოდეს "${_issue.prefix}"-ით`;
         }
         if (_issue.format === "ends_with")
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D4\u10DA\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10DB\u10D7\u10D0\u10D5\u10E0\u10D3\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 "${_issue.suffix}"-\u10D8\u10D7`;
+          return `არასწორი ველი: უნდა მთავრდებოდეს "${_issue.suffix}"-ით`;
         if (_issue.format === "includes")
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D4\u10DA\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D8\u10EA\u10D0\u10D5\u10D3\u10D4\u10E1 "${_issue.includes}"-\u10E1`;
+          return `არასწორი ველი: უნდა შეიცავდეს "${_issue.includes}"-ს`;
         if (_issue.format === "regex")
-          return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D5\u10D4\u10DA\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10E8\u10D4\u10D4\u10E1\u10D0\u10D1\u10D0\u10DB\u10D4\u10D1\u10DD\u10D3\u10D4\u10E1 \u10E8\u10D0\u10D1\u10DA\u10DD\u10DC\u10E1 ${_issue.pattern}`;
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `არასწორი ველი: უნდა შეესაბამებოდეს შაბლონს ${_issue.pattern}`;
+        return `არასწორი ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E0\u10D8\u10EA\u10EE\u10D5\u10D8: \u10E3\u10DC\u10D3\u10D0 \u10D8\u10E7\u10DD\u10E1 ${issue2.divisor}-\u10D8\u10E1 \u10EF\u10D4\u10E0\u10D0\u10D3\u10D8`;
+        return `არასწორი რიცხვი: უნდა იყოს ${issue2.divisor}-ის ჯერადი`;
       case "unrecognized_keys":
-        return `\u10E3\u10EA\u10DC\u10DD\u10D1\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1${issue2.keys.length > 1 ? "\u10D4\u10D1\u10D8" : "\u10D8"}: ${joinValues(issue2.keys, ", ")}`;
+        return `უცნობი გასაღებ${issue2.keys.length > 1 ? "ები" : "ი"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10D2\u10D0\u10E1\u10D0\u10E6\u10D4\u10D1\u10D8 ${issue2.origin}-\u10E8\u10D8`;
+        return `არასწორი გასაღები ${issue2.origin}-ში`;
       case "invalid_union":
-        return "\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0";
+        return "არასწორი შეყვანა";
       case "invalid_element":
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10DB\u10DC\u10D8\u10E8\u10D5\u10DC\u10D4\u10DA\u10DD\u10D1\u10D0 ${issue2.origin}-\u10E8\u10D8`;
+        return `არასწორი მნიშვნელობა ${issue2.origin}-ში`;
       default:
-        return `\u10D0\u10E0\u10D0\u10E1\u10EC\u10DD\u10E0\u10D8 \u10E8\u10D4\u10E7\u10D5\u10D0\u10DC\u10D0`;
+        return `არასწორი შეყვანა`;
     }
   };
 };
@@ -9176,20 +11948,20 @@ function ka_default() {
 // node_modules/zod/v4/locales/km.js
 var error30 = () => {
   const Sizable = {
-    string: { unit: "\u178F\u17BD\u17A2\u1780\u17D2\u179F\u179A", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
-    file: { unit: "\u1794\u17C3", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
-    array: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
-    set: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" },
-    map: { unit: "\u1792\u17B6\u178F\u17BB", verb: "\u1782\u17BD\u179A\u1798\u17B6\u1793" }
+    string: { unit: "តួអក្សរ", verb: "គួរមាន" },
+    file: { unit: "បៃ", verb: "គួរមាន" },
+    array: { unit: "ធាតុ", verb: "គួរមាន" },
+    set: { unit: "ធាតុ", verb: "គួរមាន" },
+    map: { unit: "ធាតុ", verb: "គួរមាន" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B",
-    email: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793\u17A2\u17CA\u17B8\u1798\u17C2\u179B",
+    regex: "ទិន្នន័យបញ្ចូល",
+    email: "អាសយដ្ឋានអ៊ីមែល",
     url: "URL",
-    emoji: "\u179F\u1789\u17D2\u1789\u17B6\u17A2\u17B6\u179A\u1798\u17D2\u1798\u178E\u17CD",
+    emoji: "សញ្ញាអារម្មណ៍",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -9200,30 +11972,30 @@ var error30 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u1780\u17B6\u179B\u1794\u179A\u17B7\u1785\u17D2\u1786\u17C1\u1791 \u1793\u17B7\u1784\u1798\u17C9\u17C4\u1784 ISO",
-    date: "\u1780\u17B6\u179B\u1794\u179A\u17B7\u1785\u17D2\u1786\u17C1\u1791 ISO",
-    time: "\u1798\u17C9\u17C4\u1784 ISO",
-    duration: "\u179A\u1799\u17C8\u1796\u17C1\u179B ISO",
-    ipv4: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv4",
-    ipv6: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv6",
-    mac: "\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 MAC",
-    cidrv4: "\u178A\u17C2\u1793\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv4",
-    cidrv6: "\u178A\u17C2\u1793\u17A2\u17B6\u179F\u1799\u178A\u17D2\u178B\u17B6\u1793 IPv6",
-    base64: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u17A2\u17CA\u17B7\u1780\u17BC\u178A base64",
-    base64url: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u17A2\u17CA\u17B7\u1780\u17BC\u178A base64url",
-    json_string: "\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A JSON",
-    e164: "\u179B\u17C1\u1781 E.164",
-    credit_card: "\u179B\u17C1\u1781\u1794\u17D0\u178E\u17D2\u178E\u17A5\u178E\u1791\u17B6\u1793",
-    currency_code: "\u1780\u17BC\u178A\u179A\u17BC\u1794\u17B7\u1799\u1794\u17D0\u178E\u17D2\u178E",
+    datetime: "កាលបរិច្ឆេទ និងម៉ោង ISO",
+    date: "កាលបរិច្ឆេទ ISO",
+    time: "ម៉ោង ISO",
+    duration: "រយៈពេល ISO",
+    ipv4: "អាសយដ្ឋាន IPv4",
+    ipv6: "អាសយដ្ឋាន IPv6",
+    mac: "អាសយដ្ឋាន MAC",
+    cidrv4: "ដែនអាសយដ្ឋាន IPv4",
+    cidrv6: "ដែនអាសយដ្ឋាន IPv6",
+    base64: "ខ្សែអក្សរអ៊ិកូដ base64",
+    base64url: "ខ្សែអក្សរអ៊ិកូដ base64url",
+    json_string: "ខ្សែអក្សរ JSON",
+    e164: "លេខ E.164",
+    credit_card: "លេខប័ណ្ណឥណទាន",
+    currency_code: "កូដរូបិយប័ណ្ណ",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B"
+    template_literal: "ទិន្នន័យបញ្ចូល"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u179B\u17C1\u1781",
-    array: "\u17A2\u17B6\u179A\u17C1 (Array)",
-    null: "\u1782\u17D2\u1798\u17B6\u1793\u178F\u1798\u17D2\u179B\u17C3 (null)"
+    number: "លេខ",
+    array: "អារេ (Array)",
+    null: "គ្មានតម្លៃ (null)"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -9232,54 +12004,54 @@ var error30 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A instanceof ${issue2.expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
+          return `ទិន្នន័យបញ្ចូលមិនត្រឹមត្រូវ៖ ត្រូវការ instanceof ${issue2.expected} ប៉ុន្តែទទួលបាន ${received}`;
         }
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${expected} \u1794\u17C9\u17BB\u1793\u17D2\u178F\u17C2\u1791\u1791\u17BD\u179B\u1794\u17B6\u1793 ${received}`;
+        return `ទិន្នន័យបញ្ចូលមិនត្រឹមត្រូវ៖ ត្រូវការ ${expected} ប៉ុន្តែទទួលបាន ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1794\u1789\u17D2\u1785\u17BC\u179B\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u1787\u1798\u17D2\u179A\u17BE\u179F\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1787\u17B6\u1798\u17BD\u1799\u1780\u17D2\u1793\u17BB\u1784\u1785\u17C6\u178E\u17C4\u1798 ${joinValues(issue2.values, "|")}`;
+          return `ទិន្នន័យបញ្ចូលមិនត្រឹមត្រូវ៖ ត្រូវការ ${stringifyPrimitive(issue2.values[0])}`;
+        return `ជម្រើសមិនត្រឹមត្រូវ៖ ត្រូវជាមួយក្នុងចំណោម ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u1792\u17B6\u178F\u17BB"}`;
-        return `\u1792\u17C6\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin ?? "\u178F\u1798\u17D2\u179B\u17C3"} ${adj} ${issue2.maximum.toString()}`;
+          return `ធំពេក៖ ត្រូវការ ${issue2.origin ?? "តម្លៃ"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "ធាតុ"}`;
+        return `ធំពេក៖ ត្រូវការ ${issue2.origin ?? "តម្លៃ"} ${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `តូចពេក៖ ត្រូវការ ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u178F\u17BC\u1785\u1796\u17C1\u1780\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1780\u17B6\u179A ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
+        return `តូចពេក៖ ត្រូវការ ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1785\u17B6\u1794\u17CB\u1795\u17D2\u178F\u17BE\u1798\u178A\u17C4\u1799 "${_issue.prefix}"`;
+          return `ខ្សែអក្សរមិនត្រឹមត្រូវ៖ ត្រូវចាប់ផ្តើមដោយ "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1794\u1789\u17D2\u1785\u1794\u17CB\u178A\u17C4\u1799 "${_issue.suffix}"`;
+          return `ខ្សែអក្សរមិនត្រឹមត្រូវ៖ ត្រូវបញ្ចប់ដោយ "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u1798\u17B6\u1793 "${_issue.includes}"`;
+          return `ខ្សែអក្សរមិនត្រឹមត្រូវ៖ ត្រូវមាន "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u1781\u17D2\u179F\u17C2\u17A2\u1780\u17D2\u179F\u179A\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1795\u17D2\u1782\u17BC\u1795\u17D2\u1782\u1784\u1793\u17B9\u1784\u1791\u1798\u17D2\u179A\u1784\u17CB\u178A\u17C2\u179B\u1794\u17B6\u1793\u1780\u17C6\u178E\u178F\u17CB ${_issue.pattern}`;
-        return `\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `ខ្សែអក្សរមិនត្រឹមត្រូវ៖ ត្រូវតែផ្គូផ្គងនឹងទម្រង់ដែលបានកំណត់ ${_issue.pattern}`;
+        return `មិនត្រឹមត្រូវ៖ ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u179B\u17C1\u1781\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u17D6 \u178F\u17D2\u179A\u17BC\u179C\u178F\u17C2\u1787\u17B6\u1796\u17A0\u17BB\u1782\u17BB\u178E\u1793\u17C3 ${issue2.divisor}`;
+        return `លេខមិនត្រឹមត្រូវ៖ ត្រូវតែជាពហុគុណនៃ ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u179A\u1780\u1783\u17BE\u1789\u179F\u17C4\u1798\u17B7\u1793\u179F\u17D2\u1782\u17B6\u179B\u17CB\u17D6 ${joinValues(issue2.keys, ", ")}`;
+        return `រកឃើញសោមិនស្គាល់៖ ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u179F\u17C4\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+        return `សោមិនត្រឹមត្រូវនៅក្នុង ${issue2.origin}`;
       case "invalid_union":
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
+        return `ទិន្នន័យមិនត្រឹមត្រូវ`;
       case "invalid_element":
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C\u1793\u17C5\u1780\u17D2\u1793\u17BB\u1784 ${issue2.origin}`;
+        return `ទិន្នន័យមិនត្រឹមត្រូវនៅក្នុង ${issue2.origin}`;
       default:
-        return `\u1791\u17B7\u1793\u17D2\u1793\u1793\u17D0\u1799\u1798\u17B7\u1793\u178F\u17D2\u179A\u17B9\u1798\u178F\u17D2\u179A\u17BC\u179C`;
+        return `ទិន្នន័យមិនត្រឹមត្រូវ`;
     }
   };
 };
@@ -9297,18 +12069,18 @@ function kh_default() {
 // node_modules/zod/v4/locales/kn.js
 var error31 = () => {
   const Sizable = {
-    string: { unit: "\u0C85\u0C95\u0CCD\u0CB7\u0CB0\u0C97\u0CB3\u0CC1", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" },
-    file: { unit: "\u0CAC\u0CC8\u0C9F\u0CCD\u200C\u0C97\u0CB3\u0CC1", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" },
-    array: { unit: "\u0CB5\u0CB8\u0CCD\u0CA4\u0CC1\u0C97\u0CB3\u0CC1", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" },
-    set: { unit: "\u0CB5\u0CB8\u0CCD\u0CA4\u0CC1\u0C97\u0CB3\u0CC1", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" },
-    map: { unit: "entries", verb: "\u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1" }
+    string: { unit: "ಅಕ್ಷರಗಳು", verb: "ಹೊಂದಲು" },
+    file: { unit: "ಬೈಟ್‌ಗಳು", verb: "ಹೊಂದಲು" },
+    array: { unit: "ವಸ್ತುಗಳು", verb: "ಹೊಂದಲು" },
+    set: { unit: "ವಸ್ತುಗಳು", verb: "ಹೊಂದಲು" },
+    map: { unit: "entries", verb: "ಹೊಂದಲು" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0C87\u0CA8\u0CCD\u0CAA\u0CC1\u0C9F\u0CCD",
-    email: "email \u0CB5\u0CBF\u0CB3\u0CBE\u0CB8",
+    regex: "ಇನ್ಪುಟ್",
+    email: "email ವಿಳಾಸ",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -9321,24 +12093,24 @@ var error31 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0CA6\u0CBF\u0CA8\u0CBE\u0C82\u0C95\u0CA6 \u0CB8\u0CAE\u0CAF",
-    date: "ISO \u0CA6\u0CBF\u0CA8\u0CBE\u0C82\u0C95",
-    time: "ISO \u0CB8\u0CAE\u0CAF",
-    duration: "ISO \u0C85\u0CB5\u0CA7\u0CBF",
-    ipv4: "IPv4 \u0CB5\u0CBF\u0CB3\u0CBE\u0CB8",
-    ipv6: "IPv6 \u0CB5\u0CBF\u0CB3\u0CBE\u0CB8",
-    mac: "MAC \u0CB5\u0CBF\u0CB3\u0CBE\u0CB8",
-    cidrv4: "IPv4 \u0CB5\u0CCD\u0CAF\u0CBE\u0CAA\u0CCD\u0CA4\u0CBF\u0CAF",
-    cidrv6: "IPv6 \u0CB5\u0CCD\u0CAF\u0CBE\u0CAA\u0CCD\u0CA4\u0CBF\u0CAF",
-    base64: "base64-encoded\u0CB8\u0CCD\u0C9F\u0CCD\u0CB0\u0CBF\u0C82\u0C97\u0CCD",
-    base64url: "base64url-encoded\u0CB8\u0CCD\u0C9F\u0CCD\u0CB0\u0CBF\u0C82\u0C97\u0CCD",
-    json_string: "JSON\u0CB8\u0CCD\u0C9F\u0CCD\u0CB0\u0CBF\u0C82\u0C97\u0CCD",
-    e164: "E.164 \u0CB8\u0C82\u0C96\u0CCD\u0CAF\u0CC6",
-    credit_card: "\u0C95\u0CCD\u0CB0\u0CC6\u0CA1\u0CBF\u0C9F\u0CCD \u0C95\u0CBE\u0CB0\u0CCD\u0CA1\u0CCD \u0CB8\u0C82\u0C96\u0CCD\u0CAF\u0CC6",
-    currency_code: "\u0C95\u0CB0\u0CC6\u0CA8\u0CCD\u0CB8\u0CBF \u0C95\u0CCB\u0CA1\u0CCD",
+    datetime: "ISO ದಿನಾಂಕದ ಸಮಯ",
+    date: "ISO ದಿನಾಂಕ",
+    time: "ISO ಸಮಯ",
+    duration: "ISO ಅವಧಿ",
+    ipv4: "IPv4 ವಿಳಾಸ",
+    ipv6: "IPv6 ವಿಳಾಸ",
+    mac: "MAC ವಿಳಾಸ",
+    cidrv4: "IPv4 ವ್ಯಾಪ್ತಿಯ",
+    cidrv6: "IPv6 ವ್ಯಾಪ್ತಿಯ",
+    base64: "base64-encodedಸ್ಟ್ರಿಂಗ್",
+    base64url: "base64url-encodedಸ್ಟ್ರಿಂಗ್",
+    json_string: "JSONಸ್ಟ್ರಿಂಗ್",
+    e164: "E.164 ಸಂಖ್ಯೆ",
+    credit_card: "ಕ್ರೆಡಿಟ್ ಕಾರ್ಡ್ ಸಂಖ್ಯೆ",
+    currency_code: "ಕರೆನ್ಸಿ ಕೋಡ್",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0C87\u0CA8\u0CCD\u0CAA\u0CC1\u0C9F\u0CCD"
+    template_literal: "ಇನ್ಪುಟ್"
   };
   const TypeDictionary = {
     // Compatibility: "nan" -> "NaN" for display
@@ -9351,56 +12123,56 @@ var error31 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0C87\u0CA8\u0CCD\u200C\u0CAA\u0CC1\u0C9F\u0CCD: \u0CA8\u0CBF\u0CB0\u0CC0\u0C95\u0CCD\u0CB7\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CBF\u0CA6\u0CC6 ${expected}, \u0CB8\u0CCD\u0CB5\u0CC0\u0C95\u0CB0\u0CBF\u0CB8\u0CBF\u0CA6\u0CA8\u0CC1 ${received}`;
+        return `ಅಮಾನ್ಯ ಇನ್‌ಪುಟ್: ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ ${expected}, ಸ್ವೀಕರಿಸಿದನು ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0C87\u0CA8\u0CCD\u200C\u0CAA\u0CC1\u0C9F\u0CCD: \u0CA8\u0CBF\u0CB0\u0CC0\u0C95\u0CCD\u0CB7\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CBF\u0CA6\u0CC6 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0C86\u0CAF\u0CCD\u0C95\u0CC6: \u0C87\u0CB5\u0CC1\u0C97\u0CB3\u0CB2\u0CCD\u0CB2\u0CBF \u0C92\u0C82\u0CA6\u0CA8\u0CCD\u0CA8\u0CC1 \u0CA8\u0CBF\u0CB0\u0CC0\u0C95\u0CCD\u0CB7\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CBF\u0CA6\u0CC6 ${joinValues(issue2.values, "|")}`;
+          return `ಅಮಾನ್ಯ ಇನ್‌ಪುಟ್: ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ ${stringifyPrimitive(issue2.values[0])}`;
+        return `ಅಮಾನ್ಯ ಆಯ್ಕೆ: ಇವುಗಳಲ್ಲಿ ಒಂದನ್ನು ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0CA4\u0CC1\u0C82\u0CAC\u0CBE \u0CA6\u0CCA\u0CA1\u0CCD\u0CA1\u0CA6\u0CC1: \u0CA8\u0CBF\u0CB0\u0CC0\u0C95\u0CCD\u0CB7\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CBF\u0CA6\u0CC6 ${issue2.origin ?? "value"} \u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0C85\u0C82\u0CB6\u0C97\u0CB3\u0CC1"}`;
-        return `\u0CA4\u0CC1\u0C82\u0CAC\u0CBE \u0CA6\u0CCA\u0CA1\u0CCD\u0CA1\u0CA6\u0CC1: \u0CA8\u0CBF\u0CB0\u0CC0\u0C95\u0CCD\u0CB7\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CBF\u0CA6\u0CC6 ${issue2.origin ?? "value"} \u0C8E\u0C82\u0CA6\u0CC1 ${adj}${issue2.maximum.toString()}`;
+          return `ತುಂಬಾ ದೊಡ್ಡದು: ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ ${issue2.origin ?? "value"} ಹೊಂದಲು ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "ಅಂಶಗಳು"}`;
+        return `ತುಂಬಾ ದೊಡ್ಡದು: ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ ${issue2.origin ?? "value"} ಎಂದು ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0CA4\u0CC1\u0C82\u0CAC\u0CBE \u0C9A\u0CBF\u0C95\u0CCD\u0C95\u0CA6\u0CC1: \u0CA8\u0CBF\u0CB0\u0CC0\u0C95\u0CCD\u0CB7\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CBF\u0CA6\u0CC6 ${issue2.origin} \u0CB9\u0CCA\u0C82\u0CA6\u0CB2\u0CC1 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `ತುಂಬಾ ಚಿಕ್ಕದು: ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ ${issue2.origin} ಹೊಂದಲು ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0CA4\u0CC1\u0C82\u0CAC\u0CBE \u0C9A\u0CBF\u0C95\u0CCD\u0C95\u0CA6\u0CC1: \u0CA8\u0CBF\u0CB0\u0CC0\u0C95\u0CCD\u0CB7\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CBF\u0CA6\u0CC6 ${issue2.origin} \u0C8E\u0C82\u0CA6\u0CC1 ${adj}${issue2.minimum.toString()}`;
+        return `ತುಂಬಾ ಚಿಕ್ಕದು: ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ ${issue2.origin} ಎಂದು ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF\u0CB5\u0CBE\u0CA6 \u0CB8\u0CCD\u0C9F\u0CCD\u0CB0\u0CBF\u0C82\u0C97\u0CCD: \u0C87\u0CA6\u0CB0\u0CCA\u0C82\u0CA6\u0CBF\u0C97\u0CC6 \u0CAA\u0CCD\u0CB0\u0CBE\u0CB0\u0C82\u0CAD\u0CBF\u0CB8\u0CAC\u0CC7\u0C95\u0CC1 "${_issue.prefix}"`;
+          return `ಅಮಾನ್ಯವಾದ ಸ್ಟ್ರಿಂಗ್: ಇದರೊಂದಿಗೆ ಪ್ರಾರಂಭಿಸಬೇಕು "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF\u0CB5\u0CBE\u0CA6 \u0CB8\u0CCD\u0C9F\u0CCD\u0CB0\u0CBF\u0C82\u0C97\u0CCD: \u0C87\u0CA6\u0CB0\u0CCA\u0C82\u0CA6\u0CBF\u0C97\u0CC6 \u0C95\u0CCA\u0CA8\u0CC6\u0C97\u0CCA\u0CB3\u0CCD\u0CB3\u0CAC\u0CC7\u0C95\u0CC1 "${_issue.suffix}"`;
+          return `ಅಮಾನ್ಯವಾದ ಸ್ಟ್ರಿಂಗ್: ಇದರೊಂದಿಗೆ ಕೊನೆಗೊಳ್ಳಬೇಕು "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0CB8\u0CCD\u0C9F\u0CCD\u0CB0\u0CBF\u0C82\u0C97\u0CCD: \u0C92\u0CB3\u0C97\u0CCA\u0C82\u0CA1\u0CBF\u0CB0\u0CAC\u0CC7\u0C95\u0CC1 "${_issue.includes}"`;
+          return `ಅಮಾನ್ಯ ಸ್ಟ್ರಿಂಗ್: ಒಳಗೊಂಡಿರಬೇಕು "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF\u0CB5\u0CBE\u0CA6 \u0CB8\u0CCD\u0C9F\u0CCD\u0CB0\u0CBF\u0C82\u0C97\u0CCD: \u0CAE\u0CBE\u0CA6\u0CB0\u0CBF\u0C97\u0CC6 \u0CB9\u0CCA\u0C82\u0CA6\u0CBF\u0C95\u0CC6\u0CAF\u0CBE\u0C97\u0CAC\u0CC7\u0C95\u0CC1 ${_issue.pattern}`;
-        return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `ಅಮಾನ್ಯವಾದ ಸ್ಟ್ರಿಂಗ್: ಮಾದರಿಗೆ ಹೊಂದಿಕೆಯಾಗಬೇಕು ${_issue.pattern}`;
+        return `ಅಮಾನ್ಯ ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0CB8\u0C82\u0C96\u0CCD\u0CAF\u0CC6: \u0CAC\u0CB9\u0CC1\u0CB8\u0C82\u0C96\u0CCD\u0CAF\u0CC6\u0CAF\u0CBE\u0C97\u0CBF\u0CB0\u0CAC\u0CC7\u0C95\u0CC1 ${issue2.divisor}`;
+        return `ಅಮಾನ್ಯ ಸಂಖ್ಯೆ: ಬಹುಸಂಖ್ಯೆಯಾಗಿರಬೇಕು ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u0C97\u0CC1\u0CB0\u0CC1\u0CA4\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CA6 \u0C95\u0CC0 ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `ಗುರುತಿಸಲಾಗದ ಕೀ ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF\u0CB5\u0CBE\u0CA6 \u0C95\u0CC0 \u0C87\u0CA8\u0CCD ${issue2.origin}`;
+        return `ಅಮಾನ್ಯವಾದ ಕೀ ಇನ್ ${issue2.origin}`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0CA4\u0CBE\u0CB0\u0CA4\u0CAE\u0CCD\u0CAF \u0CAE\u0CCC\u0CB2\u0CCD\u0CAF. \u0CA8\u0CBF\u0CB0\u0CC0\u0C95\u0CCD\u0CB7\u0CBF\u0CB8\u0CB2\u0CBE\u0C97\u0CBF\u0CA6\u0CC6 ${opts}`;
+          return `ಅಮಾನ್ಯ ತಾರತಮ್ಯ ಮೌಲ್ಯ. ನಿರೀಕ್ಷಿಸಲಾಗಿದೆ ${opts}`;
         }
-        return "\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0C87\u0CA8\u0CCD\u200C\u0CAA\u0CC1\u0C9F\u0CCD";
+        return "ಅಮಾನ್ಯ ಇನ್‌ಪುಟ್";
       case "invalid_element":
-        return `\u0CB0\u0CB2\u0CCD\u0CB2\u0CBF \u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0CAE\u0CCC\u0CB2\u0CCD\u0CAF ${issue2.origin}`;
+        return `ರಲ್ಲಿ ಅಮಾನ್ಯ ಮೌಲ್ಯ ${issue2.origin}`;
       default:
-        return `\u0C85\u0CAE\u0CBE\u0CA8\u0CCD\u0CAF \u0C87\u0CA8\u0CCD\u200C\u0CAA\u0CC1\u0C9F\u0CCD`;
+        return `ಅಮಾನ್ಯ ಇನ್‌ಪುಟ್`;
     }
   };
 };
@@ -9413,20 +12185,20 @@ function kn_default() {
 // node_modules/zod/v4/locales/ko.js
 var error32 = () => {
   const Sizable = {
-    string: { unit: "\uBB38\uC790", verb: "to have" },
-    file: { unit: "\uBC14\uC774\uD2B8", verb: "to have" },
-    array: { unit: "\uAC1C", verb: "to have" },
-    set: { unit: "\uAC1C", verb: "to have" },
-    map: { unit: "\uAC1C", verb: "to have" }
+    string: { unit: "문자", verb: "to have" },
+    file: { unit: "바이트", verb: "to have" },
+    array: { unit: "개", verb: "to have" },
+    set: { unit: "개", verb: "to have" },
+    map: { unit: "개", verb: "to have" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\uC785\uB825",
-    email: "\uC774\uBA54\uC77C \uC8FC\uC18C",
+    regex: "입력",
+    email: "이메일 주소",
     url: "URL",
-    emoji: "\uC774\uBAA8\uC9C0",
+    emoji: "이모지",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -9437,24 +12209,24 @@ var error32 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \uB0A0\uC9DC\uC2DC\uAC04",
-    date: "ISO \uB0A0\uC9DC",
-    time: "ISO \uC2DC\uAC04",
-    duration: "ISO \uAE30\uAC04",
-    ipv4: "IPv4 \uC8FC\uC18C",
-    ipv6: "IPv6 \uC8FC\uC18C",
-    mac: "MAC \uC8FC\uC18C",
-    cidrv4: "IPv4 \uBC94\uC704",
-    cidrv6: "IPv6 \uBC94\uC704",
-    base64: "base64 \uC778\uCF54\uB529 \uBB38\uC790\uC5F4",
-    base64url: "base64url \uC778\uCF54\uB529 \uBB38\uC790\uC5F4",
-    json_string: "JSON \uBB38\uC790\uC5F4",
-    e164: "E.164 \uBC88\uD638",
-    credit_card: "\uC2E0\uC6A9\uCE74\uB4DC \uBC88\uD638",
-    currency_code: "\uD1B5\uD654 \uCF54\uB4DC",
+    datetime: "ISO 날짜시간",
+    date: "ISO 날짜",
+    time: "ISO 시간",
+    duration: "ISO 기간",
+    ipv4: "IPv4 주소",
+    ipv6: "IPv6 주소",
+    mac: "MAC 주소",
+    cidrv4: "IPv4 범위",
+    cidrv6: "IPv6 범위",
+    base64: "base64 인코딩 문자열",
+    base64url: "base64url 인코딩 문자열",
+    json_string: "JSON 문자열",
+    e164: "E.164 번호",
+    credit_card: "신용카드 번호",
+    currency_code: "통화 코드",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\uC785\uB825"
+    template_literal: "입력"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -9466,58 +12238,58 @@ var error32 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 instanceof ${issue2.expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
+          return `잘못된 입력: 예상 타입은 instanceof ${issue2.expected}, 받은 타입은 ${received}입니다`;
         }
-        return `\uC798\uBABB\uB41C \uC785\uB825: \uC608\uC0C1 \uD0C0\uC785\uC740 ${expected}, \uBC1B\uC740 \uD0C0\uC785\uC740 ${received}\uC785\uB2C8\uB2E4`;
+        return `잘못된 입력: 예상 타입은 ${expected}, 받은 타입은 ${received}입니다`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\uC798\uBABB\uB41C \uC785\uB825: \uAC12\uC740 ${stringifyPrimitive(issue2.values[0])} \uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4`;
-        return `\uC798\uBABB\uB41C \uC635\uC158: ${joinValues(issue2.values, "\uB610\uB294 ")} \uC911 \uD558\uB098\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+          return `잘못된 입력: 값은 ${stringifyPrimitive(issue2.values[0])} 이어야 합니다`;
+        return `잘못된 옵션: ${joinValues(issue2.values, "또는 ")} 중 하나여야 합니다`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\uC774\uD558" : "\uBBF8\uB9CC";
-        const suffix = adj === "\uBBF8\uB9CC" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
+        const adj = issue2.inclusive ? "이하" : "미만";
+        const suffix = adj === "미만" ? "이어야 합니다" : "여야 합니다";
         const sizing = getSizing(issue2.origin);
-        const unit = sizing?.unit ?? "\uC694\uC18C";
+        const unit = sizing?.unit ?? "요소";
         if (sizing)
-          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()}${unit} ${adj}${suffix}`;
-        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uD07D\uB2C8\uB2E4: ${issue2.maximum.toString()} ${adj}${suffix}`;
+          return `${issue2.origin ?? "값"}이 너무 큽니다: ${issue2.maximum.toString()}${unit} ${adj}${suffix}`;
+        return `${issue2.origin ?? "값"}이 너무 큽니다: ${issue2.maximum.toString()} ${adj}${suffix}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\uC774\uC0C1" : "\uCD08\uACFC";
-        const suffix = adj === "\uC774\uC0C1" ? "\uC774\uC5B4\uC57C \uD569\uB2C8\uB2E4" : "\uC5EC\uC57C \uD569\uB2C8\uB2E4";
+        const adj = issue2.inclusive ? "이상" : "초과";
+        const suffix = adj === "이상" ? "이어야 합니다" : "여야 합니다";
         const sizing = getSizing(issue2.origin);
-        const unit = sizing?.unit ?? "\uC694\uC18C";
+        const unit = sizing?.unit ?? "요소";
         if (sizing) {
-          return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()}${unit} ${adj}${suffix}`;
+          return `${issue2.origin ?? "값"}이 너무 작습니다: ${issue2.minimum.toString()}${unit} ${adj}${suffix}`;
         }
-        return `${issue2.origin ?? "\uAC12"}\uC774 \uB108\uBB34 \uC791\uC2B5\uB2C8\uB2E4: ${issue2.minimum.toString()} ${adj}${suffix}`;
+        return `${issue2.origin ?? "값"}이 너무 작습니다: ${issue2.minimum.toString()} ${adj}${suffix}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.prefix}"(\uC73C)\uB85C \uC2DC\uC791\uD574\uC57C \uD569\uB2C8\uB2E4`;
+          return `잘못된 문자열: "${_issue.prefix}"(으)로 시작해야 합니다`;
         }
         if (_issue.format === "ends_with")
-          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.suffix}"(\uC73C)\uB85C \uB05D\uB098\uC57C \uD569\uB2C8\uB2E4`;
+          return `잘못된 문자열: "${_issue.suffix}"(으)로 끝나야 합니다`;
         if (_issue.format === "includes")
-          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: "${_issue.includes}"\uC744(\uB97C) \uD3EC\uD568\uD574\uC57C \uD569\uB2C8\uB2E4`;
+          return `잘못된 문자열: "${_issue.includes}"을(를) 포함해야 합니다`;
         if (_issue.format === "regex")
-          return `\uC798\uBABB\uB41C \uBB38\uC790\uC5F4: \uC815\uADDC\uC2DD ${_issue.pattern} \uD328\uD134\uACFC \uC77C\uCE58\uD574\uC57C \uD569\uB2C8\uB2E4`;
-        return `\uC798\uBABB\uB41C ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `잘못된 문자열: 정규식 ${_issue.pattern} 패턴과 일치해야 합니다`;
+        return `잘못된 ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\uC798\uBABB\uB41C \uC22B\uC790: ${issue2.divisor}\uC758 \uBC30\uC218\uC5EC\uC57C \uD569\uB2C8\uB2E4`;
+        return `잘못된 숫자: ${issue2.divisor}의 배수여야 합니다`;
       case "unrecognized_keys":
-        return `\uC778\uC2DD\uD560 \uC218 \uC5C6\uB294 \uD0A4: ${joinValues(issue2.keys, ", ")}`;
+        return `인식할 수 없는 키: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\uC798\uBABB\uB41C \uD0A4: ${issue2.origin}`;
+        return `잘못된 키: ${issue2.origin}`;
       case "invalid_union":
-        return `\uC798\uBABB\uB41C \uC785\uB825`;
+        return `잘못된 입력`;
       case "invalid_element":
-        return `\uC798\uBABB\uB41C \uAC12: ${issue2.origin}`;
+        return `잘못된 값: ${issue2.origin}`;
       default:
-        return `\uC798\uBABB\uB41C \uC785\uB825`;
+        return `잘못된 입력`;
     }
   };
 };
@@ -9547,16 +12319,16 @@ var error33 = () => {
       unit: {
         one: "simbolis",
         few: "simboliai",
-        many: "simboli\u0173"
+        many: "simbolių"
       },
       verb: {
         smaller: {
-          inclusive: "turi b\u016Bti ne ilgesn\u0117 kaip",
-          notInclusive: "turi b\u016Bti trumpesn\u0117 kaip"
+          inclusive: "turi būti ne ilgesnė kaip",
+          notInclusive: "turi būti trumpesnė kaip"
         },
         bigger: {
-          inclusive: "turi b\u016Bti ne trumpesn\u0117 kaip",
-          notInclusive: "turi b\u016Bti ilgesn\u0117 kaip"
+          inclusive: "turi būti ne trumpesnė kaip",
+          notInclusive: "turi būti ilgesnė kaip"
         }
       }
     },
@@ -9564,50 +12336,50 @@ var error33 = () => {
       unit: {
         one: "baitas",
         few: "baitai",
-        many: "bait\u0173"
+        many: "baitų"
       },
       verb: {
         smaller: {
-          inclusive: "turi b\u016Bti ne didesnis kaip",
-          notInclusive: "turi b\u016Bti ma\u017Eesnis kaip"
+          inclusive: "turi būti ne didesnis kaip",
+          notInclusive: "turi būti mažesnis kaip"
         },
         bigger: {
-          inclusive: "turi b\u016Bti ne ma\u017Eesnis kaip",
-          notInclusive: "turi b\u016Bti didesnis kaip"
+          inclusive: "turi būti ne mažesnis kaip",
+          notInclusive: "turi būti didesnis kaip"
         }
       }
     },
     array: {
       unit: {
-        one: "element\u0105",
+        one: "elementą",
         few: "elementus",
-        many: "element\u0173"
+        many: "elementų"
       },
       verb: {
         smaller: {
-          inclusive: "turi tur\u0117ti ne daugiau kaip",
-          notInclusive: "turi tur\u0117ti ma\u017Eiau kaip"
+          inclusive: "turi turėti ne daugiau kaip",
+          notInclusive: "turi turėti mažiau kaip"
         },
         bigger: {
-          inclusive: "turi tur\u0117ti ne ma\u017Eiau kaip",
-          notInclusive: "turi tur\u0117ti daugiau kaip"
+          inclusive: "turi turėti ne mažiau kaip",
+          notInclusive: "turi turėti daugiau kaip"
         }
       }
     },
     set: {
       unit: {
-        one: "element\u0105",
+        one: "elementą",
         few: "elementus",
-        many: "element\u0173"
+        many: "elementų"
       },
       verb: {
         smaller: {
-          inclusive: "turi tur\u0117ti ne daugiau kaip",
-          notInclusive: "turi tur\u0117ti ma\u017Eiau kaip"
+          inclusive: "turi turėti ne daugiau kaip",
+          notInclusive: "turi turėti mažiau kaip"
         },
         bigger: {
-          inclusive: "turi tur\u0117ti ne ma\u017Eiau kaip",
-          notInclusive: "turi tur\u0117ti daugiau kaip"
+          inclusive: "turi turėti ne mažiau kaip",
+          notInclusive: "turi turėti daugiau kaip"
         }
       }
     }
@@ -9622,8 +12394,8 @@ var error33 = () => {
     };
   }
   const FormatDictionary = {
-    regex: "\u012Fvestis",
-    email: "el. pa\u0161to adresas",
+    regex: "įvestis",
+    email: "el. pašto adresas",
     url: "URL",
     emoji: "jaustukas",
     uuid: "UUID",
@@ -9639,34 +12411,34 @@ var error33 = () => {
     datetime: "ISO data ir laikas",
     date: "ISO data",
     time: "ISO laikas",
-    duration: "ISO trukm\u0117",
+    duration: "ISO trukmė",
     ipv4: "IPv4 adresas",
     ipv6: "IPv6 adresas",
     mac: "MAC adresas",
     cidrv4: "IPv4 tinklo prefiksas (CIDR)",
     cidrv6: "IPv6 tinklo prefiksas (CIDR)",
-    base64: "base64 u\u017Ekoduota eilut\u0117",
-    base64url: "base64url u\u017Ekoduota eilut\u0117",
-    json_string: "JSON eilut\u0117",
+    base64: "base64 užkoduota eilutė",
+    base64url: "base64url užkoduota eilutė",
+    json_string: "JSON eilutė",
     e164: "E.164 numeris",
-    credit_card: "kredito kortel\u0117s numeris",
+    credit_card: "kredito kortelės numeris",
     currency_code: "valiutos kodas",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u012Fvestis"
+    template_literal: "įvestis"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "skai\u010Dius",
-    bigint: "sveikasis skai\u010Dius",
-    string: "eilut\u0117",
-    boolean: "login\u0117 reik\u0161m\u0117",
-    undefined: "neapibr\u0117\u017Eta reik\u0161m\u0117",
+    number: "skaičius",
+    bigint: "sveikasis skaičius",
+    string: "eilutė",
+    boolean: "loginė reikšmė",
+    undefined: "neapibrėžta reikšmė",
     function: "funkcija",
     symbol: "simbolis",
     array: "masyvas",
     object: "objektas",
-    null: "nulin\u0117 reik\u0161m\u0117"
+    null: "nulinė reikšmė"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -9675,57 +12447,57 @@ var error33 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Gautas tipas ${received}, o tik\u0117tasi - instanceof ${issue2.expected}`;
+          return `Gautas tipas ${received}, o tikėtasi - instanceof ${issue2.expected}`;
         }
-        return `Gautas tipas ${received}, o tik\u0117tasi - ${expected}`;
+        return `Gautas tipas ${received}, o tikėtasi - ${expected}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Privalo b\u016Bti ${stringifyPrimitive(issue2.values[0])}`;
-        return `Privalo b\u016Bti vienas i\u0161 ${joinValues(issue2.values, "|")} pasirinkim\u0173`;
+          return `Privalo būti ${stringifyPrimitive(issue2.values[0])}`;
+        return `Privalo būti vienas iš ${joinValues(issue2.values, "|")} pasirinkimų`;
       case "too_big": {
         const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
         const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.maximum)), issue2.inclusive ?? false, "smaller");
         if (sizing?.verb)
-          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "element\u0173"}`;
-        const adj = issue2.inclusive ? "ne didesnis kaip" : "ma\u017Eesnis kaip";
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
+          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} ${sizing.verb} ${issue2.maximum.toString()} ${sizing.unit ?? "elementų"}`;
+        const adj = issue2.inclusive ? "ne didesnis kaip" : "mažesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} turi būti ${adj} ${issue2.maximum.toString()} ${sizing?.unit}`;
       }
       case "too_small": {
         const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
         const sizing = getSizing(issue2.origin, getUnitTypeFromNumber(Number(issue2.minimum)), issue2.inclusive ?? false, "bigger");
         if (sizing?.verb)
-          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "element\u0173"}`;
-        const adj = issue2.inclusive ? "ne ma\u017Eesnis kaip" : "didesnis kaip";
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi b\u016Bti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
+          return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} ${sizing.verb} ${issue2.minimum.toString()} ${sizing.unit ?? "elementų"}`;
+        const adj = issue2.inclusive ? "ne mažesnis kaip" : "didesnis kaip";
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} turi būti ${adj} ${issue2.minimum.toString()} ${sizing?.unit}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Eilut\u0117 privalo prasid\u0117ti "${_issue.prefix}"`;
+          return `Eilutė privalo prasidėti "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Eilut\u0117 privalo pasibaigti "${_issue.suffix}"`;
+          return `Eilutė privalo pasibaigti "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Eilut\u0117 privalo \u012Ftraukti "${_issue.includes}"`;
+          return `Eilutė privalo įtraukti "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Eilut\u0117 privalo atitikti ${_issue.pattern}`;
+          return `Eilutė privalo atitikti ${_issue.pattern}`;
         return `Neteisingas ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Skai\u010Dius privalo b\u016Bti ${issue2.divisor} kartotinis.`;
+        return `Skaičius privalo būti ${issue2.divisor} kartotinis.`;
       case "unrecognized_keys":
-        return `Neatpa\u017Eint${issue2.keys.length > 1 ? "i" : "as"} rakt${issue2.keys.length > 1 ? "ai" : "as"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Neatpažint${issue2.keys.length > 1 ? "i" : "as"} rakt${issue2.keys.length > 1 ? "ai" : "as"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
         return "Rastas klaidingas raktas";
       case "invalid_union":
-        return "Klaidinga \u012Fvestis";
+        return "Klaidinga įvestis";
       case "invalid_element": {
         const origin = TypeDictionary[issue2.origin] ?? issue2.origin;
-        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reik\u0161m\u0117")} turi klaiding\u0105 \u012Fvest\u012F`;
+        return `${capitalizeFirstCharacter(origin ?? issue2.origin ?? "reikšmė")} turi klaidingą įvestį`;
       }
       default:
-        return "Klaidinga \u012Fvestis";
+        return "Klaidinga įvestis";
     }
   };
 };
@@ -9738,20 +12510,20 @@ function lt_default() {
 // node_modules/zod/v4/locales/mk.js
 var error34 = () => {
   const Sizable = {
-    string: { unit: "\u0437\u043D\u0430\u0446\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
-    file: { unit: "\u0431\u0430\u0458\u0442\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
-    array: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
-    set: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" },
-    map: { unit: "\u0441\u0442\u0430\u0432\u043A\u0438", verb: "\u0434\u0430 \u0438\u043C\u0430\u0430\u0442" }
+    string: { unit: "знаци", verb: "да имаат" },
+    file: { unit: "бајти", verb: "да имаат" },
+    array: { unit: "ставки", verb: "да имаат" },
+    set: { unit: "ставки", verb: "да имаат" },
+    map: { unit: "ставки", verb: "да имаат" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0432\u043D\u0435\u0441",
-    email: "\u0430\u0434\u0440\u0435\u0441\u0430 \u043D\u0430 \u0435-\u043F\u043E\u0448\u0442\u0430",
+    regex: "внес",
+    email: "адреса на е-пошта",
     url: "URL",
-    emoji: "\u0435\u043C\u043E\u045F\u0438",
+    emoji: "емоџи",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -9762,29 +12534,29 @@ var error34 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0434\u0430\u0442\u0443\u043C \u0438 \u0432\u0440\u0435\u043C\u0435",
-    date: "ISO \u0434\u0430\u0442\u0443\u043C",
-    time: "ISO \u0432\u0440\u0435\u043C\u0435",
-    duration: "ISO \u0432\u0440\u0435\u043C\u0435\u0442\u0440\u0430\u0435\u045A\u0435",
-    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441\u0430",
-    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441\u0430",
-    mac: "MAC \u0430\u0434\u0440\u0435\u0441\u0430",
-    cidrv4: "IPv4 \u043E\u043F\u0441\u0435\u0433",
-    cidrv6: "IPv6 \u043E\u043F\u0441\u0435\u0433",
-    base64: "base64-\u0435\u043D\u043A\u043E\u0434\u0438\u0440\u0430\u043D\u0430 \u043D\u0438\u0437\u0430",
-    base64url: "base64url-\u0435\u043D\u043A\u043E\u0434\u0438\u0440\u0430\u043D\u0430 \u043D\u0438\u0437\u0430",
-    json_string: "JSON \u043D\u0438\u0437\u0430",
-    e164: "E.164 \u0431\u0440\u043E\u0458",
-    credit_card: "\u0431\u0440\u043E\u0458 \u043D\u0430 \u043A\u0440\u0435\u0434\u0438\u0442\u043D\u0430 \u043A\u0430\u0440\u0442\u0438\u0447\u043A\u0430",
-    currency_code: "\u043A\u043E\u0434 \u043D\u0430 \u0432\u0430\u043B\u0443\u0442\u0430",
+    datetime: "ISO датум и време",
+    date: "ISO датум",
+    time: "ISO време",
+    duration: "ISO времетраење",
+    ipv4: "IPv4 адреса",
+    ipv6: "IPv6 адреса",
+    mac: "MAC адреса",
+    cidrv4: "IPv4 опсег",
+    cidrv6: "IPv6 опсег",
+    base64: "base64-енкодирана низа",
+    base64url: "base64url-енкодирана низа",
+    json_string: "JSON низа",
+    e164: "E.164 број",
+    credit_card: "број на кредитна картичка",
+    currency_code: "код на валута",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0432\u043D\u0435\u0441"
+    template_literal: "внес"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0431\u0440\u043E\u0458",
-    array: "\u043D\u0438\u0437\u0430"
+    number: "број",
+    array: "низа"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -9793,54 +12565,54 @@ var error34 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 instanceof ${issue2.expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
+          return `Грешен внес: се очекува instanceof ${issue2.expected}, примено ${received}`;
         }
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${expected}, \u043F\u0440\u0438\u043C\u0435\u043D\u043E ${received}`;
+        return `Грешен внес: се очекува ${expected}, примено ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
           return `Invalid input: expected ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0413\u0440\u0435\u0448\u0430\u043D\u0430 \u043E\u043F\u0446\u0438\u0458\u0430: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 \u0435\u0434\u043D\u0430 ${joinValues(issue2.values, "|")}`;
+        return `Грешана опција: се очекува една ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0438"}`;
-        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u0433\u043E\u043B\u0435\u043C: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin ?? "\u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442\u0430"} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+          return `Премногу голем: се очекува ${issue2.origin ?? "вредноста"} да има ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "елементи"}`;
+        return `Премногу голем: се очекува ${issue2.origin ?? "вредноста"} да биде ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0438\u043C\u0430 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Премногу мал: се очекува ${issue2.origin} да има ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u041F\u0440\u0435\u043C\u043D\u043E\u0433\u0443 \u043C\u0430\u043B: \u0441\u0435 \u043E\u0447\u0435\u043A\u0443\u0432\u0430 ${issue2.origin} \u0434\u0430 \u0431\u0438\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+        return `Премногу мал: се очекува ${issue2.origin} да биде ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u043F\u043E\u0447\u043D\u0443\u0432\u0430 \u0441\u043E "${_issue.prefix}"`;
+          return `Неважечка низа: мора да започнува со "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0437\u0430\u0432\u0440\u0448\u0443\u0432\u0430 \u0441\u043E "${_issue.suffix}"`;
+          return `Неважечка низа: мора да завршува со "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0432\u043A\u043B\u0443\u0447\u0443\u0432\u0430 "${_issue.includes}"`;
+          return `Неважечка низа: мора да вклучува "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u0435\u0432\u0430\u0436\u0435\u0447\u043A\u0430 \u043D\u0438\u0437\u0430: \u043C\u043E\u0440\u0430 \u0434\u0430 \u043E\u0434\u0433\u043E\u0430\u0440\u0430 \u043D\u0430 \u043F\u0430\u0442\u0435\u0440\u043D\u043E\u0442 ${_issue.pattern}`;
+          return `Неважечка низа: мора да одгоара на патернот ${_issue.pattern}`;
         return `Invalid ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0431\u0440\u043E\u0458: \u043C\u043E\u0440\u0430 \u0434\u0430 \u0431\u0438\u0434\u0435 \u0434\u0435\u043B\u0438\u0432 \u0441\u043E ${issue2.divisor}`;
+        return `Грешен број: мора да биде делив со ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D\u0438 \u043A\u043B\u0443\u0447\u0435\u0432\u0438" : "\u041D\u0435\u043F\u0440\u0435\u043F\u043E\u0437\u043D\u0430\u0435\u043D \u043A\u043B\u0443\u0447"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Непрепознаени клучеви" : "Непрепознаен клуч"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u043A\u043B\u0443\u0447 \u0432\u043E ${issue2.origin}`;
+        return `Грешен клуч во ${issue2.origin}`;
       case "invalid_union":
-        return "\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441";
+        return "Грешен внес";
       case "invalid_element":
-        return `\u0413\u0440\u0435\u0448\u043D\u0430 \u0432\u0440\u0435\u0434\u043D\u043E\u0441\u0442 \u0432\u043E ${issue2.origin}`;
+        return `Грешна вредност во ${issue2.origin}`;
       default:
-        return `\u0413\u0440\u0435\u0448\u0435\u043D \u0432\u043D\u0435\u0441`;
+        return `Грешен внес`;
     }
   };
 };
@@ -9966,20 +12738,20 @@ function ms_default() {
 // node_modules/zod/v4/locales/ne.js
 var error36 = () => {
   const Sizable = {
-    string: { unit: "\u0905\u0915\u094D\u0937\u0930", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" },
-    file: { unit: "\u092C\u093E\u0907\u091F", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" },
-    array: { unit: "\u0924\u0924\u094D\u0935", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" },
-    set: { unit: "\u0924\u0924\u094D\u0935", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" },
-    map: { unit: "\u092A\u094D\u0930\u0935\u093F\u0937\u094D\u091F\u093F", verb: "\u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B" }
+    string: { unit: "अक्षर", verb: "हुनुपर्छ" },
+    file: { unit: "बाइट", verb: "हुनुपर्छ" },
+    array: { unit: "तत्व", verb: "हुनुपर्छ" },
+    set: { unit: "तत्व", verb: "हुनुपर्छ" },
+    map: { unit: "प्रविष्टि", verb: "हुनुपर्छ" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0907\u0928\u092A\u0941\u091F",
-    email: "\u0907\u092E\u0947\u0932 \u0920\u0947\u0917\u093E\u0928\u093E",
+    regex: "इनपुट",
+    email: "इमेल ठेगाना",
     url: "URL",
-    emoji: "\u0907\u092E\u094B\u091C\u0940",
+    emoji: "इमोजी",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -9990,24 +12762,24 @@ var error36 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u092E\u093F\u0924\u093F \u0930 \u0938\u092E\u092F",
-    date: "ISO \u092E\u093F\u0924\u093F",
-    time: "ISO \u0938\u092E\u092F",
-    duration: "ISO \u0905\u0935\u0927\u093F",
-    ipv4: "IPv4 \u0920\u0947\u0917\u093E\u0928\u093E",
-    ipv6: "IPv6 \u0920\u0947\u0917\u093E\u0928\u093E",
-    mac: "MAC \u0920\u0947\u0917\u093E\u0928\u093E",
-    cidrv4: "IPv4 \u0926\u093E\u092F\u0930\u093E",
-    cidrv6: "IPv6 \u0926\u093E\u092F\u0930\u093E",
-    base64: "base64-\u0907\u0928\u094D\u0915\u094B\u0921 \u0917\u0930\u093F\u090F\u0915\u094B \u0938\u094D\u091F\u094D\u0930\u093F\u0919",
-    base64url: "base64url-\u0907\u0928\u094D\u0915\u094B\u0921 \u0917\u0930\u093F\u090F\u0915\u094B \u0938\u094D\u091F\u094D\u0930\u093F\u0919",
-    json_string: "JSON \u0938\u094D\u091F\u094D\u0930\u093F\u0919",
-    e164: "E.164 \u0928\u092E\u094D\u092C\u0930",
-    credit_card: "\u0915\u094D\u0930\u0947\u0921\u093F\u091F \u0915\u093E\u0930\u094D\u0921 \u0928\u092E\u094D\u092C\u0930",
-    currency_code: "\u092E\u0941\u0926\u094D\u0930\u093E \u0915\u094B\u0921",
+    datetime: "ISO मिति र समय",
+    date: "ISO मिति",
+    time: "ISO समय",
+    duration: "ISO अवधि",
+    ipv4: "IPv4 ठेगाना",
+    ipv6: "IPv6 ठेगाना",
+    mac: "MAC ठेगाना",
+    cidrv4: "IPv4 दायरा",
+    cidrv6: "IPv6 दायरा",
+    base64: "base64-इन्कोड गरिएको स्ट्रिङ",
+    base64url: "base64url-इन्कोड गरिएको स्ट्रिङ",
+    json_string: "JSON स्ट्रिङ",
+    e164: "E.164 नम्बर",
+    credit_card: "क्रेडिट कार्ड नम्बर",
+    currency_code: "मुद्रा कोड",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0907\u0928\u092A\u0941\u091F"
+    template_literal: "इनपुट"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -10018,54 +12790,54 @@ var error36 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0907\u0928\u092A\u0941\u091F: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 ${expected}, \u092A\u094D\u0930\u093E\u092A\u094D\u0924 ${received}`;
+        return `अमान्य इनपुट: अपेक्षित ${expected}, प्राप्त ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0907\u0928\u092A\u0941\u091F: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0935\u093F\u0915\u0932\u094D\u092A: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 \u092E\u093E\u0928\u0939\u0930\u0942 \u092E\u0927\u094D\u092F\u0947 \u090F\u0915 ${joinValues(issue2.values, "|")}`;
+          return `अमान्य इनपुट: अपेक्षित ${stringifyPrimitive(issue2.values[0])}`;
+        return `अमान्य विकल्प: अपेक्षित मानहरू मध्ये एक ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0927\u0947\u0930\u0948 \u0920\u0942\u0932\u094B: ${issue2.origin ?? "\u092E\u093E\u0928"} \u092E\u093E ${adj}${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
-        return `\u0927\u0947\u0930\u0948 \u0920\u0942\u0932\u094B: ${issue2.origin ?? "\u092E\u093E\u0928"} ${adj}${issue2.maximum.toString()} \u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B`;
+          return `धेरै ठूलो: ${issue2.origin ?? "मान"} मा ${adj}${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `धेरै ठूलो: ${issue2.origin ?? "मान"} ${adj}${issue2.maximum.toString()} हुनुपर्छ`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0927\u0947\u0930\u0948 \u0938\u093E\u0928\u094B: ${issue2.origin} \u092E\u093E ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
-        return `\u0927\u0947\u0930\u0948 \u0938\u093E\u0928\u094B: ${issue2.origin} ${adj}${issue2.minimum.toString()} \u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B`;
+          return `धेरै सानो: ${issue2.origin} मा ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `धेरै सानो: ${issue2.origin} ${adj}${issue2.minimum.toString()} हुनुपर्छ`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u094D\u091F\u094D\u0930\u093F\u0919: "${_issue.prefix}" \u092C\u093E\u091F \u0938\u0941\u0930\u0941 \u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B`;
+          return `अमान्य स्ट्रिङ: "${_issue.prefix}" बाट सुरु हुनुपर्छ`;
         if (_issue.format === "ends_with")
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u094D\u091F\u094D\u0930\u093F\u0919: "${_issue.suffix}" \u092E\u093E \u0938\u092E\u093E\u092A\u094D\u0924 \u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B`;
+          return `अमान्य स्ट्रिङ: "${_issue.suffix}" मा समाप्त हुनुपर्छ`;
         if (_issue.format === "includes")
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u094D\u091F\u094D\u0930\u093F\u0919: "${_issue.includes}" \u0938\u092E\u093E\u0935\u0947\u0936 \u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B`;
+          return `अमान्य स्ट्रिङ: "${_issue.includes}" समावेश हुनुपर्छ`;
         if (_issue.format === "regex")
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u094D\u091F\u094D\u0930\u093F\u0919: \u0922\u093E\u0901\u091A\u093E ${_issue.pattern} \u0938\u0901\u0917 \u092E\u0947\u0932 \u0916\u093E\u0928\u0941\u092A\u0930\u094D\u091B`;
-        return `\u0905\u092E\u093E\u0928\u094D\u092F ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `अमान्य स्ट्रिङ: ढाँचा ${_issue.pattern} सँग मेल खानुपर्छ`;
+        return `अमान्य ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0938\u0902\u0916\u094D\u092F\u093E: ${issue2.divisor} \u0915\u094B \u0917\u0941\u0923\u091C \u0939\u0941\u0928\u0941\u092A\u0930\u094D\u091B`;
+        return `अमान्य संख्या: ${issue2.divisor} को गुणज हुनुपर्छ`;
       case "unrecognized_keys":
-        return `\u0905\u092A\u0930\u093F\u091A\u093F\u0924 \u0915\u0941\u091E\u094D\u091C\u0940${issue2.keys.length > 1 ? "\u0939\u0930\u0942" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `अपरिचित कुञ्जी${issue2.keys.length > 1 ? "हरू" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0915\u0941\u091E\u094D\u091C\u0940: ${issue2.origin} \u092E\u093E`;
+        return `अमान्य कुञ्जी: ${issue2.origin} मा`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `\u0905\u092E\u093E\u0928\u094D\u092F \u0921\u093F\u0938\u094D\u0915\u094D\u0930\u093F\u092E\u093F\u0928\u0947\u091F\u0930 \u092E\u093E\u0928: \u0905\u092A\u0947\u0915\u094D\u0937\u093F\u0924 ${opts}`;
+          return `अमान्य डिस्क्रिमिनेटर मान: अपेक्षित ${opts}`;
         }
-        return "\u0905\u092E\u093E\u0928\u094D\u092F \u0907\u0928\u092A\u0941\u091F";
+        return "अमान्य इनपुट";
       case "invalid_element":
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u092E\u093E\u0928: ${issue2.origin} \u092E\u093E`;
+        return `अमान्य मान: ${issue2.origin} मा`;
       default:
-        return `\u0905\u092E\u093E\u0928\u094D\u092F \u0907\u0928\u092A\u0941\u091F`;
+        return `अमान्य इनपुट`;
     }
   };
 };
@@ -10139,7 +12911,7 @@ var error37 = () => {
       case "invalid_value":
         if (issue2.values.length === 1)
           return `Ongeldige invoer: verwacht ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ongeldige optie: verwacht \xE9\xE9n van ${joinValues(issue2.values, "|")}`;
+        return `Ongeldige optie: verwacht één van ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -10194,11 +12966,11 @@ function nl_default() {
 // node_modules/zod/v4/locales/nn.js
 var error38 = () => {
   const Sizable = {
-    string: { unit: "teikn", verb: "\xE5 ha" },
-    file: { unit: "bytes", verb: "\xE5 ha" },
-    array: { unit: "element", verb: "\xE5 innehalde" },
-    set: { unit: "element", verb: "\xE5 innehalde" },
-    map: { unit: "element", verb: "\xE5 innehalde" }
+    string: { unit: "teikn", verb: "å ha" },
+    file: { unit: "bytes", verb: "å ha" },
+    array: { unit: "element", verb: "å innehalde" },
+    set: { unit: "element", verb: "å innehalde" },
+    map: { unit: "element", verb: "å innehalde" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -10261,35 +13033,35 @@ var error38 = () => {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `For stor(t): forventa ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
-        return `For stor(t): forventa ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()}`;
+          return `For stor(t): forventa ${issue2.origin ?? "value"} til å ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+        return `For stor(t): forventa ${issue2.origin ?? "value"} til å ha ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `For lite(n): forventa ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `For lite(n): forventa ${issue2.origin} til å ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `For lite(n): forventa ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()}`;
+        return `For lite(n): forventa ${issue2.origin} til å ha ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Ugyldig streng: m\xE5 starte med "${_issue.prefix}"`;
+          return `Ugyldig streng: må starte med "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Ugyldig streng: m\xE5 slutte med "${_issue.suffix}"`;
+          return `Ugyldig streng: må slutte med "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Ugyldig streng: m\xE5 innehalde "${_issue.includes}"`;
+          return `Ugyldig streng: må innehalde "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Ugyldig streng: m\xE5 matche m\xF8nsteret ${_issue.pattern}`;
+          return `Ugyldig streng: må matche mønsteret ${_issue.pattern}`;
         return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ugyldig tal: m\xE5 vere eit multiplum av ${issue2.divisor}`;
+        return `Ugyldig tal: må vere eit multiplum av ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ukjende n\xF8klar" : "Ukjend n\xF8kkel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Ukjende nøklar" : "Ukjend nøkkel"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ugyldig n\xF8kkel i ${issue2.origin}`;
+        return `Ugyldig nøkkel i ${issue2.origin}`;
       case "invalid_union":
         return "Ugyldig input";
       case "invalid_element":
@@ -10308,11 +13080,11 @@ function nn_default() {
 // node_modules/zod/v4/locales/no.js
 var error39 = () => {
   const Sizable = {
-    string: { unit: "tegn", verb: "\xE5 ha" },
-    file: { unit: "bytes", verb: "\xE5 ha" },
-    array: { unit: "elementer", verb: "\xE5 inneholde" },
-    set: { unit: "elementer", verb: "\xE5 inneholde" },
-    map: { unit: "elementer", verb: "\xE5 inneholde" }
+    string: { unit: "tegn", verb: "å ha" },
+    file: { unit: "bytes", verb: "å ha" },
+    array: { unit: "elementer", verb: "å inneholde" },
+    set: { unit: "elementer", verb: "å inneholde" },
+    map: { unit: "elementer", verb: "å inneholde" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -10375,35 +13147,35 @@ var error39 = () => {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
-        return `For stor(t): forventet ${issue2.origin ?? "value"} til \xE5 ha ${adj}${issue2.maximum.toString()}`;
+          return `For stor(t): forventet ${issue2.origin ?? "value"} til å ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementer"}`;
+        return `For stor(t): forventet ${issue2.origin ?? "value"} til å ha ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `For lite(n): forventet ${issue2.origin} til å ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `For lite(n): forventet ${issue2.origin} til \xE5 ha ${adj}${issue2.minimum.toString()}`;
+        return `For lite(n): forventet ${issue2.origin} til å ha ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Ugyldig streng: m\xE5 starte med "${_issue.prefix}"`;
+          return `Ugyldig streng: må starte med "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Ugyldig streng: m\xE5 ende med "${_issue.suffix}"`;
+          return `Ugyldig streng: må ende med "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Ugyldig streng: m\xE5 inneholde "${_issue.includes}"`;
+          return `Ugyldig streng: må inneholde "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Ugyldig streng: m\xE5 matche m\xF8nsteret ${_issue.pattern}`;
+          return `Ugyldig streng: må matche mønsteret ${_issue.pattern}`;
         return `Ugyldig ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ugyldig tall: m\xE5 v\xE6re et multiplum av ${issue2.divisor}`;
+        return `Ugyldig tall: må være et multiplum av ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ukjente n\xF8kler" : "Ukjent n\xF8kkel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Ukjente nøkler" : "Ukjent nøkkel"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ugyldig n\xF8kkel i ${issue2.origin}`;
+        return `Ugyldig nøkkel i ${issue2.origin}`;
       case "invalid_union":
         return "Ugyldig input";
       case "invalid_element":
@@ -10422,18 +13194,18 @@ function no_default() {
 // node_modules/zod/v4/locales/ota.js
 var error40 = () => {
   const Sizable = {
-    string: { unit: "harf", verb: "olmal\u0131d\u0131r" },
-    file: { unit: "bayt", verb: "olmal\u0131d\u0131r" },
-    array: { unit: "unsur", verb: "olmal\u0131d\u0131r" },
-    set: { unit: "unsur", verb: "olmal\u0131d\u0131r" },
-    map: { unit: "unsur", verb: "olmal\u0131d\u0131r" }
+    string: { unit: "harf", verb: "olmalıdır" },
+    file: { unit: "bayt", verb: "olmalıdır" },
+    array: { unit: "unsur", verb: "olmalıdır" },
+    set: { unit: "unsur", verb: "olmalıdır" },
+    map: { unit: "unsur", verb: "olmalıdır" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
     regex: "giren",
-    email: "epostag\xE2h",
+    email: "epostagâh",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -10446,20 +13218,20 @@ var error40 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO heng\xE2m\u0131",
+    datetime: "ISO hengâmı",
     date: "ISO tarihi",
-    time: "ISO zaman\u0131",
-    duration: "ISO m\xFCddeti",
-    ipv4: "IPv4 ni\u015F\xE2n\u0131",
-    ipv6: "IPv6 ni\u015F\xE2n\u0131",
-    mac: "MAC ni\u015F\xE2n\u0131",
+    time: "ISO zamanı",
+    duration: "ISO müddeti",
+    ipv4: "IPv4 nişânı",
+    ipv6: "IPv6 nişânı",
+    mac: "MAC nişânı",
     cidrv4: "IPv4 menzili",
     cidrv6: "IPv6 menzili",
-    base64: "base64-\u015Fifreli metin",
-    base64url: "base64url-\u015Fifreli metin",
+    base64: "base64-şifreli metin",
+    base64url: "base64url-şifreli metin",
     json_string: "JSON metin",
-    e164: "E.164 say\u0131s\u0131",
-    credit_card: "i'tib\xE2r kart\u0131 numaras\u0131",
+    e164: "E.164 sayısı",
+    credit_card: "i'tibâr kartı numarası",
     currency_code: "para birimi kodu",
     iban: "IBAN",
     jwt: "JWT",
@@ -10478,53 +13250,53 @@ var error40 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `F\xE2sit giren: umulan instanceof ${issue2.expected}, al\u0131nan ${received}`;
+          return `Fâsit giren: umulan instanceof ${issue2.expected}, alınan ${received}`;
         }
-        return `F\xE2sit giren: umulan ${expected}, al\u0131nan ${received}`;
+        return `Fâsit giren: umulan ${expected}, alınan ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `F\xE2sit giren: umulan ${stringifyPrimitive(issue2.values[0])}`;
-        return `F\xE2sit tercih: m\xFBteberler ${joinValues(issue2.values, "|")}`;
+          return `Fâsit giren: umulan ${stringifyPrimitive(issue2.values[0])}`;
+        return `Fâsit tercih: mûteberler ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"} sahip olmal\u0131yd\u0131.`;
-        return `Fazla b\xFCy\xFCk: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} olmal\u0131yd\u0131.`;
+          return `Fazla büyük: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elements"} sahip olmalıydı.`;
+        return `Fazla büyük: ${issue2.origin ?? "value"}, ${adj}${issue2.maximum.toString()} olmalıydı.`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} ${sizing.unit} sahip olmal\u0131yd\u0131.`;
+          return `Fazla küçük: ${issue2.origin}, ${adj}${issue2.minimum.toString()} ${sizing.unit} sahip olmalıydı.`;
         }
-        return `Fazla k\xFC\xE7\xFCk: ${issue2.origin}, ${adj}${issue2.minimum.toString()} olmal\u0131yd\u0131.`;
+        return `Fazla küçük: ${issue2.origin}, ${adj}${issue2.minimum.toString()} olmalıydı.`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `F\xE2sit metin: "${_issue.prefix}" ile ba\u015Flamal\u0131.`;
+          return `Fâsit metin: "${_issue.prefix}" ile başlamalı.`;
         if (_issue.format === "ends_with")
-          return `F\xE2sit metin: "${_issue.suffix}" ile bitmeli.`;
+          return `Fâsit metin: "${_issue.suffix}" ile bitmeli.`;
         if (_issue.format === "includes")
-          return `F\xE2sit metin: "${_issue.includes}" ihtiv\xE2 etmeli.`;
+          return `Fâsit metin: "${_issue.includes}" ihtivâ etmeli.`;
         if (_issue.format === "regex")
-          return `F\xE2sit metin: ${_issue.pattern} nak\u015F\u0131na uymal\u0131.`;
-        return `F\xE2sit ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Fâsit metin: ${_issue.pattern} nakşına uymalı.`;
+        return `Fâsit ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `F\xE2sit say\u0131: ${issue2.divisor} kat\u0131 olmal\u0131yd\u0131.`;
+        return `Fâsit sayı: ${issue2.divisor} katı olmalıydı.`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan anahtar ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tanınmayan anahtar ${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} i\xE7in tan\u0131nmayan anahtar var.`;
+        return `${issue2.origin} için tanınmayan anahtar var.`;
       case "invalid_union":
-        return "Giren tan\u0131namad\u0131.";
+        return "Giren tanınamadı.";
       case "invalid_element":
-        return `${issue2.origin} i\xE7in tan\u0131nmayan k\u0131ymet var.`;
+        return `${issue2.origin} için tanınmayan kıymet var.`;
       default:
-        return `K\u0131ymet tan\u0131namad\u0131.`;
+        return `Kıymet tanınamadı.`;
     }
   };
 };
@@ -10537,20 +13309,20 @@ function ota_default() {
 // node_modules/zod/v4/locales/ps.js
 var error41 = () => {
   const Sizable = {
-    string: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
-    file: { unit: "\u0628\u0627\u06CC\u067C\u0633", verb: "\u0648\u0644\u0631\u064A" },
-    array: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
-    set: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" },
-    map: { unit: "\u062A\u0648\u06A9\u064A", verb: "\u0648\u0644\u0631\u064A" }
+    string: { unit: "توکي", verb: "ولري" },
+    file: { unit: "بایټس", verb: "ولري" },
+    array: { unit: "توکي", verb: "ولري" },
+    set: { unit: "توکي", verb: "ولري" },
+    map: { unit: "توکي", verb: "ولري" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0648\u0631\u0648\u062F\u064A",
-    email: "\u0628\u0631\u06CC\u069A\u0646\u0627\u0644\u06CC\u06A9",
-    url: "\u06CC\u0648 \u0622\u0631 \u0627\u0644",
-    emoji: "\u0627\u06CC\u0645\u0648\u062C\u064A",
+    regex: "ورودي",
+    email: "بریښنالیک",
+    url: "یو آر ال",
+    emoji: "ایموجي",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -10561,29 +13333,29 @@ var error41 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u0646\u06CC\u067C\u0647 \u0627\u0648 \u0648\u062E\u062A",
-    date: "\u0646\u06D0\u067C\u0647",
-    time: "\u0648\u062E\u062A",
-    duration: "\u0645\u0648\u062F\u0647",
-    ipv4: "\u062F IPv4 \u067E\u062A\u0647",
-    ipv6: "\u062F IPv6 \u067E\u062A\u0647",
-    mac: "\u062F MAC \u067E\u062A\u0647",
-    cidrv4: "\u062F IPv4 \u0633\u0627\u062D\u0647",
-    cidrv6: "\u062F IPv6 \u0633\u0627\u062D\u0647",
-    base64: "base64-encoded \u0645\u062A\u0646",
-    base64url: "base64url-encoded \u0645\u062A\u0646",
-    json_string: "JSON \u0645\u062A\u0646",
-    e164: "\u062F E.164 \u0634\u0645\u06D0\u0631\u0647",
-    credit_card: "\u062F \u06A9\u0631\u06CC\u0689\u06CC\u067C \u06A9\u0627\u0631\u062A \u0634\u0645\u06CC\u0631\u0647",
-    currency_code: "\u062F \u0627\u0633\u0639\u0627\u0631\u0648 \u06A9\u0648\u0689",
+    datetime: "نیټه او وخت",
+    date: "نېټه",
+    time: "وخت",
+    duration: "موده",
+    ipv4: "د IPv4 پته",
+    ipv6: "د IPv6 پته",
+    mac: "د MAC پته",
+    cidrv4: "د IPv4 ساحه",
+    cidrv6: "د IPv6 ساحه",
+    base64: "base64-encoded متن",
+    base64url: "base64url-encoded متن",
+    json_string: "JSON متن",
+    e164: "د E.164 شمېره",
+    credit_card: "د کریډیټ کارت شمیره",
+    currency_code: "د اسعارو کوډ",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0648\u0631\u0648\u062F\u064A"
+    template_literal: "ورودي"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0639\u062F\u062F",
-    array: "\u0627\u0631\u06D0"
+    number: "عدد",
+    array: "ارې"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -10592,59 +13364,59 @@ var error41 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F instanceof ${issue2.expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
+          return `ناسم ورودي: باید instanceof ${issue2.expected} وای, مګر ${received} ترلاسه شو`;
         }
-        return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${expected} \u0648\u0627\u06CC, \u0645\u06AB\u0631 ${received} \u062A\u0631\u0644\u0627\u0633\u0647 \u0634\u0648`;
+        return `ناسم ورودي: باید ${expected} وای, مګر ${received} ترلاسه شو`;
       }
       case "invalid_value":
         if (issue2.values.length === 1) {
-          return `\u0646\u0627\u0633\u0645 \u0648\u0631\u0648\u062F\u064A: \u0628\u0627\u06CC\u062F ${stringifyPrimitive(issue2.values[0])} \u0648\u0627\u06CC`;
+          return `ناسم ورودي: باید ${stringifyPrimitive(issue2.values[0])} وای`;
         }
-        return `\u0646\u0627\u0633\u0645 \u0627\u0646\u062A\u062E\u0627\u0628: \u0628\u0627\u06CC\u062F \u06CC\u0648 \u0644\u0647 ${joinValues(issue2.values, "|")} \u0685\u062E\u0647 \u0648\u0627\u06CC`;
+        return `ناسم انتخاب: باید یو له ${joinValues(issue2.values, "|")} څخه وای`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0635\u0631\u0648\u0646\u0647"} \u0648\u0644\u0631\u064A`;
+          return `ډیر لوی: ${issue2.origin ?? "ارزښت"} باید ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "عنصرونه"} ولري`;
         }
-        return `\u0689\u06CC\u0631 \u0644\u0648\u06CC: ${issue2.origin ?? "\u0627\u0631\u0632\u069A\u062A"} \u0628\u0627\u06CC\u062F ${adj}${issue2.maximum.toString()} \u0648\u064A`;
+        return `ډیر لوی: ${issue2.origin ?? "ارزښت"} باید ${adj}${issue2.maximum.toString()} وي`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0648\u0644\u0631\u064A`;
+          return `ډیر کوچنی: ${issue2.origin} باید ${adj}${issue2.minimum.toString()} ${sizing.unit} ولري`;
         }
-        return `\u0689\u06CC\u0631 \u06A9\u0648\u0686\u0646\u06CC: ${issue2.origin} \u0628\u0627\u06CC\u062F ${adj}${issue2.minimum.toString()} \u0648\u064A`;
+        return `ډیر کوچنی: ${issue2.origin} باید ${adj}${issue2.minimum.toString()} وي`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.prefix}" \u0633\u0631\u0647 \u067E\u06CC\u0644 \u0634\u064A`;
+          return `ناسم متن: باید د "${_issue.prefix}" سره پیل شي`;
         }
         if (_issue.format === "ends_with") {
-          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F "${_issue.suffix}" \u0633\u0631\u0647 \u067E\u0627\u06CC \u062A\u0647 \u0648\u0631\u0633\u064A\u0696\u064A`;
+          return `ناسم متن: باید د "${_issue.suffix}" سره پای ته ورسيږي`;
         }
         if (_issue.format === "includes") {
-          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F "${_issue.includes}" \u0648\u0644\u0631\u064A`;
+          return `ناسم متن: باید "${_issue.includes}" ولري`;
         }
         if (_issue.format === "regex") {
-          return `\u0646\u0627\u0633\u0645 \u0645\u062A\u0646: \u0628\u0627\u06CC\u062F \u062F ${_issue.pattern} \u0633\u0631\u0647 \u0645\u0637\u0627\u0628\u0642\u062A \u0648\u0644\u0631\u064A`;
+          return `ناسم متن: باید د ${_issue.pattern} سره مطابقت ولري`;
         }
-        return `${FormatDictionary[_issue.format] ?? issue2.format} \u0646\u0627\u0633\u0645 \u062F\u06CC`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} ناسم دی`;
       }
       case "not_multiple_of":
-        return `\u0646\u0627\u0633\u0645 \u0639\u062F\u062F: \u0628\u0627\u06CC\u062F \u062F ${issue2.divisor} \u0645\u0636\u0631\u0628 \u0648\u064A`;
+        return `ناسم عدد: باید د ${issue2.divisor} مضرب وي`;
       case "unrecognized_keys":
-        return `\u0646\u0627\u0633\u0645 ${issue2.keys.length > 1 ? "\u06A9\u0644\u06CC\u0689\u0648\u0646\u0647" : "\u06A9\u0644\u06CC\u0689"}: ${joinValues(issue2.keys, ", ")}`;
+        return `ناسم ${issue2.keys.length > 1 ? "کلیډونه" : "کلیډ"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0646\u0627\u0633\u0645 \u06A9\u0644\u06CC\u0689 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+        return `ناسم کلیډ په ${issue2.origin} کې`;
       case "invalid_union":
-        return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
+        return `ناسمه ورودي`;
       case "invalid_element":
-        return `\u0646\u0627\u0633\u0645 \u0639\u0646\u0635\u0631 \u067E\u0647 ${issue2.origin} \u06A9\u06D0`;
+        return `ناسم عنصر په ${issue2.origin} کې`;
       default:
-        return `\u0646\u0627\u0633\u0645\u0647 \u0648\u0631\u0648\u062F\u064A`;
+        return `ناسمه ورودي`;
     }
   };
 };
@@ -10657,17 +13429,17 @@ function ps_default() {
 // node_modules/zod/v4/locales/pl.js
 var error42 = () => {
   const Sizable = {
-    string: { unit: "znak\xF3w", verb: "mie\u0107" },
-    file: { unit: "bajt\xF3w", verb: "mie\u0107" },
-    array: { unit: "element\xF3w", verb: "mie\u0107" },
-    set: { unit: "element\xF3w", verb: "mie\u0107" },
-    map: { unit: "element\xF3w", verb: "mie\u0107" }
+    string: { unit: "znaków", verb: "mieć" },
+    file: { unit: "bajtów", verb: "mieć" },
+    array: { unit: "elementów", verb: "mieć" },
+    set: { unit: "elementów", verb: "mieć" },
+    map: { unit: "elementów", verb: "mieć" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "wyra\u017Cenie",
+    regex: "wyrażenie",
     email: "adres email",
     url: "URL",
     emoji: "emoji",
@@ -10690,15 +13462,15 @@ var error42 = () => {
     mac: "adres MAC",
     cidrv4: "zakres IPv4",
     cidrv6: "zakres IPv6",
-    base64: "ci\u0105g znak\xF3w zakodowany w formacie base64",
-    base64url: "ci\u0105g znak\xF3w zakodowany w formacie base64url",
-    json_string: "ci\u0105g znak\xF3w w formacie JSON",
+    base64: "ciąg znaków zakodowany w formacie base64",
+    base64url: "ciąg znaków zakodowany w formacie base64url",
+    json_string: "ciąg znaków w formacie JSON",
     e164: "liczba E.164",
     credit_card: "numer karty kredytowej",
     currency_code: "kod waluty",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "wej\u015Bcie"
+    template_literal: "wejście"
   };
   const TypeDictionary = {
     nan: "NaN",
@@ -10712,54 +13484,54 @@ var error42 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano instanceof ${issue2.expected}, otrzymano ${received}`;
+          return `Nieprawidłowe dane wejściowe: oczekiwano instanceof ${issue2.expected}, otrzymano ${received}`;
         }
-        return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${expected}, otrzymano ${received}`;
+        return `Nieprawidłowe dane wejściowe: oczekiwano ${expected}, otrzymano ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Nieprawid\u0142owe dane wej\u015Bciowe: oczekiwano ${stringifyPrimitive(issue2.values[0])}`;
-        return `Nieprawid\u0142owa opcja: oczekiwano jednej z warto\u015Bci ${joinValues(issue2.values, "|")}`;
+          return `Nieprawidłowe dane wejściowe: oczekiwano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Nieprawidłowa opcja: oczekiwano jednej z wartości ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Za du\u017Ca warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+          return `Za duża wartość: oczekiwano, że ${issue2.origin ?? "wartość"} będzie mieć ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementów"}`;
         }
-        return `Zbyt du\u017C(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.maximum.toString()}`;
+        return `Zbyt duż(y/a/e): oczekiwano, że ${issue2.origin ?? "wartość"} będzie wynosić ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Za ma\u0142a warto\u015B\u0107: oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie mie\u0107 ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "element\xF3w"}`;
+          return `Za mała wartość: oczekiwano, że ${issue2.origin ?? "wartość"} będzie mieć ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "elementów"}`;
         }
-        return `Zbyt ma\u0142(y/a/e): oczekiwano, \u017Ce ${issue2.origin ?? "warto\u015B\u0107"} b\u0119dzie wynosi\u0107 ${adj}${issue2.minimum.toString()}`;
+        return `Zbyt mał(y/a/e): oczekiwano, że ${issue2.origin ?? "wartość"} będzie wynosić ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zaczyna\u0107 si\u0119 od "${_issue.prefix}"`;
+          return `Nieprawidłowy ciąg znaków: musi zaczynać się od "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi ko\u0144czy\u0107 si\u0119 na "${_issue.suffix}"`;
+          return `Nieprawidłowy ciąg znaków: musi kończyć się na "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi zawiera\u0107 "${_issue.includes}"`;
+          return `Nieprawidłowy ciąg znaków: musi zawierać "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Nieprawid\u0142owy ci\u0105g znak\xF3w: musi odpowiada\u0107 wzorcowi ${_issue.pattern}`;
-        return `Nieprawid\u0142ow(y/a/e) ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Nieprawidłowy ciąg znaków: musi odpowiadać wzorcowi ${_issue.pattern}`;
+        return `Nieprawidłow(y/a/e) ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Nieprawid\u0142owa liczba: musi by\u0107 wielokrotno\u015Bci\u0105 ${issue2.divisor}`;
+        return `Nieprawidłowa liczba: musi być wielokrotnością ${issue2.divisor}`;
       case "unrecognized_keys":
         return `Nierozpoznane klucze${issue2.keys.length > 1 ? "s" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Nieprawid\u0142owy klucz w ${issue2.origin}`;
+        return `Nieprawidłowy klucz w ${issue2.origin}`;
       case "invalid_union":
-        return "Nieprawid\u0142owe dane wej\u015Bciowe";
+        return "Nieprawidłowe dane wejściowe";
       case "invalid_element":
-        return `Nieprawid\u0142owa warto\u015B\u0107 w ${issue2.origin}`;
+        return `Nieprawidłowa wartość w ${issue2.origin}`;
       default:
-        return `Nieprawid\u0142owe dane wej\u015Bciowe`;
+        return `Nieprawidłowe dane wejściowe`;
     }
   };
 };
@@ -10783,7 +13555,7 @@ var error43 = () => {
   }
   const FormatDictionary = {
     regex: "a entrada",
-    email: "o endere\xE7o de e-mail",
+    email: "o endereço de e-mail",
     url: "o URL",
     emoji: "o emoji",
     uuid: "o UUID",
@@ -10799,18 +13571,18 @@ var error43 = () => {
     datetime: "a data e hora ISO",
     date: "a data ISO",
     time: "a hora ISO",
-    duration: "a dura\xE7\xE3o ISO",
-    ipv4: "o endere\xE7o IPv4",
-    ipv6: "o endere\xE7o IPv6",
-    mac: "o endere\xE7o MAC",
-    cidrv4: "o intervalo de endere\xE7os IPv4",
-    cidrv6: "o intervalo de endere\xE7os IPv6",
+    duration: "a duração ISO",
+    ipv4: "o endereço IPv4",
+    ipv6: "o endereço IPv6",
+    mac: "o endereço MAC",
+    cidrv4: "o intervalo de endereços IPv4",
+    cidrv6: "o intervalo de endereços IPv6",
     base64: "o texto codificado em base64",
     base64url: "o texto codificado em base64url",
     json_string: "o texto JSON",
-    e164: "o n\xFAmero E.164",
-    credit_card: "o n\xFAmero de cart\xE3o de cr\xE9dito",
-    currency_code: "o c\xF3digo de moeda",
+    e164: "o número E.164",
+    credit_card: "o número de cartão de crédito",
+    currency_code: "o código de moeda",
     iban: "o IBAN",
     jwt: "o JWT",
     template_literal: "a entrada"
@@ -10821,11 +13593,11 @@ var error43 = () => {
   };
   const TypeDictionary = {
     string: { name: "texto", articles: Gender.masculine },
-    number: { name: "n\xFAmero", articles: Gender.masculine },
-    int: { name: "n\xFAmero inteiro", articles: Gender.masculine },
+    number: { name: "número", articles: Gender.masculine },
+    int: { name: "número inteiro", articles: Gender.masculine },
     boolean: { name: "valor booleano", articles: Gender.masculine },
-    bigint: { name: "n\xFAmero bigint", articles: Gender.masculine },
-    symbol: { name: "s\xEDmbolo", articles: Gender.masculine },
+    bigint: { name: "número bigint", articles: Gender.masculine },
+    symbol: { name: "símbolo", articles: Gender.masculine },
     undefined: { name: 'valor "undefined"', articles: Gender.masculine },
     null: { name: 'valor "nulo"', articles: Gender.masculine },
     never: { name: 'valor "never"', articles: Gender.masculine },
@@ -10838,10 +13610,10 @@ var error43 = () => {
     map: { name: "mapa", articles: Gender.masculine },
     set: { name: "conjunto", articles: Gender.masculine },
     file: { name: "ficheiro", articles: Gender.masculine },
-    nonoptional: { name: "valor n\xE3o opcional", articles: Gender.masculine },
+    nonoptional: { name: "valor não opcional", articles: Gender.masculine },
     nan: { name: 'valor "NaN"', articles: Gender.masculine },
     // Compatibility: "nan" -> "NaN" for display
-    function: { name: "fun\xE7\xE3o", articles: Gender.feminine }
+    function: { name: "função", articles: Gender.feminine }
   };
   function translateOriginWithArticle(type, articleType) {
     const translatedValue = TypeDictionary[type] ?? { name: `valor "${type}"`, articles: Gender.masculine };
@@ -10853,12 +13625,12 @@ var error43 = () => {
         const expected = translateOriginWithArticle(issue2.expected, "indefinite");
         const receivedType = parsedType(issue2.input);
         const received = translateOriginWithArticle(receivedType, "indefinite");
-        return `Entrada inv\xE1lida: esperava ${expected}, recebeu ${received}`;
+        return `Entrada inválida: esperava ${expected}, recebeu ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entrada inv\xE1lida: esperava ${stringifyPrimitive(issue2.values[0])}`;
-        return `Op\xE7\xE3o inv\xE1lida: esperava uma das seguintes op\xE7\xF5es: ${joinValues(issue2.values, "|")}`;
+          return `Entrada inválida: esperava ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opção inválida: esperava uma das seguintes opções: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -10877,37 +13649,37 @@ var error43 = () => {
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Texto inv\xE1lido: deve come\xE7ar por "${_issue.prefix}"`;
+          return `Texto inválido: deve começar por "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Texto inv\xE1lido: deve terminar em "${_issue.suffix}"`;
+          return `Texto inválido: deve terminar em "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Texto inv\xE1lido: deve incluir "${_issue.includes}"`;
+          return `Texto inválido: deve incluir "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Texto inv\xE1lido: deve corresponder ao padr\xE3o ${_issue.pattern}`;
-        return `Formato d${FormatDictionary[_issue.format] ?? issue2.format} inv\xE1lido`;
+          return `Texto inválido: deve corresponder ao padrão ${_issue.pattern}`;
+        return `Formato d${FormatDictionary[_issue.format] ?? issue2.format} inválido`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
+        return `Número inválido: deve ser múltiplo de ${issue2.divisor}`;
       case "unrecognized_keys": {
         const plural2 = issue2.keys.length > 1 ? "s" : "";
-        return `Chave${plural2} inv\xE1lida${plural2}: ${joinValues(issue2.keys, ", ")}`;
+        return `Chave${plural2} inválida${plural2}: ${joinValues(issue2.keys, ", ")}`;
       }
       case "invalid_key":
-        return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
+        return `Entrada inválida n${translateOriginWithArticle(issue2.origin, "definite")}`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `Valor de discrimina\xE7\xE3o inv\xE1lido. Esperava ${opts}`;
+          return `Valor de discriminação inválido. Esperava ${opts}`;
         }
-        return "Entrada inv\xE1lida";
+        return "Entrada inválida";
       case "invalid_element":
-        return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
+        return `Entrada inválida n${translateOriginWithArticle(issue2.origin, "definite")}`;
       default:
-        return `Entrada inv\xE1lida`;
+        return `Entrada inválida`;
     }
   };
 };
-function pt_default() {
+function pt_default2() {
   return {
     localeError: error43()
   };
@@ -10927,7 +13699,7 @@ var error44 = () => {
   }
   const FormatDictionary = {
     regex: "a entrada",
-    email: "o endere\xE7o de e-mail",
+    email: "o endereço de e-mail",
     url: "o URL",
     emoji: "o emoji",
     uuid: "o UUID",
@@ -10943,18 +13715,18 @@ var error44 = () => {
     datetime: "a data e hora ISO",
     date: "a data ISO",
     time: "a hora ISO",
-    duration: "a dura\xE7\xE3o ISO",
-    ipv4: "o endere\xE7o IPv4",
-    ipv6: "o endere\xE7o IPv6",
-    mac: "o endere\xE7o MAC",
-    cidrv4: "a faixa de endere\xE7os IPv4",
-    cidrv6: "a faixa de endere\xE7os IPv6",
+    duration: "a duração ISO",
+    ipv4: "o endereço IPv4",
+    ipv6: "o endereço IPv6",
+    mac: "o endereço MAC",
+    cidrv4: "a faixa de endereços IPv4",
+    cidrv6: "a faixa de endereços IPv6",
     base64: "o texto codificado em base64",
     base64url: "o texto codificado em base64url",
     json_string: "o texto JSON",
-    e164: "o n\xFAmero E.164",
-    credit_card: "o n\xFAmero de cart\xE3o de cr\xE9dito",
-    currency_code: "o c\xF3digo de moeda",
+    e164: "o número E.164",
+    credit_card: "o número de cartão de crédito",
+    currency_code: "o código de moeda",
     iban: "o IBAN",
     jwt: "o JWT",
     template_literal: "a entrada"
@@ -10965,11 +13737,11 @@ var error44 = () => {
   };
   const TypeDictionary = {
     string: { name: "texto", articles: Gender.masculine },
-    number: { name: "n\xFAmero", articles: Gender.masculine },
-    int: { name: "n\xFAmero inteiro", articles: Gender.masculine },
+    number: { name: "número", articles: Gender.masculine },
+    int: { name: "número inteiro", articles: Gender.masculine },
     boolean: { name: "valor booleano", articles: Gender.masculine },
-    bigint: { name: "n\xFAmero bigint", articles: Gender.masculine },
-    symbol: { name: "s\xEDmbolo", articles: Gender.masculine },
+    bigint: { name: "número bigint", articles: Gender.masculine },
+    symbol: { name: "símbolo", articles: Gender.masculine },
     undefined: { name: 'valor "undefined"', articles: Gender.masculine },
     null: { name: 'valor "nulo"', articles: Gender.masculine },
     never: { name: 'valor "never"', articles: Gender.masculine },
@@ -10982,10 +13754,10 @@ var error44 = () => {
     map: { name: "mapa", articles: Gender.masculine },
     set: { name: "conjunto", articles: Gender.masculine },
     file: { name: "arquivo", articles: Gender.masculine },
-    nonoptional: { name: "valor n\xE3o opcional", articles: Gender.masculine },
+    nonoptional: { name: "valor não opcional", articles: Gender.masculine },
     nan: { name: 'valor "NaN"', articles: Gender.masculine },
     // Compatibility: "nan" -> "NaN" for display
-    function: { name: "fun\xE7\xE3o", articles: Gender.feminine }
+    function: { name: "função", articles: Gender.feminine }
   };
   function translateOriginWithArticle(type, articleType) {
     const translatedValue = TypeDictionary[type] ?? { name: `valor "${type}"`, articles: Gender.masculine };
@@ -10997,12 +13769,12 @@ var error44 = () => {
         const expected = translateOriginWithArticle(issue2.expected, "indefinite");
         const receivedType = parsedType(issue2.input);
         const received = translateOriginWithArticle(receivedType, "indefinite");
-        return `Entrada inv\xE1lida: esperava ${expected}, recebeu ${received}`;
+        return `Entrada inválida: esperava ${expected}, recebeu ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Entrada inv\xE1lida: esperava ${stringifyPrimitive(issue2.values[0])}`;
-        return `Op\xE7\xE3o inv\xE1lida: esperava uma das seguintes op\xE7\xF5es: ${joinValues(issue2.values, "|")}`;
+          return `Entrada inválida: esperava ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opção inválida: esperava uma das seguintes opções: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -11021,34 +13793,34 @@ var error44 = () => {
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Texto inv\xE1lido: deve come\xE7ar com "${_issue.prefix}"`;
+          return `Texto inválido: deve começar com "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Texto inv\xE1lido: deve terminar com "${_issue.suffix}"`;
+          return `Texto inválido: deve terminar com "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Texto inv\xE1lido: deve incluir "${_issue.includes}"`;
+          return `Texto inválido: deve incluir "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Texto inv\xE1lido: deve corresponder ao padr\xE3o ${_issue.pattern}`;
-        return `Formato d${FormatDictionary[_issue.format] ?? issue2.format} inv\xE1lido`;
+          return `Texto inválido: deve corresponder ao padrão ${_issue.pattern}`;
+        return `Formato d${FormatDictionary[_issue.format] ?? issue2.format} inválido`;
       }
       case "not_multiple_of":
-        return `N\xFAmero inv\xE1lido: deve ser m\xFAltiplo de ${issue2.divisor}`;
+        return `Número inválido: deve ser múltiplo de ${issue2.divisor}`;
       case "unrecognized_keys": {
         const plural2 = issue2.keys.length > 1 ? "s" : "";
-        return `Chave${plural2} inv\xE1lida${plural2}: ${joinValues(issue2.keys, ", ")}`;
+        return `Chave${plural2} inválida${plural2}: ${joinValues(issue2.keys, ", ")}`;
       }
       case "invalid_key":
-        return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
+        return `Entrada inválida n${translateOriginWithArticle(issue2.origin, "definite")}`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `Valor de discrimina\xE7\xE3o inv\xE1lido. Esperava ${opts}`;
+          return `Valor de discriminação inválido. Esperava ${opts}`;
         }
-        return "Entrada inv\xE1lida";
+        return "Entrada inválida";
       case "invalid_element":
-        return `Entrada inv\xE1lida n${translateOriginWithArticle(issue2.origin, "definite")}`;
+        return `Entrada inválida n${translateOriginWithArticle(issue2.origin, "definite")}`;
       default:
-        return `Entrada inv\xE1lida`;
+        return `Entrada inválida`;
     }
   };
 };
@@ -11061,18 +13833,18 @@ function pt_BR_default() {
 // node_modules/zod/v4/locales/ro.js
 var error45 = () => {
   const Sizable = {
-    string: { unit: "caractere", verb: "s\u0103 aib\u0103" },
-    file: { unit: "octe\u021Bi", verb: "s\u0103 aib\u0103" },
-    array: { unit: "elemente", verb: "s\u0103 aib\u0103" },
-    set: { unit: "elemente", verb: "s\u0103 aib\u0103" },
-    map: { unit: "intr\u0103ri", verb: "s\u0103 aib\u0103" }
+    string: { unit: "caractere", verb: "să aibă" },
+    file: { unit: "octeți", verb: "să aibă" },
+    array: { unit: "elemente", verb: "să aibă" },
+    set: { unit: "elemente", verb: "să aibă" },
+    map: { unit: "intrări", verb: "să aibă" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
     regex: "intrare",
-    email: "adres\u0103 de email",
+    email: "adresă de email",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -11085,20 +13857,20 @@ var error45 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "dat\u0103 \u0219i or\u0103 ISO",
-    date: "dat\u0103 ISO",
-    time: "or\u0103 ISO",
-    duration: "durat\u0103 ISO",
-    ipv4: "adres\u0103 IPv4",
-    ipv6: "adres\u0103 IPv6",
-    mac: "adres\u0103 MAC",
+    datetime: "dată și oră ISO",
+    date: "dată ISO",
+    time: "oră ISO",
+    duration: "durată ISO",
+    ipv4: "adresă IPv4",
+    ipv6: "adresă IPv6",
+    mac: "adresă MAC",
     cidrv4: "interval IPv4",
     cidrv6: "interval IPv6",
-    base64: "\u0219ir codat base64",
-    base64url: "\u0219ir codat base64url",
-    json_string: "\u0219ir JSON",
-    e164: "num\u0103r E.164",
-    credit_card: "num\u0103r de card de credit",
+    base64: "șir codat base64",
+    base64url: "șir codat base64url",
+    json_string: "șir JSON",
+    e164: "număr E.164",
+    credit_card: "număr de card de credit",
     currency_code: "cod valutar",
     iban: "IBAN",
     jwt: "JWT",
@@ -11106,18 +13878,18 @@ var error45 = () => {
   };
   const TypeDictionary = {
     nan: "NaN",
-    string: "\u0219ir",
-    number: "num\u0103r",
+    string: "șir",
+    number: "număr",
     boolean: "boolean",
-    function: "func\u021Bie",
+    function: "funcție",
     array: "matrice",
     object: "obiect",
     undefined: "nedefinit",
     symbol: "simbol",
-    bigint: "num\u0103r mare",
+    bigint: "număr mare",
     void: "void",
     never: "never",
-    map: "hart\u0103",
+    map: "hartă",
     set: "set"
   };
   return (issue2) => {
@@ -11126,52 +13898,52 @@ var error45 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        return `Intrare invalid\u0103: a\u0219teptat ${expected}, primit ${received}`;
+        return `Intrare invalidă: așteptat ${expected}, primit ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Intrare invalid\u0103: a\u0219teptat ${stringifyPrimitive(issue2.values[0])}`;
-        return `Op\u021Biune invalid\u0103: a\u0219teptat una dintre ${joinValues(issue2.values, "|")}`;
+          return `Intrare invalidă: așteptat ${stringifyPrimitive(issue2.values[0])}`;
+        return `Opțiune invalidă: așteptat una dintre ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Prea mare: a\u0219teptat ca ${issue2.origin ?? "valoarea"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemente"}`;
-        return `Prea mare: a\u0219teptat ca ${issue2.origin ?? "valoarea"} s\u0103 fie ${adj}${issue2.maximum.toString()}`;
+          return `Prea mare: așteptat ca ${issue2.origin ?? "valoarea"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elemente"}`;
+        return `Prea mare: așteptat ca ${issue2.origin ?? "valoarea"} să fie ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Prea mic: a\u0219teptat ca ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Prea mic: așteptat ca ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Prea mic: a\u0219teptat ca ${issue2.origin} s\u0103 fie ${adj}${issue2.minimum.toString()}`;
+        return `Prea mic: așteptat ca ${issue2.origin} să fie ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0218ir invalid: trebuie s\u0103 \xEEnceap\u0103 cu "${_issue.prefix}"`;
+          return `Șir invalid: trebuie să înceapă cu "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u0218ir invalid: trebuie s\u0103 se termine cu "${_issue.suffix}"`;
+          return `Șir invalid: trebuie să se termine cu "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u0218ir invalid: trebuie s\u0103 includ\u0103 "${_issue.includes}"`;
+          return `Șir invalid: trebuie să includă "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u0218ir invalid: trebuie s\u0103 se potriveasc\u0103 cu modelul ${_issue.pattern}`;
+          return `Șir invalid: trebuie să se potrivească cu modelul ${_issue.pattern}`;
         return `Format invalid: ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Num\u0103r invalid: trebuie s\u0103 fie multiplu de ${issue2.divisor}`;
+        return `Număr invalid: trebuie să fie multiplu de ${issue2.divisor}`;
       case "unrecognized_keys":
         return `Chei nerecunoscute: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Cheie invalid\u0103 \xEEn ${issue2.origin}`;
+        return `Cheie invalidă în ${issue2.origin}`;
       case "invalid_union":
-        return "Intrare invalid\u0103";
+        return "Intrare invalidă";
       case "invalid_element":
-        return `Valoare invalid\u0103 \xEEn ${issue2.origin}`;
+        return `Valoare invalidă în ${issue2.origin}`;
       default:
-        return `Intrare invalid\u0103`;
+        return `Intrare invalidă`;
     }
   };
 };
@@ -11201,53 +13973,53 @@ var error46 = () => {
   const Sizable = {
     string: {
       unit: {
-        one: "\u0441\u0438\u043C\u0432\u043E\u043B",
-        few: "\u0441\u0438\u043C\u0432\u043E\u043B\u0430",
-        many: "\u0441\u0438\u043C\u0432\u043E\u043B\u043E\u0432"
+        one: "символ",
+        few: "символа",
+        many: "символов"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     },
     file: {
       unit: {
-        one: "\u0431\u0430\u0439\u0442",
-        few: "\u0431\u0430\u0439\u0442\u0430",
-        many: "\u0431\u0430\u0439\u0442"
+        one: "байт",
+        few: "байта",
+        many: "байт"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     },
     array: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+        one: "элемент",
+        few: "элемента",
+        many: "элементов"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     },
     set: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+        one: "элемент",
+        few: "элемента",
+        many: "элементов"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     },
     map: {
       unit: {
-        one: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442",
-        few: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u0430",
-        many: "\u044D\u043B\u0435\u043C\u0435\u043D\u0442\u043E\u0432"
+        one: "элемент",
+        few: "элемента",
+        many: "элементов"
       },
-      verb: "\u0438\u043C\u0435\u0442\u044C"
+      verb: "иметь"
     }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0432\u0432\u043E\u0434",
-    email: "email \u0430\u0434\u0440\u0435\u0441",
+    regex: "ввод",
+    email: "email адрес",
     url: "URL",
-    emoji: "\u044D\u043C\u043E\u0434\u0437\u0438",
+    emoji: "эмодзи",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -11258,29 +14030,29 @@ var error46 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0434\u0430\u0442\u0430 \u0438 \u0432\u0440\u0435\u043C\u044F",
-    date: "ISO \u0434\u0430\u0442\u0430",
-    time: "ISO \u0432\u0440\u0435\u043C\u044F",
-    duration: "ISO \u0434\u043B\u0438\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u044C",
-    ipv4: "IPv4 \u0430\u0434\u0440\u0435\u0441",
-    ipv6: "IPv6 \u0430\u0434\u0440\u0435\u0441",
-    mac: "MAC \u0430\u0434\u0440\u0435\u0441",
-    cidrv4: "IPv4 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
-    cidrv6: "IPv6 \u0434\u0438\u0430\u043F\u0430\u0437\u043E\u043D",
-    base64: "\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 base64",
-    base64url: "\u0441\u0442\u0440\u043E\u043A\u0430 \u0432 \u0444\u043E\u0440\u043C\u0430\u0442\u0435 base64url",
-    json_string: "JSON \u0441\u0442\u0440\u043E\u043A\u0430",
-    e164: "\u043D\u043E\u043C\u0435\u0440 E.164",
-    credit_card: "\u043D\u043E\u043C\u0435\u0440 \u043A\u0440\u0435\u0434\u0438\u0442\u043D\u043E\u0439 \u043A\u0430\u0440\u0442\u044B",
-    currency_code: "\u043A\u043E\u0434 \u0432\u0430\u043B\u044E\u0442\u044B",
+    datetime: "ISO дата и время",
+    date: "ISO дата",
+    time: "ISO время",
+    duration: "ISO длительность",
+    ipv4: "IPv4 адрес",
+    ipv6: "IPv6 адрес",
+    mac: "MAC адрес",
+    cidrv4: "IPv4 диапазон",
+    cidrv6: "IPv6 диапазон",
+    base64: "строка в формате base64",
+    base64url: "строка в формате base64url",
+    json_string: "JSON строка",
+    e164: "номер E.164",
+    credit_card: "номер кредитной карты",
+    currency_code: "код валюты",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0432\u0432\u043E\u0434"
+    template_literal: "ввод"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0447\u0438\u0441\u043B\u043E",
-    array: "\u043C\u0430\u0441\u0441\u0438\u0432"
+    number: "число",
+    array: "массив"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -11289,23 +14061,23 @@ var error46 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C instanceof ${issue2.expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
+          return `Неверный ввод: ожидалось instanceof ${issue2.expected}, получено ${received}`;
         }
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${expected}, \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E ${received}`;
+        return `Неверный ввод: ожидалось ${expected}, получено ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0432\u043E\u0434: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u0432\u0430\u0440\u0438\u0430\u043D\u0442: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u0434\u043D\u043E \u0438\u0437 ${joinValues(issue2.values, "|")}`;
+          return `Неверный ввод: ожидалось ${stringifyPrimitive(issue2.values[0])}`;
+        return `Неверный вариант: ожидалось одно из ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
           const maxValue = Number(issue2.maximum);
           const unit = getRussianPlural(maxValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.maximum.toString()} ${unit}`;
+          return `Слишком большое значение: ожидалось, что ${issue2.origin ?? "значение"} будет иметь ${adj}${issue2.maximum.toString()} ${unit}`;
         }
-        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u0431\u043E\u043B\u044C\u0448\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435"} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.maximum.toString()}`;
+        return `Слишком большое значение: ожидалось, что ${issue2.origin ?? "значение"} будет ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
@@ -11313,34 +14085,34 @@ var error46 = () => {
         if (sizing) {
           const minValue = Number(issue2.minimum);
           const unit = getRussianPlural(minValue, sizing.unit.one, sizing.unit.few, sizing.unit.many);
-          return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 \u0438\u043C\u0435\u0442\u044C ${adj}${issue2.minimum.toString()} ${unit}`;
+          return `Слишком маленькое значение: ожидалось, что ${issue2.origin} будет иметь ${adj}${issue2.minimum.toString()} ${unit}`;
         }
-        return `\u0421\u043B\u0438\u0448\u043A\u043E\u043C \u043C\u0430\u043B\u0435\u043D\u044C\u043A\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435: \u043E\u0436\u0438\u0434\u0430\u043B\u043E\u0441\u044C, \u0447\u0442\u043E ${issue2.origin} \u0431\u0443\u0434\u0435\u0442 ${adj}${issue2.minimum.toString()}`;
+        return `Слишком маленькое значение: ожидалось, что ${issue2.origin} будет ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u043D\u0430\u0447\u0438\u043D\u0430\u0442\u044C\u0441\u044F \u0441 "${_issue.prefix}"`;
+          return `Неверная строка: должна начинаться с "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0437\u0430\u043A\u0430\u043D\u0447\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043D\u0430 "${_issue.suffix}"`;
+          return `Неверная строка: должна заканчиваться на "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u0434\u0435\u0440\u0436\u0430\u0442\u044C "${_issue.includes}"`;
+          return `Неверная строка: должна содержать "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u0435\u0432\u0435\u0440\u043D\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430: \u0434\u043E\u043B\u0436\u043D\u0430 \u0441\u043E\u043E\u0442\u0432\u0435\u0442\u0441\u0442\u0432\u043E\u0432\u0430\u0442\u044C \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Неверная строка: должна соответствовать шаблону ${_issue.pattern}`;
+        return `Неверный ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0447\u0438\u0441\u043B\u043E: \u0434\u043E\u043B\u0436\u043D\u043E \u0431\u044B\u0442\u044C \u043A\u0440\u0430\u0442\u043D\u044B\u043C ${issue2.divisor}`;
+        return `Неверное число: должно быть кратным ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043D${issue2.keys.length > 1 ? "\u044B\u0435" : "\u044B\u0439"} \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0438" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Нераспознанн${issue2.keys.length > 1 ? "ые" : "ый"} ключ${issue2.keys.length > 1 ? "и" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043A\u043B\u044E\u0447 \u0432 ${issue2.origin}`;
+        return `Неверный ключ в ${issue2.origin}`;
       case "invalid_union":
-        return "\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435";
+        return "Неверные входные данные";
       case "invalid_element":
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u043E\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u0438\u0435 \u0432 ${issue2.origin}`;
+        return `Неверное значение в ${issue2.origin}`;
       default:
-        return `\u041D\u0435\u0432\u0435\u0440\u043D\u044B\u0435 \u0432\u0445\u043E\u0434\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435`;
+        return `Неверные входные данные`;
     }
   };
 };
@@ -11353,18 +14125,18 @@ function ru_default() {
 // node_modules/zod/v4/locales/sk.js
 var error47 = () => {
   const Sizable = {
-    string: { unit: "znakov", verb: "ma\u0165" },
-    file: { unit: "bajtov", verb: "ma\u0165" },
-    array: { unit: "prvkov", verb: "ma\u0165" },
-    set: { unit: "prvkov", verb: "ma\u0165" },
-    map: { unit: "polo\u017Eiek", verb: "ma\u0165" }
+    string: { unit: "znakov", verb: "mať" },
+    file: { unit: "bajtov", verb: "mať" },
+    array: { unit: "prvkov", verb: "mať" },
+    set: { unit: "prvkov", verb: "mať" },
+    map: { unit: "položiek", verb: "mať" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "regul\xE1rny v\xFDraz",
-    email: "e-mailov\xE1 adresa",
+    regex: "regulárny výraz",
+    email: "e-mailová adresa",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -11377,29 +14149,29 @@ var error47 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "d\xE1tum a \u010Das vo form\xE1te ISO",
-    date: "d\xE1tum vo form\xE1te ISO",
-    time: "\u010Das vo form\xE1te ISO",
+    datetime: "dátum a čas vo formáte ISO",
+    date: "dátum vo formáte ISO",
+    time: "čas vo formáte ISO",
     duration: "doba trvania ISO",
     ipv4: "IPv4 adresa",
     ipv6: "IPv6 adresa",
     mac: "MAC adresa",
     cidrv4: "rozsah IPv4",
     cidrv6: "rozsah IPv6",
-    base64: "re\u0165azec zak\xF3dovan\xFD vo form\xE1te base64",
-    base64url: "re\u0165azec zak\xF3dovan\xFD vo form\xE1te base64url",
-    json_string: "re\u0165azec vo form\xE1te JSON",
-    e164: "\u010D\xEDslo E.164",
-    credit_card: "\u010D\xEDslo kreditnej karty",
-    currency_code: "k\xF3d meny",
+    base64: "reťazec zakódovaný vo formáte base64",
+    base64url: "reťazec zakódovaný vo formáte base64url",
+    json_string: "reťazec vo formáte JSON",
+    e164: "číslo E.164",
+    credit_card: "číslo kreditnej karty",
+    currency_code: "kód meny",
     iban: "IBAN",
     jwt: "JWT",
     template_literal: "vstup"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u010D\xEDslo",
-    string: "re\u0165azec",
+    number: "číslo",
+    string: "reťazec",
     function: "funkcia",
     array: "pole"
   };
@@ -11410,54 +14182,54 @@ var error47 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Neplatn\xFD vstup: o\u010Dak\xE1van\xE9 instanceof ${issue2.expected}, obdr\u017Ean\xE9 ${received}`;
+          return `Neplatný vstup: očakávané instanceof ${issue2.expected}, obdržané ${received}`;
         }
-        return `Neplatn\xFD vstup: o\u010Dak\xE1van\xE9 ${expected}, obdr\u017Ean\xE9 ${received}`;
+        return `Neplatný vstup: očakávané ${expected}, obdržané ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Neplatn\xFD vstup: o\u010Dak\xE1van\xE9 ${stringifyPrimitive(issue2.values[0])}`;
-        return `Neplatn\xFD vstup: o\u010Dak\xE1van\xE1 jedna z hodn\xF4t ${joinValues(issue2.values, "|")}`;
+          return `Neplatný vstup: očakávané ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neplatný vstup: očakávaná jedna z hodnôt ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Hodnota je pr\xEDli\u0161 ve\u013Ek\xE1: ${issue2.origin ?? "hodnota"} mus\xED ma\u0165 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvkov"}`;
+          return `Hodnota je príliš veľká: ${issue2.origin ?? "hodnota"} musí mať ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "prvkov"}`;
         }
-        return `Hodnota je pr\xEDli\u0161 ve\u013Ek\xE1: ${issue2.origin ?? "hodnota"} mus\xED by\u0165 ${adj}${issue2.maximum.toString()}`;
+        return `Hodnota je príliš veľká: ${issue2.origin ?? "hodnota"} musí byť ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Hodnota je pr\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED ma\u0165 ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvkov"}`;
+          return `Hodnota je príliš malá: ${issue2.origin ?? "hodnota"} musí mať ${adj}${issue2.minimum.toString()} ${sizing.unit ?? "prvkov"}`;
         }
-        return `Hodnota je pr\xEDli\u0161 mal\xE1: ${issue2.origin ?? "hodnota"} mus\xED by\u0165 ${adj}${issue2.minimum.toString()}`;
+        return `Hodnota je príliš malá: ${issue2.origin ?? "hodnota"} musí byť ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Neplatn\xFD re\u0165azec: mus\xED za\u010D\xEDna\u0165 na "${_issue.prefix}"`;
+          return `Neplatný reťazec: musí začínať na "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Neplatn\xFD re\u0165azec: mus\xED kon\u010Di\u0165 na "${_issue.suffix}"`;
+          return `Neplatný reťazec: musí končiť na "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Neplatn\xFD re\u0165azec: mus\xED obsahova\u0165 "${_issue.includes}"`;
+          return `Neplatný reťazec: musí obsahovať "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Neplatn\xFD re\u0165azec: mus\xED zodpoveda\u0165 vzoru ${_issue.pattern}`;
-        return `Neplatn\xFD form\xE1t ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Neplatný reťazec: musí zodpovedať vzoru ${_issue.pattern}`;
+        return `Neplatný formát ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Neplatn\xE9 \u010D\xEDslo: mus\xED by\u0165 n\xE1sobkom ${issue2.divisor}`;
+        return `Neplatné číslo: musí byť násobkom ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Nezn\xE1me kl\xFA\u010De: ${joinValues(issue2.keys, ", ")}`;
+        return `Neznáme klúče: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Neplatn\xFD kl\xFA\u010D v ${issue2.origin}`;
+        return `Neplatný klúč v ${issue2.origin}`;
       case "invalid_union":
-        return "Neplatn\xFD vstup";
+        return "Neplatný vstup";
       case "invalid_element":
-        return `Neplatn\xE1 hodnota v ${issue2.origin}`;
+        return `Neplatná hodnota v ${issue2.origin}`;
       default:
-        return `Neplatn\xFD vstup`;
+        return `Neplatný vstup`;
     }
   };
 };
@@ -11481,7 +14253,7 @@ var error48 = () => {
   }
   const FormatDictionary = {
     regex: "vnos",
-    email: "e-po\u0161tni naslov",
+    email: "e-poštni naslov",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -11494,9 +14266,9 @@ var error48 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO datum in \u010Das",
+    datetime: "ISO datum in čas",
     date: "ISO datum",
-    time: "ISO \u010Das",
+    time: "ISO čas",
     duration: "ISO trajanje",
     ipv4: "IPv4 naslov",
     ipv6: "IPv6 naslov",
@@ -11506,8 +14278,8 @@ var error48 = () => {
     base64: "base64 kodiran niz",
     base64url: "base64url kodiran niz",
     json_string: "JSON niz",
-    e164: "E.164 \u0161tevilka",
-    credit_card: "\u0161tevilka kreditne kartice",
+    e164: "E.164 številka",
+    credit_card: "številka kreditne kartice",
     currency_code: "koda valute",
     iban: "IBAN",
     jwt: "JWT",
@@ -11515,7 +14287,7 @@ var error48 = () => {
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0161tevilo",
+    number: "število",
     array: "tabela"
   };
   return (issue2) => {
@@ -11525,36 +14297,36 @@ var error48 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Neveljaven vnos: pri\u010Dakovano instanceof ${issue2.expected}, prejeto ${received}`;
+          return `Neveljaven vnos: pričakovano instanceof ${issue2.expected}, prejeto ${received}`;
         }
-        return `Neveljaven vnos: pri\u010Dakovano ${expected}, prejeto ${received}`;
+        return `Neveljaven vnos: pričakovano ${expected}, prejeto ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Neveljaven vnos: pri\u010Dakovano ${stringifyPrimitive(issue2.values[0])}`;
-        return `Neveljavna mo\u017Enost: pri\u010Dakovano eno izmed ${joinValues(issue2.values, "|")}`;
+          return `Neveljaven vnos: pričakovano ${stringifyPrimitive(issue2.values[0])}`;
+        return `Neveljavna možnost: pričakovano eno izmed ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} imelo ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementov"}`;
-        return `Preveliko: pri\u010Dakovano, da bo ${issue2.origin ?? "vrednost"} ${adj}${issue2.maximum.toString()}`;
+          return `Preveliko: pričakovano, da bo ${issue2.origin ?? "vrednost"} imelo ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "elementov"}`;
+        return `Preveliko: pričakovano, da bo ${issue2.origin ?? "vrednost"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} imelo ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Premajhno: pričakovano, da bo ${issue2.origin} imelo ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Premajhno: pri\u010Dakovano, da bo ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `Premajhno: pričakovano, da bo ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Neveljaven niz: mora se za\u010Deti z "${_issue.prefix}"`;
+          return `Neveljaven niz: mora se začeti z "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Neveljaven niz: mora se kon\u010Dati z "${_issue.suffix}"`;
+          return `Neveljaven niz: mora se končati z "${_issue.suffix}"`;
         if (_issue.format === "includes")
           return `Neveljaven niz: mora vsebovati "${_issue.includes}"`;
         if (_issue.format === "regex")
@@ -11562,11 +14334,11 @@ var error48 = () => {
         return `Neveljaven ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Neveljavno \u0161tevilo: mora biti ve\u010Dkratnik ${issue2.divisor}`;
+        return `Neveljavno število: mora biti večkratnik ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Neprepoznan${issue2.keys.length > 1 ? "i klju\u010Di" : " klju\u010D"}: ${joinValues(issue2.keys, ", ")}`;
+        return `Neprepoznan${issue2.keys.length > 1 ? "i ključi" : " ključ"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Neveljaven klju\u010D v ${issue2.origin}`;
+        return `Neveljaven ključ v ${issue2.origin}`;
       case "invalid_union":
         return "Neveljaven vnos";
       case "invalid_element":
@@ -11587,15 +14359,15 @@ var error49 = () => {
   const Sizable = {
     string: { unit: "tecken", verb: "att ha" },
     file: { unit: "bytes", verb: "att ha" },
-    array: { unit: "objekt", verb: "att inneh\xE5lla" },
-    set: { unit: "objekt", verb: "att inneh\xE5lla" },
-    map: { unit: "objekt", verb: "att inneh\xE5lla" }
+    array: { unit: "objekt", verb: "att innehålla" },
+    set: { unit: "objekt", verb: "att innehålla" },
+    map: { unit: "objekt", verb: "att innehålla" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "regulj\xE4rt uttryck",
+    regex: "reguljärt uttryck",
     email: "e-postadress",
     url: "URL",
     emoji: "emoji",
@@ -11618,9 +14390,9 @@ var error49 = () => {
     mac: "MAC-adress",
     cidrv4: "IPv4-spektrum",
     cidrv6: "IPv6-spektrum",
-    base64: "base64-kodad str\xE4ng",
-    base64url: "base64url-kodad str\xE4ng",
-    json_string: "JSON-str\xE4ng",
+    base64: "base64-kodad sträng",
+    base64url: "base64url-kodad sträng",
+    json_string: "JSON-sträng",
     e164: "E.164-nummer",
     credit_card: "kreditkortsnummer",
     currency_code: "valutakod",
@@ -11640,53 +14412,53 @@ var error49 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ogiltig inmatning: f\xF6rv\xE4ntat instanceof ${issue2.expected}, fick ${received}`;
+          return `Ogiltig inmatning: förväntat instanceof ${issue2.expected}, fick ${received}`;
         }
-        return `Ogiltig inmatning: f\xF6rv\xE4ntat ${expected}, fick ${received}`;
+        return `Ogiltig inmatning: förväntat ${expected}, fick ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Ogiltig inmatning: f\xF6rv\xE4ntat ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ogiltigt val: f\xF6rv\xE4ntade en av ${joinValues(issue2.values, "|")}`;
+          return `Ogiltig inmatning: förväntat ${stringifyPrimitive(issue2.values[0])}`;
+        return `Ogiltigt val: förväntade en av ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `F\xF6r stor(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+          return `För stor(t): förväntade ${issue2.origin ?? "värdet"} att ha ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
         }
-        return `F\xF6r stor(t): f\xF6rv\xE4ntat ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.maximum.toString()}`;
+        return `För stor(t): förväntat ${issue2.origin ?? "värdet"} att ha ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `För lite(t): förväntade ${issue2.origin ?? "värdet"} att ha ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `F\xF6r lite(t): f\xF6rv\xE4ntade ${issue2.origin ?? "v\xE4rdet"} att ha ${adj}${issue2.minimum.toString()}`;
+        return `För lite(t): förväntade ${issue2.origin ?? "värdet"} att ha ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `Ogiltig str\xE4ng: m\xE5ste b\xF6rja med "${_issue.prefix}"`;
+          return `Ogiltig sträng: måste börja med "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `Ogiltig str\xE4ng: m\xE5ste sluta med "${_issue.suffix}"`;
+          return `Ogiltig sträng: måste sluta med "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Ogiltig str\xE4ng: m\xE5ste inneh\xE5lla "${_issue.includes}"`;
+          return `Ogiltig sträng: måste innehålla "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Ogiltig str\xE4ng: m\xE5ste matcha m\xF6nstret "${_issue.pattern}"`;
+          return `Ogiltig sträng: måste matcha mönstret "${_issue.pattern}"`;
         return `Ogiltig(t) ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ogiltigt tal: m\xE5ste vara en multipel av ${issue2.divisor}`;
+        return `Ogiltigt tal: måste vara en multipel av ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `${issue2.keys.length > 1 ? "Ok\xE4nda nycklar" : "Ok\xE4nd nyckel"}: ${joinValues(issue2.keys, ", ")}`;
+        return `${issue2.keys.length > 1 ? "Okända nycklar" : "Okänd nyckel"}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Ogiltig nyckel i ${issue2.origin ?? "v\xE4rdet"}`;
+        return `Ogiltig nyckel i ${issue2.origin ?? "värdet"}`;
       case "invalid_union":
         return "Ogiltig input";
       case "invalid_element":
-        return `Ogiltigt v\xE4rde i ${issue2.origin ?? "v\xE4rdet"}`;
+        return `Ogiltigt värde i ${issue2.origin ?? "värdet"}`;
       default:
         return `Ogiltig input`;
     }
@@ -11701,18 +14473,18 @@ function sv_default() {
 // node_modules/zod/v4/locales/ta.js
 var error50 = () => {
   const Sizable = {
-    string: { unit: "\u0B8E\u0BB4\u0BC1\u0BA4\u0BCD\u0BA4\u0BC1\u0B95\u0BCD\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
-    file: { unit: "\u0BAA\u0BC8\u0B9F\u0BCD\u0B9F\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
-    array: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
-    set: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" },
-    map: { unit: "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD", verb: "\u0B95\u0BCA\u0BA3\u0BCD\u0B9F\u0BBF\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD" }
+    string: { unit: "எழுத்துக்கள்", verb: "கொண்டிருக்க வேண்டும்" },
+    file: { unit: "பைட்டுகள்", verb: "கொண்டிருக்க வேண்டும்" },
+    array: { unit: "உறுப்புகள்", verb: "கொண்டிருக்க வேண்டும்" },
+    set: { unit: "உறுப்புகள்", verb: "கொண்டிருக்க வேண்டும்" },
+    map: { unit: "உறுப்புகள்", verb: "கொண்டிருக்க வேண்டும்" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1",
-    email: "\u0BAE\u0BBF\u0BA9\u0BCD\u0BA9\u0B9E\u0BCD\u0B9A\u0BB2\u0BCD \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
+    regex: "உள்ளீடு",
+    email: "மின்னஞ்சல் முகவரி",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -11725,30 +14497,30 @@ var error50 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u0BA4\u0BC7\u0BA4\u0BBF \u0BA8\u0BC7\u0BB0\u0BAE\u0BCD",
-    date: "ISO \u0BA4\u0BC7\u0BA4\u0BBF",
-    time: "ISO \u0BA8\u0BC7\u0BB0\u0BAE\u0BCD",
-    duration: "ISO \u0B95\u0BBE\u0BB2 \u0B85\u0BB3\u0BB5\u0BC1",
-    ipv4: "IPv4 \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
-    ipv6: "IPv6 \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
-    mac: "MAC \u0BAE\u0BC1\u0B95\u0BB5\u0BB0\u0BBF",
-    cidrv4: "IPv4 \u0BB5\u0BB0\u0BAE\u0BCD\u0BAA\u0BC1",
-    cidrv6: "IPv6 \u0BB5\u0BB0\u0BAE\u0BCD\u0BAA\u0BC1",
-    base64: "base64-encoded \u0B9A\u0BB0\u0BAE\u0BCD",
-    base64url: "base64url-encoded \u0B9A\u0BB0\u0BAE\u0BCD",
-    json_string: "JSON \u0B9A\u0BB0\u0BAE\u0BCD",
-    e164: "E.164 \u0B8E\u0BA3\u0BCD",
-    credit_card: "\u0B95\u0B9F\u0BA9\u0BCD \u0B85\u0B9F\u0BCD\u0B9F\u0BC8 \u0B8E\u0BA3\u0BCD",
-    currency_code: "\u0BA8\u0BBE\u0BA3\u0BAF\u0B95\u0BCD \u0B95\u0BC1\u0BB1\u0BBF\u0BAF\u0BC0\u0B9F\u0BC1",
+    datetime: "ISO தேதி நேரம்",
+    date: "ISO தேதி",
+    time: "ISO நேரம்",
+    duration: "ISO கால அளவு",
+    ipv4: "IPv4 முகவரி",
+    ipv6: "IPv6 முகவரி",
+    mac: "MAC முகவரி",
+    cidrv4: "IPv4 வரம்பு",
+    cidrv6: "IPv6 வரம்பு",
+    base64: "base64-encoded சரம்",
+    base64url: "base64url-encoded சரம்",
+    json_string: "JSON சரம்",
+    e164: "E.164 எண்",
+    credit_card: "கடன் அட்டை எண்",
+    currency_code: "நாணயக் குறியீடு",
     iban: "IBAN",
     jwt: "JWT",
     template_literal: "input"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0B8E\u0BA3\u0BCD",
-    array: "\u0B85\u0BA3\u0BBF",
-    null: "\u0BB5\u0BC6\u0BB1\u0BC1\u0BAE\u0BC8"
+    number: "எண்",
+    array: "அணி",
+    null: "வெறுமை"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -11757,54 +14529,54 @@ var error50 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 instanceof ${issue2.expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
+          return `தவறான உள்ளீடு: எதிர்பார்க்கப்பட்டது instanceof ${issue2.expected}, பெறப்பட்டது ${received}`;
         }
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${expected}, \u0BAA\u0BC6\u0BB1\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${received}`;
+        return `தவறான உள்ளீடு: எதிர்பார்க்கப்பட்டது ${expected}, பெறப்பட்டது ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0BB0\u0BC1\u0BAA\u0BCD\u0BAA\u0BAE\u0BCD: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${joinValues(issue2.values, "|")} \u0B87\u0BB2\u0BCD \u0B92\u0BA9\u0BCD\u0BB1\u0BC1`;
+          return `தவறான உள்ளீடு: எதிர்பார்க்கப்பட்டது ${stringifyPrimitive(issue2.values[0])}`;
+        return `தவறான விருப்பம்: எதிர்பார்க்கப்பட்டது ${joinValues(issue2.values, "|")} இல் ஒன்று`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0B89\u0BB1\u0BC1\u0BAA\u0BCD\u0BAA\u0BC1\u0B95\u0BB3\u0BCD"} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `மிக பெரியது: எதிர்பார்க்கப்பட்டது ${issue2.origin ?? "மதிப்பு"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "உறுப்புகள்"} ஆக இருக்க வேண்டும்`;
         }
-        return `\u0BAE\u0BBF\u0B95 \u0BAA\u0BC6\u0BB0\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin ?? "\u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1"} ${adj}${issue2.maximum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `மிக பெரியது: எதிர்பார்க்கப்பட்டது ${issue2.origin ?? "மதிப்பு"} ${adj}${issue2.maximum.toString()} ஆக இருக்க வேண்டும்`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `மிகச் சிறியது: எதிர்பார்க்கப்பட்டது ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit} ஆக இருக்க வேண்டும்`;
         }
-        return `\u0BAE\u0BBF\u0B95\u0B9A\u0BCD \u0B9A\u0BBF\u0BB1\u0BBF\u0BAF\u0BA4\u0BC1: \u0B8E\u0BA4\u0BBF\u0BB0\u0BCD\u0BAA\u0BBE\u0BB0\u0BCD\u0B95\u0BCD\u0B95\u0BAA\u0BCD\u0BAA\u0B9F\u0BCD\u0B9F\u0BA4\u0BC1 ${issue2.origin} ${adj}${issue2.minimum.toString()} \u0B86\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `மிகச் சிறியது: எதிர்பார்க்கப்பட்டது ${issue2.origin} ${adj}${issue2.minimum.toString()} ஆக இருக்க வேண்டும்`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.prefix}" \u0B87\u0BB2\u0BCD \u0BA4\u0BCA\u0B9F\u0B99\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `தவறான சரம்: "${_issue.prefix}" இல் தொடங்க வேண்டும்`;
         if (_issue.format === "ends_with")
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.suffix}" \u0B87\u0BB2\u0BCD \u0BAE\u0BC1\u0B9F\u0BBF\u0BB5\u0B9F\u0BC8\u0BAF \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `தவறான சரம்: "${_issue.suffix}" இல் முடிவடைய வேண்டும்`;
         if (_issue.format === "includes")
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: "${_issue.includes}" \u0B90 \u0B89\u0BB3\u0BCD\u0BB3\u0B9F\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+          return `தவறான சரம்: "${_issue.includes}" ஐ உள்ளடக்க வேண்டும்`;
         if (_issue.format === "regex")
-          return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B9A\u0BB0\u0BAE\u0BCD: ${_issue.pattern} \u0BAE\u0BC1\u0BB1\u0BC8\u0BAA\u0BBE\u0B9F\u0BCD\u0B9F\u0BC1\u0B9F\u0BA9\u0BCD \u0BAA\u0BCA\u0BB0\u0BC1\u0BA8\u0BCD\u0BA4 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `தவறான சரம்: ${_issue.pattern} முறைபாட்டுடன் பொருந்த வேண்டும்`;
+        return `தவறான ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B8E\u0BA3\u0BCD: ${issue2.divisor} \u0B87\u0BA9\u0BCD \u0BAA\u0BB2\u0BAE\u0BBE\u0B95 \u0B87\u0BB0\u0BC1\u0B95\u0BCD\u0B95 \u0BB5\u0BC7\u0BA3\u0BCD\u0B9F\u0BC1\u0BAE\u0BCD`;
+        return `தவறான எண்: ${issue2.divisor} இன் பலமாக இருக்க வேண்டும்`;
       case "unrecognized_keys":
-        return `\u0B85\u0B9F\u0BC8\u0BAF\u0BBE\u0BB3\u0BAE\u0BCD \u0BA4\u0BC6\u0BB0\u0BBF\u0BAF\u0BBE\u0BA4 \u0BB5\u0BBF\u0B9A\u0BC8${issue2.keys.length > 1 ? "\u0B95\u0BB3\u0BCD" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `அடையாளம் தெரியாத விசை${issue2.keys.length > 1 ? "கள்" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BB5\u0BBF\u0B9A\u0BC8`;
+        return `${issue2.origin} இல் தவறான விசை`;
       case "invalid_union":
-        return "\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1";
+        return "தவறான உள்ளீடு";
       case "invalid_element":
-        return `${issue2.origin} \u0B87\u0BB2\u0BCD \u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0BAE\u0BA4\u0BBF\u0BAA\u0BCD\u0BAA\u0BC1`;
+        return `${issue2.origin} இல் தவறான மதிப்பு`;
       default:
-        return `\u0BA4\u0BB5\u0BB1\u0BBE\u0BA9 \u0B89\u0BB3\u0BCD\u0BB3\u0BC0\u0B9F\u0BC1`;
+        return `தவறான உள்ளீடு`;
     }
   };
 };
@@ -11817,20 +14589,20 @@ function ta_default() {
 // node_modules/zod/v4/locales/tg.js
 var error51 = () => {
   const Sizable = {
-    string: { unit: "\u0430\u043B\u043E\u043C\u0430\u0442", verb: "\u0434\u043E\u0448\u0442\u0430 \u0431\u043E\u0448\u0430\u0434" },
-    file: { unit: "\u0431\u0430\u0439\u0442", verb: "\u0434\u043E\u0448\u0442\u0430 \u0431\u043E\u0448\u0430\u0434" },
-    array: { unit: "\u0443\u043D\u0441\u0443\u0440", verb: "\u0434\u043E\u0448\u0442\u0430 \u0431\u043E\u0448\u0430\u0434" },
-    set: { unit: "\u0443\u043D\u0441\u0443\u0440", verb: "\u0434\u043E\u0448\u0442\u0430 \u0431\u043E\u0448\u0430\u0434" },
-    map: { unit: "\u0441\u0430\u0431\u0442", verb: "\u0434\u043E\u0448\u0442\u0430 \u0431\u043E\u0448\u0430\u0434" }
+    string: { unit: "аломат", verb: "дошта бошад" },
+    file: { unit: "байт", verb: "дошта бошад" },
+    array: { unit: "унсур", verb: "дошта бошад" },
+    set: { unit: "унсур", verb: "дошта бошад" },
+    map: { unit: "сабт", verb: "дошта бошад" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0432\u0443\u0440\u0443\u0434",
-    email: "\u0441\u0443\u0440\u043E\u0493\u0430\u0438 email",
+    regex: "вуруд",
+    email: "суроғаи email",
     url: "URL",
-    emoji: "\u044D\u043C\u043E\u04B7\u0438",
+    emoji: "эмоҷи",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -11841,32 +14613,32 @@ var error51 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u0441\u0430\u043D\u0430\u0432\u0443 \u0432\u0430\u049B\u0442\u0438 ISO",
-    date: "\u0441\u0430\u043D\u0430\u0438 ISO",
-    time: "\u0432\u0430\u049B\u0442\u0438 ISO",
-    duration: "\u0434\u0430\u0432\u043E\u043C\u043D\u043E\u043A\u0438\u0438 ISO",
-    ipv4: "\u0441\u0443\u0440\u043E\u0493\u0430\u0438 IPv4",
-    ipv6: "\u0441\u0443\u0440\u043E\u0493\u0430\u0438 IPv6",
-    mac: "\u0441\u0443\u0440\u043E\u0493\u0430\u0438 MAC",
-    cidrv4: "\u043C\u0430\u04B3\u0434\u0443\u0434\u0430\u0438 IPv4",
-    cidrv6: "\u043C\u0430\u04B3\u0434\u0443\u0434\u0430\u0438 IPv6",
-    base64: "\u0441\u0430\u0442\u0440\u0438 \u0434\u0430\u0440 \u0444\u043E\u0440\u043C\u0430\u0442\u0438 base64",
-    base64url: "\u0441\u0430\u0442\u0440\u0438 \u0434\u0430\u0440 \u0444\u043E\u0440\u043C\u0430\u0442\u0438 base64url",
-    json_string: "\u0441\u0430\u0442\u0440\u0438 JSON",
-    e164: "\u0440\u0430\u049B\u0430\u043C\u0438 E.164",
-    credit_card: "\u0440\u0430\u049B\u0430\u043C\u0438 \u043A\u043E\u0440\u0442\u0438 \u043A\u0440\u0435\u0434\u0438\u0442\u04E3",
-    currency_code: "\u0440\u0430\u043C\u0437\u0438 \u0430\u0441\u044A\u043E\u0440",
+    datetime: "санаву вақти ISO",
+    date: "санаи ISO",
+    time: "вақти ISO",
+    duration: "давомнокии ISO",
+    ipv4: "суроғаи IPv4",
+    ipv6: "суроғаи IPv6",
+    mac: "суроғаи MAC",
+    cidrv4: "маҳдудаи IPv4",
+    cidrv6: "маҳдудаи IPv6",
+    base64: "сатри дар формати base64",
+    base64url: "сатри дар формати base64url",
+    json_string: "сатри JSON",
+    e164: "рақами E.164",
+    credit_card: "рақами корти кредитӣ",
+    currency_code: "рамзи асъор",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0432\u0443\u0440\u0443\u0434"
+    template_literal: "вуруд"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0440\u0430\u049B\u0430\u043C",
-    string: "\u0441\u0430\u0442\u0440",
-    array: "\u043C\u0430\u0441\u0441\u0438\u0432",
-    object: "\u043E\u0431\u044A\u0435\u043A\u0442",
-    date: "\u0441\u0430\u043D\u0430"
+    number: "рақам",
+    string: "сатр",
+    array: "массив",
+    object: "объект",
+    date: "сана"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -11874,54 +14646,54 @@ var error51 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        return `\u0412\u0443\u0440\u0443\u0434\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442: ${expected} \u0438\u043D\u0442\u0438\u0437\u043E\u0440 \u043C\u0435\u0440\u0430\u0444\u0442, ${received} \u0433\u0438\u0440\u0438\u0444\u0442\u0430 \u0448\u0443\u0434`;
+        return `Вуруди нодуруст: ${expected} интизор мерафт, ${received} гирифта шуд`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0412\u0443\u0440\u0443\u0434\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442: ${stringifyPrimitive(issue2.values[0])} \u0438\u043D\u0442\u0438\u0437\u043E\u0440 \u043C\u0435\u0440\u0430\u0444\u0442`;
-        return `\u0418\u043D\u0442\u0438\u0445\u043E\u0431\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442: \u044F\u043A\u0435 \u0430\u0437 ${joinValues(issue2.values, "|")} \u0438\u043D\u0442\u0438\u0437\u043E\u0440 \u043C\u0435\u0440\u0430\u0444\u0442`;
+          return `Вуруди нодуруст: ${stringifyPrimitive(issue2.values[0])} интизор мерафт`;
+        return `Интихоби нодуруст: яке аз ${joinValues(issue2.values, "|")} интизор мерафт`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0425\u0435\u043B\u0435 \u043A\u0430\u043B\u043E\u043D: ${issue2.origin ?? "\u049B\u0438\u043C\u0430\u0442"} \u0431\u043E\u044F\u0434 ${adj}${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
-        return `\u0425\u0435\u043B\u0435 \u043A\u0430\u043B\u043E\u043D: ${issue2.origin ?? "\u049B\u0438\u043C\u0430\u0442"} \u0431\u043E\u044F\u0434 ${adj}${issue2.maximum.toString()} \u0431\u043E\u0448\u0430\u0434`;
+          return `Хеле калон: ${issue2.origin ?? "қимат"} бояд ${adj}${issue2.maximum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `Хеле калон: ${issue2.origin ?? "қимат"} бояд ${adj}${issue2.maximum.toString()} бошад`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0425\u0435\u043B\u0435 \u0445\u0443\u0440\u0434: ${issue2.origin} \u0431\u043E\u044F\u0434 ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
-        return `\u0425\u0435\u043B\u0435 \u0445\u0443\u0440\u0434: ${issue2.origin} \u0431\u043E\u044F\u0434 ${adj}${issue2.minimum.toString()} \u0431\u043E\u0448\u0430\u0434`;
+          return `Хеле хурд: ${issue2.origin} бояд ${adj}${issue2.minimum.toString()} ${sizing.unit} ${sizing.verb}`;
+        return `Хеле хурд: ${issue2.origin} бояд ${adj}${issue2.minimum.toString()} бошад`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u0421\u0430\u0442\u0440\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442: \u0431\u043E\u044F\u0434 \u0431\u043E "${_issue.prefix}" \u043E\u0493\u043E\u0437 \u0448\u0430\u0432\u0430\u0434`;
+          return `Сатри нодуруст: бояд бо "${_issue.prefix}" оғоз шавад`;
         if (_issue.format === "ends_with")
-          return `\u0421\u0430\u0442\u0440\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442: \u0431\u043E\u044F\u0434 \u0431\u043E "${_issue.suffix}" \u0430\u043D\u04B7\u043E\u043C \u0451\u0431\u0430\u0434`;
+          return `Сатри нодуруст: бояд бо "${_issue.suffix}" анҷом ёбад`;
         if (_issue.format === "includes")
-          return `\u0421\u0430\u0442\u0440\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442: \u0431\u043E\u044F\u0434 "${_issue.includes}"-\u0440\u043E \u0434\u0430\u0440 \u0431\u0430\u0440 \u0433\u0438\u0440\u0430\u0434`;
+          return `Сатри нодуруст: бояд "${_issue.includes}"-ро дар бар гирад`;
         if (_issue.format === "regex")
-          return `\u0421\u0430\u0442\u0440\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442: \u0431\u043E\u044F\u0434 \u0431\u0430 \u043D\u0430\u043C\u0443\u043D\u0430\u0438 ${_issue.pattern} \u043C\u0443\u0432\u043E\u0444\u0438\u049B\u0430\u0442 \u043A\u0443\u043D\u0430\u0434`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format}-\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442`;
+          return `Сатри нодуруст: бояд ба намунаи ${_issue.pattern} мувофиқат кунад`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format}-и нодуруст`;
       }
       case "not_multiple_of":
-        return `\u0420\u0430\u049B\u0430\u043C\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442: \u0431\u043E\u044F\u0434 \u0431\u0430 ${issue2.divisor} \u0431\u0435 \u0431\u0430\u049B\u0438\u044F \u0442\u0430\u049B\u0441\u0438\u043C \u0448\u0430\u0432\u0430\u0434`;
+        return `Рақами нодуруст: бояд ба ${issue2.divisor} бе бақия тақсим шавад`;
       case "unrecognized_keys":
-        return `\u041A\u0430\u043B\u0438\u0434${issue2.keys.length > 1 ? "\u04B3\u043E\u0438" : "\u0438"} \u043D\u043E\u043C\u0430\u044A\u043B\u0443\u043C: ${joinValues(issue2.keys, ", ")}`;
+        return `Калид${issue2.keys.length > 1 ? "ҳои" : "и"} номаълум: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u041A\u0430\u043B\u0438\u0434\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442 \u0434\u0430\u0440 ${issue2.origin}`;
+        return `Калиди нодуруст дар ${issue2.origin}`;
       case "invalid_union":
         if (issue2.options && Array.isArray(issue2.options) && issue2.options.length > 0) {
           const opts = issue2.options.map((o) => `'${o}'`).join(" | ");
-          return `\u049A\u0438\u043C\u0430\u0442\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442\u0438 \u0434\u0438\u0441\u043A\u0440\u0438\u043C\u0438\u043D\u0430\u0442\u043E\u0440: ${opts} \u0438\u043D\u0442\u0438\u0437\u043E\u0440 \u043C\u0435\u0440\u0430\u0444\u0442`;
+          return `Қимати нодурусти дискриминатор: ${opts} интизор мерафт`;
         }
-        return "\u0412\u0443\u0440\u0443\u0434\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442";
+        return "Вуруди нодуруст";
       case "invalid_element":
-        return `\u049A\u0438\u043C\u0430\u0442\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442 \u0434\u0430\u0440 ${issue2.origin}`;
+        return `Қимати нодуруст дар ${issue2.origin}`;
       default:
-        return `\u0412\u0443\u0440\u0443\u0434\u0438 \u043D\u043E\u0434\u0443\u0440\u0443\u0441\u0442`;
+        return `Вуруди нодуруст`;
     }
   };
 };
@@ -11934,20 +14706,20 @@ function tg_default() {
 // node_modules/zod/v4/locales/th.js
 var error52 = () => {
   const Sizable = {
-    string: { unit: "\u0E15\u0E31\u0E27\u0E2D\u0E31\u0E01\u0E29\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
-    file: { unit: "\u0E44\u0E1A\u0E15\u0E4C", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
-    array: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
-    set: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" },
-    map: { unit: "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23", verb: "\u0E04\u0E27\u0E23\u0E21\u0E35" }
+    string: { unit: "ตัวอักษร", verb: "ควรมี" },
+    file: { unit: "ไบต์", verb: "ควรมี" },
+    array: { unit: "รายการ", verb: "ควรมี" },
+    set: { unit: "รายการ", verb: "ควรมี" },
+    map: { unit: "รายการ", verb: "ควรมี" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19",
-    email: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48\u0E2D\u0E35\u0E40\u0E21\u0E25",
+    regex: "ข้อมูลที่ป้อน",
+    email: "ที่อยู่อีเมล",
     url: "URL",
-    emoji: "\u0E2D\u0E34\u0E42\u0E21\u0E08\u0E34",
+    emoji: "อิโมจิ",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -11958,30 +14730,30 @@ var error52 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
-    date: "\u0E27\u0E31\u0E19\u0E17\u0E35\u0E48\u0E41\u0E1A\u0E1A ISO",
-    time: "\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
-    duration: "\u0E0A\u0E48\u0E27\u0E07\u0E40\u0E27\u0E25\u0E32\u0E41\u0E1A\u0E1A ISO",
-    ipv4: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 IPv4",
-    ipv6: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 IPv6",
-    mac: "\u0E17\u0E35\u0E48\u0E2D\u0E22\u0E39\u0E48 MAC",
-    cidrv4: "\u0E0A\u0E48\u0E27\u0E07 IP \u0E41\u0E1A\u0E1A IPv4",
-    cidrv6: "\u0E0A\u0E48\u0E27\u0E07 IP \u0E41\u0E1A\u0E1A IPv6",
-    base64: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A Base64",
-    base64url: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A Base64 \u0E2A\u0E33\u0E2B\u0E23\u0E31\u0E1A URL",
-    json_string: "\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E41\u0E1A\u0E1A JSON",
-    e164: "\u0E40\u0E1A\u0E2D\u0E23\u0E4C\u0E42\u0E17\u0E23\u0E28\u0E31\u0E1E\u0E17\u0E4C\u0E23\u0E30\u0E2B\u0E27\u0E48\u0E32\u0E07\u0E1B\u0E23\u0E30\u0E40\u0E17\u0E28 (E.164)",
-    credit_card: "\u0E2B\u0E21\u0E32\u0E22\u0E40\u0E25\u0E02\u0E1A\u0E31\u0E15\u0E23\u0E40\u0E04\u0E23\u0E14\u0E34\u0E15",
-    currency_code: "\u0E23\u0E2B\u0E31\u0E2A\u0E2A\u0E01\u0E38\u0E25\u0E40\u0E07\u0E34\u0E19",
+    datetime: "วันที่เวลาแบบ ISO",
+    date: "วันที่แบบ ISO",
+    time: "เวลาแบบ ISO",
+    duration: "ช่วงเวลาแบบ ISO",
+    ipv4: "ที่อยู่ IPv4",
+    ipv6: "ที่อยู่ IPv6",
+    mac: "ที่อยู่ MAC",
+    cidrv4: "ช่วง IP แบบ IPv4",
+    cidrv6: "ช่วง IP แบบ IPv6",
+    base64: "ข้อความแบบ Base64",
+    base64url: "ข้อความแบบ Base64 สำหรับ URL",
+    json_string: "ข้อความแบบ JSON",
+    e164: "เบอร์โทรศัพท์ระหว่างประเทศ (E.164)",
+    credit_card: "หมายเลขบัตรเครดิต",
+    currency_code: "รหัสสกุลเงิน",
     iban: "IBAN",
-    jwt: "\u0E42\u0E17\u0E40\u0E04\u0E19 JWT",
-    template_literal: "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E17\u0E35\u0E48\u0E1B\u0E49\u0E2D\u0E19"
+    jwt: "โทเคน JWT",
+    template_literal: "ข้อมูลที่ป้อน"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02",
-    array: "\u0E2D\u0E32\u0E23\u0E4C\u0E40\u0E23\u0E22\u0E4C (Array)",
-    null: "\u0E44\u0E21\u0E48\u0E21\u0E35\u0E04\u0E48\u0E32 (null)"
+    number: "ตัวเลข",
+    array: "อาร์เรย์ (Array)",
+    null: "ไม่มีค่า (null)"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -11990,54 +14762,54 @@ var error52 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 instanceof ${issue2.expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
+          return `ประเภทข้อมูลไม่ถูกต้อง: ควรเป็น instanceof ${issue2.expected} แต่ได้รับ ${received}`;
         }
-        return `\u0E1B\u0E23\u0E30\u0E40\u0E20\u0E17\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${expected} \u0E41\u0E15\u0E48\u0E44\u0E14\u0E49\u0E23\u0E31\u0E1A ${received}`;
+        return `ประเภทข้อมูลไม่ถูกต้อง: ควรเป็น ${expected} แต่ได้รับ ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0E04\u0E48\u0E32\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19 ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E37\u0E2D\u0E01\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E04\u0E27\u0E23\u0E40\u0E1B\u0E47\u0E19\u0E2B\u0E19\u0E36\u0E48\u0E07\u0E43\u0E19 ${joinValues(issue2.values, "|")}`;
+          return `ค่าไม่ถูกต้อง: ควรเป็น ${stringifyPrimitive(issue2.values[0])}`;
+        return `ตัวเลือกไม่ถูกต้อง: ควรเป็นหนึ่งใน ${joinValues(issue2.values, "|")}`;
       case "too_big": {
-        const adj = issue2.inclusive ? "\u0E44\u0E21\u0E48\u0E40\u0E01\u0E34\u0E19" : "\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32";
+        const adj = issue2.inclusive ? "ไม่เกิน" : "น้อยกว่า";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "\u0E23\u0E32\u0E22\u0E01\u0E32\u0E23"}`;
-        return `\u0E40\u0E01\u0E34\u0E19\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin ?? "\u0E04\u0E48\u0E32"} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.maximum.toString()}`;
+          return `เกินกำหนด: ${issue2.origin ?? "ค่า"} ควรมี${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "รายการ"}`;
+        return `เกินกำหนด: ${issue2.origin ?? "ค่า"} ควรมี${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
-        const adj = issue2.inclusive ? "\u0E2D\u0E22\u0E48\u0E32\u0E07\u0E19\u0E49\u0E2D\u0E22" : "\u0E21\u0E32\u0E01\u0E01\u0E27\u0E48\u0E32";
+        const adj = issue2.inclusive ? "อย่างน้อย" : "มากกว่า";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+          return `น้อยกว่ากำหนด: ${issue2.origin} ควรมี${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0E19\u0E49\u0E2D\u0E22\u0E01\u0E27\u0E48\u0E32\u0E01\u0E33\u0E2B\u0E19\u0E14: ${issue2.origin} \u0E04\u0E27\u0E23\u0E21\u0E35${adj} ${issue2.minimum.toString()}`;
+        return `น้อยกว่ากำหนด: ${issue2.origin} ควรมี${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E02\u0E36\u0E49\u0E19\u0E15\u0E49\u0E19\u0E14\u0E49\u0E27\u0E22 "${_issue.prefix}"`;
+          return `รูปแบบไม่ถูกต้อง: ข้อความต้องขึ้นต้นด้วย "${_issue.prefix}"`;
         }
         if (_issue.format === "ends_with")
-          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E25\u0E07\u0E17\u0E49\u0E32\u0E22\u0E14\u0E49\u0E27\u0E22 "${_issue.suffix}"`;
+          return `รูปแบบไม่ถูกต้อง: ข้อความต้องลงท้ายด้วย "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21\u0E15\u0E49\u0E2D\u0E07\u0E21\u0E35 "${_issue.includes}" \u0E2D\u0E22\u0E39\u0E48\u0E43\u0E19\u0E02\u0E49\u0E2D\u0E04\u0E27\u0E32\u0E21`;
+          return `รูปแบบไม่ถูกต้อง: ข้อความต้องมี "${_issue.includes}" อยู่ในข้อความ`;
         if (_issue.format === "regex")
-          return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14 ${_issue.pattern}`;
-        return `\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `รูปแบบไม่ถูกต้อง: ต้องตรงกับรูปแบบที่กำหนด ${_issue.pattern}`;
+        return `รูปแบบไม่ถูกต้อง: ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u0E15\u0E31\u0E27\u0E40\u0E25\u0E02\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E15\u0E49\u0E2D\u0E07\u0E40\u0E1B\u0E47\u0E19\u0E08\u0E33\u0E19\u0E27\u0E19\u0E17\u0E35\u0E48\u0E2B\u0E32\u0E23\u0E14\u0E49\u0E27\u0E22 ${issue2.divisor} \u0E44\u0E14\u0E49\u0E25\u0E07\u0E15\u0E31\u0E27`;
+        return `ตัวเลขไม่ถูกต้อง: ต้องเป็นจำนวนที่หารด้วย ${issue2.divisor} ได้ลงตัว`;
       case "unrecognized_keys":
-        return `\u0E1E\u0E1A\u0E04\u0E35\u0E22\u0E4C\u0E17\u0E35\u0E48\u0E44\u0E21\u0E48\u0E23\u0E39\u0E49\u0E08\u0E31\u0E01: ${joinValues(issue2.keys, ", ")}`;
+        return `พบคีย์ที่ไม่รู้จัก: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u0E04\u0E35\u0E22\u0E4C\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+        return `คีย์ไม่ถูกต้องใน ${issue2.origin}`;
       case "invalid_union":
-        return "\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07: \u0E44\u0E21\u0E48\u0E15\u0E23\u0E07\u0E01\u0E31\u0E1A\u0E23\u0E39\u0E1B\u0E41\u0E1A\u0E1A\u0E22\u0E39\u0E40\u0E19\u0E35\u0E22\u0E19\u0E17\u0E35\u0E48\u0E01\u0E33\u0E2B\u0E19\u0E14\u0E44\u0E27\u0E49";
+        return "ข้อมูลไม่ถูกต้อง: ไม่ตรงกับรูปแบบยูเนียนที่กำหนดไว้";
       case "invalid_element":
-        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07\u0E43\u0E19 ${issue2.origin}`;
+        return `ข้อมูลไม่ถูกต้องใน ${issue2.origin}`;
       default:
-        return `\u0E02\u0E49\u0E2D\u0E21\u0E39\u0E25\u0E44\u0E21\u0E48\u0E16\u0E39\u0E01\u0E15\u0E49\u0E2D\u0E07`;
+        return `ข้อมูลไม่ถูกต้อง`;
     }
   };
 };
@@ -12051,7 +14823,7 @@ function th_default() {
 var error53 = () => {
   const Sizable = {
     string: { unit: "simwol", verb: "bolmaly" },
-    file: { unit: "ba\xFDt", verb: "bolmaly" },
+    file: { unit: "baýt", verb: "bolmaly" },
     array: { unit: "elementler", verb: "bolmaly" },
     set: { unit: "elementler", verb: "bolmaly" },
     map: { unit: "elementler", verb: "bolmaly" }
@@ -12060,8 +14832,8 @@ var error53 = () => {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "giri\u015F",
-    email: "e-po\xE7ta salgysy",
+    regex: "giriş",
+    email: "e-poçta salgysy",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -12083,15 +14855,15 @@ var error53 = () => {
     mac: "MAC salgysy",
     cidrv4: "IPv4 aralygy",
     cidrv6: "IPv6 aralygy",
-    base64: "base64 bilen \u015Fifrlenen setir",
-    base64url: "base64url bilen \u015Fifrlenen setir",
+    base64: "base64 bilen şifrlenen setir",
+    base64url: "base64url bilen şifrlenen setir",
     json_string: "JSON setiri",
     e164: "E.164 nomeri",
-    credit_card: "kredit kartyny\u0148 nomeri",
-    currency_code: "wal\xFDuta kody",
+    credit_card: "kredit kartynyň nomeri",
+    currency_code: "walýuta kody",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u015Fablon"
+    template_literal: "şablon"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -12102,50 +14874,50 @@ var error53 = () => {
         const expected = TypeDictionary[issue2.expected] ?? issue2.expected;
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
-        return `N\xE4dogry baha: gara\u015Fylan ${expected} \xFDerine ${received} alyndy`;
+        return `Nädogry baha: garaşylan ${expected} ýerine ${received} alyndy`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `N\xE4dogry baha: ${stringifyPrimitive(issue2.values[0])} bolmaly`;
-        return `N\xE4dogry sa\xFDlaw: a\u015Fakdakylardan biri bolmaly: ${joinValues(issue2.values, "|")}`;
+          return `Nädogry baha: ${stringifyPrimitive(issue2.values[0])} bolmaly`;
+        return `Nädogry saýlaw: aşakdakylardan biri bolmaly: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Has uly: gara\u015Fyl\xFDan ${issue2.origin ?? "baha"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
-        return `Has uly: gara\u015Fyl\xFDan ${issue2.origin ?? "baha"} ${adj} ${issue2.maximum.toString()}`;
+          return `Has uly: garaşylýan ${issue2.origin ?? "baha"} ${adj} ${issue2.maximum.toString()} ${sizing.unit ?? "element"}`;
+        return `Has uly: garaşylýan ${issue2.origin ?? "baha"} ${adj} ${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Has ki\xE7i: gara\u015Fyl\xFDan ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
-        return `Has ki\xE7i: gara\u015Fyl\xFDan ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
+          return `Has kiçi: garaşylýan ${issue2.origin} ${adj} ${issue2.minimum.toString()} ${sizing.unit}`;
+        return `Has kiçi: garaşylýan ${issue2.origin} ${adj} ${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `N\xE4dogry setir: "${_issue.prefix}" bilen ba\u015Flamaly`;
+          return `Nädogry setir: "${_issue.prefix}" bilen başlamaly`;
         if (_issue.format === "ends_with")
-          return `N\xE4dogry setir: "${_issue.suffix}" bilen gutarmaly`;
+          return `Nädogry setir: "${_issue.suffix}" bilen gutarmaly`;
         if (_issue.format === "includes")
-          return `N\xE4dogry setir: "${_issue.includes}" saklamaly`;
+          return `Nädogry setir: "${_issue.includes}" saklamaly`;
         if (_issue.format === "regex")
-          return `N\xE4dogry setir: ${_issue.pattern} nusga la\xFDyk bolmaly`;
-        return `N\xE4dogry ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Nädogry setir: ${_issue.pattern} nusga laýyk bolmaly`;
+        return `Nädogry ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `N\xE4dogry san: ${issue2.divisor} bilen galyndysyz b\xF6l\xFCnmeli`;
+        return `Nädogry san: ${issue2.divisor} bilen galyndysyz bölünmeli`;
       case "unrecognized_keys":
-        return `Tanalma\xFDan a\xE7ar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tanalmaýan açar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} i\xE7inde n\xE4dogry a\xE7ar`;
+        return `${issue2.origin} içinde nädogry açar`;
       case "invalid_union":
-        return "N\xE4dogry baha";
+        return "Nädogry baha";
       case "invalid_element":
-        return `${issue2.origin} i\xE7inde n\xE4dogry baha`;
+        return `${issue2.origin} içinde nädogry baha`;
       default:
-        return `N\xE4dogry baha`;
+        return `Nädogry baha`;
     }
   };
 };
@@ -12158,11 +14930,11 @@ function tk_default() {
 // node_modules/zod/v4/locales/tr.js
 var error54 = () => {
   const Sizable = {
-    string: { unit: "karakter", verb: "olmal\u0131" },
-    file: { unit: "bayt", verb: "olmal\u0131" },
-    array: { unit: "\xF6\u011Fe", verb: "olmal\u0131" },
-    set: { unit: "\xF6\u011Fe", verb: "olmal\u0131" },
-    map: { unit: "\xF6\u011Fe", verb: "olmal\u0131" }
+    string: { unit: "karakter", verb: "olmalı" },
+    file: { unit: "bayt", verb: "olmalı" },
+    array: { unit: "öğe", verb: "olmalı" },
+    set: { unit: "öğe", verb: "olmalı" },
+    map: { unit: "öğe", verb: "olmalı" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -12185,21 +14957,21 @@ var error54 = () => {
     datetime: "ISO tarih ve saat",
     date: "ISO tarih",
     time: "ISO saat",
-    duration: "ISO s\xFCre",
+    duration: "ISO süre",
     ipv4: "IPv4 adresi",
     ipv6: "IPv6 adresi",
     mac: "MAC adresi",
-    cidrv4: "IPv4 aral\u0131\u011F\u0131",
-    cidrv6: "IPv6 aral\u0131\u011F\u0131",
-    base64: "base64 ile \u015Fifrelenmi\u015F metin",
-    base64url: "base64url ile \u015Fifrelenmi\u015F metin",
+    cidrv4: "IPv4 aralığı",
+    cidrv6: "IPv6 aralığı",
+    base64: "base64 ile şifrelenmiş metin",
+    base64url: "base64url ile şifrelenmiş metin",
     json_string: "JSON dizesi",
-    e164: "E.164 say\u0131s\u0131",
-    credit_card: "kredi kart\u0131 numaras\u0131",
+    e164: "E.164 sayısı",
+    credit_card: "kredi kartı numarası",
     currency_code: "para birimi kodu",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u015Eablon dizesi"
+    template_literal: "Şablon dizesi"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -12211,52 +14983,52 @@ var error54 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Ge\xE7ersiz de\u011Fer: beklenen instanceof ${issue2.expected}, al\u0131nan ${received}`;
+          return `Geçersiz değer: beklenen instanceof ${issue2.expected}, alınan ${received}`;
         }
-        return `Ge\xE7ersiz de\u011Fer: beklenen ${expected}, al\u0131nan ${received}`;
+        return `Geçersiz değer: beklenen ${expected}, alınan ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Ge\xE7ersiz de\u011Fer: beklenen ${stringifyPrimitive(issue2.values[0])}`;
-        return `Ge\xE7ersiz se\xE7enek: a\u015Fa\u011F\u0131dakilerden biri olmal\u0131: ${joinValues(issue2.values, "|")}`;
+          return `Geçersiz değer: beklenen ${stringifyPrimitive(issue2.values[0])}`;
+        return `Geçersiz seçenek: aşağıdakilerden biri olmalı: ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\xF6\u011Fe"}`;
-        return `\xC7ok b\xFCy\xFCk: beklenen ${issue2.origin ?? "de\u011Fer"} ${adj}${issue2.maximum.toString()}`;
+          return `Çok büyük: beklenen ${issue2.origin ?? "değer"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "öğe"}`;
+        return `Çok büyük: beklenen ${issue2.origin ?? "değer"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
-        return `\xC7ok k\xFC\xE7\xFCk: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+          return `Çok küçük: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+        return `Çok küçük: beklenen ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Ge\xE7ersiz metin: "${_issue.prefix}" ile ba\u015Flamal\u0131`;
+          return `Geçersiz metin: "${_issue.prefix}" ile başlamalı`;
         if (_issue.format === "ends_with")
-          return `Ge\xE7ersiz metin: "${_issue.suffix}" ile bitmeli`;
+          return `Geçersiz metin: "${_issue.suffix}" ile bitmeli`;
         if (_issue.format === "includes")
-          return `Ge\xE7ersiz metin: "${_issue.includes}" i\xE7ermeli`;
+          return `Geçersiz metin: "${_issue.includes}" içermeli`;
         if (_issue.format === "regex")
-          return `Ge\xE7ersiz metin: ${_issue.pattern} desenine uymal\u0131`;
-        return `Ge\xE7ersiz ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Geçersiz metin: ${_issue.pattern} desenine uymalı`;
+        return `Geçersiz ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Ge\xE7ersiz say\u0131: ${issue2.divisor} ile tam b\xF6l\xFCnebilmeli`;
+        return `Geçersiz sayı: ${issue2.divisor} ile tam bölünebilmeli`;
       case "unrecognized_keys":
-        return `Tan\u0131nmayan anahtar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Tanınmayan anahtar${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} i\xE7inde ge\xE7ersiz anahtar`;
+        return `${issue2.origin} içinde geçersiz anahtar`;
       case "invalid_union":
-        return "Ge\xE7ersiz de\u011Fer";
+        return "Geçersiz değer";
       case "invalid_element":
-        return `${issue2.origin} i\xE7inde ge\xE7ersiz de\u011Fer`;
+        return `${issue2.origin} içinde geçersiz değer`;
       default:
-        return `Ge\xE7ersiz de\u011Fer`;
+        return `Geçersiz değer`;
     }
   };
 };
@@ -12269,20 +15041,20 @@ function tr_default() {
 // node_modules/zod/v4/locales/uk.js
 var error55 = () => {
   const Sizable = {
-    string: { unit: "\u0441\u0438\u043C\u0432\u043E\u043B\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
-    file: { unit: "\u0431\u0430\u0439\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
-    array: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
-    set: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" },
-    map: { unit: "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432", verb: "\u043C\u0430\u0442\u0438\u043C\u0435" }
+    string: { unit: "символів", verb: "матиме" },
+    file: { unit: "байтів", verb: "матиме" },
+    array: { unit: "елементів", verb: "матиме" },
+    set: { unit: "елементів", verb: "матиме" },
+    map: { unit: "елементів", verb: "матиме" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456",
-    email: "\u0430\u0434\u0440\u0435\u0441\u0430 \u0435\u043B\u0435\u043A\u0442\u0440\u043E\u043D\u043D\u043E\u0457 \u043F\u043E\u0448\u0442\u0438",
+    regex: "вхідні дані",
+    email: "адреса електронної пошти",
     url: "URL",
-    emoji: "\u0435\u043C\u043E\u0434\u0437\u0456",
+    emoji: "емодзі",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -12293,29 +15065,29 @@ var error55 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\u0434\u0430\u0442\u0430 \u0442\u0430 \u0447\u0430\u0441 ISO",
-    date: "\u0434\u0430\u0442\u0430 ISO",
-    time: "\u0447\u0430\u0441 ISO",
-    duration: "\u0442\u0440\u0438\u0432\u0430\u043B\u0456\u0441\u0442\u044C ISO",
-    ipv4: "\u0430\u0434\u0440\u0435\u0441\u0430 IPv4",
-    ipv6: "\u0430\u0434\u0440\u0435\u0441\u0430 IPv6",
-    mac: "\u0430\u0434\u0440\u0435\u0441\u0430 MAC",
-    cidrv4: "\u0434\u0456\u0430\u043F\u0430\u0437\u043E\u043D IPv4",
-    cidrv6: "\u0434\u0456\u0430\u043F\u0430\u0437\u043E\u043D IPv6",
-    base64: "\u0440\u044F\u0434\u043E\u043A \u0443 \u043A\u043E\u0434\u0443\u0432\u0430\u043D\u043D\u0456 base64",
-    base64url: "\u0440\u044F\u0434\u043E\u043A \u0443 \u043A\u043E\u0434\u0443\u0432\u0430\u043D\u043D\u0456 base64url",
-    json_string: "\u0440\u044F\u0434\u043E\u043A JSON",
-    e164: "\u043D\u043E\u043C\u0435\u0440 E.164",
-    credit_card: "\u043D\u043E\u043C\u0435\u0440 \u043A\u0440\u0435\u0434\u0438\u0442\u043D\u043E\u0457 \u043A\u0430\u0440\u0442\u043A\u0438",
-    currency_code: "\u043A\u043E\u0434 \u0432\u0430\u043B\u044E\u0442\u0438",
+    datetime: "дата та час ISO",
+    date: "дата ISO",
+    time: "час ISO",
+    duration: "тривалість ISO",
+    ipv4: "адреса IPv4",
+    ipv6: "адреса IPv6",
+    mac: "адреса MAC",
+    cidrv4: "діапазон IPv4",
+    cidrv6: "діапазон IPv6",
+    base64: "рядок у кодуванні base64",
+    base64url: "рядок у кодуванні base64url",
+    json_string: "рядок JSON",
+    e164: "номер E.164",
+    credit_card: "номер кредитної картки",
+    currency_code: "код валюти",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456"
+    template_literal: "вхідні дані"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0447\u0438\u0441\u043B\u043E",
-    array: "\u043C\u0430\u0441\u0438\u0432"
+    number: "число",
+    array: "масив"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -12324,53 +15096,53 @@ var error55 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F instanceof ${issue2.expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
+          return `Неправильні вхідні дані: очікується instanceof ${issue2.expected}, отримано ${received}`;
         }
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${expected}, \u043E\u0442\u0440\u0438\u043C\u0430\u043D\u043E ${received}`;
+        return `Неправильні вхідні дані: очікується ${expected}, отримано ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0430 \u043E\u043F\u0446\u0456\u044F: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F \u043E\u0434\u043D\u0435 \u0437 ${joinValues(issue2.values, "|")}`;
+          return `Неправильні вхідні дані: очікується ${stringifyPrimitive(issue2.values[0])}`;
+        return `Неправильна опція: очікується одне з ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0435\u043B\u0435\u043C\u0435\u043D\u0442\u0456\u0432"}`;
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u0432\u0435\u043B\u0438\u043A\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin ?? "\u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F"} \u0431\u0443\u0434\u0435 ${adj}${issue2.maximum.toString()}`;
+          return `Занадто велике: очікується, що ${issue2.origin ?? "значення"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "елементів"}`;
+        return `Занадто велике: очікується, що ${issue2.origin ?? "значення"} буде ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Занадто мале: очікується, що ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u0417\u0430\u043D\u0430\u0434\u0442\u043E \u043C\u0430\u043B\u0435: \u043E\u0447\u0456\u043A\u0443\u0454\u0442\u044C\u0441\u044F, \u0449\u043E ${issue2.origin} \u0431\u0443\u0434\u0435 ${adj}${issue2.minimum.toString()}`;
+        return `Занадто мале: очікується, що ${issue2.origin} буде ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043F\u043E\u0447\u0438\u043D\u0430\u0442\u0438\u0441\u044F \u0437 "${_issue.prefix}"`;
+          return `Неправильний рядок: повинен починатися з "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0437\u0430\u043A\u0456\u043D\u0447\u0443\u0432\u0430\u0442\u0438\u0441\u044F \u043D\u0430 "${_issue.suffix}"`;
+          return `Неправильний рядок: повинен закінчуватися на "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u043C\u0456\u0441\u0442\u0438\u0442\u0438 "${_issue.includes}"`;
+          return `Неправильний рядок: повинен містити "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u0440\u044F\u0434\u043E\u043A: \u043F\u043E\u0432\u0438\u043D\u0435\u043D \u0432\u0456\u0434\u043F\u043E\u0432\u0456\u0434\u0430\u0442\u0438 \u0448\u0430\u0431\u043B\u043E\u043D\u0443 ${_issue.pattern}`;
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Неправильний рядок: повинен відповідати шаблону ${_issue.pattern}`;
+        return `Неправильний ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0447\u0438\u0441\u043B\u043E: \u043F\u043E\u0432\u0438\u043D\u043D\u043E \u0431\u0443\u0442\u0438 \u043A\u0440\u0430\u0442\u043D\u0438\u043C ${issue2.divisor}`;
+        return `Неправильне число: повинно бути кратним ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `\u041D\u0435\u0440\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u0438\u0439 \u043A\u043B\u044E\u0447${issue2.keys.length > 1 ? "\u0456" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Нерозпізнаний ключ${issue2.keys.length > 1 ? "і" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0438\u0439 \u043A\u043B\u044E\u0447 \u0443 ${issue2.origin}`;
+        return `Неправильний ключ у ${issue2.origin}`;
       case "invalid_union":
-        return "\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456";
+        return "Неправильні вхідні дані";
       case "invalid_element":
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0435 \u0437\u043D\u0430\u0447\u0435\u043D\u043D\u044F \u0443 ${issue2.origin}`;
+        return `Неправильне значення у ${issue2.origin}`;
       default:
-        return `\u041D\u0435\u043F\u0440\u0430\u0432\u0438\u043B\u044C\u043D\u0456 \u0432\u0445\u0456\u0434\u043D\u0456 \u0434\u0430\u043D\u0456`;
+        return `Неправильні вхідні дані`;
     }
   };
 };
@@ -12388,54 +15160,54 @@ function ua_default() {
 // node_modules/zod/v4/locales/ur.js
 var error56 = () => {
   const Sizable = {
-    string: { unit: "\u062D\u0631\u0648\u0641", verb: "\u06C1\u0648\u0646\u0627" },
-    file: { unit: "\u0628\u0627\u0626\u0679\u0633", verb: "\u06C1\u0648\u0646\u0627" },
-    array: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" },
-    set: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" },
-    map: { unit: "\u0622\u0626\u0679\u0645\u0632", verb: "\u06C1\u0648\u0646\u0627" }
+    string: { unit: "حروف", verb: "ہونا" },
+    file: { unit: "بائٹس", verb: "ہونا" },
+    array: { unit: "آئٹمز", verb: "ہونا" },
+    set: { unit: "آئٹمز", verb: "ہونا" },
+    map: { unit: "آئٹمز", verb: "ہونا" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0627\u0646 \u067E\u0679",
-    email: "\u0627\u06CC \u0645\u06CC\u0644 \u0627\u06CC\u0688\u0631\u06CC\u0633",
-    url: "\u06CC\u0648 \u0622\u0631 \u0627\u06CC\u0644",
-    emoji: "\u0627\u06CC\u0645\u0648\u062C\u06CC",
-    uuid: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    uuidv4: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC \u0648\u06CC 4",
-    uuidv6: "\u06CC\u0648 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC \u0648\u06CC 6",
-    nanoid: "\u0646\u06CC\u0646\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    guid: "\u062C\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    cuid: "\u0633\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    cuid2: "\u0633\u06CC \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC 2",
-    ulid: "\u06CC\u0648 \u0627\u06CC\u0644 \u0622\u0626\u06CC \u0688\u06CC",
-    xid: "\u0627\u06CC\u06A9\u0633 \u0622\u0626\u06CC \u0688\u06CC",
-    ksuid: "\u06A9\u06D2 \u0627\u06CC\u0633 \u06CC\u0648 \u0622\u0626\u06CC \u0688\u06CC",
-    datetime: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0688\u06CC\u0679 \u0679\u0627\u0626\u0645",
-    date: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u062A\u0627\u0631\u06CC\u062E",
-    time: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0648\u0642\u062A",
-    duration: "\u0622\u0626\u06CC \u0627\u06CC\u0633 \u0627\u0648 \u0645\u062F\u062A",
-    ipv4: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 4 \u0627\u06CC\u0688\u0631\u06CC\u0633",
-    ipv6: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 6 \u0627\u06CC\u0688\u0631\u06CC\u0633",
-    mac: "\u0627\u06CC\u0645 \u0627\u06D2 \u0633\u06CC \u0627\u06CC\u0688\u0631\u06CC\u0633",
-    cidrv4: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 4 \u0631\u06CC\u0646\u062C",
-    cidrv6: "\u0622\u0626\u06CC \u067E\u06CC \u0648\u06CC 6 \u0631\u06CC\u0646\u062C",
-    base64: "\u0628\u06CC\u0633 64 \u0627\u0646 \u06A9\u0648\u0688\u0688 \u0633\u0679\u0631\u0646\u06AF",
-    base64url: "\u0628\u06CC\u0633 64 \u06CC\u0648 \u0622\u0631 \u0627\u06CC\u0644 \u0627\u0646 \u06A9\u0648\u0688\u0688 \u0633\u0679\u0631\u0646\u06AF",
-    json_string: "\u062C\u06D2 \u0627\u06CC\u0633 \u0627\u0648 \u0627\u06CC\u0646 \u0633\u0679\u0631\u0646\u06AF",
-    e164: "\u0627\u06CC 164 \u0646\u0645\u0628\u0631",
-    credit_card: "\u06A9\u0631\u06CC\u0688\u0679 \u06A9\u0627\u0631\u0688 \u0646\u0645\u0628\u0631",
-    currency_code: "\u06A9\u0631\u0646\u0633\u06CC \u06A9\u0648\u0688",
+    regex: "ان پٹ",
+    email: "ای میل ایڈریس",
+    url: "یو آر ایل",
+    emoji: "ایموجی",
+    uuid: "یو یو آئی ڈی",
+    uuidv4: "یو یو آئی ڈی وی 4",
+    uuidv6: "یو یو آئی ڈی وی 6",
+    nanoid: "نینو آئی ڈی",
+    guid: "جی یو آئی ڈی",
+    cuid: "سی یو آئی ڈی",
+    cuid2: "سی یو آئی ڈی 2",
+    ulid: "یو ایل آئی ڈی",
+    xid: "ایکس آئی ڈی",
+    ksuid: "کے ایس یو آئی ڈی",
+    datetime: "آئی ایس او ڈیٹ ٹائم",
+    date: "آئی ایس او تاریخ",
+    time: "آئی ایس او وقت",
+    duration: "آئی ایس او مدت",
+    ipv4: "آئی پی وی 4 ایڈریس",
+    ipv6: "آئی پی وی 6 ایڈریس",
+    mac: "ایم اے سی ایڈریس",
+    cidrv4: "آئی پی وی 4 رینج",
+    cidrv6: "آئی پی وی 6 رینج",
+    base64: "بیس 64 ان کوڈڈ سٹرنگ",
+    base64url: "بیس 64 یو آر ایل ان کوڈڈ سٹرنگ",
+    json_string: "جے ایس او این سٹرنگ",
+    e164: "ای 164 نمبر",
+    credit_card: "کریڈٹ کارڈ نمبر",
+    currency_code: "کرنسی کوڈ",
     iban: "IBAN",
-    jwt: "\u062C\u06D2 \u0688\u0628\u0644\u06CC\u0648 \u0679\u06CC",
-    template_literal: "\u0627\u0646 \u067E\u0679"
+    jwt: "جے ڈبلیو ٹی",
+    template_literal: "ان پٹ"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u0646\u0645\u0628\u0631",
-    array: "\u0622\u0631\u06D2",
-    null: "\u0646\u0644"
+    number: "نمبر",
+    array: "آرے",
+    null: "نل"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -12444,54 +15216,54 @@ var error56 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: instanceof ${issue2.expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
+          return `غلط ان پٹ: instanceof ${issue2.expected} متوقع تھا، ${received} موصول ہوا`;
         }
-        return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${expected} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627\u060C ${received} \u0645\u0648\u0635\u0648\u0644 \u06C1\u0648\u0627`;
+        return `غلط ان پٹ: ${expected} متوقع تھا، ${received} موصول ہوا`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679: ${stringifyPrimitive(issue2.values[0])} \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
-        return `\u063A\u0644\u0637 \u0622\u067E\u0634\u0646: ${joinValues(issue2.values, "|")} \u0645\u06CC\u06BA \u0633\u06D2 \u0627\u06CC\u06A9 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+          return `غلط ان پٹ: ${stringifyPrimitive(issue2.values[0])} متوقع تھا`;
+        return `غلط آپشن: ${joinValues(issue2.values, "|")} میں سے ایک متوقع تھا`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u06D2 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u0639\u0646\u0627\u0635\u0631"} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
-        return `\u0628\u06C1\u062A \u0628\u0691\u0627: ${issue2.origin ?? "\u0648\u06CC\u0644\u06CC\u0648"} \u06A9\u0627 ${adj}${issue2.maximum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+          return `بہت بڑا: ${issue2.origin ?? "ویلیو"} کے ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "عناصر"} ہونے متوقع تھے`;
+        return `بہت بڑا: ${issue2.origin ?? "ویلیو"} کا ${adj}${issue2.maximum.toString()} ہونا متوقع تھا`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u06D2 ${adj}${issue2.minimum.toString()} ${sizing.unit} \u06C1\u0648\u0646\u06D2 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u06D2`;
+          return `بہت چھوٹا: ${issue2.origin} کے ${adj}${issue2.minimum.toString()} ${sizing.unit} ہونے متوقع تھے`;
         }
-        return `\u0628\u06C1\u062A \u0686\u06BE\u0648\u0679\u0627: ${issue2.origin} \u06A9\u0627 ${adj}${issue2.minimum.toString()} \u06C1\u0648\u0646\u0627 \u0645\u062A\u0648\u0642\u0639 \u062A\u06BE\u0627`;
+        return `بہت چھوٹا: ${issue2.origin} کا ${adj}${issue2.minimum.toString()} ہونا متوقع تھا`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.prefix}" \u0633\u06D2 \u0634\u0631\u0648\u0639 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+          return `غلط سٹرنگ: "${_issue.prefix}" سے شروع ہونا چاہیے`;
         }
         if (_issue.format === "ends_with")
-          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.suffix}" \u067E\u0631 \u062E\u062A\u0645 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+          return `غلط سٹرنگ: "${_issue.suffix}" پر ختم ہونا چاہیے`;
         if (_issue.format === "includes")
-          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: "${_issue.includes}" \u0634\u0627\u0645\u0644 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+          return `غلط سٹرنگ: "${_issue.includes}" شامل ہونا چاہیے`;
         if (_issue.format === "regex")
-          return `\u063A\u0644\u0637 \u0633\u0679\u0631\u0646\u06AF: \u067E\u06CC\u0679\u0631\u0646 ${_issue.pattern} \u0633\u06D2 \u0645\u06CC\u0686 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
-        return `\u063A\u0644\u0637 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `غلط سٹرنگ: پیٹرن ${_issue.pattern} سے میچ ہونا چاہیے`;
+        return `غلط ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u063A\u0644\u0637 \u0646\u0645\u0628\u0631: ${issue2.divisor} \u06A9\u0627 \u0645\u0636\u0627\u0639\u0641 \u06C1\u0648\u0646\u0627 \u0686\u0627\u06C1\u06CC\u06D2`;
+        return `غلط نمبر: ${issue2.divisor} کا مضاعف ہونا چاہیے`;
       case "unrecognized_keys":
-        return `\u063A\u06CC\u0631 \u062A\u0633\u0644\u06CC\u0645 \u0634\u062F\u06C1 \u06A9\u06CC${issue2.keys.length > 1 ? "\u0632" : ""}: ${joinValues(issue2.keys, "\u060C ")}`;
+        return `غیر تسلیم شدہ کی${issue2.keys.length > 1 ? "ز" : ""}: ${joinValues(issue2.keys, "، ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u06A9\u06CC`;
+        return `${issue2.origin} میں غلط کی`;
       case "invalid_union":
-        return "\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679";
+        return "غلط ان پٹ";
       case "invalid_element":
-        return `${issue2.origin} \u0645\u06CC\u06BA \u063A\u0644\u0637 \u0648\u06CC\u0644\u06CC\u0648`;
+        return `${issue2.origin} میں غلط ویلیو`;
       default:
-        return `\u063A\u0644\u0637 \u0627\u0646 \u067E\u0679`;
+        return `غلط ان پٹ`;
     }
   };
 };
@@ -12504,11 +15276,11 @@ function ur_default() {
 // node_modules/zod/v4/locales/uz.js
 var error57 = () => {
   const Sizable = {
-    string: { unit: "belgi", verb: "bo\u2018lishi kerak" },
-    file: { unit: "bayt", verb: "bo\u2018lishi kerak" },
-    array: { unit: "element", verb: "bo\u2018lishi kerak" },
-    set: { unit: "element", verb: "bo\u2018lishi kerak" },
-    map: { unit: "yozuv", verb: "bo\u2018lishi kerak" }
+    string: { unit: "belgi", verb: "bo‘lishi kerak" },
+    file: { unit: "bayt", verb: "bo‘lishi kerak" },
+    array: { unit: "element", verb: "bo‘lishi kerak" },
+    set: { unit: "element", verb: "bo‘lishi kerak" },
+    map: { unit: "yozuv", verb: "bo‘lishi kerak" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
@@ -12559,14 +15331,14 @@ var error57 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `Noto\u2018g\u2018ri kirish: kutilgan instanceof ${issue2.expected}, qabul qilingan ${received}`;
+          return `Noto‘g‘ri kirish: kutilgan instanceof ${issue2.expected}, qabul qilingan ${received}`;
         }
-        return `Noto\u2018g\u2018ri kirish: kutilgan ${expected}, qabul qilingan ${received}`;
+        return `Noto‘g‘ri kirish: kutilgan ${expected}, qabul qilingan ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `Noto\u2018g\u2018ri kirish: kutilgan ${stringifyPrimitive(issue2.values[0])}`;
-        return `Noto\u2018g\u2018ri variant: quyidagilardan biri kutilgan ${joinValues(issue2.values, "|")}`;
+          return `Noto‘g‘ri kirish: kutilgan ${stringifyPrimitive(issue2.values[0])}`;
+        return `Noto‘g‘ri variant: quyidagilardan biri kutilgan ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
@@ -12585,27 +15357,27 @@ var error57 = () => {
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Noto\u2018g\u2018ri satr: "${_issue.prefix}" bilan boshlanishi kerak`;
+          return `Noto‘g‘ri satr: "${_issue.prefix}" bilan boshlanishi kerak`;
         if (_issue.format === "ends_with")
-          return `Noto\u2018g\u2018ri satr: "${_issue.suffix}" bilan tugashi kerak`;
+          return `Noto‘g‘ri satr: "${_issue.suffix}" bilan tugashi kerak`;
         if (_issue.format === "includes")
-          return `Noto\u2018g\u2018ri satr: "${_issue.includes}" ni o\u2018z ichiga olishi kerak`;
+          return `Noto‘g‘ri satr: "${_issue.includes}" ni o‘z ichiga olishi kerak`;
         if (_issue.format === "regex")
-          return `Noto\u2018g\u2018ri satr: ${_issue.pattern} shabloniga mos kelishi kerak`;
-        return `Noto\u2018g\u2018ri ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Noto‘g‘ri satr: ${_issue.pattern} shabloniga mos kelishi kerak`;
+        return `Noto‘g‘ri ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `Noto\u2018g\u2018ri raqam: ${issue2.divisor} ning karralisi bo\u2018lishi kerak`;
+        return `Noto‘g‘ri raqam: ${issue2.divisor} ning karralisi bo‘lishi kerak`;
       case "unrecognized_keys":
-        return `Noma\u2019lum kalit${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
+        return `Noma’lum kalit${issue2.keys.length > 1 ? "lar" : ""}: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} dagi kalit noto\u2018g\u2018ri`;
+        return `${issue2.origin} dagi kalit noto‘g‘ri`;
       case "invalid_union":
-        return "Noto\u2018g\u2018ri kirish";
+        return "Noto‘g‘ri kirish";
       case "invalid_element":
-        return `${issue2.origin} da noto\u2018g\u2018ri qiymat`;
+        return `${issue2.origin} da noto‘g‘ri qiymat`;
       default:
-        return `Noto\u2018g\u2018ri kirish`;
+        return `Noto‘g‘ri kirish`;
     }
   };
 };
@@ -12618,18 +15390,18 @@ function uz_default() {
 // node_modules/zod/v4/locales/vi.js
 var error58 = () => {
   const Sizable = {
-    string: { unit: "k\xFD t\u1EF1", verb: "c\xF3" },
-    file: { unit: "byte", verb: "c\xF3" },
-    array: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" },
-    set: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" },
-    map: { unit: "ph\u1EA7n t\u1EED", verb: "c\xF3" }
+    string: { unit: "ký tự", verb: "có" },
+    file: { unit: "byte", verb: "có" },
+    array: { unit: "phần tử", verb: "có" },
+    set: { unit: "phần tử", verb: "có" },
+    map: { unit: "phần tử", verb: "có" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u0111\u1EA7u v\xE0o",
-    email: "\u0111\u1ECBa ch\u1EC9 email",
+    regex: "đầu vào",
+    email: "địa chỉ email",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -12642,29 +15414,29 @@ var error58 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ng\xE0y gi\u1EDD ISO",
-    date: "ng\xE0y ISO",
-    time: "gi\u1EDD ISO",
-    duration: "kho\u1EA3ng th\u1EDDi gian ISO",
-    ipv4: "\u0111\u1ECBa ch\u1EC9 IPv4",
-    ipv6: "\u0111\u1ECBa ch\u1EC9 IPv6",
-    mac: "\u0111\u1ECBa ch\u1EC9 MAC",
-    cidrv4: "d\u1EA3i IPv4",
-    cidrv6: "d\u1EA3i IPv6",
-    base64: "chu\u1ED7i m\xE3 h\xF3a base64",
-    base64url: "chu\u1ED7i m\xE3 h\xF3a base64url",
-    json_string: "chu\u1ED7i JSON",
-    e164: "s\u1ED1 E.164",
-    credit_card: "s\u1ED1 th\u1EBB t\xEDn d\u1EE5ng",
-    currency_code: "m\xE3 ti\u1EC1n t\u1EC7",
+    datetime: "ngày giờ ISO",
+    date: "ngày ISO",
+    time: "giờ ISO",
+    duration: "khoảng thời gian ISO",
+    ipv4: "địa chỉ IPv4",
+    ipv6: "địa chỉ IPv6",
+    mac: "địa chỉ MAC",
+    cidrv4: "dải IPv4",
+    cidrv6: "dải IPv6",
+    base64: "chuỗi mã hóa base64",
+    base64url: "chuỗi mã hóa base64url",
+    json_string: "chuỗi JSON",
+    e164: "số E.164",
+    credit_card: "số thẻ tín dụng",
+    currency_code: "mã tiền tệ",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u0111\u1EA7u v\xE0o"
+    template_literal: "đầu vào"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "s\u1ED1",
-    array: "m\u1EA3ng"
+    number: "số",
+    array: "mảng"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -12673,53 +15445,53 @@ var error58 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i instanceof ${issue2.expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
+          return `Đầu vào không hợp lệ: mong đợi instanceof ${issue2.expected}, nhận được ${received}`;
         }
-        return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${expected}, nh\u1EADn \u0111\u01B0\u1EE3c ${received}`;
+        return `Đầu vào không hợp lệ: mong đợi ${expected}, nhận được ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i ${stringifyPrimitive(issue2.values[0])}`;
-        return `T\xF9y ch\u1ECDn kh\xF4ng h\u1EE3p l\u1EC7: mong \u0111\u1EE3i m\u1ED9t trong c\xE1c gi\xE1 tr\u1ECB ${joinValues(issue2.values, "|")}`;
+          return `Đầu vào không hợp lệ: mong đợi ${stringifyPrimitive(issue2.values[0])}`;
+        return `Tùy chọn không hợp lệ: mong đợi một trong các giá trị ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "ph\u1EA7n t\u1EED"}`;
-        return `Qu\xE1 l\u1EDBn: mong \u0111\u1EE3i ${issue2.origin ?? "gi\xE1 tr\u1ECB"} ${adj}${issue2.maximum.toString()}`;
+          return `Quá lớn: mong đợi ${issue2.origin ?? "giá trị"} ${sizing.verb} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "phần tử"}`;
+        return `Quá lớn: mong đợi ${issue2.origin ?? "giá trị"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `Quá nhỏ: mong đợi ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `Qu\xE1 nh\u1ECF: mong \u0111\u1EE3i ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `Quá nhỏ: mong đợi ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i b\u1EAFt \u0111\u1EA7u b\u1EB1ng "${_issue.prefix}"`;
+          return `Chuỗi không hợp lệ: phải bắt đầu bằng "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i k\u1EBFt th\xFAc b\u1EB1ng "${_issue.suffix}"`;
+          return `Chuỗi không hợp lệ: phải kết thúc bằng "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i bao g\u1ED3m "${_issue.includes}"`;
+          return `Chuỗi không hợp lệ: phải bao gồm "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `Chu\u1ED7i kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i kh\u1EDBp v\u1EDBi m\u1EABu ${_issue.pattern}`;
-        return `${FormatDictionary[_issue.format] ?? issue2.format} kh\xF4ng h\u1EE3p l\u1EC7`;
+          return `Chuỗi không hợp lệ: phải khớp với mẫu ${_issue.pattern}`;
+        return `${FormatDictionary[_issue.format] ?? issue2.format} không hợp lệ`;
       }
       case "not_multiple_of":
-        return `S\u1ED1 kh\xF4ng h\u1EE3p l\u1EC7: ph\u1EA3i l\xE0 b\u1ED9i s\u1ED1 c\u1EE7a ${issue2.divisor}`;
+        return `Số không hợp lệ: phải là bội số của ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `Kh\xF3a kh\xF4ng \u0111\u01B0\u1EE3c nh\u1EADn d\u1EA1ng: ${joinValues(issue2.keys, ", ")}`;
+        return `Khóa không được nhận dạng: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `Kh\xF3a kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+        return `Khóa không hợp lệ trong ${issue2.origin}`;
       case "invalid_union":
-        return "\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7";
+        return "Đầu vào không hợp lệ";
       case "invalid_element":
-        return `Gi\xE1 tr\u1ECB kh\xF4ng h\u1EE3p l\u1EC7 trong ${issue2.origin}`;
+        return `Giá trị không hợp lệ trong ${issue2.origin}`;
       default:
-        return `\u0110\u1EA7u v\xE0o kh\xF4ng h\u1EE3p l\u1EC7`;
+        return `Đầu vào không hợp lệ`;
     }
   };
 };
@@ -12732,20 +15504,20 @@ function vi_default() {
 // node_modules/zod/v4/locales/zh-CN.js
 var error59 = () => {
   const Sizable = {
-    string: { unit: "\u5B57\u7B26", verb: "\u5305\u542B" },
-    file: { unit: "\u5B57\u8282", verb: "\u5305\u542B" },
-    array: { unit: "\u9879", verb: "\u5305\u542B" },
-    set: { unit: "\u9879", verb: "\u5305\u542B" },
-    map: { unit: "\u9879", verb: "\u5305\u542B" }
+    string: { unit: "字符", verb: "包含" },
+    file: { unit: "字节", verb: "包含" },
+    array: { unit: "项", verb: "包含" },
+    set: { unit: "项", verb: "包含" },
+    map: { unit: "项", verb: "包含" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u8F93\u5165",
-    email: "\u7535\u5B50\u90AE\u4EF6",
+    regex: "输入",
+    email: "电子邮件",
     url: "URL",
-    emoji: "\u8868\u60C5\u7B26\u53F7",
+    emoji: "表情符号",
     uuid: "UUID",
     uuidv4: "UUIDv4",
     uuidv6: "UUIDv6",
@@ -12756,30 +15528,30 @@ var error59 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO\u65E5\u671F\u65F6\u95F4",
-    date: "ISO\u65E5\u671F",
-    time: "ISO\u65F6\u95F4",
-    duration: "ISO\u65F6\u957F",
-    ipv4: "IPv4\u5730\u5740",
-    ipv6: "IPv6\u5730\u5740",
-    mac: "MAC\u5730\u5740",
-    cidrv4: "IPv4\u7F51\u6BB5",
-    cidrv6: "IPv6\u7F51\u6BB5",
-    base64: "base64\u7F16\u7801\u5B57\u7B26\u4E32",
-    base64url: "base64url\u7F16\u7801\u5B57\u7B26\u4E32",
-    json_string: "JSON\u5B57\u7B26\u4E32",
-    e164: "E.164\u53F7\u7801",
-    credit_card: "\u4FE1\u7528\u5361\u53F7",
-    currency_code: "\u8D27\u5E01\u4EE3\u7801",
+    datetime: "ISO日期时间",
+    date: "ISO日期",
+    time: "ISO时间",
+    duration: "ISO时长",
+    ipv4: "IPv4地址",
+    ipv6: "IPv6地址",
+    mac: "MAC地址",
+    cidrv4: "IPv4网段",
+    cidrv6: "IPv6网段",
+    base64: "base64编码字符串",
+    base64url: "base64url编码字符串",
+    json_string: "JSON字符串",
+    e164: "E.164号码",
+    credit_card: "信用卡号",
+    currency_code: "货币代码",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u8F93\u5165"
+    template_literal: "输入"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "\u6570\u5B57",
-    array: "\u6570\u7EC4",
-    null: "\u7A7A\u503C(null)"
+    number: "数字",
+    array: "数组",
+    null: "空值(null)"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -12788,53 +15560,53 @@ var error59 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B instanceof ${issue2.expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
+          return `无效输入：期望 instanceof ${issue2.expected}，实际接收 ${received}`;
         }
-        return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${expected}\uFF0C\u5B9E\u9645\u63A5\u6536 ${received}`;
+        return `无效输入：期望 ${expected}，实际接收 ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u65E0\u6548\u8F93\u5165\uFF1A\u671F\u671B ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u65E0\u6548\u9009\u9879\uFF1A\u671F\u671B\u4EE5\u4E0B\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+          return `无效输入：期望 ${stringifyPrimitive(issue2.values[0])}`;
+        return `无效选项：期望以下之一 ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u4E2A\u5143\u7D20"}`;
-        return `\u6570\u503C\u8FC7\u5927\uFF1A\u671F\u671B ${issue2.origin ?? "\u503C"} ${adj}${issue2.maximum.toString()}`;
+          return `数值过大：期望 ${issue2.origin ?? "值"} ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "个元素"}`;
+        return `数值过大：期望 ${issue2.origin ?? "值"} ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `数值过小：期望 ${issue2.origin} ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u6570\u503C\u8FC7\u5C0F\uFF1A\u671F\u671B ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
+        return `数值过小：期望 ${issue2.origin} ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.prefix}" \u5F00\u5934`;
+          return `无效字符串：必须以 "${_issue.prefix}" 开头`;
         if (_issue.format === "ends_with")
-          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u4EE5 "${_issue.suffix}" \u7ED3\u5C3E`;
+          return `无效字符串：必须以 "${_issue.suffix}" 结尾`;
         if (_issue.format === "includes")
-          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u5305\u542B "${_issue.includes}"`;
+          return `无效字符串：必须包含 "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u65E0\u6548\u5B57\u7B26\u4E32\uFF1A\u5FC5\u987B\u6EE1\u8DB3\u6B63\u5219\u8868\u8FBE\u5F0F ${_issue.pattern}`;
-        return `\u65E0\u6548${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `无效字符串：必须满足正则表达式 ${_issue.pattern}`;
+        return `无效${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u65E0\u6548\u6570\u5B57\uFF1A\u5FC5\u987B\u662F ${issue2.divisor} \u7684\u500D\u6570`;
+        return `无效数字：必须是 ${issue2.divisor} 的倍数`;
       case "unrecognized_keys":
-        return `\u51FA\u73B0\u672A\u77E5\u7684\u952E(key): ${joinValues(issue2.keys, ", ")}`;
+        return `出现未知的键(key): ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `${issue2.origin} \u4E2D\u7684\u952E(key)\u65E0\u6548`;
+        return `${issue2.origin} 中的键(key)无效`;
       case "invalid_union":
-        return "\u65E0\u6548\u8F93\u5165";
+        return "无效输入";
       case "invalid_element":
-        return `${issue2.origin} \u4E2D\u5305\u542B\u65E0\u6548\u503C(value)`;
+        return `${issue2.origin} 中包含无效值(value)`;
       default:
-        return `\u65E0\u6548\u8F93\u5165`;
+        return `无效输入`;
     }
   };
 };
@@ -12847,18 +15619,18 @@ function zh_CN_default() {
 // node_modules/zod/v4/locales/zh-TW.js
 var error60 = () => {
   const Sizable = {
-    string: { unit: "\u5B57\u5143", verb: "\u64C1\u6709" },
-    file: { unit: "\u4F4D\u5143\u7D44", verb: "\u64C1\u6709" },
-    array: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" },
-    set: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" },
-    map: { unit: "\u9805\u76EE", verb: "\u64C1\u6709" }
+    string: { unit: "字元", verb: "擁有" },
+    file: { unit: "位元組", verb: "擁有" },
+    array: { unit: "項目", verb: "擁有" },
+    set: { unit: "項目", verb: "擁有" },
+    map: { unit: "項目", verb: "擁有" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u8F38\u5165",
-    email: "\u90F5\u4EF6\u5730\u5740",
+    regex: "輸入",
+    email: "郵件地址",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -12871,24 +15643,24 @@ var error60 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "ISO \u65E5\u671F\u6642\u9593",
-    date: "ISO \u65E5\u671F",
-    time: "ISO \u6642\u9593",
-    duration: "ISO \u671F\u9593",
-    ipv4: "IPv4 \u4F4D\u5740",
-    ipv6: "IPv6 \u4F4D\u5740",
-    mac: "MAC \u4F4D\u5740",
-    cidrv4: "IPv4 \u7BC4\u570D",
-    cidrv6: "IPv6 \u7BC4\u570D",
-    base64: "base64 \u7DE8\u78BC\u5B57\u4E32",
-    base64url: "base64url \u7DE8\u78BC\u5B57\u4E32",
-    json_string: "JSON \u5B57\u4E32",
-    e164: "E.164 \u6578\u503C",
-    credit_card: "\u4FE1\u7528\u5361\u865F",
-    currency_code: "\u8CA8\u5E63\u4EE3\u78BC",
+    datetime: "ISO 日期時間",
+    date: "ISO 日期",
+    time: "ISO 時間",
+    duration: "ISO 期間",
+    ipv4: "IPv4 位址",
+    ipv6: "IPv6 位址",
+    mac: "MAC 位址",
+    cidrv4: "IPv4 範圍",
+    cidrv6: "IPv6 範圍",
+    base64: "base64 編碼字串",
+    base64url: "base64url 編碼字串",
+    json_string: "JSON 字串",
+    e164: "E.164 數值",
+    credit_card: "信用卡號",
+    currency_code: "貨幣代碼",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u8F38\u5165"
+    template_literal: "輸入"
   };
   const TypeDictionary = {
     nan: "NaN"
@@ -12900,54 +15672,54 @@ var error60 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA instanceof ${issue2.expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
+          return `無效的輸入值：預期為 instanceof ${issue2.expected}，但收到 ${received}`;
         }
-        return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${expected}\uFF0C\u4F46\u6536\u5230 ${received}`;
+        return `無效的輸入值：預期為 ${expected}，但收到 ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\u7121\u6548\u7684\u8F38\u5165\u503C\uFF1A\u9810\u671F\u70BA ${stringifyPrimitive(issue2.values[0])}`;
-        return `\u7121\u6548\u7684\u9078\u9805\uFF1A\u9810\u671F\u70BA\u4EE5\u4E0B\u5176\u4E2D\u4E4B\u4E00 ${joinValues(issue2.values, "|")}`;
+          return `無效的輸入值：預期為 ${stringifyPrimitive(issue2.values[0])}`;
+        return `無效的選項：預期為以下其中之一 ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "\u500B\u5143\u7D20"}`;
-        return `\u6578\u503C\u904E\u5927\uFF1A\u9810\u671F ${issue2.origin ?? "\u503C"} \u61C9\u70BA ${adj}${issue2.maximum.toString()}`;
+          return `數值過大：預期 ${issue2.origin ?? "值"} 應為 ${adj}${issue2.maximum.toString()} ${sizing.unit ?? "個元素"}`;
+        return `數值過大：預期 ${issue2.origin ?? "值"} 應為 ${adj}${issue2.maximum.toString()}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing) {
-          return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
+          return `數值過小：預期 ${issue2.origin} 應為 ${adj}${issue2.minimum.toString()} ${sizing.unit}`;
         }
-        return `\u6578\u503C\u904E\u5C0F\uFF1A\u9810\u671F ${issue2.origin} \u61C9\u70BA ${adj}${issue2.minimum.toString()}`;
+        return `數值過小：預期 ${issue2.origin} 應為 ${adj}${issue2.minimum.toString()}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with") {
-          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.prefix}" \u958B\u982D`;
+          return `無效的字串：必須以 "${_issue.prefix}" 開頭`;
         }
         if (_issue.format === "ends_with")
-          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u4EE5 "${_issue.suffix}" \u7D50\u5C3E`;
+          return `無效的字串：必須以 "${_issue.suffix}" 結尾`;
         if (_issue.format === "includes")
-          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u5305\u542B "${_issue.includes}"`;
+          return `無效的字串：必須包含 "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u7121\u6548\u7684\u5B57\u4E32\uFF1A\u5FC5\u9808\u7B26\u5408\u683C\u5F0F ${_issue.pattern}`;
-        return `\u7121\u6548\u7684 ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `無效的字串：必須符合格式 ${_issue.pattern}`;
+        return `無效的 ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `\u7121\u6548\u7684\u6578\u5B57\uFF1A\u5FC5\u9808\u70BA ${issue2.divisor} \u7684\u500D\u6578`;
+        return `無效的數字：必須為 ${issue2.divisor} 的倍數`;
       case "unrecognized_keys":
-        return `\u7121\u6CD5\u8B58\u5225\u7684\u9375\u503C${issue2.keys.length > 1 ? "\u5011" : ""}\uFF1A${joinValues(issue2.keys, "\u3001")}`;
+        return `無法識別的鍵值${issue2.keys.length > 1 ? "們" : ""}：${joinValues(issue2.keys, "、")}`;
       case "invalid_key":
-        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u9375\u503C`;
+        return `${issue2.origin} 中有無效的鍵值`;
       case "invalid_union":
-        return "\u7121\u6548\u7684\u8F38\u5165\u503C";
+        return "無效的輸入值";
       case "invalid_element":
-        return `${issue2.origin} \u4E2D\u6709\u7121\u6548\u7684\u503C`;
+        return `${issue2.origin} 中有無效的值`;
       default:
-        return `\u7121\u6548\u7684\u8F38\u5165\u503C`;
+        return `無效的輸入值`;
     }
   };
 };
@@ -12960,18 +15732,18 @@ function zh_TW_default() {
 // node_modules/zod/v4/locales/yo.js
 var error61 = () => {
   const Sizable = {
-    string: { unit: "\xE0mi", verb: "n\xED" },
-    file: { unit: "bytes", verb: "n\xED" },
-    array: { unit: "nkan", verb: "n\xED" },
-    set: { unit: "nkan", verb: "n\xED" },
-    map: { unit: "nkan", verb: "n\xED" }
+    string: { unit: "àmi", verb: "ní" },
+    file: { unit: "bytes", verb: "ní" },
+    array: { unit: "nkan", verb: "ní" },
+    set: { unit: "nkan", verb: "ní" },
+    map: { unit: "nkan", verb: "ní" }
   };
   function getSizing(origin) {
     return Sizable[origin] ?? null;
   }
   const FormatDictionary = {
-    regex: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9",
-    email: "\xE0d\xEDr\u1EB9\u0301s\xEC \xECm\u1EB9\u0301l\xEC",
+    regex: "ẹ̀rọ ìbáwọlé",
+    email: "àdírẹ́sì ìmẹ́lì",
     url: "URL",
     emoji: "emoji",
     uuid: "UUID",
@@ -12984,29 +15756,29 @@ var error61 = () => {
     ulid: "ULID",
     xid: "XID",
     ksuid: "KSUID",
-    datetime: "\xE0k\xF3k\xF2 ISO",
-    date: "\u1ECDj\u1ECD\u0301 ISO",
-    time: "\xE0k\xF3k\xF2 ISO",
-    duration: "\xE0k\xF3k\xF2 t\xF3 p\xE9 ISO",
-    ipv4: "\xE0d\xEDr\u1EB9\u0301s\xEC IPv4",
-    ipv6: "\xE0d\xEDr\u1EB9\u0301s\xEC IPv6",
-    mac: "\xE0d\xEDr\u1EB9\u0301s\xEC MAC",
-    cidrv4: "\xE0gb\xE8gb\xE8 IPv4",
-    cidrv6: "\xE0gb\xE8gb\xE8 IPv6",
-    base64: "\u1ECD\u0300r\u1ECD\u0300 t\xED a k\u1ECD\u0301 n\xED base64",
-    base64url: "\u1ECD\u0300r\u1ECD\u0300 base64url",
-    json_string: "\u1ECD\u0300r\u1ECD\u0300 JSON",
-    e164: "n\u1ECD\u0301mb\xE0 E.164",
-    credit_card: "n\u1ECDmba kaadi gbese",
-    currency_code: "koodu ow\xF3",
+    datetime: "àkókò ISO",
+    date: "ọjọ́ ISO",
+    time: "àkókò ISO",
+    duration: "àkókò tó pé ISO",
+    ipv4: "àdírẹ́sì IPv4",
+    ipv6: "àdírẹ́sì IPv6",
+    mac: "àdírẹ́sì MAC",
+    cidrv4: "àgbègbè IPv4",
+    cidrv6: "àgbègbè IPv6",
+    base64: "ọ̀rọ̀ tí a kọ́ ní base64",
+    base64url: "ọ̀rọ̀ base64url",
+    json_string: "ọ̀rọ̀ JSON",
+    e164: "nọ́mbà E.164",
+    credit_card: "nọmba kaadi gbese",
+    currency_code: "koodu owó",
     iban: "IBAN",
     jwt: "JWT",
-    template_literal: "\u1EB9\u0300r\u1ECD \xECb\xE1w\u1ECDl\xE9"
+    template_literal: "ẹ̀rọ ìbáwọlé"
   };
   const TypeDictionary = {
     nan: "NaN",
-    number: "n\u1ECD\u0301mb\xE0",
-    array: "akop\u1ECD"
+    number: "nọ́mbà",
+    array: "akopọ"
   };
   return (issue2) => {
     switch (issue2.code) {
@@ -13015,52 +15787,52 @@ var error61 = () => {
         const receivedType = parsedType(issue2.input);
         const received = TypeDictionary[receivedType] ?? receivedType;
         if (/^[A-Z]/.test(issue2.expected)) {
-          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi instanceof ${issue2.expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
+          return `Ìbáwọlé aṣìṣe: a ní láti fi instanceof ${issue2.expected}, àmọ̀ a rí ${received}`;
         }
-        return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${expected}, \xE0m\u1ECD\u0300 a r\xED ${received}`;
+        return `Ìbáwọlé aṣìṣe: a ní láti fi ${expected}, àmọ̀ a rí ${received}`;
       }
       case "invalid_value":
         if (issue2.values.length === 1)
-          return `\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e: a n\xED l\xE1ti fi ${stringifyPrimitive(issue2.values[0])}`;
-        return `\xC0\u1E63\xE0y\xE0n a\u1E63\xEC\u1E63e: yan \u1ECD\u0300kan l\xE1ra ${joinValues(issue2.values, "|")}`;
+          return `Ìbáwọlé aṣìṣe: a ní láti fi ${stringifyPrimitive(issue2.values[0])}`;
+        return `Àṣàyàn aṣìṣe: yan ọ̀kan lára ${joinValues(issue2.values, "|")}`;
       case "too_big": {
         const adj = issue2.inclusive ? "<=" : "<";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin ?? "iye"} ${sizing.verb} ${adj}${issue2.maximum} ${sizing.unit}`;
-        return `T\xF3 p\u1ECD\u0300 j\xF9: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.maximum}`;
+          return `Tó pọ̀ jù: a ní láti jẹ́ pé ${issue2.origin ?? "iye"} ${sizing.verb} ${adj}${issue2.maximum} ${sizing.unit}`;
+        return `Tó pọ̀ jù: a ní láti jẹ́ ${adj}${issue2.maximum}`;
       }
       case "too_small": {
         const adj = issue2.inclusive ? ">=" : ">";
         const sizing = getSizing(issue2.origin);
         if (sizing)
-          return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 p\xE9 ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum} ${sizing.unit}`;
-        return `K\xE9r\xE9 ju: a n\xED l\xE1ti j\u1EB9\u0301 ${adj}${issue2.minimum}`;
+          return `Kéré ju: a ní láti jẹ́ pé ${issue2.origin} ${sizing.verb} ${adj}${issue2.minimum} ${sizing.unit}`;
+        return `Kéré ju: a ní láti jẹ́ ${adj}${issue2.minimum}`;
       }
       case "invalid_format": {
         const _issue = issue2;
         if (_issue.format === "starts_with")
-          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\u1EB9\u0300r\u1EB9\u0300 p\u1EB9\u0300l\xFA "${_issue.prefix}"`;
+          return `Ọ̀rọ̀ aṣìṣe: gbọ́dọ̀ bẹ̀rẹ̀ pẹ̀lú "${_issue.prefix}"`;
         if (_issue.format === "ends_with")
-          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 par\xED p\u1EB9\u0300l\xFA "${_issue.suffix}"`;
+          return `Ọ̀rọ̀ aṣìṣe: gbọ́dọ̀ parí pẹ̀lú "${_issue.suffix}"`;
         if (_issue.format === "includes")
-          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 n\xED "${_issue.includes}"`;
+          return `Ọ̀rọ̀ aṣìṣe: gbọ́dọ̀ ní "${_issue.includes}"`;
         if (_issue.format === "regex")
-          return `\u1ECC\u0300r\u1ECD\u0300 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 b\xE1 \xE0p\u1EB9\u1EB9r\u1EB9 mu ${_issue.pattern}`;
-        return `A\u1E63\xEC\u1E63e: ${FormatDictionary[_issue.format] ?? issue2.format}`;
+          return `Ọ̀rọ̀ aṣìṣe: gbọ́dọ̀ bá àpẹẹrẹ mu ${_issue.pattern}`;
+        return `Aṣìṣe: ${FormatDictionary[_issue.format] ?? issue2.format}`;
       }
       case "not_multiple_of":
-        return `N\u1ECD\u0301mb\xE0 a\u1E63\xEC\u1E63e: gb\u1ECD\u0301d\u1ECD\u0300 j\u1EB9\u0301 \xE8y\xE0 p\xEDp\xEDn ti ${issue2.divisor}`;
+        return `Nọ́mbà aṣìṣe: gbọ́dọ̀ jẹ́ èyà pípín ti ${issue2.divisor}`;
       case "unrecognized_keys":
-        return `B\u1ECDt\xECn\xEC \xE0\xECm\u1ECD\u0300: ${joinValues(issue2.keys, ", ")}`;
+        return `Bọtìnì àìmọ̀: ${joinValues(issue2.keys, ", ")}`;
       case "invalid_key":
-        return `B\u1ECDt\xECn\xEC a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+        return `Bọtìnì aṣìṣe nínú ${issue2.origin}`;
       case "invalid_union":
-        return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
+        return "Ìbáwọlé aṣìṣe";
       case "invalid_element":
-        return `Iye a\u1E63\xEC\u1E63e n\xEDn\xFA ${issue2.origin}`;
+        return `Iye aṣìṣe nínú ${issue2.origin}`;
       default:
-        return "\xCCb\xE1w\u1ECDl\xE9 a\u1E63\xEC\u1E63e";
+        return "Ìbáwọlé aṣìṣe";
     }
   };
 };
@@ -16807,7 +19579,7 @@ function stringifyKeyNames(bySchema, json2, visited) {
       json2 = { ...json2, [keyword]: mapped };
   }
   const types = Array.isArray(json2.type) ? json2.type : [json2.type];
-  const numericType = !types.includes("string") && types.some((t) => t === "number" || t === "integer");
+  const numericType = !types.includes("string") && types.some((t2) => t2 === "number" || t2 === "integer");
   const values = json2.enum ?? (json2.const !== void 0 ? [json2.const] : void 0);
   if (!numericType && !values?.some((v) => typeof v === "number"))
     return json2;
@@ -17427,7 +20199,7 @@ var safeDecodeAsync2 = /* @__PURE__ */ _safeDecodeAsync(ZodRealError);
 // node_modules/zod/v4/classic/schemas.js
 function _ensureDefaultLocale() {
   if (!globalConfig.localeError)
-    config(en_default());
+    config(en_default2());
 }
 function _ensureDefaultMemoizer() {
   if (!globalConfig.memoizer)
@@ -19310,8 +22082,8 @@ function convertBaseSchema(schema, ctx) {
   }
   const type = schema.type;
   if (Array.isArray(type)) {
-    const typeSchemas = type.map((t) => {
-      const typeSchema = { ...schema, type: t };
+    const typeSchemas = type.map((t2) => {
+      const typeSchema = { ...schema, type: t2 };
       return convertBaseSchema(typeSchema, ctx);
     });
     if (typeSchemas.length === 0) {
@@ -19901,11 +22673,11 @@ function shapeStyle(shape, size) {
   if (shape === "rounded") return { borderRadius: Math.round(size * 0.22), objectFit: "cover" };
   return { borderRadius: "50%", objectFit: "cover" };
 }
-function brandMark(createElement6, brand, props = {}) {
+function brandMark(createElement7, brand, props = {}) {
   const size = props.size ?? 32;
   const shape = shapeStyle(brand.logo_shape, size);
   if (brand.logo_url) {
-    return createElement6("img", {
+    return createElement7("img", {
       src: brand.logo_url,
       alt: brand.name,
       width: size,
@@ -19913,8 +22685,8 @@ function brandMark(createElement6, brand, props = {}) {
       style: { width: size, height: size, ...shape, display: "block" }
     });
   }
-  const letter = (brand.name.trim().charAt(0) || "\u4F01").toUpperCase();
-  return createElement6("span", {
+  const letter = (brand.name.trim().charAt(0) || t("brandView.fallbackLetter")).toUpperCase();
+  return createElement7("span", {
     "aria-label": brand.name,
     style: {
       width: size,
@@ -19930,17 +22702,17 @@ function brandMark(createElement6, brand, props = {}) {
     }
   }, letter);
 }
-function brandName(createElement6, brand) {
-  return createElement6("span", { "data-dsh-ee-brand": brand.revision || "neutral" }, brand.name);
+function brandName(createElement7, brand) {
+  return createElement7("span", { "data-dsh-ee-brand": brand.revision || "neutral" }, brand.name);
 }
-function heroBrand(createElement6, brand, props = {}) {
+function heroBrand(createElement7, brand, props = {}) {
   const title = (brand.title ?? "").trim();
-  if (!title) return brandMark(createElement6, brand, props);
+  if (!title) return brandMark(createElement7, brand, props);
   const size = Math.round((props.size ?? 34) * 1.4);
-  return createElement6("span", {
+  return createElement7("span", {
     "data-dsh-ee-hero-title": brand.revision || "neutral",
     style: { display: "inline-flex", alignItems: "center", gap: 14, fontWeight: 600, letterSpacing: "0.02em" }
-  }, brandMark(createElement6, brand, { size }), createElement6("span", null, title));
+  }, brandMark(createElement7, brand, { size }), createElement7("span", null, title));
 }
 var HERO_TITLE_CSS = "span:has([data-dsh-ee-hero-title]) + span:not(:has([data-dsh-ee-hero-title])) { display: none !important; }";
 var TOKEN_NAME = /^--dsw-[a-z0-9-]{1,80}$/;
@@ -19964,13 +22736,13 @@ function createBrandStore(initial, read) {
   let key = brandKey(initial);
   let inflight = false;
   let reader = read;
-  const listeners2 = /* @__PURE__ */ new Set();
+  const listeners3 = /* @__PURE__ */ new Set();
   const set2 = (next) => {
     const nextKey = brandKey(next);
     if (!next || nextKey === key) return;
     current = next;
     key = nextKey;
-    for (const listener of [...listeners2]) {
+    for (const listener of [...listeners3]) {
       try {
         listener();
       } catch {
@@ -19988,9 +22760,9 @@ function createBrandStore(initial, read) {
     }
   };
   const subscribe = (listener) => {
-    listeners2.add(listener);
+    listeners3.add(listener);
     return () => {
-      listeners2.delete(listener);
+      listeners3.delete(listener);
     };
   };
   return {
@@ -20003,9 +22775,9 @@ function createBrandStore(initial, read) {
       reader = next;
     },
     /** 在组件里读品牌，并在品牌变化时重绘。 */
-    use: (useState6, useEffect5) => {
-      const [, setTick] = useState6(0);
-      useEffect5(() => subscribe(() => setTick((n) => n + 1)), []);
+    use: (useState7, useEffect6) => {
+      const [, setTick] = useState7(0);
+      useEffect6(() => subscribe(() => setTick((n) => n + 1)), []);
       return current;
     },
     start: () => {
@@ -20043,7 +22815,7 @@ function safeRender(render, fallback) {
   try {
     return render();
   } catch (error62) {
-    if (typeof console !== "undefined") console.warn("[dsh-ee] \u54C1\u724C\u7EC4\u4EF6\u6E32\u67D3\u5931\u8D25\uFF0C\u6539\u7528\u9996\u5B57\u6BCD", error62);
+    if (typeof console !== "undefined") console.warn("[dsh-ee] 品牌组件渲染失败，改用首字母", error62);
     try {
       return fallback();
     } catch {
@@ -20089,18 +22861,18 @@ var BRAND_PRIORITY = -1e3;
 var BRAND_SLOTS = ["sidebar.brand.mark", "sidebar.brand.name", "conversation.hero.brand.mark"];
 var initials = (brand) => ({ ...brand, logo_url: "" });
 function registerBrand(ctx, store, react, doc = typeof document !== "undefined" ? document : void 0) {
-  const { createElement: createElement6, useState: useState6, useEffect: useEffect5 } = react;
+  const { createElement: createElement7, useState: useState7, useEffect: useEffect6 } = react;
   const Mark = (props) => {
-    const brand = store.use(useState6, useEffect5);
-    return safeRender(() => brandMark(createElement6, brand, props), () => brandMark(createElement6, initials(brand), props));
+    const brand = store.use(useState7, useEffect6);
+    return safeRender(() => brandMark(createElement7, brand, props), () => brandMark(createElement7, initials(brand), props));
   };
   const Name = () => {
-    const brand = store.use(useState6, useEffect5);
-    return safeRender(() => brandName(createElement6, brand), () => createElement6("span", null, brand.name));
+    const brand = store.use(useState7, useEffect6);
+    return safeRender(() => brandName(createElement7, brand), () => createElement7("span", null, brand.name));
   };
   const Hero = (props) => {
-    const brand = store.use(useState6, useEffect5);
-    return safeRender(() => heroBrand(createElement6, brand, props), () => brandMark(createElement6, initials(brand), props));
+    const brand = store.use(useState7, useEffect6);
+    return safeRender(() => heroBrand(createElement7, brand, props), () => brandMark(createElement7, initials(brand), props));
   };
   const components = {
     "sidebar.brand.mark": Mark,
@@ -20114,7 +22886,7 @@ function registerBrand(ctx, store, react, doc = typeof document !== "undefined" 
         const dispose = ctx.slots.inject(name, () => ctx.slots.register({ name, priority: BRAND_PRIORITY }, components[name]));
         if (typeof dispose === "function") seats.push(dispose);
       } catch (error62) {
-        console.warn(`[dsh-ee] \u5360\u7528\u54C1\u724C\u4F4D\u7F6E ${name} \u5931\u8D25`, error62);
+        console.warn(`[dsh-ee] 占用品牌位置 ${name} 失败`, error62);
       }
     }
   };
@@ -20190,132 +22962,132 @@ function formatTokens(value) {
   return String(value);
 }
 function adminRemaining(me, now = Date.now()) {
-  if (!me.admin_live || !me.admin_until) return me.admin_live ? "\u5DF2\u5F00\u542F" : "\u672A\u5F00\u542F";
+  if (!me.admin_live || !me.admin_until) return me.admin_live ? t("statusView.adminOn") : t("statusView.adminOff");
   const minutes = Math.max(0, Math.ceil((new Date(me.admin_until).getTime() - now) / 6e4));
-  if (minutes >= 60) return `\u8FD8\u5269 ${Math.floor(minutes / 60)} \u5C0F\u65F6 ${minutes % 60} \u5206\u949F`;
-  return `\u8FD8\u5269 ${minutes} \u5206\u949F`;
+  if (minutes >= 60) return t("statusView.adminRemainingHours", { hours: Math.floor(minutes / 60), minutes: minutes % 60 });
+  return t("statusView.adminRemainingMinutes", { minutes });
 }
-function button(createElement6, label, onClick, busy = false) {
-  return createElement6("button", {
+function button(createElement7, label, onClick, busy = false) {
+  return createElement7("button", {
     type: "button",
     onClick,
     disabled: busy,
     style: { padding: "6px 10px", border: "1px solid currentColor", borderRadius: 6, background: "transparent", color: "inherit", cursor: busy ? "wait" : "pointer", opacity: busy ? 0.55 : 1 }
   }, label);
 }
-function section(createElement6, title, ...children) {
-  return createElement6(
+function section(createElement7, title, ...children) {
+  return createElement7(
     "section",
     { style: { marginTop: 18, paddingTop: 14, borderTop: "1px solid color-mix(in srgb, currentColor 14%, transparent)" } },
-    createElement6("h3", { style: { margin: "0 0 10px", fontSize: 13 } }, title),
+    createElement7("h3", { style: { margin: "0 0 10px", fontSize: 13 } }, title),
     ...children
   );
 }
 function failureText(failure2) {
   switch (failure2?.reason) {
     case "auth":
-      return "\u8FD8\u6CA1\u6709\u767B\u5F55\u4F01\u4E1A\u8D26\u53F7\uFF0C\u6216\u767B\u5F55\u5DF2\u5931\u6548\uFF0C\u8BF7\u767B\u5F55\u3002";
+      return t("statusView.failureAuth");
     case "server":
-      return `dsh-ee \u8FD4\u56DE\u9519\u8BEF\uFF08${failure2.detail}\uFF09\uFF0C\u8BF7\u7A0D\u540E\u5237\u65B0\u3002`;
+      return t("statusView.failureServer", { detail: failure2.detail });
     case "unreachable":
-      return `\u8FDE\u4E0D\u4E0A dsh-ee\uFF08${failure2.base}\uFF0C${failure2.detail}\uFF09\u3002\u8BF7\u786E\u8BA4\u8FD9\u53F0\u7535\u8111\u80FD\u5728\u6D4F\u89C8\u5668\u91CC\u6253\u5F00\u8FD9\u4E2A\u5730\u5740\uFF1B\u5730\u5740\u4E0D\u5BF9\u7684\u8BDD\uFF0C\u5728 DSH \u7684\u300C\u8BBE\u7F6E \u2192 dsh-ee\u300D\u91CC\u6539\u6210\u80FD\u6253\u5F00\u7684\u5730\u5740\u5E76\u6D4B\u8BD5\u3002`;
+      return t("statusView.failureUnreachable", { base: failure2.base, detail: failure2.detail });
     default:
-      return "\u672A\u767B\u5F55\u6216\u8FDE\u63A5\u4E0D\u53EF\u7528\uFF0C\u8BF7\u91CD\u65B0\u767B\u5F55\u3002";
+      return t("statusView.failureDefault");
   }
 }
-function enterprisePanel(createElement6, org, state, actions, AppsPanel) {
+function enterprisePanel(createElement7, org, state, actions, AppsPanel) {
   const { data, failed, failure: failure2, busy, notice, doctor } = state;
   const me = data?.me;
   const quota = effectiveQuota(data?.usage);
-  const children = [createElement6("h2", { key: "title", style: { margin: "0 0 16px", fontSize: 16 } }, org)];
+  const children = [createElement7("h2", { key: "title", style: { margin: "0 0 16px", fontSize: 16 } }, org)];
   if (!data || !me) {
-    children.push(createElement6("p", { key: "state", style: { lineHeight: 1.6 } }, failed ? failureText(failure2) : "\u6B63\u5728\u8BFB\u53D6\u4F01\u4E1A\u8D26\u53F7\u2026"));
-    if (failed) children.push(createElement6(
+    children.push(createElement7("p", { key: "state", style: { lineHeight: 1.6 } }, failed ? failureText(failure2) : t("statusView.reading")));
+    if (failed) children.push(createElement7(
       "div",
       { key: "actions", style: { display: "flex", gap: 8 } },
-      button(createElement6, busy ? "\u6B63\u5728\u53D1\u8D77\u767B\u5F55\u2026" : "\u767B\u5F55", actions.login, busy),
-      button(createElement6, "\u5237\u65B0", actions.refresh, busy)
+      button(createElement7, busy ? t("statusView.startingLogin") : t("common.login"), actions.login, busy),
+      button(createElement7, t("common.refresh"), actions.refresh, busy)
     ));
   } else {
     const rows = [
-      ["\u8D26\u53F7", me.username],
-      ["\u90E8\u95E8", me.department || "\u672A\u8BBE\u7F6E"],
-      ["\u4EE4\u724C\u6709\u6548\u671F", me.expires_at ? `${me.expires_at.slice(0, 10)} \u5230\u671F` : "\u957F\u671F\u6709\u6548"],
-      ["\u7BA1\u7406\u6A21\u5F0F", adminRemaining(me)]
+      [t("statusView.account"), me.username],
+      [t("statusView.department"), me.department || t("common.notSet")],
+      [t("statusView.tokenExpiry"), me.expires_at ? t("statusView.expiresOn", { date: me.expires_at.slice(0, 10) }) : t("statusView.neverExpires")],
+      [t("statusView.adminMode"), adminRemaining(me)]
     ];
-    children.push(createElement6(
+    children.push(createElement7(
       "dl",
       { key: "account", style: { margin: 0, display: "grid", gridTemplateColumns: "80px 1fr", gap: "12px 8px" } },
       ...rows.flatMap(([label, value]) => [
-        createElement6("dt", { key: `${label}-label`, style: { opacity: 0.65 } }, label),
-        createElement6("dd", { key: `${label}-value`, style: { margin: 0 } }, value)
+        createElement7("dt", { key: `${label}-label`, style: { opacity: 0.65 } }, label),
+        createElement7("dd", { key: `${label}-value`, style: { margin: 0 } }, value)
       ])
     ));
-    if (AppsPanel) children.push(createElement6(AppsPanel, { key: "apps" }));
+    if (AppsPanel) children.push(createElement7(AppsPanel, { key: "apps" }));
     children.push(section(
-      createElement6,
-      "\u672C\u6708\u989D\u5EA6",
-      quota === void 0 ? "\u989D\u5EA6\u4FE1\u606F\u4E0D\u53EF\u7528" : quota === null ? "\u4E0D\u9650\u989D" : createElement6(
+      createElement7,
+      t("statusView.quota"),
+      quota === void 0 ? t("statusView.quotaUnavailable") : quota === null ? t("statusView.quotaUnlimited") : createElement7(
         "div",
         {},
-        createElement6(
+        createElement7(
           "div",
           { style: { display: "flex", justifyContent: "space-between", marginBottom: 7 } },
-          createElement6("span", {}, `${formatTokens(quota.used)} / ${formatTokens(quota.limit)}`),
-          createElement6("span", { style: { color: quota.usedRatio >= 0.9 ? "#d97706" : "inherit" } }, `\u5269\u4F59 ${quota.remainingPercent}%`)
+          createElement7("span", {}, `${formatTokens(quota.used)} / ${formatTokens(quota.limit)}`),
+          createElement7("span", { style: { color: quota.usedRatio >= 0.9 ? "#d97706" : "inherit" } }, t("statusView.quotaRemaining", { percent: quota.remainingPercent }))
         ),
-        createElement6(
+        createElement7(
           "div",
           { role: "progressbar", "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": Math.round(quota.usedRatio * 100), style: { height: 6, borderRadius: 3, overflow: "hidden", background: "color-mix(in srgb, currentColor 12%, transparent)" } },
-          createElement6("div", { style: { width: `${quota.usedRatio * 100}%`, height: "100%", background: quota.usedRatio >= 0.9 ? "#d97706" : "#2563eb" } })
+          createElement7("div", { style: { width: `${quota.usedRatio * 100}%`, height: "100%", background: quota.usedRatio >= 0.9 ? "#d97706" : "#2563eb" } })
         )
       )
     ));
     children.push(section(
-      createElement6,
-      "\u4F01\u4E1A\u6A21\u578B",
-      createElement6("div", {}, `\u9ED8\u8BA4\uFF1A${data.default_model || "\u672A\u8BBE\u7F6E"}`),
-      createElement6("div", { style: { marginTop: 6, opacity: 0.75, lineHeight: 1.5 } }, data.models.length ? data.models.join("\u3001") : "\u6CA1\u6709\u53EF\u7528\u6A21\u578B\u6216\u6A21\u578B\u5217\u8868\u4E0D\u53EF\u7528")
+      createElement7,
+      t("statusView.models"),
+      createElement7("div", {}, t("statusView.defaultModel", { model: data.default_model || t("common.notSet") })),
+      createElement7("div", { style: { marginTop: 6, opacity: 0.75, lineHeight: 1.5 } }, data.models.length ? data.models.join(t("common.listSeparator")) : t("statusView.modelsUnavailable"))
     ));
     children.push(section(
-      createElement6,
-      "\u63A5\u5165\u72B6\u6001",
-      createElement6("div", { style: { lineHeight: 1.6 } }, `\u63D2\u4EF6 ${data.version}${data.latest_version && data.latest_version !== data.version ? ` \xB7 \u65B0\u7248\u672C ${data.latest_version}` : " \xB7 \u5DF2\u662F\u6700\u65B0"}`),
-      createElement6(
+      createElement7,
+      t("statusView.status"),
+      createElement7("div", { style: { lineHeight: 1.6 } }, t("statusView.pluginVersion", { version: data.version, latest: data.latest_version && data.latest_version !== data.version ? t("statusView.pluginNewVersion", { version: data.latest_version }) : t("statusView.pluginUpToDate") })),
+      createElement7(
         "div",
         { style: { display: "flex", gap: 8, marginTop: 10 } },
-        button(createElement6, busy ? "\u8BCA\u65AD\u4E2D\u2026" : "\u8BCA\u65AD", actions.doctor, busy),
-        button(createElement6, "\u5237\u65B0", actions.refresh, busy)
+        button(createElement7, busy ? t("statusView.diagnosing") : t("statusView.diagnose"), actions.doctor, busy),
+        button(createElement7, t("common.refresh"), actions.refresh, busy)
       )
     ));
   }
-  if (notice) children.push(createElement6("p", { key: "notice", role: "status", style: { lineHeight: 1.6, overflowWrap: "anywhere" } }, notice));
+  if (notice) children.push(createElement7("p", { key: "notice", role: "status", style: { lineHeight: 1.6, overflowWrap: "anywhere" } }, notice));
   if (doctor) children.push(section(
-    createElement6,
-    `\u8BCA\u65AD\u7ED3\u679C\uFF1A${doctor.summary}`,
-    createElement6(
+    createElement7,
+    t("statusView.diagnoseResult", { summary: doctor.summary }),
+    createElement7(
       "ul",
       { style: { margin: 0, paddingLeft: 18, lineHeight: 1.6 } },
-      ...doctor.checks.map((check2) => createElement6("li", { key: check2.id, style: { color: check2.status === "ok" ? "inherit" : check2.status === "warn" ? "#d97706" : "#d92d20" } }, `${check2.title}${check2.fix ? `\uFF1B${check2.fix}` : ""}`))
+      ...doctor.checks.map((check2) => createElement7("li", { key: check2.id, style: { color: check2.status === "ok" ? "inherit" : check2.status === "warn" ? "#d97706" : "#d92d20" } }, t("statusView.checkLine", { title: check2.title, fix: check2.fix ? t("statusView.checkFixSeparator") + check2.fix : "" })))
     )
   ));
-  return createElement6("main", {
+  return createElement7("main", {
     "data-dsh-ee-ui": "panel",
     "data-dsh-ee-state": data ? "connected" : failed ? "disconnected" : "loading",
     style: { padding: 16, color: "inherit", fontSize: 13 }
   }, ...children);
 }
-function enterpriseHeader(createElement6, data, failed, onClick) {
+function enterpriseHeader(createElement7, data, failed, onClick) {
   const me = data?.me;
   const quota = effectiveQuota(data?.usage);
-  const label = !me ? failed ? "\u4F01\u4E1A \xB7 \u672A\u767B\u5F55" : "\u4F01\u4E1A \xB7 \u68C0\u67E5\u4E2D" : me.admin_live ? `\u7BA1\u7406\u6A21\u5F0F \xB7 ${adminRemaining(me)}` : quota ? `\u4F01\u4E1A\u6A21\u578B \xB7 \u5269\u4F59 ${quota.remainingPercent}%` : `\u4F01\u4E1A\u6A21\u578B \xB7 ${me.username}`;
-  return createElement6("button", {
+  const label = !me ? failed ? t("statusView.headerDisconnected") : t("statusView.headerChecking") : me.admin_live ? t("statusView.headerAdmin", { remaining: adminRemaining(me) }) : quota ? t("statusView.headerQuota", { percent: quota.remainingPercent }) : t("statusView.headerUser", { username: me.username });
+  return createElement7("button", {
     type: "button",
     onClick,
     "data-dsh-ee-ui": "header",
     "data-dsh-ee-state": me ? "connected" : failed ? "disconnected" : "loading",
     "aria-label": label,
-    title: me ? `${me.username}${me.department ? `\uFF08${me.department}\uFF09` : ""}` : "\u91CD\u65B0\u767B\u5F55\u4F01\u4E1A\u8D26\u53F7",
+    title: me ? t("statusView.headerTitleUser", { username: me.username, department: me.department ? t("statusView.headerDepartment", { department: me.department }) : "" }) : t("statusView.headerTitle"),
     style: { whiteSpace: "nowrap", fontSize: 12, color: me ? "inherit" : failed ? "#d92d20" : "inherit", background: "transparent", border: 0, padding: 0, cursor: "pointer" }
   }, label);
 }
@@ -20324,7 +23096,7 @@ function registerEnterpriseStatus(ctx, org, EnterprisePanel, EnterpriseHeader) {
     id: enterpriseTabId,
     kind: "dsh-ee-enterprise",
     title: () => org,
-    guide: [{ id: "open", order: 10, title: () => org, description: () => "\u67E5\u770B\u4F01\u4E1A\u8D26\u53F7\u3001\u989D\u5EA6\u3001\u6A21\u578B\u4E0E\u63A5\u5165\u72B6\u6001" }]
+    guide: [{ id: "open", order: 10, title: () => org, description: () => t("statusView.guideDescription") }]
   }));
   ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register(
     { name: "sidebar.right.pane.tab", key: enterpriseTabId },
@@ -20347,21 +23119,21 @@ function tileHue(name) {
   for (const ch of name) hash2 = hash2 * 31 + ch.charCodeAt(0) >>> 0;
   return tileHues[hash2 % tileHues.length];
 }
-function appTileIcon(createElement6, app, size = 40) {
+function appTileIcon(createElement7, app, size = 40) {
   const hue = tileHue(app.name);
-  return createElement6("span", {
+  return createElement7("span", {
     "aria-hidden": true,
     style: { width: size, height: size, flex: `0 0 ${size}px`, display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: Math.round(size * 0.28), fontSize: Math.round(size * 0.5), background: `linear-gradient(135deg, color-mix(in srgb, ${hue} 20%, transparent), color-mix(in srgb, ${hue} 7%, transparent))`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${hue} 18%, transparent)` }
   }, app.icon || Array.from(app.title)[0] || "?");
 }
-function appIcon(createElement6, app) {
-  return createElement6("span", {
+function appIcon(createElement7, app) {
+  return createElement7("span", {
     "aria-hidden": true,
     style: { width: 30, height: 30, flex: "0 0 30px", display: "inline-flex", alignItems: "center", justifyContent: "center", borderRadius: "50%", background: "color-mix(in srgb, currentColor 10%, transparent)", fontSize: 16 }
   }, app.icon || Array.from(app.title)[0] || "?");
 }
-function appTile(createElement6, app, onOpen) {
-  return createElement6(
+function appTile(createElement7, app, onOpen) {
+  return createElement7(
     "button",
     {
       type: "button",
@@ -20369,16 +23141,16 @@ function appTile(createElement6, app, onOpen) {
       title: app.description,
       style: { ...buttonStyle, display: "flex", alignItems: "center", gap: 9, minWidth: 0, flex: 1, padding: "5px 0" }
     },
-    appIcon(createElement6, app),
-    createElement6("span", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title)
+    appIcon(createElement7, app),
+    createElement7("span", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title)
   );
 }
-function starterItems(createElement6, app, actions, close) {
+function starterItems(createElement7, app, actions, close) {
   const starters = (app.starters ?? []).filter(Boolean).slice(0, 6);
   if (!starters.length || !actions.startWith) return [];
   return [
-    createElement6("div", { key: "starters-title", style: { padding: "7px 7px 3px", fontSize: 11, opacity: 0.6, borderTop: "1px solid color-mix(in srgb, currentColor 12%, transparent)", marginTop: 4 } }, "\u4ECE\u793A\u4F8B\u95EE\u9898\u5F00\u59CB"),
-    ...starters.map((starter, index) => createElement6("button", {
+    createElement7("div", { key: "starters-title", style: { padding: "7px 7px 3px", fontSize: 11, opacity: 0.6, borderTop: "1px solid color-mix(in srgb, currentColor 12%, transparent)", marginTop: 4 } }, t("appsView.startersTitle")),
+    ...starters.map((starter, index) => createElement7("button", {
       key: `starter-${index}`,
       type: "button",
       title: starter,
@@ -20390,26 +23162,26 @@ function starterItems(createElement6, app, actions, close) {
     }, starter))
   ];
 }
-function disableItem(createElement6, app, actions, confirming, close) {
+function disableItem(createElement7, app, actions, confirming, close) {
   if (app.delivery !== "optional" || !actions.disable) return null;
-  return createElement6("button", {
+  return createElement7("button", {
     type: "button",
     style: { ...buttonStyle, display: "block", width: "100%", padding: 7, color: confirming ? "#b91c1c" : "inherit" },
     onClick: () => {
       close();
       actions.disable(app, confirming);
     }
-  }, confirming ? "\u786E\u8BA4\u505C\u7528" : "\u505C\u7528");
+  }, confirming ? t("appsView.confirmDisable") : t("appsView.disable"));
 }
-function appMenu(createElement6, app, actions, confirming = false, open2 = false, anchor2) {
+function appMenu(createElement7, app, actions, confirming = false, open2 = false, anchor2) {
   const close = () => actions.closeLayers?.() ?? actions.toggleMenu?.(app.name);
-  const item = (key, label, run) => createElement6("button", { key, type: "button", style: { ...buttonStyle, display: "block", width: "100%", padding: 7 }, onClick: () => {
+  const item = (key, label, run) => createElement7("button", { key, type: "button", style: { ...buttonStyle, display: "block", width: "100%", padding: 7 }, onClick: () => {
     close();
     run();
   } }, label);
   const layer = open2 ? [
-    createElement6("div", { key: "backdrop", "data-dsh-ee-ui": "app-menu-backdrop", onClick: close, style: { position: "fixed", inset: 0, zIndex: 80 } }),
-    createElement6(
+    createElement7("div", { key: "backdrop", "data-dsh-ee-ui": "app-menu-backdrop", onClick: close, style: { position: "fixed", inset: 0, zIndex: 80 } }),
+    createElement7(
       "div",
       {
         key: "menu",
@@ -20433,21 +23205,21 @@ function appMenu(createElement6, app, actions, confirming = false, open2 = false
           boxShadow: "0 5px 20px #0002"
         }
       },
-      item("new-session", "\u65B0\u5F00\u4E00\u4E2A\u4F1A\u8BDD", () => actions.newSession(app)),
-      app.workbench?.panes?.length && actions.openWorkbench ? item("workbench", "\u6253\u5F00\u5DE5\u4F5C\u53F0", () => actions.openWorkbench(app)) : null,
-      item("fill", "\u586B\u8FDB\u8F93\u5165\u6846", () => actions.fill(app)),
-      item("web", "\u5728\u7F51\u9875\u67E5\u770B", () => actions.web(app)),
-      item("unbind", "\u89E3\u9664\u7ED1\u5B9A", () => actions.unbind(app)),
-      disableItem(createElement6, app, actions, confirming, close),
-      ...starterItems(createElement6, app, actions, close)
+      item("new-session", t("appsView.newSession"), () => actions.newSession(app)),
+      app.workbench?.panes?.length && actions.openWorkbench ? item("workbench", t("appsView.openWorkbench"), () => actions.openWorkbench(app)) : null,
+      item("fill", t("appsView.fillInput"), () => actions.fill(app)),
+      item("web", t("common.viewInWeb"), () => actions.web(app)),
+      item("unbind", t("appsView.unbind"), () => actions.unbind(app)),
+      disableItem(createElement7, app, actions, confirming, close),
+      ...starterItems(createElement7, app, actions, close)
     )
   ] : null;
-  return createElement6(
+  return createElement7(
     "div",
     { style: { position: "relative", flex: "0 0 auto" } },
-    createElement6("button", {
+    createElement7("button", {
       type: "button",
-      "aria-label": `${app.title}\u66F4\u591A\u64CD\u4F5C`,
+      "aria-label": t("appsView.moreActions", { title: app.title }),
       "aria-expanded": open2,
       "aria-haspopup": "menu",
       onClick: (event) => {
@@ -20455,37 +23227,37 @@ function appMenu(createElement6, app, actions, confirming = false, open2 = false
         actions.toggleMenu?.(app.name, event);
       },
       style: { ...buttonStyle, padding: "4px 6px" }
-    }, "\u22EF"),
+    }, "⋯"),
     layer
   );
 }
-function missingBadge(createElement6, app, actions) {
+function missingBadge(createElement7, app, actions) {
   if (!app.missing?.length) return null;
   const style = { fontSize: 11, color: "#d97706", whiteSpace: "nowrap" };
-  const title = `\u4E0D\u53EF\u7528\uFF1A${app.missing.join("\u3001")}`;
-  if (!actions.details || !app.detail_url) return createElement6("span", { title, style }, "\u90E8\u5206\u80FD\u529B\u4E0D\u53EF\u7528");
-  return createElement6("button", {
+  const title = t("appsView.missingList", { missing: app.missing.join(t("common.listSeparator")) });
+  if (!actions.details || !app.detail_url) return createElement7("span", { title, style }, t("appsView.missing"));
+  return createElement7("button", {
     type: "button",
     "data-dsh-ee-missing": app.name,
-    title: `${title}\u3002\u70B9\u51FB\u67E5\u770B\u5E76\u7533\u8BF7`,
+    title: t("appsView.missingHint", { title }),
     onClick: (event) => {
       event?.stopPropagation?.();
       actions.closeLayers?.();
       actions.details(app);
     },
     style: { ...buttonStyle, ...style, padding: 0, textDecoration: "underline" }
-  }, "\u90E8\u5206\u80FD\u529B\u4E0D\u53EF\u7528 \xB7 \u7533\u8BF7");
+  }, t("appsView.missingApply"));
 }
-var statusViewOf = (status) => status === "need" ? { label: "\u5F85\u4F60\u51B3\u5B9A", color: "#d97706" } : status === "busy" ? { label: "\u5DE5\u4F5C\u4E2D", color: "#2563eb" } : status === "done" ? { label: "\u672C\u8F6E\u7ED3\u675F", color: "#737373" } : void 0;
-function appRow(createElement6, app, actions, status, confirming = false, menuOpen = false, anchor2) {
+var statusViewOf = (status) => status === "need" ? { label: t("common.pendingDecision"), color: "#d97706" } : status === "busy" ? { label: t("common.working"), color: "#2563eb" } : status === "done" ? { label: t("common.turnEnded"), color: "#737373" } : void 0;
+function appRow(createElement7, app, actions, status, confirming = false, menuOpen = false, anchor2) {
   const statusView = statusViewOf(status);
-  return createElement6(
+  return createElement7(
     "div",
     { key: app.name, "data-dsh-ee-app": app.name, style: { display: "flex", alignItems: "center", gap: 4 } },
-    statusView ? createElement6("span", { "aria-label": statusView.label, title: statusView.label, style: { width: 8, height: 8, flex: "0 0 8px", borderRadius: "50%", background: statusView.color } }) : null,
-    appTile(createElement6, app, () => actions.open(app)),
-    missingBadge(createElement6, app, actions),
-    appMenu(createElement6, app, actions, confirming, menuOpen, anchor2)
+    statusView ? createElement7("span", { "aria-label": statusView.label, title: statusView.label, style: { width: 8, height: 8, flex: "0 0 8px", borderRadius: "50%", background: statusView.color } }) : null,
+    appTile(createElement7, app, () => actions.open(app)),
+    missingBadge(createElement7, app, actions),
+    appMenu(createElement7, app, actions, confirming, menuOpen, anchor2)
   );
 }
 var matchesQuery = (app, query) => !query || `${app.title} ${app.description} ${app.name}`.toLowerCase().includes(query);
@@ -20498,22 +23270,22 @@ var galleryCss = [
   "@keyframes dshee-fade{from{opacity:0}to{opacity:1}}"
 ].join("");
 var badgeStyle = (color) => ({ fontSize: 10.5, fontWeight: 600, padding: "1px 7px", borderRadius: 999, color, background: `color-mix(in srgb, ${color} 13%, transparent)`, whiteSpace: "nowrap" });
-function cardBadges(createElement6, app, status) {
+function cardBadges(createElement7, app, status) {
   const statusView = statusViewOf(status);
   const todo = app.todo;
   return [
-    statusView ? createElement6("span", { key: "status", style: badgeStyle(statusView.color) }, statusView.label) : null,
-    todo ? createElement6("span", { key: "todo", style: badgeStyle("#2563eb") }, `${todo} \u5F85\u5904\u7406`) : null,
-    app.new ? createElement6("span", { key: "new", style: badgeStyle("#d97706") }, "\u65B0") : null
+    statusView ? createElement7("span", { key: "status", style: badgeStyle(statusView.color) }, statusView.label) : null,
+    todo ? createElement7("span", { key: "todo", style: badgeStyle("#2563eb") }, t("appsView.todoBadge", { count: todo })) : null,
+    app.new ? createElement7("span", { key: "new", style: badgeStyle("#d97706") }, t("common.newBadge")) : null
   ].filter(Boolean);
 }
-function galleryCard(createElement6, app, state, actions) {
+function galleryCard(createElement7, app, state, actions) {
   const status = state.statuses?.[app.name];
   const open2 = () => {
     actions.closeLayers?.();
     actions.open(app);
   };
-  return createElement6(
+  return createElement7(
     "div",
     {
       key: app.name,
@@ -20531,101 +23303,101 @@ function galleryCard(createElement6, app, state, actions) {
       },
       style: { position: "relative", display: "flex", flexDirection: "column", gap: 10, padding: 14, borderRadius: 14, border: "1px solid color-mix(in srgb, currentColor 11%, transparent)", background: "color-mix(in srgb, currentColor 1.5%, Canvas)", boxShadow: "0 1px 2px color-mix(in srgb, currentColor 5%, transparent)", cursor: "pointer", minWidth: 0, textAlign: "left" }
     },
-    createElement6(
+    createElement7(
       "div",
       { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 } },
-      appTileIcon(createElement6, app, 40),
-      createElement6("div", { style: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 4 } }, ...cardBadges(createElement6, app, status))
+      appTileIcon(createElement7, app, 40),
+      createElement7("div", { style: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 4 } }, ...cardBadges(createElement7, app, status))
     ),
-    createElement6(
+    createElement7(
       "div",
       { style: { minWidth: 0 } },
-      createElement6("div", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
-      createElement6("div", { style: { marginTop: 4, fontSize: 12, lineHeight: 1.55, opacity: 0.62, minHeight: 37, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, app.description || app.starters?.[0] || "")
+      createElement7("div", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
+      createElement7("div", { style: { marginTop: 4, fontSize: 12, lineHeight: 1.55, opacity: 0.62, minHeight: 37, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, app.description || app.starters?.[0] || "")
     ),
-    createElement6(
+    createElement7(
       "div",
       { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginTop: "auto" }, onClick: (event) => event?.stopPropagation?.() },
-      app.missing?.length ? missingBadge(createElement6, app, actions) : createElement6("button", { type: "button", onClick: open2, style: { ...buttonStyle, fontSize: 12, fontWeight: 600, color: "#4d6bfe" } }, "\u6253\u5F00 \u2192"),
-      actions.toggleMenu ? appMenu(createElement6, app, actions, state.confirmDisable === app.name, state.menuFor === app.name, state.menuAnchor) : null
+      app.missing?.length ? missingBadge(createElement7, app, actions) : createElement7("button", { type: "button", onClick: open2, style: { ...buttonStyle, fontSize: 12, fontWeight: 600, color: "#4d6bfe" } }, t("appsView.openArrow")),
+      actions.toggleMenu ? appMenu(createElement7, app, actions, state.confirmDisable === app.name, state.menuFor === app.name, state.menuAnchor) : null
     )
   );
 }
-function availableCard(createElement6, app, actions) {
-  return createElement6(
+function availableCard(createElement7, app, actions) {
+  return createElement7(
     "div",
     {
       key: app.name,
       "data-dsh-ee-available": app.name,
       style: { display: "flex", alignItems: "center", gap: 10, padding: 12, borderRadius: 12, border: "1px dashed color-mix(in srgb, currentColor 18%, transparent)", minWidth: 0 }
     },
-    appTileIcon(createElement6, app, 34),
-    createElement6(
+    appTileIcon(createElement7, app, 34),
+    createElement7(
       "span",
       { style: { flex: 1, minWidth: 0 } },
-      createElement6("span", { style: { display: "block", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
-      app.description ? createElement6("span", { style: { display: "block", fontSize: 11.5, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: app.description }, app.description) : null
+      createElement7("span", { style: { display: "block", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
+      app.description ? createElement7("span", { style: { display: "block", fontSize: 11.5, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, title: app.description }, app.description) : null
     ),
-    createElement6("button", { type: "button", onClick: () => actions.enable(app), style: { ...buttonStyle, border: "1px solid #4d6bfe", color: "#4d6bfe", borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600, flex: "0 0 auto" } }, "\u542F\u7528")
+    createElement7("button", { type: "button", onClick: () => actions.enable(app), style: { ...buttonStyle, border: "1px solid #4d6bfe", color: "#4d6bfe", borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600, flex: "0 0 auto" } }, t("appsView.enable"))
   );
 }
-function appsGallery(createElement6, state, actions, filtered) {
+function appsGallery(createElement7, state, actions, filtered) {
   if (!state.galleryOpen) return null;
   const close = () => actions.closeLayers?.() ?? actions.toggleGallery?.();
   const available = (state.available ?? []).filter((app) => matchesQuery(app, state.query?.trim().toLowerCase() ?? ""));
   const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 210px), 1fr))", gap: 12 };
-  return createElement6(
+  return createElement7(
     "div",
     { "data-dsh-ee-ui": "apps-gallery", onClick: close, style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10, 37, 64, 0.38)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "dshee-fade .15s ease-out" } },
-    createElement6("style", null, galleryCss),
-    createElement6(
+    createElement7("style", null, galleryCss),
+    createElement7(
       "div",
       {
         role: "dialog",
         "aria-modal": "true",
-        "aria-label": "\u4F01\u4E1A\u5E94\u7528",
+        "aria-label": t("apps.enterpriseApps"),
         onClick: (event) => event?.stopPropagation?.(),
         style: { width: "min(920px, calc(100vw - 32px))", maxHeight: "min(720px, calc(100vh - 40px))", display: "flex", flexDirection: "column", borderRadius: 18, border: "1px solid color-mix(in srgb, currentColor 12%, transparent)", background: "Canvas", color: "CanvasText", boxShadow: "0 30px 60px -12px rgba(50, 50, 93, 0.3), 0 18px 36px -18px rgba(0, 0, 0, 0.35)", fontSize: 13, overflow: "hidden", animation: "dshee-pop .2s ease-out" }
       },
-      createElement6(
+      createElement7(
         "div",
         { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "18px 22px 14px", borderBottom: "1px solid color-mix(in srgb, currentColor 9%, transparent)" } },
-        createElement6(
+        createElement7(
           "div",
           { style: { flex: "1 1 200px", minWidth: 0 } },
-          createElement6("div", { style: { fontSize: 17, fontWeight: 650, letterSpacing: "-0.01em" } }, "\u4F01\u4E1A\u5E94\u7528"),
-          createElement6("div", { style: { fontSize: 12, opacity: 0.6, marginTop: 2 } }, `${state.apps.length} \u4E2A\u5E94\u7528 \xB7 \u70B9\u4E00\u4E2A\u5F00\u59CB\uFF0CAI \u4F1A\u5E26\u7740\u5DE5\u4F5C\u53F0\u4E00\u8D77\u6253\u5F00`)
+          createElement7("div", { style: { fontSize: 17, fontWeight: 650, letterSpacing: "-0.01em" } }, t("apps.enterpriseApps")),
+          createElement7("div", { style: { fontSize: 12, opacity: 0.6, marginTop: 2 } }, t("appsView.gallerySubtitle", { count: state.apps.length }))
         ),
-        createElement6("input", { "aria-label": "\u641C\u7D22\u4F01\u4E1A\u5E94\u7528", className: "dshee-gsearch", value: state.query ?? "", onChange: (event) => actions.search(event.target.value), placeholder: "\u641C\u7D22\u5E94\u7528\u2026", style: { flex: "1 1 220px", maxWidth: 300, boxSizing: "border-box", height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid color-mix(in srgb, currentColor 16%, transparent)", background: "transparent", color: "inherit", fontSize: 13 } }),
-        createElement6("button", { type: "button", "aria-label": "\u5173\u95ED", onClick: close, style: { ...buttonStyle, fontSize: 16, padding: "4px 8px", opacity: 0.6, borderRadius: 8 } }, "\u2715")
+        createElement7("input", { "aria-label": t("appsView.searchAppsAria"), className: "dshee-gsearch", value: state.query ?? "", onChange: (event) => actions.search(event.target.value), placeholder: t("appsView.searchAppsPlaceholder"), style: { flex: "1 1 220px", maxWidth: 300, boxSizing: "border-box", height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid color-mix(in srgb, currentColor 16%, transparent)", background: "transparent", color: "inherit", fontSize: 13 } }),
+        createElement7("button", { type: "button", "aria-label": t("common.close"), onClick: close, style: { ...buttonStyle, fontSize: 16, padding: "4px 8px", opacity: 0.6, borderRadius: 8 } }, "✕")
       ),
-      createElement6(
+      createElement7(
         "div",
         { style: { overflowY: "auto", flex: 1, minHeight: 0, padding: "18px 22px 22px", display: "grid", gap: 20, alignContent: "start" } },
-        filtered.length ? createElement6("div", { style: grid }, ...filtered.map((app) => galleryCard(createElement6, app, state, actions))) : createElement6("div", { style: { padding: "36px 4px", textAlign: "center", opacity: 0.6 } }, "\u6CA1\u6709\u5339\u914D\u7684\u5E94\u7528"),
-        available.length && actions.enable ? createElement6(
+        filtered.length ? createElement7("div", { style: grid }, ...filtered.map((app) => galleryCard(createElement7, app, state, actions))) : createElement7("div", { style: { padding: "36px 4px", textAlign: "center", opacity: 0.6 } }, t("appsView.noMatches")),
+        available.length && actions.enable ? createElement7(
           "section",
           { "data-dsh-ee-ui": "available-apps" },
-          createElement6("div", { style: { fontSize: 12, fontWeight: 600, opacity: 0.65, margin: "0 0 10px" } }, `\u53EF\u542F\u7528\uFF08${available.length}\uFF09`),
-          createElement6("div", { style: grid }, ...available.map((app) => availableCard(createElement6, app, actions)))
+          createElement7("div", { style: { fontSize: 12, fontWeight: 600, opacity: 0.65, margin: "0 0 10px" } }, t("appsView.availableCount", { count: available.length })),
+          createElement7("div", { style: grid }, ...available.map((app) => availableCard(createElement7, app, actions)))
         ) : null
       ),
-      actions.setSidebarHidden ? createElement6(
+      actions.setSidebarHidden ? createElement7(
         "label",
         { style: { display: "flex", alignItems: "center", gap: 8, padding: "11px 22px", borderTop: "1px solid color-mix(in srgb, currentColor 9%, transparent)", fontSize: 12, opacity: 0.8, cursor: "pointer" } },
-        createElement6("input", { type: "checkbox", checked: !state.sidebarHidden, onChange: () => actions.setSidebarHidden(!state.sidebarHidden), style: { accentColor: "#4d6bfe" } }),
-        "\u5728\u5DE6\u4FA7\u680F\u663E\u793A\u4F01\u4E1A\u5E94\u7528"
+        createElement7("input", { type: "checkbox", checked: !state.sidebarHidden, onChange: () => actions.setSidebarHidden(!state.sidebarHidden), style: { accentColor: "#4d6bfe" } }),
+        t("appsView.showInSidebar")
       ) : null
     )
   );
 }
-function appsSection(createElement6, state, actions) {
+function appsSection(createElement7, state, actions) {
   if (!state.loggedIn) {
-    return createElement6(
+    return createElement7(
       "section",
       { "data-dsh-ee-ui": "apps", style: { padding: "10px 12px", fontSize: 13 } },
-      createElement6("div", { style: { marginBottom: 8 } }, "\u767B\u5F55\u540E\u67E5\u770B\u4F01\u4E1A\u5E94\u7528"),
-      createElement6("button", { type: "button", onClick: actions.login, style: { ...buttonStyle, border: "1px solid currentColor", borderRadius: 6, padding: "5px 10px" } }, "\u767B\u5F55")
+      createElement7("div", { style: { marginBottom: 8 } }, t("appsView.loginToSee")),
+      createElement7("button", { type: "button", onClick: actions.login, style: { ...buttonStyle, border: "1px solid currentColor", borderRadius: 6, padding: "5px 10px" } }, t("common.login"))
     );
   }
   if (!state.apps.length && !(state.available ?? []).length) return null;
@@ -20633,45 +23405,45 @@ function appsSection(createElement6, state, actions) {
   const filtered = state.apps.filter((app) => matchesQuery(app, query));
   const shown = state.apps.slice(0, state.limit ?? 3);
   const more = state.apps.length - shown.length;
-  const header2 = createElement6(
+  const header2 = createElement7(
     "div",
     { style: { display: "flex", alignItems: "center", gap: 4, margin: "0 0 5px" } },
-    createElement6(
+    createElement7(
       "button",
       {
         type: "button",
         onClick: () => actions.toggleCollapsed?.(),
         "aria-expanded": !state.collapsed,
-        title: state.collapsed ? "\u5C55\u5F00\u4F01\u4E1A\u5E94\u7528" : "\u6536\u8D77\u4F01\u4E1A\u5E94\u7528",
+        title: state.collapsed ? t("appsView.expandApps") : t("appsView.collapseApps"),
         style: { ...buttonStyle, display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0, padding: "2px 0", fontSize: 13, fontWeight: 600 }
       },
-      createElement6("span", { "aria-hidden": true, style: { fontSize: 10, opacity: 0.7 } }, state.collapsed ? "\u25B8" : "\u25BE"),
-      "\u4F01\u4E1A\u5E94\u7528",
-      state.collapsed ? createElement6("span", { style: { fontSize: 12, fontWeight: 400, opacity: 0.6 } }, `\uFF08${state.apps.length}\uFF09`) : null
+      createElement7("span", { "aria-hidden": true, style: { fontSize: 10, opacity: 0.7 } }, state.collapsed ? "▸" : "▾"),
+      t("apps.enterpriseApps"),
+      state.collapsed ? createElement7("span", { style: { fontSize: 12, fontWeight: 400, opacity: 0.6 } }, t("appsView.collapsedCount", { count: state.apps.length })) : null
     ),
-    state.hideable && actions.setSidebarHidden ? createElement6("button", {
+    state.hideable && actions.setSidebarHidden ? createElement7("button", {
       type: "button",
       onClick: () => actions.setSidebarHidden(true),
-      title: "\u5728\u5DE6\u4FA7\u680F\u9690\u85CF\u4F01\u4E1A\u5E94\u7528\uFF08\u5728\u300C\u67E5\u770B\u66F4\u591A\u300D\u6216 \u8BBE\u7F6E \u2192 dsh-ee \u91CC\u53EF\u4EE5\u518D\u6253\u5F00\uFF09",
+      title: t("appsView.hideSidebar"),
       style: { ...buttonStyle, fontSize: 11.5, opacity: 0.5, padding: "2px 4px" }
-    }, "\u9690\u85CF") : null
+    }, t("common.hide")) : null
   );
-  return createElement6(
+  return createElement7(
     "section",
     { "data-dsh-ee-ui": "apps", style: { padding: "10px 12px", fontSize: 13 } },
     header2,
     state.collapsed ? null : [
-      createElement6("div", { key: "list", style: { display: "grid", gap: 2 } }, ...shown.map((app) => appRow(createElement6, app, actions, state.statuses?.[app.name], state.confirmDisable === app.name, state.menuFor === app.name && !state.galleryOpen, state.menuAnchor))),
-      createElement6(
+      createElement7("div", { key: "list", style: { display: "grid", gap: 2 } }, ...shown.map((app) => appRow(createElement7, app, actions, state.statuses?.[app.name], state.confirmDisable === app.name, state.menuFor === app.name && !state.galleryOpen, state.menuAnchor))),
+      createElement7(
         "button",
         { key: "all", type: "button", onClick: () => actions.toggleGallery?.(), style: { ...buttonStyle, display: "flex", alignItems: "center", gap: 6, marginTop: 6, padding: "4px 0", opacity: 0.72, fontSize: 12.5 } },
-        createElement6("span", { "aria-hidden": true, style: { width: 30, textAlign: "center", fontSize: 14 } }, "\u229E"),
-        more > 0 ? `\u67E5\u770B\u66F4\u591A\uFF08${state.apps.length}\uFF09` : "\u5168\u90E8\u5E94\u7528"
+        createElement7("span", { "aria-hidden": true, style: { width: 30, textAlign: "center", fontSize: 14 } }, "⊞"),
+        more > 0 ? t("common.viewMoreCount", { n: state.apps.length }) : t("appsView.allApps")
       ),
-      (state.available ?? []).length && actions.enable ? createElement6("button", { key: "available", type: "button", onClick: () => actions.toggleGallery?.(), style: { ...buttonStyle, display: "block", marginTop: 4, fontSize: 12, opacity: 0.65 } }, `\uFF0B \u53EF\u542F\u7528\uFF08${state.available.length}\uFF09`) : null,
-      state.notice ? createElement6("p", { key: "notice", role: "status", style: { margin: "7px 0 0", lineHeight: 1.5, overflowWrap: "anywhere" } }, state.notice) : null
+      (state.available ?? []).length && actions.enable ? createElement7("button", { key: "available", type: "button", onClick: () => actions.toggleGallery?.(), style: { ...buttonStyle, display: "block", marginTop: 4, fontSize: 12, opacity: 0.65 } }, t("appsView.availablePlus", { count: state.available.length })) : null,
+      state.notice ? createElement7("p", { key: "notice", role: "status", style: { margin: "7px 0 0", lineHeight: 1.5, overflowWrap: "anywhere" } }, state.notice) : null
     ],
-    appsGallery(createElement6, state, actions, filtered)
+    appsGallery(createElement7, state, actions, filtered)
   );
 }
 function startText(app, starter) {
@@ -20688,28 +23460,28 @@ function inProgressItems(apps, bindings, statusOf) {
   }
   return items.sort((a, b) => a.status === b.status ? 0 : a.status === "need" ? -1 : 1);
 }
-function inProgressView(createElement6, items, onOpen) {
+function inProgressView(createElement7, items, onOpen) {
   if (!items.length) return null;
-  return createElement6(
+  return createElement7(
     "section",
     { "data-dsh-ee-ui": "in-progress", style: { padding: "10px 12px", fontSize: 13 } },
-    createElement6("h2", { style: { margin: "0 0 7px", fontSize: 13 } }, "\u8FDB\u884C\u4E2D"),
-    createElement6("div", { style: { display: "grid", gap: 2 } }, ...items.map((item) => {
-      const label = item.status === "need" ? "\u5F85\u4F60\u51B3\u5B9A" : "\u5DE5\u4F5C\u4E2D";
+    createElement7("h2", { style: { margin: "0 0 7px", fontSize: 13 } }, t("common.inProgress")),
+    createElement7("div", { style: { display: "grid", gap: 2 } }, ...items.map((item) => {
+      const label = item.status === "need" ? t("common.pendingDecision") : t("common.working");
       const color = item.status === "need" ? "#d97706" : "#2563eb";
-      return createElement6(
+      return createElement7(
         "button",
         {
           key: item.app.name,
           type: "button",
           onClick: () => onOpen(item),
-          title: `${item.app.title}\uFF1A${label}`,
+          title: t("appsView.itemTitle", { title: item.app.title, label }),
           style: { ...buttonStyle, display: "flex", alignItems: "center", gap: 9, padding: "5px 0", width: "100%" }
         },
-        createElement6("span", { "aria-label": label, style: { width: 8, height: 8, flex: "0 0 8px", borderRadius: "50%", background: color } }),
-        appIcon(createElement6, item.app),
-        createElement6("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, item.app.title),
-        createElement6("span", { style: { fontSize: 11, color } }, label)
+        createElement7("span", { "aria-label": label, style: { width: 8, height: 8, flex: "0 0 8px", borderRadius: "50%", background: color } }),
+        appIcon(createElement7, item.app),
+        createElement7("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, item.app.title),
+        createElement7("span", { style: { fontSize: 11, color } }, label)
       );
     }))
   );
@@ -20719,14 +23491,14 @@ var STRIP_GAP = 10;
 function stripSlots(width) {
   return Math.max(2, Math.min(6, Math.floor((width + STRIP_GAP) / (STRIP_CARD_MIN + STRIP_GAP))));
 }
-function heroStrip(createElement6, apps, place, onOpen, onMore, notice = "") {
+function heroStrip(createElement7, apps, place, onOpen, onMore, notice = "") {
   if (!apps.length || !place || place.maxHeight < 86) return null;
   const slots = stripSlots(place.width);
   const fits = apps.length <= slots;
   const shown = fits ? apps : apps.slice(0, slots - 1);
   const todos = apps.reduce((n, a) => n + (a.todo ?? 0), 0);
   const tile = { display: "flex", alignItems: "center", gap: 10, minWidth: 0, padding: "10px 12px", borderRadius: 12, border: "1px solid color-mix(in srgb, currentColor 10%, transparent)", background: "color-mix(in srgb, currentColor 1.5%, transparent)", boxShadow: "0 1px 2px color-mix(in srgb, currentColor 5%, transparent)", color: "inherit", cursor: "pointer", textAlign: "left", font: "inherit" };
-  const card2 = (app) => createElement6(
+  const card3 = (app) => createElement7(
     "button",
     {
       key: app.name,
@@ -20737,20 +23509,20 @@ function heroStrip(createElement6, apps, place, onOpen, onMore, notice = "") {
       "data-dsh-ee-app": app.name,
       style: tile
     },
-    appTileIcon(createElement6, app, 34),
-    createElement6(
+    appTileIcon(createElement7, app, 34),
+    createElement7(
       "span",
       { style: { minWidth: 0, flex: 1 } },
-      createElement6(
+      createElement7(
         "span",
         { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontWeight: 600 } },
-        createElement6("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
-        app.todo ? createElement6("span", { style: badgeStyle("#2563eb") }, String(app.todo)) : app.new ? createElement6("span", { style: badgeStyle("#d97706") }, "\u65B0") : null
+        createElement7("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.title),
+        app.todo ? createElement7("span", { style: badgeStyle("#2563eb") }, String(app.todo)) : app.new ? createElement7("span", { style: badgeStyle("#d97706") }, t("common.newBadge")) : null
       ),
-      createElement6("span", { style: { display: "block", marginTop: 2, fontSize: 11.5, opacity: 0.58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.description || app.starters?.[0] || "")
+      createElement7("span", { style: { display: "block", marginTop: 2, fontSize: 11.5, opacity: 0.58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, app.description || app.starters?.[0] || "")
     )
   );
-  const more = fits ? null : createElement6(
+  const more = fits ? null : createElement7(
     "button",
     {
       key: "@more",
@@ -20760,32 +23532,32 @@ function heroStrip(createElement6, apps, place, onOpen, onMore, notice = "") {
       "data-dsh-ee-ui": "hero-more",
       style: { ...tile, justifyContent: "center", borderStyle: "dashed", background: "transparent", boxShadow: "none" }
     },
-    createElement6("span", { "aria-hidden": true, style: { fontSize: 16, color: "#4d6bfe" } }, "\u229E"),
-    createElement6("span", { style: { fontSize: 13, fontWeight: 600 } }, `\u67E5\u770B\u66F4\u591A\uFF08${apps.length}\uFF09`)
+    createElement7("span", { "aria-hidden": true, style: { fontSize: 16, color: "#4d6bfe" } }, "⊞"),
+    createElement7("span", { style: { fontSize: 13, fontWeight: 600 } }, t("common.viewMoreCount", { n: apps.length }))
   );
-  return createElement6(
+  return createElement7(
     "div",
     {
       "data-dsh-ee-ui": "hero-apps",
       role: "region",
-      "aria-label": "\u4F01\u4E1A\u5E94\u7528",
+      "aria-label": t("apps.enterpriseApps"),
       style: { position: "absolute", left: place.left, top: place.top, width: place.width, maxHeight: place.maxHeight, overflow: "hidden", zIndex: 4, animation: "dshee-fade .25s ease-out" }
     },
-    createElement6("style", null, galleryCss),
-    createElement6(
+    createElement7("style", null, galleryCss),
+    createElement7(
       "div",
       { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, margin: "0 2px 8px", fontSize: 12 } },
-      createElement6("span", { style: { fontWeight: 600, opacity: 0.7 } }, "\u4F01\u4E1A\u5E94\u7528"),
-      todos ? createElement6("span", { style: { color: "#2563eb" } }, `\u9700\u8981\u4F60\u5904\u7406\uFF1A${todos} \u9879`) : createElement6("span", { style: { opacity: 0.5 } }, "\u70B9\u4E00\u4E2A\u5F00\u59CB\uFF0C\u5DE5\u4F5C\u53F0\u4F1A\u5728\u53F3\u4FA7\u6253\u5F00")
+      createElement7("span", { style: { fontWeight: 600, opacity: 0.7 } }, t("apps.enterpriseApps")),
+      todos ? createElement7("span", { style: { color: "#2563eb" } }, t("appsView.todosNeed", { count: todos })) : createElement7("span", { style: { opacity: 0.5 } }, t("appsView.startHint"))
     ),
-    createElement6("div", { style: { display: "grid", gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))`, gap: STRIP_GAP } }, ...shown.map(card2), more),
-    notice ? createElement6("p", { role: "status", style: { margin: "8px 2px 0", fontSize: 11.5, lineHeight: 1.5, overflowWrap: "anywhere" } }, notice) : null
+    createElement7("div", { style: { display: "grid", gridTemplateColumns: `repeat(${slots}, minmax(0, 1fr))`, gap: STRIP_GAP } }, ...shown.map(card3), more),
+    notice ? createElement7("p", { role: "status", style: { margin: "8px 2px 0", fontSize: 11.5, lineHeight: 1.5, overflowWrap: "anywhere" } }, notice) : null
   );
 }
 
 // src/sidebar-pref.ts
 var KEY = "dsh-ee:sidebar-apps";
-var listeners = /* @__PURE__ */ new Set();
+var listeners2 = /* @__PURE__ */ new Set();
 var memory;
 function readSidebarMode() {
   if (memory) return memory;
@@ -20802,12 +23574,12 @@ function setSidebarMode(mode) {
     globalThis.localStorage?.setItem(KEY, mode);
   } catch {
   }
-  for (const listener of listeners) listener();
+  for (const listener of listeners2) listener();
 }
 function subscribeSidebarMode(listener) {
-  listeners.add(listener);
+  listeners2.add(listener);
   return () => {
-    listeners.delete(listener);
+    listeners2.delete(listener);
   };
 }
 
@@ -20827,7 +23599,7 @@ async function openSession(ctx, id) {
     await ctx.sessions.open(id);
     return;
   }
-  throw new Error("\u5BBF\u4E3B\u4E0D\u652F\u6301\u5207\u6362\u4F1A\u8BDD");
+  throw new Error(t("hostSession.switchUnsupported"));
 }
 function currentWorkspaceId(ctx) {
   const items = ctx?.workspaces?.list?.getSnapshot?.()?.items;
@@ -20848,22 +23620,22 @@ async function createSession(ctx) {
       const snapshot = ctx.sessions?.list?.getSnapshot?.();
       const id = currentSessionOf(snapshot);
       const cwd = snapshot?.byId?.[id]?.cwd;
-      if (!cwd) throw new Error("\u5F53\u524D\u4F1A\u8BDD\u6CA1\u6709\u53EF\u7528\u4E8E\u65B0\u5EFA\u4F1A\u8BDD\u7684\u5DE5\u4F5C\u76EE\u5F55");
+      if (!cwd) throw new Error(t("hostSession.noCwd"));
       workspace = await ctx.workspaces.create({ path: cwd });
     } else {
-      throw new Error("\u5BBF\u4E3B\u4E0D\u652F\u6301\u521B\u5EFA\u5DE5\u4F5C\u533A");
+      throw new Error(t("hostSession.createWorkspaceUnsupported"));
     }
     workspaceId = typeof workspace?.workspaceId === "string" && workspace.workspaceId ? workspace.workspaceId : void 0;
   }
-  if (!workspaceId) throw new Error("\u65E0\u6CD5\u4E3A\u65B0\u4F1A\u8BDD\u53D6\u5F97\u5DE5\u4F5C\u533A");
+  if (!workspaceId) throw new Error(t("hostSession.noWorkspace"));
   const ui = typeof ctx?.get === "function" ? ctx.get("uiWorkspace") : void 0;
   if (typeof ui?.connectWorkspace === "function") return ui.connectWorkspace(workspaceId);
-  if (typeof ctx?.sessions?.create !== "function") throw new Error("\u5BBF\u4E3B\u4E0D\u652F\u6301\u65B0\u5EFA\u4F1A\u8BDD");
+  if (typeof ctx?.sessions?.create !== "function") throw new Error(t("hostSession.createSessionUnsupported"));
   return ctx.sessions.create({ workspaceId });
 }
 function checkSendResult(result) {
   if (result?.kind === "error" || result?.ok === false) {
-    throw new Error(result.text || result.error?.message || result.error?.code || "\u5BBF\u4E3B\u62D2\u7EDD\u4E86\u6D88\u606F");
+    throw new Error(result.text || result.error?.message || result.error?.code || t("hostSession.rejected"));
   }
 }
 async function sendToSession(ctx, id, text) {
@@ -20877,7 +23649,7 @@ async function sendToSession(ctx, id, text) {
       checkSendResult(await session2.prompt([{ type: "text", text }], "queue"));
       return;
     }
-    throw new Error("\u5BBF\u4E3B\u4E0D\u652F\u6301\u53D1\u9001\u6D88\u606F");
+    throw new Error(t("hostSession.sendUnsupported"));
   };
   if (typeof sessions?.using === "function") {
     await sessions.using(id, { source: "dshEEApps" }, async (ref) => {
@@ -20931,11 +23703,13 @@ function fillInput(ctx, text) {
 // src/app-launcher.ts
 var SendUnknownError = class extends Error {
   constructor(cause) {
-    super("\u6D88\u606F\u53EF\u80FD\u6CA1\u6709\u53D1\u51FA\uFF0C\u8BF7\u67E5\u770B\u4F1A\u8BDD\u540E\u518D\u8BD5");
+    super(t("appLauncher.sendUnknown"));
     this.cause = cause;
   }
 };
-var sendUnknownNotice = "\u6D88\u606F\u53EF\u80FD\u6CA1\u6709\u53D1\u51FA\uFF0C\u8BF7\u67E5\u770B\u4F1A\u8BDD\u540E\u518D\u8BD5";
+function sendUnknownNotice() {
+  return t("appLauncher.sendUnknown");
+}
 async function sendOnce(ctx, id, text) {
   try {
     await sendToSession(ctx, id, text);
@@ -20986,7 +23760,7 @@ function createLauncher(ctx, deps) {
         console.error("dsh-ee launch failed:", error62);
       } catch {
       }
-      if (error62 instanceof SendUnknownError) return sendUnknownNotice;
+      if (error62 instanceof SendUnknownError) return sendUnknownNotice();
       return fallback();
     }
   };
@@ -21099,10 +23873,10 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
   const seen = /* @__PURE__ */ new Set();
   let started = false;
   let loaded = false;
-  const listeners2 = /* @__PURE__ */ new Set();
+  const listeners3 = /* @__PURE__ */ new Set();
   const update = (patch) => {
     snapshot = { ...snapshot, ...patch };
-    for (const listener of listeners2) listener();
+    for (const listener of listeners3) listener();
   };
   const refresh = singleFlight(async () => {
     update({ busy: true });
@@ -21145,12 +23919,12 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
     const [local, setLocal] = (0, import_react.useState)(snapshot);
     (0, import_react.useEffect)(() => {
       const listener = () => setLocal(snapshot);
-      listeners2.add(listener);
+      listeners3.add(listener);
       listener();
       started = true;
       void refresh();
       return () => {
-        listeners2.delete(listener);
+        listeners3.delete(listener);
       };
     }, []);
     return local;
@@ -21158,10 +23932,10 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
   const copy = async (app) => {
     const command = `/${app.name}`;
     await navigator.clipboard?.writeText(command);
-    return `\u5DF2\u590D\u5236 ${command}\uFF0C\u7C98\u8D34\u5230\u8F93\u5165\u6846\u53D1\u9001`;
+    return t("apps.copied", { command });
   };
   const fill = async (app) => {
-    if (fillInput(ctx, `/${app.name}`)) return "\u5DF2\u586B\u8FDB\u8F93\u5165\u6846\uFF0C\u786E\u8BA4\u540E\u53D1\u9001";
+    if (fillInput(ctx, `/${app.name}`)) return t("apps.filled");
     return copy(app);
   };
   const bind = async (app, id) => {
@@ -21196,7 +23970,7 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
   const useActions = (setNotice, launch, setConfirmDisable = () => {
   }) => ({
     login: () => {
-      void remote.login().then((result) => setNotice(unwrapRemote2(result)?.text || "\u8BF7\u5728\u6D4F\u89C8\u5668\u5B8C\u6210\u4F01\u4E1A\u767B\u5F55\u3002")).catch(() => setNotice("\u53D1\u8D77\u767B\u5F55\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002"));
+      void remote.login().then((result) => setNotice(unwrapRemote2(result)?.text || t("apps.loginInBrowser"))).catch(() => setNotice(t("apps.loginStartFailed")));
     },
     open: (app) => {
       markSeen(app);
@@ -21212,37 +23986,37 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
       const id = snapshot.bindings[app.name]?.sessionId;
       const current = ctx.sidebarRight?.mounted?.getSnapshot?.();
       if (!id || id !== current) {
-        setNotice("\u5148\u70B9\u5E94\u7528\u56DE\u5230\u5B83\u7684\u4F1A\u8BDD\uFF0C\u518D\u6253\u5F00\u5DE5\u4F5C\u53F0");
+        setNotice(t("apps.openWorkbenchFirst"));
         return;
       }
       void workbenchOpener?.(app, id, true).then((opened) => {
-        if (!opened) setNotice("\u5DE5\u4F5C\u53F0\u6CA1\u6709\u6253\u5F00\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5");
+        if (!opened) setNotice(t("apps.workbenchNotOpen"));
       });
     },
     enable: (app) => {
       void remote.enableApp({ name: app.name }).then(async (result) => {
         const value = unwrapRemote2(result);
-        if (!value?.ok) return setNotice(`\u542F\u7528\u5931\u8D25\uFF1A${value?.error || "\u8BF7\u7A0D\u540E\u91CD\u8BD5"}`);
+        if (!value?.ok) return setNotice(t("apps.enableFailed", { error: value?.error || t("apps.retryLater") }));
         await refresh();
-        setNotice(`\u5DF2\u542F\u7528\u300C${app.title}\u300D\uFF0C\u70B9\u4E00\u4E0B\u5F00\u59CB\u4F7F\u7528`);
-      }).catch(() => setNotice("\u542F\u7528\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5\u3002"));
+        setNotice(t("apps.enabled", { title: app.title }));
+      }).catch(() => setNotice(t("apps.enableFailedNetwork")));
     },
     disable: (app, confirmed) => {
       if (!confirmed) return setConfirmDisable(app.name);
       setConfirmDisable("");
       void remote.disableApp({ name: app.name }).then(async (result) => {
         const value = unwrapRemote2(result);
-        if (!value?.ok) return setNotice(`\u505C\u7528\u5931\u8D25\uFF1A${value?.error || "\u8BF7\u7A0D\u540E\u91CD\u8BD5"}`);
+        if (!value?.ok) return setNotice(t("apps.disableFailed", { error: value?.error || t("apps.retryLater") }));
         await refresh();
-        setNotice(`\u5DF2\u505C\u7528\u300C${app.title}\u300D`);
-      }).catch(() => setNotice("\u505C\u7528\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5\u3002"));
+        setNotice(t("apps.disabled", { title: app.title }));
+      }).catch(() => setNotice(t("apps.disableFailedNetwork")));
     },
     unbind: (app) => {
       void remote.unbindApp({ name: app.name }).then((result) => {
         const bindings = unwrapRemote2(result);
         update({ bindings });
-        setNotice("\u5DF2\u89E3\u9664\u7ED1\u5B9A");
-      }).catch(() => setNotice("\u89E3\u9664\u7ED1\u5B9A\u5931\u8D25\uFF0C\u8BF7\u7A0D\u540E\u91CD\u8BD5\u3002"));
+        setNotice(t("apps.unbound"));
+      }).catch(() => setNotice(t("apps.unbindFailed")));
     },
     fill: (app) => {
       void fill(app).then(setNotice);
@@ -21437,7 +24211,7 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
       setSidebarHidden: (hidden) => setSidebarMode(hidden ? "hidden" : "shown")
     }, filtered);
     if (!state.apps.length) return null;
-    const fallback = missing ? (0, import_react.createElement)("button", { type: "button", onClick: () => layers.setGalleryOpen(true), "data-dsh-ee-ui": "hero-apps", style: { border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: 12, padding: "4px 7px", whiteSpace: "nowrap" } }, "\u4F01\u4E1A\u5E94\u7528") : null;
+    const fallback = missing ? (0, import_react.createElement)("button", { type: "button", onClick: () => layers.setGalleryOpen(true), "data-dsh-ee-ui": "hero-apps", style: { border: 0, background: "transparent", color: "inherit", cursor: "pointer", fontSize: 12, padding: "4px 7px", whiteSpace: "nowrap" } }, t("apps.enterpriseApps")) : null;
     return (0, import_react.createElement)(
       "span",
       { ref: anchor2, "data-dsh-ee-ui": "hero-anchor", style: { display: "inline-flex", width: fallback ? void 0 : 0, height: fallback ? void 0 : 0 } },
@@ -21458,8 +24232,8 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
     });
   };
   const AppsPanel = () => (0, import_react.createElement)("div", null, (0, import_react.createElement)(InProgress), (0, import_react.createElement)(PanelAppsSection));
-  ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({ name: "sidebar.footer.action", id: "dsh-ee-apps", order: 30, label: "\u4F01\u4E1A\u5E94\u7528" }, AppsSection));
-  ctx.slots.inject("conversation.hero.options", () => ctx.slots.register({ name: "conversation.hero.options", id: "dsh-ee-apps", order: 100, label: "\u4F01\u4E1A\u5E94\u7528" }, HeroApps));
+  ctx.slots.inject("sidebar.footer.action", () => ctx.slots.register({ name: "sidebar.footer.action", id: "dsh-ee-apps", order: 30, label: t("apps.enterpriseApps") }, AppsSection));
+  ctx.slots.inject("conversation.hero.options", () => ctx.slots.register({ name: "conversation.hero.options", id: "dsh-ee-apps", order: 100, label: t("apps.enterpriseApps") }, HeroApps));
   return {
     AppsPanel,
     appsNow: () => snapshot.apps,
@@ -21469,14 +24243,21 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
       return refresh();
     },
     subscribeApps: (listener) => {
-      listeners2.add(listener);
+      listeners3.add(listener);
       return () => {
-        listeners2.delete(listener);
+        listeners3.delete(listener);
       };
     },
     setWorkbenchOpener: (opener) => {
       workbenchOpener = opener;
-    }
+    },
+    /** 新会话里打开一个应用或专家（可带一条示例开始）；返回给员工看的提示，空串表示成功 */
+    summon: (app, starter) => {
+      markSeen(app);
+      return openWithFallback(app, (target) => launcher.launchNew(target, starter));
+    },
+    /** 启用、停用之后刷新应用列表（左侧栏和首屏） */
+    reloadApps: () => refresh()
   };
 }
 
@@ -21508,20 +24289,20 @@ function getPath(value, path) {
   return current;
 }
 function formatValue(value, format) {
-  if (value === null || value === void 0 || value === "") return "\u2014";
+  if (value === null || value === void 0 || value === "") return "—";
   const number4 = typeof value === "number" ? value : Number(value);
   switch (format) {
     case "money":
-      return Number.isFinite(number4) ? number4.toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(value);
+      return Number.isFinite(number4) ? number4.toLocaleString(localeTag(), { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : String(value);
     case "number":
-      return Number.isFinite(number4) ? number4.toLocaleString("zh-CN") : String(value);
+      return Number.isFinite(number4) ? number4.toLocaleString(localeTag()) : String(value);
     case "compact":
       return Number.isFinite(number4) ? compactNumber(number4) : String(value);
     case "percent":
       return Number.isFinite(number4) ? `${Number((number4 * 100).toFixed(2))}%` : String(value);
     case "date": {
       const date5 = new Date(value);
-      return Number.isNaN(date5.getTime()) ? String(value) : date5.toLocaleDateString("zh-CN");
+      return Number.isNaN(date5.getTime()) ? String(value) : date5.toLocaleDateString(localeTag());
     }
     default:
       return typeof value === "object" ? JSON.stringify(value) : String(value);
@@ -21529,17 +24310,22 @@ function formatValue(value, format) {
 }
 function compactNumber(n) {
   const abs = Math.abs(n);
-  const trim = (x) => Number(x.toFixed(x >= 100 ? 0 : 1)).toLocaleString("zh-CN");
-  if (abs >= 1e8) return `${n < 0 ? "-" : ""}${trim(abs / 1e8)} \u4EBF`;
-  if (abs >= 1e4) return `${n < 0 ? "-" : ""}${trim(abs / 1e4)} \u4E07`;
-  return n.toLocaleString("zh-CN", { maximumFractionDigits: 2 });
+  const trim = (x) => Number(x.toFixed(x >= 100 ? 0 : 1)).toLocaleString(localeTag());
+  if (getLang() === "zh-CN") {
+    if (abs >= 1e8) return `${n < 0 ? "-" : ""}${trim(abs / 1e8)}${t("workbench.unitHundredMillion")}`;
+    if (abs >= 1e4) return `${n < 0 ? "-" : ""}${trim(abs / 1e4)}${t("workbench.unitTenThousand")}`;
+  } else {
+    if (abs >= 1e9) return `${n < 0 ? "-" : ""}${trim(abs / 1e9)}${t("workbench.unitBillion")}`;
+    if (abs >= 1e6) return `${n < 0 ? "-" : ""}${trim(abs / 1e6)}${t("workbench.unitMillion")}`;
+  }
+  return n.toLocaleString(localeTag(), { maximumFractionDigits: 2 });
 }
 function formatDelta(value) {
   if (value === null || value === void 0 || value === "") return void 0;
   const n = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(n)) return void 0;
-  if (Math.abs(n) < 5e-4) return { text: "\u6301\u5E73", direction: "flat" };
-  return { text: `${n > 0 ? "\u2191" : "\u2193"}${Number((Math.abs(n) * 100).toFixed(1))}%`, direction: n > 0 ? "up" : "down" };
+  if (Math.abs(n) < 5e-4) return { text: t("workbench.flat"), direction: "flat" };
+  return { text: `${n > 0 ? "↑" : "↓"}${Number((Math.abs(n) * 100).toFixed(1))}%`, direction: n > 0 ? "up" : "down" };
 }
 function chartSeries(result, widget) {
   const list = getPath(result, widget.rows);
@@ -21575,23 +24361,23 @@ var placeholder = /\{\{\s*(row|form|scope)\.([A-Za-z0-9_.]+)\s*\}\}/g;
 function placeholderValue(value) {
   let text = value === null || value === void 0 ? "" : typeof value === "object" ? JSON.stringify(value) : String(value);
   text = text.trim();
-  return text.length > maxValueLength ? `${text.slice(0, maxValueLength)}\u2026` : text;
+  return text.length > maxValueLength ? `${text.slice(0, maxValueLength)}…` : text;
 }
 function fillPrompt(prompt, data) {
-  return prompt.replace(placeholder, (_match, scope, path) => placeholderValue(getPath(scope === "row" ? data.row : scope === "form" ? data.form : data.scope ?? { kbs: "\u5168\u90E8\u77E5\u8BC6\u5E93" }, path)));
+  return prompt.replace(placeholder, (_match, scope, path) => placeholderValue(getPath(scope === "row" ? data.row : scope === "form" ? data.form : data.scope ?? { kbs: t("workbench.allKbs") }, path)));
 }
 function scopeText(bases, selected) {
   const picked = bases.filter((item) => selected.includes(item.kb));
-  if (!picked.length) return "\u5168\u90E8\u77E5\u8BC6\u5E93";
-  return `\u77E5\u8BC6\u5E93${picked.map((item) => `\u300C${item.title}\u300D`).join("")}\uFF08\u6807\u8BC6 ${picked.map((item) => item.kb).join("\u3001")}\uFF09`;
+  if (!picked.length) return t("workbench.allKbs");
+  return t("workbench.scopePicked", { titles: picked.map((item) => t("workbench.kbTitle", { title: item.title })).join(""), ids: picked.map((item) => item.kb).join(t("common.listSeparator")) });
 }
 function checkForm(fields, values) {
   for (const field of fields) {
     const raw = values[field.name];
     const value = typeof raw === "string" ? raw.trim() : raw;
-    if (field.required && (value === void 0 || value === null || value === "")) return `\u8BF7\u586B\u5199\u300C${field.label}\u300D`;
-    if (field.kind === "number" && value !== void 0 && value !== "" && !Number.isFinite(Number(value))) return `\u300C${field.label}\u300D\u8981\u586B\u6570\u5B57`;
-    if (field.kind === "select" && value && !(field.options ?? []).includes(value)) return `\u300C${field.label}\u300D\u8BF7\u4ECE\u9009\u9879\u91CC\u9009`;
+    if (field.required && (value === void 0 || value === null || value === "")) return t("workbench.formRequired", { label: field.label });
+    if (field.kind === "number" && value !== void 0 && value !== "" && !Number.isFinite(Number(value))) return t("workbench.formNumber", { label: field.label });
+    if (field.kind === "select" && value && !(field.options ?? []).includes(value)) return t("workbench.formSelect", { label: field.label });
   }
   return "";
 }
@@ -21720,12 +24506,12 @@ function parseBlocks(lines) {
   const isTableStart = (k) => k + 1 < lines.length && lines[k].text.trim().startsWith("|") && tableSep.test(lines[k + 1].text.trim());
   while (i < lines.length) {
     const line = lines[i];
-    const t = line.text;
-    if (t.trim() === "") {
+    const t2 = line.text;
+    if (t2.trim() === "") {
       i++;
       continue;
     }
-    if (t.trim().startsWith("```")) {
+    if (t2.trim().startsWith("```")) {
       const code = [line];
       i++;
       while (i < lines.length) {
@@ -21735,14 +24521,14 @@ function parseBlocks(lines) {
       out.push({ kind: "code", lines: code });
       continue;
     }
-    const hm = headingRe.exec(t);
+    const hm = headingRe.exec(t2);
     if (hm) {
       out.push({ kind: "heading", level: hm[1].length, text: hm[2], line });
       i++;
       continue;
     }
     if (isTableStart(i)) {
-      const head = splitRow(t);
+      const head = splitRow(t2);
       const rows = [];
       i += 2;
       while (i < lines.length && lines[i].text.trim().startsWith("|")) {
@@ -21752,7 +24538,7 @@ function parseBlocks(lines) {
       out.push({ kind: "table", head, headLine: line, rows });
       continue;
     }
-    if (t.trim().startsWith("|")) {
+    if (t2.trim().startsWith("|")) {
       const rows = [];
       while (i < lines.length && lines[i].text.trim().startsWith("|") && !isTableStart(i)) {
         if (!tableSep.test(lines[i].text.trim())) rows.push({ cells: splitRow(lines[i].text), line: lines[i] });
@@ -21761,7 +24547,7 @@ function parseBlocks(lines) {
       out.push({ kind: "table", head: [], rows });
       continue;
     }
-    if (t.trimStart().startsWith(">")) {
+    if (t2.trimStart().startsWith(">")) {
       const ql = [];
       const texts = [];
       while (i < lines.length && lines[i].text.trimStart().startsWith(">")) {
@@ -21772,7 +24558,7 @@ function parseBlocks(lines) {
       out.push({ kind: "quote", notice: /^\s*⚠/.test(texts[0] ?? ""), lines: ql, texts });
       continue;
     }
-    const lm = listItem.exec(t);
+    const lm = listItem.exec(t2);
     if (lm) {
       const items = [];
       const ordered = /\d/.test(lm[2]);
@@ -21859,7 +24645,7 @@ function computeMarks(blocks, hl) {
   const wholeRange = () => {
     for (const n of plain.keys()) if (n >= hl.from && n <= hl.to) out.set(n, { ranges: [], whole: true });
   };
-  const quote = (hl.quote ?? "").replace(/\.\.\./g, "\u2026");
+  const quote = (hl.quote ?? "").replace(/\.\.\./g, "…");
   if (!quote.trim()) {
     wholeRange();
     return out;
@@ -21875,7 +24661,7 @@ function computeMarks(blocks, hl) {
       at.push({ n, i });
     }
   }
-  const parts = quote.split("\u2026").map((p) => [...p].filter((c) => !skippable(c)).map(fold).join("")).filter(Boolean);
+  const parts = quote.split("…").map((p) => [...p].filter((c) => !skippable(c)).map(fold).join("")).filter(Boolean);
   if (parts.join("").length < 2) {
     wholeRange();
     return out;
@@ -22017,7 +24803,7 @@ function blockView(h, b, ctx, opt) {
       const n = b.line.n;
       const pm = pageHeading.exec(b.text);
       if (opt.format === "pdf" && b.level === 2 && pm) {
-        return h("div", { ...lineProps(n, ctx, "kbr-page"), role: "separator" }, h("span", null, `\u7B2C ${pm[1]} \u9875`));
+        return h("div", { ...lineProps(n, ctx, "kbr-page"), role: "separator" }, h("span", null, t("kbDocRender.page", { page: pm[1] })));
       }
       if ((opt.format === "xlsx" || opt.format === "csv") && rowsHeading.test(b.text)) {
         return h("div", lineProps(n, ctx, "kbr-rows"), b.text);
@@ -22029,7 +24815,7 @@ function blockView(h, b, ctx, opt) {
       return h(`h${Math.min(6, b.level)}`, lineProps(n, ctx), inline(h, b.text, marks.get(n), `h${n}`));
     }
     case "para": {
-      const notes = opt.format === "pptx" && b.lines[0]?.text.startsWith("\u5907\u6CE8\uFF1A");
+      const notes = opt.format === "pptx" && b.lines[0]?.text.startsWith("备注：");
       return h(
         "p",
         { key: `p${b.lines[0].n}`, className: notes ? "kbr-notes" : void 0 },
@@ -22037,10 +24823,10 @@ function blockView(h, b, ctx, opt) {
       );
     }
     case "list": {
-      const tag = b.ordered ? "ol" : "ul";
+      const tag2 = b.ordered ? "ol" : "ul";
       const start = b.ordered ? Number.parseInt(b.items[0].marker, 10) : void 0;
       return h(
-        tag,
+        tag2,
         { key: `l${b.items[0].line.n}`, start: start && start !== 1 ? start : void 0 },
         ...b.items.map((it) => h("li", { ...lineProps(it.line.n, ctx), style: it.indent ? { marginLeft: `${it.indent * 1.2}em` } : void 0 }, inline(h, it.text, marks.get(it.line.n), `li${it.line.n}`)))
       );
@@ -22064,7 +24850,7 @@ function blockView(h, b, ctx, opt) {
     case "table": {
       const width = Math.max(b.head.length, ...b.rows.map((r) => r.cells.length));
       const num = numericColumns(b.rows.map((r) => r.cells), width);
-      const cell2 = (tag, text, j, n) => h(tag, { key: `${tag}${n}:${j}`, className: num[j] ? "kbr-num" : void 0 }, inline(h, text, void 0, `t${n}:${j}`));
+      const cell2 = (tag2, text, j, n) => h(tag2, { key: `${tag2}${n}:${j}`, className: num[j] ? "kbr-num" : void 0 }, inline(h, text, void 0, `t${n}:${j}`));
       const first = b.headLine?.n ?? b.rows[0]?.line.n ?? 0;
       return h(
         "div",
@@ -22107,7 +24893,7 @@ function docView(h, blocks, marks, opt = {}) {
       if (pm) {
         flush();
         slideKey = `s${b.kind === "heading" ? b.line.n : i}`;
-        slideNo = `\u7B2C ${pm[1]} \u9875`;
+        slideNo = t("kbDocRender.page", { page: pm[1] });
         const n = b.line.n;
         slide = [
           h("div", { key: "no", className: "kbr-slide-no" }, slideNo),
@@ -22128,12 +24914,12 @@ function docView(h, blocks, marks, opt = {}) {
 
 // src/workbench-view.ts
 function actionLabel(handlers, action) {
-  return handlers.viaDSH && !action.table ? `${action.label} \u2197` : action.label;
+  return handlers.viaDSH && !action.table ? `${action.label} ↗` : action.label;
 }
 function actionButton(h, handlers, key, action, onClick) {
   const write = rowWriteOf(action);
   const armed = write === "delete" && !!handlers.armed?.(key);
-  return button2(h, armed ? "\u786E\u8BA4\u5220\u9664" : actionLabel(handlers, action), onClick, handlers.sending.has(key), key, armed ? "armed" : write === "delete" ? "danger" : "default");
+  return button2(h, armed ? t("workbenchView.confirmDelete") : actionLabel(handlers, action), onClick, handlers.sending.has(key), key, armed ? "armed" : write === "delete" ? "danger" : "default");
 }
 var muted = { color: "var(--ee-muted)", fontSize: 12 };
 var card = {
@@ -22150,7 +24936,7 @@ var buttonStyle2 = { border: "1px solid var(--ee-border-strong)", borderRadius: 
 var primaryButton = { ...buttonStyle2, border: "1px solid var(--ee-accent)", background: "var(--ee-accent)", color: "#fff", padding: "7px 16px", fontSize: 13 };
 var warn = "#b45309";
 var seriesColors = ["#4d6bfe", "#00a3bf", "#f59e0b", "#db2777"];
-var widgetNames = { metric: "\u6307\u6807", table: "\u8868\u683C", chart: "\u56FE\u8868", checklist: "\u6E05\u5355", form: "\u8868\u5355", actions: "\u5FEB\u6377\u6309\u94AE", markdown: "\u8BF4\u660E", heading: "", board: "AI \u770B\u677F", kb_scope: "\u67E5\u54EA\u4E9B\u5E93" };
+var widgetNames = () => ({ metric: t("workbenchView.widgetMetric"), table: t("workbenchView.widgetTable"), chart: t("workbenchView.widgetChart"), checklist: t("workbenchView.widgetChecklist"), form: t("workbenchView.widgetForm"), actions: t("workbenchView.widgetActions"), markdown: t("workbenchView.widgetMarkdown"), heading: "", board: t("workbenchView.widgetBoard"), kb_scope: t("workbenchView.widgetKbScope") });
 var toneColors = { good: "#16a34a", warn: "#d97706", bad: "#dc2626", neutral: "currentColor" };
 var panelCss = [
   "@keyframes dshee-in{from{opacity:.2;transform:translateY(3px)}to{opacity:1;transform:none}}",
@@ -22177,12 +24963,12 @@ function header(h, widget, refresh, aside) {
   return h(
     "div",
     { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, minHeight: 20 } },
-    h("strong", { style: { fontSize: 13, fontWeight: 600, letterSpacing: "0.01em", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, widget.title || widgetNames[widget.type]),
+    h("strong", { style: { fontSize: 13, fontWeight: 600, letterSpacing: "0.01em", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, widget.title || widgetNames()[widget.type]),
     h(
       "span",
       { style: { display: "flex", alignItems: "center", gap: 6, flex: "0 0 auto" } },
       aside ?? null,
-      refresh ? h("button", { type: "button", onClick: refresh, "aria-label": "\u5237\u65B0", title: "\u5237\u65B0", className: "dshee-btn", style: { ...buttonStyle2, border: 0, background: "transparent", padding: "0 4px", fontSize: 13, color: "var(--ee-muted)" } }, "\u21BB") : null
+      refresh ? h("button", { type: "button", onClick: refresh, "aria-label": t("common.refresh"), title: t("common.refresh"), className: "dshee-btn", style: { ...buttonStyle2, border: 0, background: "transparent", padding: "0 4px", fontSize: 13, color: "var(--ee-muted)" } }, "↻") : null
     )
   );
 }
@@ -22197,7 +24983,7 @@ function statusPill(h, value, text) {
 }
 function cell(h, value, format) {
   const text = formatValue(value, format === "status" ? void 0 : format);
-  return format === "status" && text !== "\u2014" ? statusPill(h, value, text) : text;
+  return format === "status" && text !== "—" ? statusPill(h, value, text) : text;
 }
 function skeleton(h, shape = "rows") {
   const bar = (key, width, height = 10) => h("div", { key, style: { width, height, borderRadius: 4, background: "color-mix(in srgb, currentColor 12%, transparent)", animation: "dshee-pulse 1.4s ease-in-out infinite" } });
@@ -22206,13 +24992,13 @@ function skeleton(h, shape = "rows") {
     "div",
     { "data-state": "loading", "aria-busy": "true", style: { display: "grid", gap: 7, padding: "2px 0" } },
     ...bars,
-    h("span", { style: { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" } }, "\u52A0\u8F7D\u4E2D\u2026")
+    h("span", { style: { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" } }, t("common.loading"))
   );
 }
 function stateNote(h, state) {
   if (!state || state.status === "loading") return skeleton(h);
-  if (state.status === "forbidden") return h("div", { "data-state": "forbidden", style: muted }, "\u65E0\u6743\u9650\uFF1A\u4F60\u6CA1\u6709\u8FD9\u4E2A\u6570\u636E\u6E90\u7684\u4F7F\u7528\u6743\u9650");
-  if (state.status === "error") return h("div", { "data-state": "error", style: { ...muted, color: warn, opacity: 1, overflowWrap: "anywhere" } }, `\u53D6\u6570\u5931\u8D25\uFF1A${state.error}`);
+  if (state.status === "forbidden") return h("div", { "data-state": "forbidden", style: muted }, t("workbenchView.forbidden"));
+  if (state.status === "error") return h("div", { "data-state": "error", style: { ...muted, color: warn, opacity: 1, overflowWrap: "anywhere" } }, t("workbenchView.fetchFailed", { error: state.error }));
   return null;
 }
 function stateView(h, index, widget, state, handlers, shape = "rows") {
@@ -22223,27 +25009,27 @@ function stateView(h, index, widget, state, handlers, shape = "rows") {
     return h(
       "div",
       { "data-state": "forbidden", style: { fontSize: 12, display: "grid", gap: 4 } },
-      h("span", { style: { opacity: 0.8 } }, `\u65E0\u6743\u9650\uFF1A\u4F60\u8FD8\u6CA1\u6709\u300C${connection || "\u8FD9\u4E2A\u6570\u636E\u6E90"}\u300D\u91CC\u300C${widget.source?.tool ?? ""}\u300D\u7684\u4F7F\u7528\u6743\u9650\u3002`),
-      href ? h("a", { href, target: "_blank", rel: "noopener noreferrer", style: { color: "inherit", textDecoration: "underline", width: "fit-content" } }, "\u53BB\u7533\u8BF7\u6743\u9650 \u2197") : h("span", { style: muted }, "\u8BF7\u8054\u7CFB\u7BA1\u7406\u5458\u5F00\u901A\u3002")
+      h("span", { style: { opacity: 0.8 } }, t("workbenchView.forbiddenDetail", { connection: connection || t("workbenchView.thisDataSource"), tool: widget.source?.tool ?? "" })),
+      href ? h("a", { href, target: "_blank", rel: "noopener noreferrer", style: { color: "inherit", textDecoration: "underline", width: "fit-content" } }, t("workbenchView.requestAccess")) : h("span", { style: muted }, t("workbenchView.contactAdmin"))
     );
   }
   if (state.status === "error") {
     return h(
       "div",
       { "data-state": "error", role: "alert", style: { fontSize: 12, display: "grid", gap: 6, justifyItems: "start" } },
-      h("span", { style: { color: warn, overflowWrap: "anywhere" } }, `\u53D6\u6570\u5931\u8D25\uFF1A${state.error}`),
-      button2(h, "\u91CD\u8BD5", () => handlers.refresh(index), false, "retry")
+      h("span", { style: { color: warn, overflowWrap: "anywhere" } }, t("workbenchView.fetchFailed", { error: state.error })),
+      button2(h, t("common.retry"), () => handlers.refresh(index), false, "retry")
     );
   }
   return null;
 }
-function emptyView(h, index, widget, handlers, fallback = "\u6682\u65E0\u6570\u636E") {
+function emptyView(h, index, widget, handlers, fallback = t("common.noData")) {
   const action = widget.empty?.action;
   const key = `${index}:empty`;
   return h(
     "div",
     { "data-state": "empty", style: { display: "grid", gap: 10, justifyItems: "center", textAlign: "center", fontSize: 12, padding: "18px 12px", borderRadius: 10, border: "1px dashed var(--ee-border-strong)", background: "var(--ee-soft)" } },
-    h("span", { "aria-hidden": true, style: { fontSize: 18, opacity: 0.55 } }, "\u2205"),
+    h("span", { "aria-hidden": true, style: { fontSize: 18, opacity: 0.55 } }, "∅"),
     h("span", { style: { color: "var(--ee-muted)", lineHeight: 1.6, maxWidth: 360 } }, widget.empty?.text || fallback),
     action ? button2(h, actionLabel(handlers, action), () => handlers.send(key, action, {}), handlers.sending.has(key), key) : null
   );
@@ -22270,8 +25056,8 @@ function metricView(h, widget, state, refresh, handlers, index = 0) {
     h(
       "div",
       { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, marginBottom: 8 } },
-      h("span", { style: { fontSize: 12, fontWeight: 500, color: "var(--ee-muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, widget.title || widgetNames.metric),
-      h("button", { type: "button", onClick: refresh, "aria-label": "\u5237\u65B0", title: "\u5237\u65B0", className: "dshee-btn", style: { ...buttonStyle2, border: 0, background: "transparent", padding: "0 2px", fontSize: 12, color: "var(--ee-muted)" } }, "\u21BB")
+      h("span", { style: { fontSize: 12, fontWeight: 500, color: "var(--ee-muted)", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, widget.title || widgetNames().metric),
+      h("button", { type: "button", onClick: refresh, "aria-label": t("common.refresh"), title: t("common.refresh"), className: "dshee-btn", style: { ...buttonStyle2, border: 0, background: "transparent", padding: "0 2px", fontSize: 12, color: "var(--ee-muted)" } }, "↻")
     ),
     body
   );
@@ -22289,7 +25075,7 @@ function tableView(h, index, widget, state, handlers) {
   if (!note) {
     const { rows, total } = tableRows(state.value, widget.rows);
     const span = columns.length + (actions.length ? 1 : 0) + (detail.length ? 1 : 0);
-    if (rows.length) count = h("span", { style: { ...muted, fontSize: 11.5, fontVariantNumeric: "tabular-nums" } }, `${total} \u6761`);
+    if (rows.length) count = h("span", { style: { ...muted, fontSize: 11.5, fontVariantNumeric: "tabular-nums" } }, t("workbenchView.countRows", { total }));
     body = rows.length === 0 ? emptyView(h, index, widget, handlers) : h(
       "div",
       { style: { overflowX: "auto", margin: "0 -16px", borderTop: "1px solid var(--ee-border)" } },
@@ -22308,10 +25094,10 @@ function tableView(h, index, widget, state, handlers) {
           const line = h(
             "tr",
             { key: r, className: "dshee-row", style: { cursor: detail.length ? "pointer" : "default", background: expanded ? "var(--ee-soft)" : void 0 }, onClick: detail.length ? () => handlers.toggleRow?.(index, r) : void 0 },
-            detail.length ? h("td", { key: "toggle", style: { ...td, padding: "9px 0 9px 16px", color: "var(--ee-muted)" } }, h("button", { type: "button", "aria-expanded": expanded, "aria-label": expanded ? "\u6536\u8D77\u8BE6\u60C5" : "\u5C55\u5F00\u8BE6\u60C5", onClick: (event) => {
+            detail.length ? h("td", { key: "toggle", style: { ...td, padding: "9px 0 9px 16px", color: "var(--ee-muted)" } }, h("button", { type: "button", "aria-expanded": expanded, "aria-label": expanded ? t("workbenchView.collapseDetail") : t("workbenchView.expandDetail"), onClick: (event) => {
               event?.stopPropagation?.();
               handlers.toggleRow?.(index, r);
-            }, style: { ...buttonStyle2, border: 0, background: "transparent", padding: 0, color: "inherit" } }, expanded ? "\u25BE" : "\u25B8")) : null,
+            }, style: { ...buttonStyle2, border: 0, background: "transparent", padding: 0, color: "inherit" } }, expanded ? "▾" : "▸")) : null,
             ...columns.map((column, c) => {
               const value = getPath(row, column.field);
               const numeric = column.format === "money" || column.format === "number" || column.format === "compact";
@@ -22345,7 +25131,7 @@ function tableView(h, index, widget, state, handlers) {
           ))];
         }))
       ),
-      total > rows.length ? h("div", { style: { ...muted, padding: "8px 16px 0" } }, `\u5171 ${total} \u884C\uFF0C\u53EA\u663E\u793A\u524D ${rows.length} \u884C`) : null
+      total > rows.length ? h("div", { style: { ...muted, padding: "8px 16px 0" } }, t("workbenchView.truncatedRows", { total, shown: rows.length })) : null
     );
   }
   return h("section", { className: "dshee-card", style: { ...card, paddingBottom: note || !count ? 14 : 6 } }, header(h, widget, () => handlers.refresh(index), count), body);
@@ -22400,7 +25186,7 @@ function xyChart(h, kind, data) {
       return s.values.map((v, i) => h(
         "rect",
         { key: `b${si}-${i}`, x: left + slot * i + (slot - groupW) / 2 + barW * si, y: y(v), width: Math.max(barW - 1, 1), height: Math.max(top + plotH - y(v), 0), rx: 3, fill: color, fillOpacity: 0.9 },
-        h("title", null, `${data.labels[i]} \xB7 ${s.title}\uFF1A${formatValue(v, s.format)}`)
+        h("title", null, t("workbenchView.pointTip", { label: data.labels[i], series: s.title, value: formatValue(v, s.format) }))
       ));
     }
     const points = s.values.map((v, i) => `${xMid(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
@@ -22411,7 +25197,7 @@ function xyChart(h, kind, data) {
       ...s.values.map((v, i) => h(
         "circle",
         { key: `c${si}-${i}`, cx: xMid(i), cy: y(v), r: n > 24 ? 1.5 : 2.5, fill: color },
-        h("title", null, `${data.labels[i]} \xB7 ${s.title}\uFF1A${formatValue(v, s.format)}`)
+        h("title", null, t("workbenchView.pointTip", { label: data.labels[i], series: s.title, value: formatValue(v, s.format) }))
       ))
     ];
   });
@@ -22420,7 +25206,7 @@ function xyChart(h, kind, data) {
   return h(
     "div",
     null,
-    h("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": data.series.map((s) => s.title).join("\u3001"), style: { display: "block", overflow: "visible", maxHeight: 240 } }, ...grid, ...marks, ...xLabels),
+    h("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", role: "img", "aria-label": data.series.map((s) => s.title).join(t("common.listSeparator")), style: { display: "block", overflow: "visible", maxHeight: 240 } }, ...grid, ...marks, ...xLabels),
     data.series.length > 1 ? legend(h, data.series.map((s, i) => ({ label: s.title, color: seriesColors[i % seriesColors.length] }))) : null
   );
 }
@@ -22428,7 +25214,7 @@ function pieChart(h, data) {
   const series = data.series[0];
   const values = series?.values.map((v) => Math.max(0, v)) ?? [];
   const total = values.reduce((a, b) => a + b, 0);
-  if (!total) return h("div", { "data-state": "empty", style: muted }, "\u6682\u65E0\u6570\u636E");
+  if (!total) return h("div", { "data-state": "empty", style: muted }, t("common.noData"));
   const R = 54, C = 60;
   const palette = (i) => seriesColors[i % seriesColors.length];
   const shade = (i) => i < seriesColors.length ? palette(i) : `color-mix(in srgb, ${palette(i)} ${100 - 25 * Math.floor(i / seriesColors.length)}%, transparent)`;
@@ -22437,7 +25223,7 @@ function pieChart(h, data) {
     const sweep = v / total * Math.PI * 2;
     const a0 = angle;
     angle += sweep;
-    const tip = `${data.labels[i]}\uFF1A${formatValue(v, series.format)}\uFF08${Math.round(v / total * 100)}%\uFF09`;
+    const tip = t("workbenchView.pieTip", { label: data.labels[i], value: formatValue(v, series.format), percent: Math.round(v / total * 100) });
     if (sweep >= Math.PI * 2 - 1e-6) return h("circle", { key: i, cx: C, cy: C, r: R, fill: shade(i) }, h("title", null, tip));
     const p = (a) => `${(C + R * Math.cos(a)).toFixed(2)} ${(C + R * Math.sin(a)).toFixed(2)}`;
     return h("path", { key: i, d: `M ${C} ${C} L ${p(a0)} A ${R} ${R} 0 ${sweep > Math.PI ? 1 : 0} 1 ${p(angle)} Z`, fill: shade(i), stroke: "var(--background, transparent)", strokeWidth: 1 }, h("title", null, tip));
@@ -22509,7 +25295,7 @@ function formView(h, index, widget, handlers) {
       style: inputStyle
     };
     if (field.kind === "select") {
-      return h("select", common, h("option", { value: "" }, "\u8BF7\u9009\u62E9"), ...(field.options ?? []).map((option) => h("option", { key: option, value: option }, option)));
+      return h("select", common, h("option", { value: "" }, t("workbenchView.selectPlaceholder")), ...(field.options ?? []).map((option) => h("option", { key: option, value: option }, option)));
     }
     return h("input", { ...common, type: field.kind === "number" ? "number" : field.kind === "date" ? "date" : "text" });
   };
@@ -22528,7 +25314,7 @@ function formView(h, index, widget, handlers) {
       ))
     ),
     handlers.formError(index) ? h("div", { role: "alert", style: { color: "#dc2626", fontSize: 12, marginTop: 8 } }, handlers.formError(index)) : null,
-    h("div", { style: { marginTop: 12, display: "flex", justifyContent: "flex-end" } }, button2(h, widget.submit ? actionLabel(handlers, widget.submit) || "\u63D0\u4EA4" : "\u63D0\u4EA4", submit, handlers.sending.has(key), void 0, "primary"))
+    h("div", { style: { marginTop: 12, display: "flex", justifyContent: "flex-end" } }, button2(h, widget.submit ? actionLabel(handlers, widget.submit) || t("common.submit") : t("common.submit"), submit, handlers.sending.has(key), void 0, "primary"))
   );
 }
 function actionsView(h, index, widget, handlers) {
@@ -22549,7 +25335,7 @@ function actionsView(h, index, widget, handlers) {
           className: "dshee-tile",
           onClick: () => handlers.send(key, action, {}),
           style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, padding: "9px 11px", borderRadius: 9, border: "1px solid var(--ee-border)", background: "var(--ee-card-bg, var(--ee-soft))", color: "inherit", cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.5 : 1, fontSize: 12.5, fontWeight: 500, textAlign: "left" }
-        }, actionLabel(handlers, action), h("span", { "aria-hidden": true, style: { color: "var(--ee-accent)", fontSize: 14, lineHeight: 1 } }, "\u203A"));
+        }, actionLabel(handlers, action), h("span", { "aria-hidden": true, style: { color: "var(--ee-accent)", fontSize: 14, lineHeight: 1 } }, "›"));
       })
     )
   );
@@ -22578,12 +25364,19 @@ function markdownView(h, widget) {
   flush();
   return h("section", { className: "dshee-card", style: card }, widget.title ? header(h, widget) : null, h("div", { style: { display: "grid", gap: 6, fontSize: 12.5, lineHeight: 1.7, color: "color-mix(in srgb, currentColor 85%, transparent)" } }, ...blocks));
 }
-var citationBadges = {
-  ok: { text: "\u2714 \u5DF2\u6838\u5BF9\u539F\u6587", color: "#15803d" },
-  stale: { text: "\u539F\u6587\u5DF2\u66F4\u65B0", color: "#a16207" },
-  mismatch: { text: "\u2716 \u5BF9\u4E0D\u4E0A\u539F\u6587", color: "#b91c1c" },
-  missing: { text: "\u2716 \u627E\u4E0D\u5230\u8FD9\u7BC7\u6587\u6863", color: "#b91c1c" },
-  unchecked: { text: "\u672A\u6838\u5BF9", color: "inherit" }
+var citationBadge = (status) => {
+  switch (status) {
+    case "ok":
+      return { text: t("workbenchView.citationOk"), color: "#15803d" };
+    case "stale":
+      return { text: t("workbenchView.citationStale"), color: "#a16207" };
+    case "mismatch":
+      return { text: t("workbenchView.citationMismatch"), color: "#b91c1c" };
+    case "missing":
+      return { text: t("workbenchView.citationMissing"), color: "#b91c1c" };
+    default:
+      return { text: t("workbenchView.citationUnchecked"), color: "inherit" };
+  }
 };
 function citationChip(h, n, status) {
   const color = status === "ok" ? "#15803d" : status === "mismatch" || status === "missing" ? "#b91c1c" : "var(--ee-muted)";
@@ -22611,10 +25404,10 @@ function citationsView(h, items, key, open2, hrefOf) {
     "ol",
     { key, style: { margin: 0, padding: 0, listStyle: "none", fontSize: 12, display: "grid", gap: 8 } },
     ...items.map((item, i) => {
-      const badge = citationBadges[item.status ?? "unchecked"];
-      const where = `${item.title || `\u6587\u6863 ${item.doc}`} \xB7 \u7B2C ${item.from === item.to ? item.from : `${item.from}\u2013${item.to}`} \u884C`;
-      const tip = `${where}
-\u201C${item.quote}\u201D`;
+      const badge = citationBadge(item.status);
+      const range = item.from === item.to ? `${item.from}` : `${item.from}–${item.to}`;
+      const where = t("workbenchView.citationWhere", { title: item.title || t("workbenchClient.docLabel", { doc: item.doc }), range });
+      const tip = t("workbenchView.citationTip", { where, quote: item.quote });
       return h(
         "li",
         { key: i, "data-citation": i + 1, style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "2px 8px", alignItems: "start" } },
@@ -22625,12 +25418,11 @@ function citationsView(h, items, key, open2, hrefOf) {
           h(
             "div",
             { style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 } },
-            open2 ? h("button", { type: "button", onClick: () => open2(item), title: tip, "aria-label": `\u67E5\u770B\u539F\u6587\uFF1A${where}`, className: "dshee-btn", style: { ...buttonStyle2, padding: "1px 7px" } }, where) : hrefOf?.(item) ? h("a", { href: hrefOf(item), target: "_blank", rel: "noopener noreferrer", title: `${tip}
-\u5728 dsh-ee \u7F51\u9875\u4E0A\u770B\u539F\u6587`, style: { color: "inherit", textDecoration: "underline" } }, `${where} \u2197`) : h("span", { title: tip }, where),
+            open2 ? h("button", { type: "button", onClick: () => open2(item), title: tip, "aria-label": t("workbenchView.viewSource", { where }), className: "dshee-btn", style: { ...buttonStyle2, padding: "1px 7px" } }, where) : hrefOf?.(item) ? h("a", { href: hrefOf(item), target: "_blank", rel: "noopener noreferrer", title: t("workbenchView.webSourceTip", { tip }), style: { color: "inherit", textDecoration: "underline" } }, `${where} ↗`) : h("span", { title: tip }, where),
             h("span", { style: { color: badge.color, fontSize: 11, opacity: item.status === "unchecked" || !item.status ? 0.6 : 1 } }, badge.text),
-            item.near_skipped ? h("span", { title: "\u90A3\u4E00\u9875\u662F\u626B\u63CF\u9875\u6216\u4E71\u7801\uFF0C\u6CA1\u6709\u6536\u5F55\u8FDB\u77E5\u8BC6\u5E93\uFF1B\u7B54\u6848\u53EF\u80FD\u6F0F\u4E86\u90A3\u4E00\u9875\u7684\u5185\u5BB9\uFF0C\u8BF7\u770B\u539F\u4EF6", style: { fontSize: 11, color: "#a16207" } }, `\u26A0 \u7B2C ${item.near_skipped} \u9875\u6CA1\u6536\u5F55`) : null
+            item.near_skipped ? h("span", { title: t("workbenchView.nearSkippedTip"), style: { fontSize: 11, color: "#a16207" } }, t("workbenchView.nearSkipped", { page: item.near_skipped })) : null
           ),
-          h("div", { style: { ...muted, marginTop: 2, whiteSpace: "pre-wrap" } }, `\u201C${item.quote}\u201D`)
+          h("div", { style: { ...muted, marginTop: 2, whiteSpace: "pre-wrap" } }, t("workbenchView.quoteText", { quote: item.quote }))
         )
       );
     })
@@ -22640,7 +25432,7 @@ function kbScopeView(h, widget, state, handlers, index = 0) {
   const note = stateView(h, index, widget, state, handlers);
   const bases = note ? [] : getPath(state.value, "items") ?? [];
   const selected = handlers.selectedKBs ?? [];
-  const body = note ?? (bases.length === 0 ? h("div", { style: muted }, "\u4F60\u8FD8\u6CA1\u6709\u53EF\u4EE5\u67E5\u7684\u77E5\u8BC6\u5E93") : h(
+  const body = note ?? (bases.length === 0 ? h("div", { style: muted }, t("workbenchView.noKbs")) : h(
     "div",
     { style: { display: "flex", flexWrap: "wrap", gap: "4px 12px" } },
     ...bases.map((item) => h(
@@ -22648,7 +25440,7 @@ function kbScopeView(h, widget, state, handlers, index = 0) {
       { key: item.kb, style: { display: "flex", alignItems: "center", gap: 4, fontSize: 12, cursor: "pointer" } },
       h("input", { type: "checkbox", checked: selected.includes(item.kb), onChange: () => handlers.toggleKB?.(item.kb) }),
       item.title,
-      item.docs !== void 0 ? h("span", { style: muted }, `${item.docs} \u7BC7`) : null
+      item.docs !== void 0 ? h("span", { style: muted }, t("workbenchView.kbDocs", { count: item.docs })) : null
     ))
   ));
   return h(
@@ -22656,13 +25448,13 @@ function kbScopeView(h, widget, state, handlers, index = 0) {
     { className: "dshee-card", style: card },
     header(h, widget),
     body,
-    bases.length > 0 ? h("div", { style: { ...muted, marginTop: 6 } }, selected.length ? `\u53EA\u67E5\u52FE\u9009\u7684 ${selected.length} \u4E2A\u5E93` : "\u6CA1\u6709\u52FE\u9009\u65F6\u67E5\u5168\u90E8") : null
+    bases.length > 0 ? h("div", { style: { ...muted, marginTop: 6 } }, selected.length ? t("workbenchView.scopeOnly", { count: selected.length }) : t("workbenchView.scopeAllHint")) : null
   );
 }
 function boardView(h, widget, board, openCitation, citationHref) {
   let body;
   if (!board?.blocks?.length) {
-    body = h("div", { style: { ...muted, padding: "16px 12px", borderRadius: 10, border: "1px dashed var(--ee-border-strong)", textAlign: "center", lineHeight: 1.6 } }, "AI \u5904\u7406\u5B8C\u4EE5\u540E\u4F1A\u628A\u7ED3\u679C\u5199\u5728\u8FD9\u91CC\u3002");
+    body = h("div", { style: { ...muted, padding: "16px 12px", borderRadius: 10, border: "1px dashed var(--ee-border-strong)", textAlign: "center", lineHeight: 1.6 } }, t("workbenchView.boardEmpty"));
   } else {
     body = h(
       "div",
@@ -22682,7 +25474,7 @@ function boardView(h, widget, board, openCitation, citationHref) {
           )
         );
       }),
-      h("div", { style: { ...muted, fontSize: 11 } }, `\u66F4\u65B0\u4E8E ${new Date(board.updatedAt).toLocaleString("zh-CN")}`)
+      h("div", { style: { ...muted, fontSize: 11 } }, t("workbenchView.updatedAt", { time: new Date(board.updatedAt).toLocaleString(localeTag()) }))
     );
   }
   const badge = h("span", { style: { fontSize: 10.5, fontWeight: 700, letterSpacing: "0.04em", color: "#fff", padding: "1px 7px", borderRadius: 999, background: "linear-gradient(135deg, var(--ee-accent), #8b5cf6)" } }, "AI");
@@ -22753,7 +25545,7 @@ function panelView(h, pane, state, handlers) {
   );
 }
 function missingPaneView(h) {
-  return h("div", { style: { padding: 16, fontSize: 13, opacity: 0.7 } }, "\u8FD9\u4E2A\u5DE5\u4F5C\u53F0\u5DF2\u7ECF\u4E0D\u53EF\u7528\uFF1A\u5E94\u7528\u53EF\u80FD\u5DF2\u505C\u7528\uFF0C\u6216\u8005\u5DE5\u4F5C\u53F0\u914D\u7F6E\u6539\u4E86\u3002\u53EF\u4EE5\u5173\u6389\u8FD9\u4E2A\u6807\u7B7E\u9875\u3002");
+  return h("div", { style: { padding: 16, fontSize: 13, opacity: 0.7 } }, t("workbenchView.unavailable"));
 }
 function rawDocLines(h, lines, target) {
   let marked = false;
@@ -22775,9 +25567,9 @@ function rawDocLines(h, lines, target) {
 }
 function kbDocView(h, target, state, handlers) {
   const wrap = (...children) => h("div", { "data-dsh-ee-ui": "kb-doc", style: { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 10, padding: 12, fontSize: 13, overflowY: "auto", height: "100%", boxSizing: "border-box", alignContent: "start" } }, ...children);
-  if (!target) return wrap(h("div", { style: muted }, "\u70B9\u300C\u7B54\u6848\u4E0E\u51FA\u5904\u300D\u91CC\u7684\u5F15\u7528\uFF0C\u4F1A\u5728\u8FD9\u91CC\u6253\u5F00\u539F\u6587\u3002"));
+  if (!target) return wrap(h("div", { style: muted }, t("workbenchView.openCitationHint")));
   const note = stateNote(h, state);
-  if (note) return wrap(h("strong", null, target.title || `\u6587\u6863 ${target.doc}`), note);
+  if (note) return wrap(h("strong", null, target.title || t("workbenchClient.docLabel", { doc: target.doc })), note);
   const value = state.value ?? {};
   const lines = parseDocLines(value.text);
   const total = Number(value.total_lines) || 0;
@@ -22798,20 +25590,20 @@ function kbDocView(h, target, state, handlers) {
     h(
       "div",
       { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 } },
-      h("strong", { style: { fontSize: 14 } }, value.title || target.title || `\u6587\u6863 ${target.doc}`),
-      h("span", { style: { ...muted, whiteSpace: "nowrap" } }, `\u7B2C ${value.version ?? "?"} \u7248 \xB7 \u7B2C ${from}\uFF5E${to} \u884C / \u5171 ${total} \u884C`)
+      h("strong", { style: { fontSize: 14 } }, value.title || target.title || t("workbenchClient.docLabel", { doc: target.doc })),
+      h("span", { style: { ...muted, whiteSpace: "nowrap" } }, t("workbenchView.versionLine", { version: value.version ?? "?", from, to, total }))
     ),
-    value.stale ? h("div", { role: "status", style: { fontSize: 12, color: "#a16207" } }, `${value.stale}\uFF1B\u9AD8\u4EAE\u7684\u662F\u5F15\u7528\u65F6\u7684\u7248\u672C\u3002`) : null,
+    value.stale ? h("div", { role: "status", style: { fontSize: 12, color: "#a16207" } }, t("workbenchView.staleNotice", { stale: value.stale })) : null,
     h(
       "div",
       { style: { display: "flex", gap: 6, flexWrap: "wrap" } },
-      button2(h, "\u4E0A\u4E00\u9875", () => handlers.page(-1), from <= 1, "prev"),
-      button2(h, "\u4E0B\u4E00\u9875", () => handlers.page(1), total > 0 && to >= total, "next"),
-      button2(h, "\u5728\u8FD9\u7BC7\u91CC\u7EE7\u7EED\u95EE", handlers.ask, handlers.asking, "ask"),
-      handlers.toggleRaw ? button2(h, handlers.raw ? "\u9605\u8BFB\u89C6\u56FE" : "\u770B\u539F\u6587\uFF08\u5E26\u884C\u53F7\uFF09", handlers.toggleRaw, false, "raw") : null
+      button2(h, t("workbenchView.prevPage"), () => handlers.page(-1), from <= 1, "prev"),
+      button2(h, t("workbenchView.nextPage"), () => handlers.page(1), total > 0 && to >= total, "next"),
+      button2(h, t("workbenchClient.ask"), handlers.ask, handlers.asking, "ask"),
+      handlers.toggleRaw ? button2(h, handlers.raw ? t("workbenchView.readView") : t("workbenchView.rawView"), handlers.toggleRaw, false, "raw") : null
     ),
     body,
-    target.quote && (handlers.raw || !quoteFound) ? h("div", { style: muted }, `\u5F15\u7528\u7684\u539F\u6587\uFF1A\u201C${target.quote}\u201D`) : null
+    target.quote && (handlers.raw || !quoteFound) ? h("div", { style: muted }, t("workbenchView.quotedSource", { quote: target.quote })) : null
   );
 }
 
@@ -22824,17 +25616,17 @@ function onScreenSession(ctx) {
 }
 function createDocTargets() {
   const targets = /* @__PURE__ */ new Map();
-  const listeners2 = /* @__PURE__ */ new Set();
+  const listeners3 = /* @__PURE__ */ new Set();
   return {
     get: (app) => targets.get(app),
     set: (app, target) => {
       targets.set(app, target);
-      for (const listener of listeners2) listener();
+      for (const listener of listeners3) listener();
     },
     subscribe: (listener) => {
-      listeners2.add(listener);
+      listeners3.add(listener);
       return () => {
-        listeners2.delete(listener);
+        listeners3.delete(listener);
       };
     }
   };
@@ -22850,7 +25642,7 @@ function registerWorkbench(ctx, deps) {
   const titleOf = (address) => {
     const parsed = parseWorkbenchAddress(address);
     const pane = deps.appsNow().find((app) => app.name === parsed?.app)?.workbench?.panes.find((item) => item.id === parsed?.pane);
-    return pane?.title || "\u5DE5\u4F5C\u53F0";
+    return pane?.title || t("workbenchClient.fallbackTitle");
   };
   const useAppsList = () => {
     const [apps, setApps] = (0, import_react2.useState)(deps.appsNow());
@@ -22872,13 +25664,13 @@ function registerWorkbench(ctx, deps) {
     const send = (key, text, label, done) => {
       if (sending.has(key)) return;
       const sessionId = onScreenSession(ctx);
-      if (!sessionId) return setNotice("\u6CA1\u6709\u627E\u5230\u5F53\u524D\u4F1A\u8BDD\uFF0C\u8BF7\u5148\u6253\u5F00\u8FD9\u4E2A\u5E94\u7528\u7684\u4F1A\u8BDD");
+      if (!sessionId) return setNotice(t("workbenchClient.noSession"));
       setSending((current) => new Set(current).add(key));
       setNotice("");
       sendToSession(ctx, sessionId, text).then(() => {
-        setNotice(`\u5DF2\u53D1\u7ED9 AI\uFF1A${label}`);
+        setNotice(t("workbenchClient.sentToAi", { label }));
         done?.();
-      }).catch(() => setNotice(sendUnknownNotice)).finally(() => setSending((current) => {
+      }).catch(() => setNotice(sendUnknownNotice())).finally(() => setSending((current) => {
         const next = new Set(current);
         next.delete(key);
         return next;
@@ -22906,7 +25698,7 @@ function registerWorkbench(ctx, deps) {
         const state = result?.forbidden ? { status: "forbidden" } : result?.error ? { status: "error", error: String(result.error) } : { status: "ready", value: result?.value };
         setData((current) => ({ ...current, [index]: state }));
       } catch (error62) {
-        setData((current) => ({ ...current, [index]: { status: "error", error: error62 instanceof Error ? error62.message : "\u7F51\u7EDC\u9519\u8BEF" } }));
+        setData((current) => ({ ...current, [index]: { status: "error", error: error62 instanceof Error ? error62.message : t("workbenchClient.networkError") } }));
       }
     };
     const loadAll = () => (pane.widgets ?? []).forEach((widget, index) => {
@@ -22931,13 +25723,13 @@ function registerWorkbench(ctx, deps) {
     };
     const toggleCheck = (index, id) => {
       const key = checklistKey(pane.id, index);
-      if (!sessionRef.current) return setNotice("\u6CA1\u6709\u627E\u5230\u5F53\u524D\u4F1A\u8BDD\uFF0C\u52FE\u9009\u4E0D\u4F1A\u4FDD\u5B58");
+      if (!sessionRef.current) return setNotice(t("workbenchClient.noSessionCheck"));
       const done = !(checks[key] ?? []).includes(id);
       setChecks((current) => ({ ...current, [key]: done ? [...current[key] ?? [], id] : (current[key] ?? []).filter((x) => x !== id) }));
       Promise.resolve(remote.setChecklist({ app: app.name, sessionId: sessionRef.current, key, id, done })).then((raw) => {
         const next = unwrapRemote2(raw);
         if (Array.isArray(next)) setChecks((current) => ({ ...current, [key]: next }));
-      }).catch(() => setNotice("\u52FE\u9009\u6CA1\u6709\u4FDD\u5B58\uFF0C\u8BF7\u7A0D\u540E\u518D\u8BD5"));
+      }).catch(() => setNotice(t("workbenchClient.checkNotSaved")));
     };
     (0, import_react2.useEffect)(loadAll, [app.name, app.version, pane.id]);
     (0, import_react2.useEffect)(() => {
@@ -22975,14 +25767,14 @@ function registerWorkbench(ctx, deps) {
       setFormError(index, "");
       Promise.resolve(remote.insertFormRow?.({ app: app.name, pane: pane.id, widget: index, values: form })).then((raw) => {
         const result = unwrapRemote2(raw);
-        if (!result?.ok) return setFormError(index, result?.error || "\u6CA1\u6709\u4FDD\u5B58\uFF0C\u8BF7\u628A\u63A5\u5165\u63D2\u4EF6\u66F4\u65B0\u5230\u6700\u65B0\u7248\u672C");
+        if (!result?.ok) return setFormError(index, result?.error || t("workbenchClient.saveFailedDefault"));
         setForms((current) => ({ ...current, [index]: {} }));
-        setNotice(`\u5DF2\u4FDD\u5B58\uFF1A${action.label}`);
+        setNotice(t("workbenchClient.saved", { label: action.label }));
         (pane.widgets ?? []).forEach((widget, i) => {
           if (widget.source?.table === action.table) void load(i);
         });
         if (action.prompt) sendPrompt(key, action, { form });
-      }).catch(() => setFormError(index, "\u6CA1\u6709\u4FDD\u5B58\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5"));
+      }).catch(() => setFormError(index, t("workbenchClient.saveFailedNetwork")));
     };
     const setFormError = (index, error62) => setFormErrors((current) => ({ ...current, [index]: error62 }));
     const writeRow = (key, action, row) => {
@@ -22998,13 +25790,13 @@ function registerWorkbench(ctx, deps) {
       setWriting((current) => new Set(current).add(key));
       Promise.resolve(remote.writeTableRow?.({ app: app.name, pane: pane.id, widget: index, action: a, id: Number(row?.id) })).then((raw) => {
         const result = unwrapRemote2(raw);
-        if (!result?.ok) return setNotice(`\u6CA1\u6709${write === "delete" ? "\u5220\u9664" : "\u4FDD\u5B58"}\uFF1A${result?.error || "\u8BF7\u628A\u63A5\u5165\u63D2\u4EF6\u66F4\u65B0\u5230\u6700\u65B0\u7248\u672C"}`);
-        setNotice(write === "delete" ? "\u5DF2\u5220\u9664\u8FD9\u4E00\u884C" : `\u5DF2\u66F4\u65B0\uFF1A${action.label}`);
+        if (!result?.ok) return setNotice(t("workbenchClient.writeFailed", { action: write === "delete" ? t("common.delete") : t("common.save"), error: result?.error || t("workbenchClient.updatePlugin") }));
+        setNotice(write === "delete" ? t("workbenchClient.deletedRow") : t("workbenchClient.updated", { label: action.label }));
         (pane.widgets ?? []).forEach((widget, i) => {
           if (widget.source?.table === action.table) void load(i);
         });
         if (action.prompt) sendPrompt(key, action, { row });
-      }).catch(() => setNotice("\u6CA1\u6709\u4FDD\u5B58\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5")).finally(() => setWriting((current) => {
+      }).catch(() => setNotice(t("workbenchClient.saveFailedNetwork"))).finally(() => setWriting((current) => {
         const next = new Set(current);
         next.delete(key);
         return next;
@@ -23066,7 +25858,7 @@ function registerWorkbench(ctx, deps) {
         const result = unwrapRemote2(raw2);
         setState(result?.forbidden ? { status: "forbidden" } : result?.error ? { status: "error", error: String(result.error) } : { status: "ready", value: result?.value });
       }).catch((error62) => {
-        if (live) setState({ status: "error", error: error62 instanceof Error ? error62.message : "\u7F51\u7EDC\u9519\u8BEF" });
+        if (live) setState({ status: "error", error: error62 instanceof Error ? error62.message : t("workbenchClient.networkError") });
       });
       return () => {
         live = false;
@@ -23093,8 +25885,8 @@ function registerWorkbench(ctx, deps) {
       toggleRaw: () => setRaw((v) => !v),
       ask: () => {
         if (!target) return;
-        const title = value?.title || target.title || `\u6587\u6863 ${target.doc}`;
-        send("ask", `\u63A5\u7740\u770B\u77E5\u8BC6\u5E93\u6587\u6863\u300C${title}\u300D\uFF08\u6587\u6863\u7F16\u53F7 ${target.doc}\uFF09\u7B2C ${target.from}\uFF5E${target.to} \u884C\u524D\u540E\u7684\u5185\u5BB9\uFF1A\u8FD9\u4E00\u90E8\u5206\u8FD8\u6709\u54EA\u4E9B\u76F8\u5173\u89C4\u5B9A\u6216\u4F8B\u5916\u60C5\u51B5\uFF1F\u8BF7\u5E26\u51FA\u5904\u56DE\u7B54\u3002`, "\u5728\u8FD9\u7BC7\u91CC\u7EE7\u7EED\u95EE");
+        const title = value?.title || target.title || t("workbenchClient.docLabel", { doc: target.doc });
+        send("ask", t("workbenchClient.askPrompt", { title, doc: target.doc, from: target.from, to: target.to }), t("workbenchClient.ask"));
       }
     });
     return notice ? (0, import_react2.createElement)(
@@ -23112,7 +25904,7 @@ function registerWorkbench(ctx, deps) {
     const { apps, loaded } = useAppsList();
     const app = apps.find((item) => item.name === parsed?.app);
     const pane = app?.workbench?.panes.find((item) => item.id === parsed?.pane && (item.type === "panel" || item.type === "kb_doc"));
-    if (!app || !pane) return loaded ? missingPaneView(import_react2.createElement) : (0, import_react2.createElement)("div", { style: { padding: 16, fontSize: 13, opacity: 0.65 } }, "\u52A0\u8F7D\u4E2D\u2026");
+    if (!app || !pane) return loaded ? missingPaneView(import_react2.createElement) : (0, import_react2.createElement)("div", { style: { padding: 16, fontSize: 13, opacity: 0.65 } }, t("common.loading"));
     if (pane.type === "kb_doc") return (0, import_react2.createElement)(DocPane, { key: `${app.name}/${pane.id}`, app });
     return (0, import_react2.createElement)(PanelPane, { key: `${app.name}/${pane.id}`, app, pane, info, visible });
   };
@@ -23142,7 +25934,7 @@ function registerVotes(ctx, remote, unwrapRemote2) {
       const sessionId = currentSessionOf(ctx.sessions?.list?.getSnapshot?.());
       let note = "";
       if (value < 0 && typeof window !== "undefined" && typeof window.prompt === "function") {
-        note = window.prompt("\u8FD9\u6B21\u56DE\u7B54\u54EA\u91CC\u6CA1\u5E2E\u4E0A\u5FD9\uFF1F\uFF08\u53EF\u7559\u7A7A\uFF0C\u4F1A\u6309\u95EE\u9898\u805A\u5408\u7ED9\u5E94\u7528\u4F5C\u8005\uFF09") ?? "";
+        note = window.prompt(t("votes.notePrompt")) ?? "";
       }
       let app = "";
       try {
@@ -23159,18 +25951,18 @@ function registerVotes(ctx, remote, unwrapRemote2) {
     return (0, import_react3.createElement)(
       "span",
       { "data-dsh-ee-ui": "votes", style: { display: "inline-flex", gap: 2 } },
-      (0, import_react3.createElement)("button", { type: "button", title: "\u6709\u5E2E\u52A9", "aria-label": "\u6709\u5E2E\u52A9", disabled: voted !== 0, style: { ...buttonStyle3, opacity: voted === 1 ? 1 : buttonStyle3.opacity }, onClick: () => void mark(1) }, "\u{1F44D}"),
-      (0, import_react3.createElement)("button", { type: "button", title: "\u6CA1\u5E2E\u4E0A\u5FD9", "aria-label": "\u6CA1\u5E2E\u4E0A\u5FD9", disabled: voted !== 0, style: { ...buttonStyle3, opacity: voted === -1 ? 1 : buttonStyle3.opacity }, onClick: () => void mark(-1) }, "\u{1F44E}")
+      (0, import_react3.createElement)("button", { type: "button", title: t("votes.helpful"), "aria-label": t("votes.helpful"), disabled: voted !== 0, style: { ...buttonStyle3, opacity: voted === 1 ? 1 : buttonStyle3.opacity }, onClick: () => void mark(1) }, "👍"),
+      (0, import_react3.createElement)("button", { type: "button", title: t("votes.notHelpful"), "aria-label": t("votes.notHelpful"), disabled: voted !== 0, style: { ...buttonStyle3, opacity: voted === -1 ? 1 : buttonStyle3.opacity }, onClick: () => void mark(-1) }, "👎")
     );
   };
   try {
-    ctx.slots.inject("conversation.chat.assistant-actions", () => ctx.slots.register({ name: "conversation.chat.assistant-actions", id: "dsh-ee-vote", order: 100, label: "\u8BC4\u4EF7\u8FD9\u6B21\u56DE\u7B54" }, VoteButtons));
+    ctx.slots.inject("conversation.chat.assistant-actions", () => ctx.slots.register({ name: "conversation.chat.assistant-actions", id: "dsh-ee-vote", order: 100, label: t("votes.label") }, VoteButtons));
   } catch {
   }
 }
 
 // src/ee-save.ts
-var EE_SAVE_PROMPT = "\u521A\u624D\u8FD9\u6BB5\u5BF9\u8BDD\u91CC\u53EF\u80FD\u6C89\u6DC0\u4E86\u503C\u5F97\u590D\u7528\u7684\u505A\u6CD5\u3002\u8BF7\u628A\u5B83\u63D0\u70BC\u6210\u4E00\u4E2A\u4F01\u4E1A\u80FD\u529B\uFF1A\n1. \u5148\u544A\u8BC9\u6211\u4F60\u5EFA\u8BAE\u505A\u6210\u4EC0\u4E48\u2014\u2014\u63D0\u793A\u8BCD\uFF08\u53CD\u590D\u7528\u7684\u4E00\u6BB5\u8BDD\uFF09\u3001\u6280\u80FD\uFF08\u5E26\u5DE5\u5177\u7684\u64CD\u4F5C\u6D41\u7A0B\uFF09\u8FD8\u662F\u5E94\u7528\uFF08\u5E26\u5DE5\u4F5C\u53F0\u7684\u52A9\u624B\uFF09\uFF0C\u4EE5\u53CA\u7406\u7531\uFF1B\u7B49\u6211\u786E\u8BA4\u540E\u518D\u505A\uFF0C\u4E5F\u53EF\u4EE5\u6211\u76F4\u63A5\u6307\u5B9A\u7C7B\u578B\u3002\n2. \u786E\u8BA4\u540E\u7528 ee_hub \u7684 create\uFF08for_me: true\uFF09\u5EFA\u597D\uFF1A\u8D77\u4E00\u4E2A\u6E05\u6670\u7684\u6807\u8BC6\uFF08slug\uFF09\u3001\u6807\u9898\u548C\u8BF4\u660E\uFF0C\u8BF4\u660E\u7B2C\u4E00\u6BB5\u7528\u4E24\u4E09\u53E5\u8BDD\u603B\u7ED3\u8FD9\u6BB5\u5BF9\u8BDD\u7684\u6765\u6E90\uFF08\u5199\u660E\u300C\u6765\u81EA\u4E00\u6B21\u5BF9\u8BDD\u300D\uFF09\uFF1B\u6B63\u6587 / \u4EBA\u8BBE\u6309\u6211\u4EEC\u521A\u624D\u7684\u505A\u6CD5\u5199\u3002\u505A\u6210\u5E94\u7528\u65F6\u5148\u8BFB\u6280\u80FD dsh-ee-app-design\uFF0C\u5DE5\u4F5C\u53F0\u6309\u91CC\u9762\u7684\u4EEA\u8868\u76D8\u7248\u5F0F\u548C\u54CD\u5E94\u5F0F\u5BBD\u5EA6\u6765\u6392\u3002\n3. \u5EFA\u597D\u540E\u7ED9\u6211\u7F51\u9875\u4E0A\u7684\u8BE6\u60C5\u94FE\u63A5\uFF08<dsh-ee \u5730\u5740>/assets/<id>\uFF09\uFF0C\u6211\u60F3\u7EE7\u7EED\u6539\u8303\u56F4\u6216\u5185\u5BB9\u5C31\u53BB\u7F51\u9875\u3002\n\u6CE8\u610F\uFF1A\u8FD9\u4E2A\u80FD\u529B\u4F1A\u628A\u6211\u4EEC\u5BF9\u8BDD\u7684\u6458\u8981\u53D1\u5230 dsh-ee \u4FDD\u5B58\u3002";
+var EE_SAVE_PROMPT = "刚才这段对话里可能沉淀了值得复用的做法。请把它提炼成一个企业能力：\n1. 先告诉我你建议做成什么——提示词（反复用的一段话）、技能（带工具的操作流程）还是应用（带工作台的助手），以及理由；等我确认后再做，也可以我直接指定类型。\n2. 确认后用 ee_hub 的 create（for_me: true）建好：起一个清晰的标识（slug）、标题和说明，说明第一段用两三句话总结这段对话的来源（写明「来自一次对话」）；正文 / 人设按我们刚才的做法写。做成应用时先读技能 dsh-ee-app-design，工作台按里面的仪表盘版式和响应式宽度来排。\n3. 建好后给我网页上的详情链接（<dsh-ee 地址>/assets/<id>），我想继续改范围或内容就去网页。\n注意：这个能力会把我们对话的摘要发到 dsh-ee 保存。";
 async function deliverEeSave(ctx, sessionId) {
   try {
     await sendToSession(ctx, sessionId, EE_SAVE_PROMPT);
@@ -23187,7 +25979,7 @@ function registerEeSave(ctx) {
       const dispose = commandUi.register({
         name: "ee-save",
         label: () => "ee-save",
-        description: () => "\u628A\u8FD9\u6BB5\u5BF9\u8BDD\u6C89\u6DC0\u6210\u80FD\u529B\uFF08\u63D0\u793A\u8BCD / \u6280\u80FD / \u5E94\u7528\u8349\u7A3F\uFF09",
+        description: () => t("eeSave.description"),
         available: (session) => typeof session?.sessionId === "string" && session.sessionId !== "",
         ui: {
           kind: "action",
@@ -23205,8 +25997,8 @@ function registerEeSave(ctx) {
 // src/settings-view.ts
 var settingsSectionId = "dsh-ee";
 var muted2 = { opacity: 0.65 };
-function button3(createElement6, label, onClick, disabled, primary = false) {
-  return createElement6("button", {
+function button3(createElement7, label, onClick, disabled, primary = false) {
+  return createElement7("button", {
     type: "button",
     onClick,
     disabled,
@@ -23222,22 +26014,22 @@ function button3(createElement6, label, onClick, disabled, primary = false) {
     }
   }, label);
 }
-function serverSettingsView(createElement6, state, actions) {
+function serverSettingsView(createElement7, state, actions) {
   const { settings, draft, busy, test, notice, error: error62 } = state;
   const children = [
-    createElement6("h2", { key: "title", style: { margin: "0 0 6px", fontSize: 16 } }, "dsh-ee \u8FDE\u63A5"),
-    createElement6(
+    createElement7("h2", { key: "title", style: { margin: "0 0 6px", fontSize: 16 } }, t("settingsView.title")),
+    createElement7(
       "p",
       { key: "desc", style: { margin: "0 0 18px", lineHeight: 1.6, ...muted2 } },
-      "\u63A5\u5165\u63D2\u4EF6\u901A\u8FC7\u8FD9\u4E2A\u5730\u5740\u767B\u5F55\u4F01\u4E1A\u8D26\u53F7\u3001\u540C\u6B65\u4F01\u4E1A\u6280\u80FD\u548C\u5FAE\u5E94\u7528\u3001\u8C03\u7528\u4F01\u4E1A\u6A21\u578B\u3002\u8FDE\u4E0D\u4E0A\u65F6\uFF0C\u5148\u5728\u6D4F\u89C8\u5668\u91CC\u6253\u5F00 dsh-ee \u7F51\u9875\uFF0C\u628A\u80FD\u6253\u5F00\u7684\u5730\u5740\u586B\u5728\u8FD9\u91CC\u3002"
+      t("settingsView.description")
     )
   ];
   if (!settings) {
-    children.push(createElement6("p", { key: "loading" }, error62 || "\u6B63\u5728\u8BFB\u53D6\u2026"));
-    return createElement6("div", { "data-dsh-ee-settings": "loading", style: { maxWidth: 640 } }, ...children);
+    children.push(createElement7("p", { key: "loading" }, error62 || t("settingsView.reading")));
+    return createElement7("div", { "data-dsh-ee-settings": "loading", style: { maxWidth: 640 } }, ...children);
   }
-  children.push(createElement6("label", { key: "label", htmlFor: "dsh-ee-base", style: { display: "block", marginBottom: 6, fontWeight: 500 } }, "dsh-ee \u5730\u5740"));
-  children.push(createElement6("input", {
+  children.push(createElement7("label", { key: "label", htmlFor: "dsh-ee-base", style: { display: "block", marginBottom: 6, fontWeight: 500 } }, t("settingsView.addressLabel")));
+  children.push(createElement7("input", {
     key: "input",
     id: "dsh-ee-base",
     type: "url",
@@ -23250,79 +26042,79 @@ function serverSettingsView(createElement6, state, actions) {
     },
     style: { width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 6, border: "1px solid color-mix(in srgb, currentColor 30%, transparent)", background: "transparent", color: "inherit", font: "inherit" }
   }));
-  children.push(createElement6(
+  children.push(createElement7(
     "p",
     { key: "packaged", style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted2 } },
-    settings.overridden ? `\u63D2\u4EF6\u5305\u91CC\u7684\u5730\u5740\u662F ${settings.packaged}\uFF0C\u4F60\u6539\u6210\u4E86\u73B0\u5728\u8FD9\u4E2A\u3002` : `\u8FD9\u662F\u7BA1\u7406\u5458\u53D1\u5E03\u63A5\u5165\u63D2\u4EF6\u65F6\u5199\u8FDB\u53BB\u7684\u5730\u5740\u3002`
+    settings.overridden ? t("settingsView.packagedOverridden", { packaged: settings.packaged }) : t("settingsView.packagedDefault")
   ));
   const changed = draft.trim().replace(/\/+$/, "") !== settings.base;
-  children.push(createElement6(
+  children.push(createElement7(
     "div",
     { key: "actions", style: { display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" } },
-    button3(createElement6, busy === "test" ? "\u6B63\u5728\u6D4B\u8BD5\u2026" : "\u6D4B\u8BD5\u8FDE\u63A5", actions.test, !!busy),
-    button3(createElement6, busy === "save" ? "\u6B63\u5728\u4FDD\u5B58\u2026" : "\u4FDD\u5B58", actions.save, !!busy || !changed, true),
-    settings.overridden ? button3(createElement6, "\u6062\u590D\u63D2\u4EF6\u5305\u91CC\u7684\u5730\u5740", actions.reset, !!busy) : null
+    button3(createElement7, busy === "test" ? t("settingsView.testing") : t("settingsView.testConnection"), actions.test, !!busy),
+    button3(createElement7, busy === "save" ? t("settingsView.saving") : t("common.save"), actions.save, !!busy || !changed, true),
+    settings.overridden ? button3(createElement7, t("settingsView.resetAddress"), actions.reset, !!busy) : null
   ));
   if (test) {
-    children.push(createElement6(
+    children.push(createElement7(
       "ul",
       { key: "checks", "data-dsh-ee-test": test.ok ? "ok" : "fail", style: { listStyle: "none", padding: 0, margin: "16px 0 0", display: "grid", gap: 8 } },
-      ...test.checks.map((check2) => createElement6(
+      ...test.checks.map((check2) => createElement7(
         "li",
         { key: check2.id, style: { display: "flex", gap: 8, lineHeight: 1.5 } },
-        createElement6("span", { style: { color: check2.ok ? "#16a34a" : "#d92d20", fontWeight: 600 } }, check2.ok ? "\u2713" : "\u2715"),
-        createElement6("span", {}, check2.title, check2.detail ? createElement6("span", { style: { display: "block", fontSize: 12, ...muted2 } }, check2.detail) : null)
+        createElement7("span", { style: { color: check2.ok ? "#16a34a" : "#d92d20", fontWeight: 600 } }, check2.ok ? "✓" : "✕"),
+        createElement7("span", {}, check2.title, check2.detail ? createElement7("span", { style: { display: "block", fontSize: 12, ...muted2 } }, check2.detail) : null)
       ))
     ));
   }
-  if (notice) children.push(createElement6("p", { key: "notice", style: { marginTop: 14, lineHeight: 1.6 } }, notice));
-  if (error62) children.push(createElement6("p", { key: "error", style: { marginTop: 14, color: "#d92d20", lineHeight: 1.6 } }, error62));
-  children.push(createElement6(
+  if (notice) children.push(createElement7("p", { key: "notice", style: { marginTop: 14, lineHeight: 1.6 } }, notice));
+  if (error62) children.push(createElement7("p", { key: "error", style: { marginTop: 14, color: "#d92d20", lineHeight: 1.6 } }, error62));
+  children.push(createElement7(
     "div",
     { key: "plugin", "data-dsh-ee-settings": "plugin-update", style: { marginTop: 20, paddingTop: 16, borderTop: "1px solid color-mix(in srgb, currentColor 14%, transparent)" } },
-    createElement6(
+    createElement7(
       "div",
       { style: { display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
-      createElement6("span", { style: { fontWeight: 500 } }, "\u63A5\u5165\u63D2\u4EF6"),
-      createElement6("span", { style: { fontSize: 12, ...muted2 } }, `\u5F53\u524D\u7248\u672C ${settings.version}`),
-      button3(createElement6, busy === "update" ? "\u6B63\u5728\u66F4\u65B0\u2026" : "\u66F4\u65B0\u5230\u6700\u65B0\u7248", actions.update, !!busy)
+      createElement7("span", { style: { fontWeight: 500 } }, t("settingsView.plugin")),
+      createElement7("span", { style: { fontSize: 12, ...muted2 } }, t("settingsView.currentVersion", { version: settings.version })),
+      button3(createElement7, busy === "update" ? t("settingsView.updating") : t("settingsView.updateLatest"), actions.update, !!busy)
     ),
-    state.update ? createElement6("p", { "data-dsh-ee-update": state.update.ok ? "ok" : "fail", style: { margin: "8px 0 0", fontSize: 12, lineHeight: 1.6, color: state.update.ok ? "inherit" : "#d92d20" } }, state.update.message) : null,
-    createElement6("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted2 } }, "\u66F4\u65B0\u5230\u4F01\u4E1A\u7AEF\u5DF2\u53D1\u5E03\u7684\u6700\u65B0\u7248\uFF1B\u88C5\u597D\u540E\u9700\u8981\u91CD\u542F DSH \u624D\u751F\u6548\u3002")
+    state.update ? createElement7("p", { "data-dsh-ee-update": state.update.ok ? "ok" : "fail", style: { margin: "8px 0 0", fontSize: 12, lineHeight: 1.6, color: state.update.ok ? "inherit" : "#d92d20" } }, state.update.message) : null,
+    createElement7("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted2 } }, t("settingsView.updateHint"))
   ));
-  children.push(createElement6(
+  children.push(createElement7(
     "p",
     { key: "hint", style: { marginTop: 22, fontSize: 12, lineHeight: 1.6, ...muted2 } },
-    `\u6539\u5730\u5740\u53EA\u5F71\u54CD\u8FD9\u53F0\u7535\u8111\u3002\u5982\u679C\u5927\u5BB6\u90FD\u8FDE\u4E0D\u4E0A\uFF0C\u8BF7\u7BA1\u7406\u5458\u5728 dsh-ee \u7F51\u9875\u7684\u7CFB\u7EDF\u8BBE\u7F6E\u91CC\u586B\u5199\u300C\u8BBF\u95EE\u5730\u5740\u300D\uFF0C\u518D\u91CD\u65B0\u53D1\u5E03\u63A5\u5165\u63D2\u4EF6\u3002`
+    t("settingsView.changeHint")
   ));
-  return createElement6("div", { "data-dsh-ee-settings": "ready", style: { maxWidth: 640 } }, ...children);
+  return createElement7("div", { "data-dsh-ee-settings": "ready", style: { maxWidth: 640 } }, ...children);
 }
-function sidebarAppsToggle(createElement6, mode, onChange) {
-  return createElement6(
+function sidebarAppsToggle(createElement7, mode, onChange) {
+  return createElement7(
     "div",
     { "data-dsh-ee-settings": "sidebar-apps", style: { maxWidth: 640, marginTop: 20, paddingTop: 16, borderTop: "1px solid color-mix(in srgb, currentColor 14%, transparent)" } },
-    createElement6(
+    createElement7(
       "label",
       { style: { display: "flex", alignItems: "center", gap: 8, fontWeight: 500, cursor: "pointer" } },
-      createElement6("input", { type: "checkbox", checked: mode !== "hidden", onChange: () => onChange(mode === "hidden") }),
-      "\u5728\u5DE6\u4FA7\u680F\u663E\u793A\u4F01\u4E1A\u5E94\u7528"
+      createElement7("input", { type: "checkbox", checked: mode !== "hidden", onChange: () => onChange(mode === "hidden") }),
+      t("appsView.showInSidebar")
     ),
-    createElement6("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted2 } }, "\u5DE6\u4FA7\u680F\u53EA\u5217\u524D 3 \u4E2A\u5E94\u7528\uFF0C\u5176\u4F59\u5728\u300C\u67E5\u770B\u66F4\u591A\u300D\u91CC\uFF1B\u9690\u85CF\u540E\u9996\u5C4F\u8F93\u5165\u6846\u4E0B\u65B9\u548C\u53F3\u4FA7\u4F01\u4E1A\u9762\u677F\u91CC\u7167\u6837\u80FD\u6253\u5F00\u4F01\u4E1A\u5E94\u7528\u3002")
+    createElement7("p", { style: { margin: "6px 0 0", fontSize: 12, lineHeight: 1.6, ...muted2 } }, t("settingsView.sidebarHint"))
   );
 }
 function registerServerSettings(ctx, deps) {
-  const { createElement: createElement6, useState: useState6, useEffect: useEffect5, remote, unwrapRemote: unwrapRemote2 } = deps;
+  const { createElement: createElement7, useState: useState7, useEffect: useEffect6, remote, unwrapRemote: unwrapRemote2 } = deps;
   const message = (error62) => error62 instanceof Error ? error62.message : String(error62);
   const Section = () => {
-    const [state, setState] = useState6({ draft: "" });
+    const [state, setState] = useState7({ draft: "" });
     const patch = (next) => setState((prev) => ({ ...prev, ...next }));
-    useEffect5(() => {
+    useEffect6(() => {
       void (async () => {
         try {
           const settings = unwrapRemote2(await remote.serverSettings());
           patch({ settings, draft: settings.base });
         } catch (error62) {
-          patch({ error: `\u8BFB\u53D6\u8BBE\u7F6E\u5931\u8D25\uFF1A${message(error62)}` });
+          patch({ error: t("settingsView.readFailed", { error: message(error62) }) });
         }
       })();
     }, []);
@@ -23331,7 +26123,7 @@ function registerServerSettings(ctx, deps) {
       try {
         patch({ test: unwrapRemote2(await remote.testServer({ base: state.draft })) });
       } catch (error62) {
-        patch({ error: `\u6D4B\u8BD5\u5931\u8D25\uFF1A${message(error62)}` });
+        patch({ error: t("settingsView.testFailed", { error: message(error62) }) });
       } finally {
         patch({ busy: void 0 });
       }
@@ -23340,10 +26132,10 @@ function registerServerSettings(ctx, deps) {
       patch({ busy: "save", notice: void 0, error: void 0 });
       try {
         const settings = unwrapRemote2(await remote.saveServer({ base }));
-        patch({ settings, draft: settings.base, notice: "\u5DF2\u4FDD\u5B58\u5E76\u751F\u6548\u3002\u4F01\u4E1A\u6280\u80FD\u3001\u5FAE\u5E94\u7528\u548C\u5DE5\u5177\u6B63\u5728\u6309\u65B0\u5730\u5740\u540C\u6B65\uFF1B\u767B\u5F55\u65E0\u6548\u7684\u8BDD\uFF0C\u53BB\u4FA7\u680F\u4F01\u4E1A\u9762\u677F\u91CD\u65B0\u767B\u5F55\u3002" });
+        patch({ settings, draft: settings.base, notice: t("settingsView.savedNotice") });
         deps.onSaved();
       } catch (error62) {
-        patch({ error: `\u4FDD\u5B58\u5931\u8D25\uFF1A${message(error62)}` });
+        patch({ error: t("settingsView.saveFailed", { error: message(error62) }) });
       } finally {
         patch({ busy: void 0 });
       }
@@ -23353,24 +26145,24 @@ function registerServerSettings(ctx, deps) {
       try {
         patch({ update: unwrapRemote2(await remote.updatePlugin()) });
       } catch (error62) {
-        patch({ update: { ok: false, version: state.settings?.version ?? "", message: `\u66F4\u65B0\u5931\u8D25\uFF1A${message(error62)}` } });
+        patch({ update: { ok: false, version: state.settings?.version ?? "", message: t("settingsView.updateFailed", { error: message(error62) }) } });
       } finally {
         patch({ busy: void 0 });
       }
     };
-    const [mode, setMode] = useState6(readSidebarMode());
-    useEffect5(() => subscribeSidebarMode(() => setMode(readSidebarMode())), []);
-    return createElement6(
+    const [mode, setMode] = useState7(readSidebarMode());
+    useEffect6(() => subscribeSidebarMode(() => setMode(readSidebarMode())), []);
+    return createElement7(
       "div",
       null,
-      serverSettingsView(createElement6, state, {
+      serverSettingsView(createElement7, state, {
         setDraft: (draft) => patch({ draft, test: void 0 }),
         test: () => void test(),
         save: () => void save(state.draft),
         reset: () => void save(null),
         update: () => void update()
       }),
-      sidebarAppsToggle(createElement6, mode, (shown) => setSidebarMode(shown ? "shown" : "hidden"))
+      sidebarAppsToggle(createElement7, mode, (shown) => setSidebarMode(shown ? "shown" : "hidden"))
     );
   };
   ctx.slots.inject("settings.section", () => ctx.slots.register(
@@ -23406,27 +26198,27 @@ ${system}`;
 }
 function opText(op) {
   const parts = [];
-  if (op.ok) parts.push(op.ok > 1 ? `${op.label} \xD7${op.ok}` : op.label);
-  if (op.failed) parts.push(`${op.label} \u672A\u6210\u529F${op.failed > 1 ? ` \xD7${op.failed}` : ""}`);
-  return parts.join("\u3001");
+  if (op.ok) parts.push(op.ok > 1 ? `${op.label} ×${op.ok}` : op.label);
+  if (op.failed) parts.push(t("turnWrites.failedOp", { label: op.label, count: op.failed > 1 ? t("turnWrites.failedCount", { count: op.failed }) : "" }));
+  return parts.join(t("common.listSeparator"));
 }
-function turnWritesView(createElement6, groups, openWeb) {
+function turnWritesView(createElement7, groups, openWeb) {
   if (!groups.length) return null;
   const failed = groups.some((group) => group.ops.some((op) => op.failed));
-  return createElement6(
+  return createElement7(
     "div",
     {
       "data-dsh-ee-ui": "turn-writes",
       role: "note",
       style: { display: "grid", gap: 3, margin: "6px 0 2px", padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(127,127,127,.25)", fontSize: 12, lineHeight: 1.5, opacity: 0.9 }
     },
-    createElement6("div", { style: { fontWeight: 600 } }, failed ? "\u8FD9\u4E00\u8F6E\u5728\u4F01\u4E1A\u7CFB\u7EDF\u91CC\u7684\u5199\u64CD\u4F5C\uFF08\u6709\u672A\u6210\u529F\u7684\uFF09\uFF0C\u5DF2\u5728 dsh-ee \u7559\u75D5" : "\u8FD9\u4E00\u8F6E\u6539\u4E86\u4F01\u4E1A\u7CFB\u7EDF\u91CC\u7684\u6570\u636E\uFF0C\u5DF2\u5728 dsh-ee \u7559\u75D5"),
-    ...groups.map((group, index) => createElement6(
+    createElement7("div", { style: { fontWeight: 600 } }, failed ? t("turnWrites.failedNotice") : t("turnWrites.okNotice")),
+    ...groups.map((group, index) => createElement7(
       "div",
       { key: index, style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 6 } },
-      createElement6("span", null, `\u300C${group.system}\u300D`),
-      createElement6("span", { style: { opacity: 0.8 } }, group.ops.map(opText).join("\u3001")),
-      group.url ? createElement6("a", {
+      createElement7("span", null, t("turnWrites.systemLabel", { system: group.system })),
+      createElement7("span", { style: { opacity: 0.8 } }, group.ops.map(opText).join("、")),
+      group.url ? createElement7("a", {
         href: group.url,
         target: "_blank",
         rel: "noopener noreferrer",
@@ -23435,7 +26227,7 @@ function turnWritesView(createElement6, groups, openWeb) {
           openWeb(group.url);
         },
         style: { color: "inherit", textDecoration: "underline" }
-      }, "\u5728\u7F51\u9875\u67E5\u770B") : null
+      }, t("common.viewInWeb")) : null
     ))
   );
 }
@@ -23480,6 +26272,307 @@ ${to}`;
   ctx.slots.inject("conversation.chat.turnTail", () => ctx.slots.register({ name: "conversation.chat.turnTail", id: "dsh-ee-writes", order: 900, label: "dsh-ee" }, Tail));
 }
 
+// src/center-client.ts
+var import_react5 = require("react");
+
+// src/center-view.ts
+var groupOf = { experts: "app", skills: "skill", connections: "connection" };
+var tabLabels = { experts: "专家", skills: "技能", connections: "连接器" };
+var plainButton = { border: 0, background: "transparent", color: "inherit", cursor: "pointer", padding: 0, font: "inherit", textAlign: "left" };
+var chip = (active2) => ({
+  ...plainButton,
+  padding: "3px 9px",
+  borderRadius: 999,
+  fontSize: 12,
+  whiteSpace: "nowrap",
+  border: "1px solid var(--color-border, rgba(127,127,127,.28))",
+  background: active2 ? "var(--color-primary, #4d6bfe)" : "transparent",
+  color: active2 ? "#fff" : "inherit"
+});
+var smallButton = (primary = false) => ({
+  ...plainButton,
+  padding: "3px 10px",
+  borderRadius: 6,
+  fontSize: 12,
+  whiteSpace: "nowrap",
+  border: primary ? 0 : "1px solid var(--color-border, rgba(127,127,127,.28))",
+  background: primary ? "var(--color-primary, #4d6bfe)" : "transparent",
+  color: primary ? "#fff" : "inherit"
+});
+var tag = (tone = "plain") => ({
+  display: "inline-block",
+  padding: "0 6px",
+  borderRadius: 4,
+  fontSize: 11,
+  lineHeight: "18px",
+  whiteSpace: "nowrap",
+  background: { brand: "rgba(77,107,254,.12)", green: "rgba(22,163,74,.12)", amber: "rgba(245,158,11,.16)", red: "rgba(217,45,32,.12)", plain: "rgba(127,127,127,.12)" }[tone]
+});
+var card2 = { padding: "10px 12px", borderRadius: 10, border: "1px solid var(--color-border, rgba(127,127,127,.22))", display: "flex", flexDirection: "column", gap: 6 };
+var muted3 = { fontSize: 12, opacity: 0.7, lineHeight: 1.5 };
+function sortItems(items) {
+  return [...items].sort((a, b) => Number(!!b.featured) - Number(!!a.featured) || Number(!!b.enabled) - Number(!!a.enabled) || a.title.localeCompare(b.title, "zh"));
+}
+function filterItems(items, query, category) {
+  const kw = query.trim().toLowerCase();
+  return items.filter((x) => (!category || x.category_id === category) && (!kw || `${x.title} ${x.name} ${x.description} ${(x.expertise ?? []).join(" ")}`.toLowerCase().includes(kw)));
+}
+function tabCount(data, tab) {
+  if (!data) return 0;
+  if (tab === "experts") return data.experts.length + data.availableExperts.length;
+  return tab === "skills" ? data.skills.length : data.connections.length;
+}
+function expertCard(h, app, enabled, state, actions) {
+  const open2 = state.open === app.name;
+  const examples = app.starters ?? [];
+  return h(
+    "div",
+    { key: app.name, style: card2, "data-dsh-ee-ui": "center-expert" },
+    h(
+      "div",
+      { style: { display: "flex", gap: 10, alignItems: "flex-start" } },
+      appTileIcon(h, app, 34),
+      h(
+        "div",
+        { style: { minWidth: 0, flex: 1 } },
+        h("button", { type: "button", style: { ...plainButton, fontWeight: 600, fontSize: 13 }, onClick: () => actions.toggleOpen(app.name), "aria-expanded": open2 }, app.title),
+        h("div", { style: { ...muted3, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: open2 ? void 0 : 2, WebkitBoxOrient: "vertical" } }, app.description)
+      ),
+      (app.members?.length ?? 0) > 0 ? h("span", { style: tag("brand"), title: app.members.join("、") }, `团队 ${app.members.length + 1} 人`) : null,
+      app.featured ? h("span", { style: tag("amber") }, "精选") : null
+    ),
+    (app.expertise?.length ?? 0) > 0 ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 4 } }, ...app.expertise.map((x) => h("span", { key: x, style: tag("brand") }, x))) : null,
+    open2 && examples.length > 0 ? h(
+      "div",
+      { style: { display: "flex", flexDirection: "column", gap: 4 } },
+      h("div", { style: { ...muted3, fontWeight: 600 } }, "任务示例"),
+      ...examples.map((ex) => h("button", { key: ex, type: "button", disabled: !enabled, title: enabled ? "带着这条示例开始" : "先启用", style: { ...plainButton, fontSize: 12, padding: "4px 8px", borderRadius: 6, background: "rgba(127,127,127,.08)", opacity: enabled ? 1 : 0.6 }, onClick: () => actions.startWith(app, ex) }, ex))
+    ) : null,
+    open2 && (app.missing?.length ?? 0) > 0 ? h(
+      "div",
+      { style: { ...muted3, color: "#b54708" } },
+      `部分能力你还没有权限：${app.missing.join("、")}`,
+      " ",
+      app.detail_url ? h("button", { type: "button", style: { ...plainButton, textDecoration: "underline" }, onClick: () => actions.web(app.detail_url) }, "申请使用") : null
+    ) : null,
+    h(
+      "div",
+      { style: { display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" } },
+      enabled ? h("button", { type: "button", style: smallButton(true), disabled: state.busy, onClick: () => actions.summon(app) }, "召唤") : h("button", { type: "button", style: smallButton(true), disabled: state.busy, onClick: () => actions.toggle("apps", app.name, true, app.title) }, "启用"),
+      enabled && app.delivery === "optional" ? h("button", { type: "button", style: smallButton(), disabled: state.busy, onClick: () => actions.toggle("apps", app.name, false, app.title) }, "停用") : null,
+      h("button", { type: "button", style: smallButton(), onClick: () => actions.toggleOpen(app.name) }, open2 ? "收起" : "详情"),
+      app.detail_url && open2 ? h("button", { type: "button", style: smallButton(), onClick: () => actions.web(app.detail_url) }, "在网页查看") : null
+    )
+  );
+}
+function skillCard(h, k, state, actions) {
+  return h(
+    "div",
+    { key: k.name, style: card2, "data-dsh-ee-ui": "center-skill" },
+    h(
+      "div",
+      { style: { display: "flex", gap: 6, alignItems: "center" } },
+      h("span", { style: { fontWeight: 600, fontSize: 13, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, k.title),
+      k.featured ? h("span", { style: tag("amber") }, "精选") : null,
+      h("span", { style: tag(k.enabled ? "green" : "plain") }, k.enabled ? k.delivery === "auto" ? "默认生效" : "已启用" : "未启用")
+    ),
+    h("div", { style: muted3 }, k.description),
+    h(
+      "div",
+      { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } },
+      h("code", { style: { fontSize: 11, opacity: 0.7 } }, k.kind === "prompt" ? `/${k.name}` : k.name),
+      h("span", { style: { flex: 1 } }),
+      k.delivery === "optional" ? h("button", { type: "button", style: smallButton(!k.enabled), disabled: state.busy, onClick: () => actions.toggle("skills", k.name, !k.enabled, k.title) }, k.enabled ? "停用" : "启用") : null,
+      k.detail_url ? h("button", { type: "button", style: smallButton(), onClick: () => actions.web(k.detail_url) }, "预览") : null
+    )
+  );
+}
+function connectionCard(h, c, state, actions) {
+  const needsAuth = c.enabled && c.auth === "needs_auth";
+  return h(
+    "div",
+    { key: c.name, style: card2, "data-dsh-ee-ui": "center-connection" },
+    h(
+      "div",
+      { style: { display: "flex", gap: 6, alignItems: "center" } },
+      h("span", { style: { fontWeight: 600, fontSize: 13, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.title),
+      c.featured ? h("span", { style: tag("amber") }, "精选") : null,
+      needsAuth ? h("span", { style: tag("red") }, "待授权") : h("span", { style: tag(c.enabled ? "green" : "plain") }, c.enabled ? c.delivery === "auto" ? "默认生效" : "已启用" : "未启用")
+    ),
+    h("div", { style: muted3 }, c.description),
+    h(
+      "div",
+      { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" } },
+      h("span", { style: tag() }, `${c.tools} 个工具`),
+      h("span", { style: tag(c.writes ? "amber" : "plain") }, c.writes ? "可读写" : "只读"),
+      h("span", { style: { flex: 1 } }),
+      needsAuth && c.detail_url ? h("button", { type: "button", style: smallButton(true), onClick: () => actions.web(c.detail_url) }, "去授权") : null,
+      c.delivery === "optional" ? h("button", { type: "button", style: smallButton(!c.enabled && !needsAuth), disabled: state.busy, onClick: () => actions.toggle("connections", c.name, !c.enabled, c.title) }, c.enabled ? "停用" : "启用") : null,
+      !needsAuth && c.detail_url ? h("button", { type: "button", style: smallButton(), onClick: () => actions.web(c.detail_url) }, "详情") : null
+    ),
+    needsAuth ? h("div", { style: { ...muted3, color: "#b54708" } }, c.auth_mode === "oauth" ? "要先用你自己的账号授权，授权后回来点刷新。" : "要先在网页上填你自己的凭据，填好后回来点刷新。") : null
+  );
+}
+function centerPanel(h, state, actions) {
+  const root = (...children) => h("div", { "data-dsh-ee-ui": "center", style: { display: "flex", flexDirection: "column", gap: 10, padding: "12px 12px 20px", fontSize: 13 } }, ...children);
+  if (!state.loggedIn) {
+    return root(
+      h("div", { style: muted3 }, "登录企业账号后，可以在这里召唤专家、启用技能和连接企业系统。"),
+      h("button", { type: "button", style: smallButton(true), onClick: actions.login }, "登录"),
+      state.notice ? h("p", { role: "status", style: muted3 }, state.notice) : null
+    );
+  }
+  const data = state.data;
+  if (!data) return root(h("div", { style: muted3 }, state.loading ? "正在读取…" : "读取失败，请检查网络后刷新。"), h("button", { type: "button", style: smallButton(), onClick: actions.refresh }, "刷新"));
+  const tabs = data.legacy ? ["experts"] : ["experts", "skills", "connections"];
+  const tab = tabs.includes(state.tab) ? state.tab : "experts";
+  const cats = data.categories.filter((c) => c.group === groupOf[tab]).sort((a, b) => a.sort - b.sort || a.name.localeCompare(b.name, "zh"));
+  const category = cats.some((c) => c.id === state.category) ? state.category : 0;
+  let list;
+  if (tab === "experts") {
+    const enabled = new Set(data.experts.map((x) => x.name));
+    const all = [...data.experts.map((x) => ({ ...x, enabled: true })), ...data.availableExperts.map((x) => ({ ...x, enabled: false }))];
+    list = sortItems(filterItems(all, state.query, category)).map((x) => expertCard(h, x, enabled.has(x.name), state, actions));
+  } else if (tab === "skills") {
+    list = sortItems(filterItems(data.skills, state.query, category)).map((k) => skillCard(h, k, state, actions));
+  } else {
+    list = sortItems(filterItems(data.connections, state.query, category)).map((c) => connectionCard(h, c, state, actions));
+  }
+  const pending = tab === "connections" ? data.connections.filter((c) => c.enabled && c.auth === "needs_auth").length : 0;
+  return root(
+    h(
+      "div",
+      { role: "tablist", style: { display: "flex", gap: 4, borderBottom: "1px solid var(--color-border, rgba(127,127,127,.22))", paddingBottom: 6 } },
+      ...tabs.map((k) => h("button", {
+        key: k,
+        type: "button",
+        role: "tab",
+        "aria-selected": k === tab,
+        onClick: () => actions.setTab(k),
+        style: { ...plainButton, padding: "4px 8px", borderRadius: 6, fontWeight: k === tab ? 600 : 400, background: k === tab ? "rgba(127,127,127,.12)" : "transparent" }
+      }, `${tabLabels[k]} ${tabCount(data, k)}`)),
+      h("span", { style: { flex: 1 } }),
+      h("button", { type: "button", title: "刷新", "aria-label": "刷新", style: { ...plainButton, fontSize: 12, opacity: 0.7 }, onClick: actions.refresh }, "刷新")
+    ),
+    h("input", {
+      type: "search",
+      value: state.query,
+      placeholder: `搜索${tabLabels[tab]}…`,
+      "aria-label": `搜索${tabLabels[tab]}`,
+      onChange: (e) => actions.search(e?.target?.value ?? ""),
+      style: { width: "100%", boxSizing: "border-box", padding: "6px 9px", borderRadius: 7, border: "1px solid var(--color-border, rgba(127,127,127,.3))", background: "transparent", color: "inherit", font: "inherit", fontSize: 12 }
+    }),
+    cats.length > 0 ? h(
+      "div",
+      { style: { display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 } },
+      h("button", { type: "button", style: chip(category === 0), onClick: () => actions.setCategory(0) }, "全部"),
+      ...cats.map((c) => h("button", { key: c.id, type: "button", style: chip(category === c.id), onClick: () => actions.setCategory(c.id) }, c.name))
+    ) : null,
+    pending > 0 ? h("div", { style: { ...muted3, color: "#b54708" } }, `有 ${pending} 个连接器要先授权才能用。`) : null,
+    state.notice ? h("p", { role: "status", style: { ...muted3, margin: 0 } }, state.notice) : null,
+    list.length > 0 ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, ...list) : h("div", { style: muted3 }, state.query || category ? "没有匹配的条目。" : tab === "experts" ? "还没有可用的专家。" : tab === "skills" ? "还没有可用的技能。" : "还没有可用的连接器。")
+  );
+}
+
+// src/center-client.ts
+var centerTabId = "__DSH_EE_PACKAGE__/center";
+function registerCenter(ctx, deps) {
+  const { remote, unwrapRemote: unwrapRemote2 } = deps;
+  if (typeof remote?.center !== "function") return;
+  let snapshot = { loading: true, busy: false };
+  const listeners3 = /* @__PURE__ */ new Set();
+  const update = (patch) => {
+    snapshot = { ...snapshot, ...patch };
+    for (const l of listeners3) l();
+  };
+  let inflight;
+  const refresh = () => {
+    inflight ??= (async () => {
+      try {
+        update({ data: unwrapRemote2(await remote.center()), loading: false });
+      } catch {
+        update({ loading: false });
+      } finally {
+        inflight = void 0;
+      }
+    })();
+    return inflight;
+  };
+  ctx.effect(() => {
+    const timer = setInterval(() => {
+      if (listeners3.size) void refresh();
+    }, 6e4);
+    return () => clearInterval(timer);
+  });
+  const openWeb = createWebOpener(remote, unwrapRemote2);
+  const Panel = () => {
+    const overview = deps.useOverview();
+    const [local, setLocal] = (0, import_react5.useState)(snapshot);
+    const [tab, setTab] = (0, import_react5.useState)("experts");
+    const [query, setQuery] = (0, import_react5.useState)("");
+    const [category, setCategory] = (0, import_react5.useState)(0);
+    const [open2, setOpen] = (0, import_react5.useState)("");
+    const [notice, setNotice] = (0, import_react5.useState)("");
+    (0, import_react5.useEffect)(() => {
+      const l = () => setLocal(snapshot);
+      listeners3.add(l);
+      l();
+      void refresh();
+      return () => {
+        listeners3.delete(l);
+      };
+    }, []);
+    const loggedIn = !!overview.data?.me;
+    (0, import_react5.useEffect)(() => {
+      if (loggedIn) void refresh();
+    }, [loggedIn]);
+    const actions = {
+      login: () => {
+        void remote.login().then((r) => setNotice(unwrapRemote2(r)?.text || "请在浏览器完成企业登录。")).catch(() => setNotice("发起登录失败，请稍后重试。"));
+      },
+      refresh: () => {
+        setNotice("");
+        void refresh();
+      },
+      setTab: (next) => {
+        setTab(next);
+        setCategory(0);
+        setQuery("");
+      },
+      search: setQuery,
+      setCategory,
+      toggleOpen: (name) => setOpen(open2 === name ? "" : name),
+      summon: (app) => {
+        void deps.summon(app).then(setNotice);
+      },
+      startWith: (app, example) => {
+        void deps.summon(app, example).then(setNotice);
+      },
+      toggle: (kind, name, enabled, title) => {
+        update({ busy: true });
+        void remote.setSubscription({ kind, name, enabled }).then(async (r) => {
+          const value = unwrapRemote2(r);
+          if (!value?.ok) return setNotice(`${enabled ? "启用" : "停用"}失败：${value?.error || "请稍后重试"}`);
+          await refresh();
+          if (kind === "apps") await deps.reloadApps().catch(() => void 0);
+          setNotice(enabled ? `已启用「${title}」` : `已停用「${title}」`);
+        }).catch(() => setNotice(`${enabled ? "启用" : "停用"}失败，请检查网络后重试。`)).finally(() => update({ busy: false }));
+      },
+      web: (url2) => {
+        void openWeb(url2);
+      }
+    };
+    return centerPanel(import_react5.createElement, { data: local.data, loading: local.loading, busy: local.busy, loggedIn, tab, query, category, open: open2, notice }, actions);
+  };
+  ctx.effect(() => ctx.sidebarRightTabs.register({
+    id: centerTabId,
+    kind: "dsh-ee-center",
+    title: () => "专家 · 技能 · 连接器",
+    guide: [{ id: "open", order: 20, title: () => "专家 · 技能 · 连接器", description: () => "召唤企业专家、启用技能、连接企业系统" }]
+  }));
+  ctx.slots.inject("sidebar.right.pane.tab", () => ctx.slots.register({ name: "sidebar.right.pane.tab", key: centerTabId }, Panel));
+}
+
 // src/client.ts
 var inject = ["slots", "remote", "sidebarRightTabs", "sidebarRight", "sessions", "conversation", "workspaces"];
 var jsonParameter = (name) => {
@@ -23494,6 +26587,8 @@ var clientRemote = createTypertRemoteInfo({
     "dshEE/availableApps": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => external_exports.any() }, invocation: { kind: "direct" } },
     "dshEE/enableApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => external_exports.any() }, invocation: { kind: "direct" } },
     "dshEE/disableApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => external_exports.any() }, invocation: { kind: "direct" } },
+    "dshEE/center": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => external_exports.any() }, invocation: { kind: "direct" } },
+    "dshEE/setSubscription": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => external_exports.any() }, invocation: { kind: "direct" } },
     "dshEE/appBindings": { service: "dshEE", parameters: [], result: { mode: "strict", typeSymbol: "unknown", create: () => external_exports.any() }, invocation: { kind: "direct" } },
     "dshEE/bindApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => external_exports.any() }, invocation: { kind: "direct" } },
     "dshEE/unbindApp": { service: "dshEE", parameters: [jsonParameter("request")], result: { mode: "strict", typeSymbol: "unknown", create: () => external_exports.any() }, invocation: { kind: "direct" } },
@@ -23518,8 +26613,8 @@ var clientRemote = createTypertRemoteInfo({
 }, external_exports);
 function unwrapRemote(result) {
   if (result && typeof result === "object") {
-    if (result.error) throw new Error(typeof result.error === "string" ? result.error : result.error.message || "\u4F01\u4E1A\u8FDC\u7A0B\u8C03\u7528\u5931\u8D25");
-    if (result.ok === false) throw new Error("\u4F01\u4E1A\u8FDC\u7A0B\u8C03\u7528\u5931\u8D25");
+    if (result.error) throw new Error(typeof result.error === "string" ? result.error : result.error.message || t("client.remoteFailed"));
+    if (result.ok === false) throw new Error(t("client.remoteFailed"));
     if ("value" in result) return result.value;
   }
   return result;
@@ -23529,12 +26624,12 @@ var LOGIN_POLL_MS = 5e3;
 function createOverviewStore(remote) {
   let snapshot = { failed: false, busy: false };
   let inflight = false;
-  const listeners2 = /* @__PURE__ */ new Set();
+  const listeners3 = /* @__PURE__ */ new Set();
   const loginListeners = /* @__PURE__ */ new Set();
   const update = (patch) => {
     const wasIn = !!snapshot.data?.me;
     snapshot = { ...snapshot, ...patch };
-    for (const listener of listeners2) listener();
+    for (const listener of listeners3) listener();
     if (!wasIn && snapshot.data?.me) for (const listener of loginListeners) listener();
   };
   const refresh = async (quiet = false) => {
@@ -23544,7 +26639,7 @@ function createOverviewStore(remote) {
     try {
       const data = unwrapRemote(await Promise.race([
         remote.overview(),
-        new Promise((_, reject) => setTimeout(() => reject(new Error("\u8BFB\u53D6\u4F01\u4E1A\u8D26\u53F7\u8D85\u65F6")), OVERVIEW_TIMEOUT_MS))
+        new Promise((_, reject) => setTimeout(() => reject(new Error(t("client.overviewTimeout"))), OVERVIEW_TIMEOUT_MS))
       ]));
       update(data?.me ? { data, failed: false, failure: void 0 } : { failed: true, failure: data?.failure });
     } catch {
@@ -23555,19 +26650,19 @@ function createOverviewStore(remote) {
     }
   };
   const pollLogin = () => {
-    if (snapshot.data?.me || !listeners2.size) return;
+    if (snapshot.data?.me || !listeners3.size) return;
     if (typeof document !== "undefined" && document.hidden) return;
     void refresh(true);
   };
   const use = () => {
-    const [local, setLocal] = (0, import_react5.useState)(snapshot);
-    (0, import_react5.useEffect)(() => {
+    const [local, setLocal] = (0, import_react6.useState)(snapshot);
+    (0, import_react6.useEffect)(() => {
       const listener = () => setLocal(snapshot);
-      listeners2.add(listener);
+      listeners3.add(listener);
       listener();
       if (!snapshot.data) void refresh();
       return () => {
-        listeners2.delete(listener);
+        listeners3.delete(listener);
       };
     }, []);
     return { ...local, hasData: () => !!snapshot.data, setBusy: (busy) => update({ busy }), refresh: () => refresh() };
@@ -23581,14 +26676,15 @@ function createOverviewStore(remote) {
   return { use, refresh: () => refresh(), pollLogin, onLogin };
 }
 async function apply(ctx) {
+  initI18n(ctx);
   const brandStore = createBrandStore(loadCachedBrand() ?? { enabled: false, name: "", logo_url: "", revision: "" });
   ctx.effect(() => brandStore.subscribe(() => saveCachedBrand(brandStore.get())));
-  ctx.effect(() => registerBrand(ctx, brandStore, { createElement: import_react5.createElement, useState: import_react5.useState, useEffect: import_react5.useEffect }));
+  ctx.effect(() => registerBrand(ctx, brandStore, { createElement: import_react6.createElement, useState: import_react6.useState, useEffect: import_react6.useEffect }));
   await ctx.remote.$mount(clientRemote);
   ctx.inject(["remote.dshEE"], async (remoteCtx) => {
     const remote = remoteCtx.remote.dshEE;
     const overview = createOverviewStore(remote);
-    registerServerSettings(ctx, { createElement: import_react5.createElement, useState: import_react5.useState, useEffect: import_react5.useEffect, remote, unwrapRemote, label: "dsh-ee", onSaved: () => void overview.refresh() });
+    registerServerSettings(ctx, { createElement: import_react6.createElement, useState: import_react6.useState, useEffect: import_react6.useEffect, remote, unwrapRemote, label: "dsh-ee", onSaved: () => void overview.refresh() });
     const useOverview = (_remote) => overview.use();
     const apps = registerApps(ctx, remote, useOverview, unwrapRemote);
     ctx.effect(() => {
@@ -23603,6 +26699,10 @@ async function apply(ctx) {
     const workbench = registerWorkbench(ctx, { remote, unwrapRemote, appsNow: apps.appsNow, appsLoaded: apps.appsLoaded, loadApps: apps.loadApps, subscribeApps: apps.subscribeApps });
     apps.setWorkbenchOpener(workbench.openWorkbench);
     registerVotes(ctx, remote, unwrapRemote);
+    try {
+      registerCenter(ctx, { remote, unwrapRemote, useOverview, summon: apps.summon, reloadApps: apps.reloadApps });
+    } catch {
+    }
     registerEeSave(ctx);
     try {
       registerTurnWrites(ctx, remote, unwrapRemote);
@@ -23610,11 +26710,11 @@ async function apply(ctx) {
     }
     const readBrand = async () => unwrapRemote(await Promise.race([
       remote.brand(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("\u8BFB\u53D6\u4F01\u4E1A\u54C1\u724C\u8D85\u65F6")), 1e4))
+      new Promise((_, reject) => setTimeout(() => reject(new Error(t("client.brandTimeout"))), 1e4))
     ]));
     brandStore.setReader(readBrand);
     await brandStore.refresh();
-    const org = brandStore.get().name || "\u4F01\u4E1A";
+    const org = brandStore.get().name || t("client.defaultOrg");
     ctx.effect(() => brandStore.start());
     try {
       ctx.inject(["theme"], (themeCtx) => {
@@ -23644,19 +26744,19 @@ async function apply(ctx) {
     }
     const EnterprisePanel = () => {
       const state = useOverview(remote);
-      const [notice, setNotice] = (0, import_react5.useState)("");
-      const [doctor, setDoctor] = (0, import_react5.useState)(void 0);
+      const [notice, setNotice] = (0, import_react6.useState)("");
+      const [doctor, setDoctor] = (0, import_react6.useState)(void 0);
       const loggedIn = !!state.data?.me;
-      (0, import_react5.useEffect)(() => {
+      (0, import_react6.useEffect)(() => {
         if (loggedIn) setNotice("");
       }, [loggedIn]);
       const login = async () => {
         state.setBusy(true);
         try {
           const result = unwrapRemote(await remote.login());
-          setNotice(result?.text || "\u8BF7\u5728\u6D4F\u89C8\u5668\u5B8C\u6210\u4F01\u4E1A\u767B\u5F55\u3002");
+          setNotice(result?.text || t("client.loginInBrowser"));
         } catch {
-          setNotice("\u53D1\u8D77\u767B\u5F55\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5\u3002");
+          setNotice(t("client.loginStartFailed"));
         } finally {
           state.setBusy(false);
         }
@@ -23666,7 +26766,7 @@ async function apply(ctx) {
         try {
           setDoctor(unwrapRemote(await remote.doctor()));
         } catch {
-          setNotice("\u8BCA\u65AD\u5931\u8D25\uFF0C\u8BF7\u68C0\u67E5\u7F51\u7EDC\u540E\u91CD\u8BD5\u3002");
+          setNotice(t("client.diagnoseFailed"));
         } finally {
           state.setBusy(false);
         }
@@ -23676,7 +26776,7 @@ async function apply(ctx) {
         setDoctor(void 0);
         void state.refresh();
       };
-      return enterprisePanel(import_react5.createElement, org, { ...state, notice, doctor }, { login: () => void login(), refresh, doctor: () => void diagnose() }, AppsPanel);
+      return enterprisePanel(import_react6.createElement, org, { ...state, notice, doctor }, { login: () => void login(), refresh, doctor: () => void diagnose() }, AppsPanel);
     };
     const EnterpriseHeader = () => {
       const state = useOverview(remote);
@@ -23684,7 +26784,7 @@ async function apply(ctx) {
         ctx.sidebarRight.openTab("dsh-ee-enterprise");
         if (state.failed) void remote.login().catch(() => void 0);
       };
-      return enterpriseHeader(import_react5.createElement, state.data, state.failed, onClick);
+      return enterpriseHeader(import_react6.createElement, state.data, state.failed, onClick);
     };
     registerEnterpriseStatus(ctx, org, EnterprisePanel, EnterpriseHeader);
   });

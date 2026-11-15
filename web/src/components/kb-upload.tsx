@@ -178,7 +178,7 @@ export function UploadDialog({ kb, open, onOpenChange, onDone, initial, initialF
           const part = list.slice(i, i + 50);
           try {
             const res = await api.uploadKBDocs(kb.id, part.map((r) => r.file), f, { asNew: part.filter((r) => r.asNew).map((r) => r.file.name) });
-            part.forEach((r, k) => (r.result = res.results[k] ?? { file: r.file.name, error: "没有结果" }));
+            part.forEach((r, k) => (r.result = res.results[k] ?? { file: r.file.name, error: t("kupload.noResult") }));
           } catch (e) {
             const msg = e instanceof Error ? e.message : String(e);
             part.forEach((r) => (r.result = { file: r.file.name, error: msg }));
