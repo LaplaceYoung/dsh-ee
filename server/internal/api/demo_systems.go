@@ -138,13 +138,24 @@ func (s *Server) handleDemoMonthly(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
-// demoStandIn：演示系统里没有这个人时（比如管理员自己导入示例后来试），借一位示例员工的数据给他看，
+// demoStandIn：来的人不是示例公司的员工时（比如管理员自己导入示例后来试），借一位示例员工的数据给他看，
 // 免得「我的客户」「我的工单」全是 0。返回空表示不用借；借来的记录在返回里换成他本人的名字。
 func demoStandIn(who string, people []string, standIn string) string {
-	if who == "" || slices.Contains(people, who) {
+	if who == "" || slices.Contains(people, who) || isDemoStaff(who) {
 		return ""
 	}
 	return standIn
+}
+
+// isDemoStaff：是不是示例公司的员工（按姓名）。他们在某个系统里没有记录就是真的没有（新人没有报销单、
+// 研发没有客户），不借别人的数据。
+func isDemoStaff(name string) bool {
+	for _, u := range demoAllUsers() {
+		if u.DisplayName == name {
+			return true
+		}
+	}
+	return false
 }
 
 // demoMine：这条记录算不算 who 的（含借来的）。
@@ -201,7 +212,14 @@ var (
 		"中科仪器", "万象商业", "润泽水务", "凌云光电", "盛世传媒", "和光新能源", "同舟船舶", "立方数据", "白鹭酒店集团", "汇通支付",
 		"峰岭矿业", "清源检测", "雪域乳业", "光谷半导体", "南山体育", "紫金出版", "瀚海贸易", "如意服饰", "晨曦养老", "远景风电",
 	}
-	demoIndustries = []string{"制造", "物流", "教育", "医疗", "金融", "零售"}
+	// 行业和客户名一一对应（顺序同 demoCRMNames），免得「银行」被随机成「教育」
+	demoIndustries = []string{
+		"制造", "物流", "教育", "医疗", "金融", "零售", "制造", "食品", "化工", "软件",
+		"地产", "金融", "农业", "制造", "交通", "教育", "医疗", "食品", "建筑", "咨询",
+		"制造", "制造", "软件", "制造", "零售", "通信", "地产", "金融", "环保", "文旅",
+		"制造", "零售", "公用事业", "制造", "传媒", "能源", "制造", "软件", "文旅", "金融",
+		"能源", "咨询", "食品", "制造", "文旅", "传媒", "贸易", "零售", "医疗", "能源",
+	}
 	demoCRMCities  = []string{"上海", "杭州", "南京", "苏州", "深圳", "广州", "北京", "成都", "武汉", "西安"}
 	demoCRMOwners  = []string{"周航", "林娜", "马骁", "杜若"}
 	demoProducts   = []string{"星河云·协同版", "星河云·企业版", "星河数据中台", "星河智能客服"}
@@ -217,12 +235,54 @@ func (c *demoCRM) list() []demoCustomer {
 	return c.customers
 }
 
+// demoVisitAgo 是一条拜访记录：多少天前、聊了什么。
+type demoVisitAgo struct {
+	ago  int
+	note string
+}
+
+// demoRiskCustomer 是续约风险高的几个客户：快到期、很久没拜访、健康度低。合同和拜访记录按这里的日期生成，
+// 所以「续约日期 = 在用合同的到期日」「最近拜访 = 最新一条拜访记录」对得上。
+type demoRiskCustomer struct {
+	days, visit, health int
+	// 年合同额（元）；0 表示用随机出来的
+	arr    float64
+	reason string
+	// 拜访记录，第一条就是最近一次（天数和 visit 一致）
+	visits []demoVisitAgo
+}
+
+// 按 demoCRMNames 的下标
+var demoRiskCustomers = map[int]demoRiskCustomer{
+	0: {21, 75, 38, 680000, "合同快到期，两个多月没拜访；对接人刚换，使用率下降 40%", []demoVisitAgo{
+		{75, "季度回访：原来的 IT 对接人离职，新对接人还没见到；协同版活跃人数比上季度少了约四成"},
+		{140, "讨论续约价格，客户希望打九折"},
+	}},
+	4: {35, 52, 45, 0, "合同快到期；上月有 3 张未解决的投诉工单", []demoVisitAgo{
+		{52, "客户反馈上月提的 3 张工单还没解决，要求给出处理时间"},
+		{83, "季度回访，使用率稳定，提出单点登录需求"},
+	}},
+	9: {12, 40, 41, 0, "合同快到期；客户在评估竞品，要求降价 20%", []demoVisitAgo{
+		{40, "客户说在评估竞品，要求续约降价 20%；答应回去申请"},
+		{71, "演示智能客服模块，客户有兴趣试用"},
+	}},
+	17: {48, 90, 50, 0, "合同快到期，三个月没拜访", []demoVisitAgo{
+		{90, "陪同上线验收，签署验收单；之后没有再回访"},
+	}},
+	38: {27, 63, 44, 0, "合同快到期；付款延迟两个月", []demoVisitAgo{
+		{63, "催收上期尾款，客户财务说流程在走，已经延迟两个月"},
+		{95, "季度回访，使用率稳定"},
+	}},
+}
+
 func demoCRMCustomers(now time.Time) []demoCustomer {
 	rng := rand.New(rand.NewSource(7))
 	out := make([]demoCustomer, 0, len(demoCRMNames))
 	for i, name := range demoCRMNames {
+		// 行业按客户名定；这次随机数照旧取掉，别的字段才不会跟着变
+		_ = rng.Intn(6)
 		c := demoCustomer{
-			ID: fmt.Sprintf("C%03d", i+1), Name: name, Industry: demoIndustries[rng.Intn(len(demoIndustries))],
+			ID: fmt.Sprintf("C%03d", i+1), Name: name, Industry: demoIndustries[i],
 			City: demoCRMCities[rng.Intn(len(demoCRMCities))], Owner: demoCRMOwners[i%len(demoCRMOwners)],
 			Contact: []string{"王总", "李经理", "陈主任", "刘总监", "张经理"}[rng.Intn(5)],
 		}
@@ -233,46 +293,48 @@ func demoCRMCustomers(now time.Time) []demoCustomer {
 		}
 		renew := now.AddDate(0, 0, -20+rng.Intn(380))
 		last := now.AddDate(0, 0, -rng.Intn(120))
-		c.RenewAt, c.LastVisit = dayStr(renew), dayStr(last)
 		c.Health = 55 + rng.Intn(45)
+		// 已经过了续约日的算续上了，合同顺延一年
+		if renew.Before(now.AddDate(0, 0, 7)) {
+			renew = renew.AddDate(1, 0, 0)
+		}
+		risk, risky := demoRiskCustomers[i]
+		if risky {
+			renew, last, c.Health, c.RiskReason = now.AddDate(0, 0, risk.days), now.AddDate(0, 0, -risk.visit), risk.health, risk.reason
+			if risk.arr > 0 {
+				c.ARR = risk.arr
+			}
+		}
+		c.RenewAt, c.LastVisit = dayStr(renew), dayStr(last)
 		c.Stage = "合作中"
 		if renew.Before(now.AddDate(0, 0, 90)) {
 			c.Stage = "续约中"
 		}
-		if i%11 == 3 {
+		if i%11 == 3 && !risky {
 			c.Stage = "新客户"
 		}
+		// 在用的合同：同一个合同期（到续约日为止的一年），一到三个产品，金额加起来是年合同额。
+		// 协同版和企业版二选一，再加数据中台、智能客服
 		nContracts := 1 + rng.Intn(3)
+		products := []string{demoProducts[i%2], demoProducts[2], demoProducts[3]}
+		start := renew.AddDate(-1, 0, 1)
 		for k := 0; k < nContracts; k++ {
-			start := renew.AddDate(-1-k, 0, 0)
-			c.Contracts = append(c.Contracts, demoContract{ID: fmt.Sprintf("HT-%s-%d", c.ID, k+1), Product: demoProducts[(i+k)%len(demoProducts)],
-				Amount: float64(int(c.ARR/float64(nContracts)/1000) * 1000), Start: dayStr(start), End: dayStr(start.AddDate(1, 0, -1))})
+			c.Contracts = append(c.Contracts, demoContract{ID: fmt.Sprintf("HT-%s-%d", c.ID, k+1), Product: products[k],
+				Amount: float64(int(c.ARR/float64(nContracts)/1000) * 1000), Start: dayStr(start), End: dayStr(renew)})
 		}
 		for k := 0; k < rng.Intn(4); k++ {
 			c.Visits = append(c.Visits, demoVisitNote{Date: dayStr(last.AddDate(0, 0, -30*k)), By: c.Owner, Summary: demoVisitLines[rng.Intn(len(demoVisitLines))]})
 		}
-		out = append(out, c)
-	}
-	// 几个续约风险高的客户：快到期、很久没拜访、健康度低
-	for _, k := range []struct {
-		idx    int
-		days   int
-		visit  int
-		health int
-		reason string
-	}{
-		{0, 21, 75, 38, "21 天后到期，75 天没拜访；对接人刚换，使用率下降 40%"},
-		{4, 35, 52, 45, "35 天后到期；上月有 3 张未解决的投诉工单"},
-		{9, 12, 40, 41, "12 天后到期；客户在评估竞品，要求降价 20%"},
-		{17, 48, 90, 50, "48 天后到期，90 天没拜访"},
-		{38, 27, 63, 44, "27 天后到期；付款延迟两个月"},
-	} {
-		c := &out[k.idx]
-		c.RenewAt, c.LastVisit, c.Health, c.Stage = dayStr(now.AddDate(0, 0, k.days)), dayStr(now.AddDate(0, 0, -k.visit)), k.health, "续约中"
-		c.RiskReason = k.reason
-	}
-	for i := range out {
-		c := &out[i]
+		if risky {
+			c.Visits = nil
+			for _, v := range risk.visits {
+				c.Visits = append(c.Visits, demoVisitNote{Date: dayStr(now.AddDate(0, 0, -v.ago)), By: c.Owner, Summary: v.note})
+			}
+		}
+		// 「最近拜访」有日期，就至少有那一条记录
+		if len(c.Visits) == 0 {
+			c.Visits = []demoVisitNote{{Date: c.LastVisit, By: c.Owner, Summary: demoVisitLines[i%len(demoVisitLines)]}}
+		}
 		switch {
 		case c.Health < 52:
 			c.Risk = "高"
@@ -281,6 +343,7 @@ func demoCRMCustomers(now time.Time) []demoCustomer {
 		default:
 			c.Risk = "低"
 		}
+		out = append(out, c)
 	}
 	return out
 }
@@ -446,7 +509,7 @@ type demoITSM struct {
 
 var demoTicketCategories = []struct{ id, name, selfHelp string }{
 	{"vpn", "VPN 连不上", "IT 排障手册「VPN 连不上」：先确认 DSH 外的网页能打开，再重装客户端证书"},
-	{"mail", "邮箱收发异常", "IT 排障手册「邮箱」：检查收件规则与邮箱容量，超过 50 GB 要归档"},
+	{"mail", "邮箱收发异常", "先看垃圾邮件和收件规则；邮箱容量超过 50 GB 要先归档。还不行就建工单"},
 	{"printer", "打印机", "IT 排障手册「打印机」：3 楼 HP 打印机要先刷工牌"},
 	{"account", "账号锁定 / 密码", "IT 排障手册「账号被锁」：连续输错 5 次锁 15 分钟，可在自助门户解锁"},
 	{"laptop", "电脑卡慢 / 故障", "IT 排障手册「电脑卡慢」：先看磁盘剩余空间，低于 10% 清理下载目录"},
@@ -517,7 +580,8 @@ func (s *Server) handleDemoTickets(w http.ResponseWriter, r *http.Request) {
 	items := []demoTicket{}
 	for _, t := range s.itsm.list() {
 		open := t.Status == "待处理" || t.Status == "处理中"
-		if demoMine(t.Requester, who, alt) && (status == "" || t.Status == status || (status == "未解决" && open)) {
+		// 处理人查「我的工单」看到的是派给他的：IT 主管刘洋打开就是整个积压
+		if (demoMine(t.Requester, who, alt) || t.Assignee == who) && (status == "" || t.Status == status || (status == "未解决" && open)) {
 			if alt != "" {
 				t.Requester = who
 			}
@@ -537,7 +601,7 @@ func (s *Server) handleDemoTicketSummary(w http.ResponseWriter, r *http.Request)
 	week := time.Now().AddDate(0, 0, -7).Format("2006-01-02")
 	var open, overdue, resolved int
 	for _, t := range s.itsm.list() {
-		if !demoMine(t.Requester, who, alt) {
+		if !demoMine(t.Requester, who, alt) && t.Assignee != who {
 			continue
 		}
 		switch {

@@ -56,7 +56,7 @@ export default async function (t) {
   step("系统设置「清除示例数据」：确认后删掉示例的能力、知识库与演示员工");
   const hub = await api(admin, "GET", "/api/hub");
   assert(hub.data.assets.some((a) => a.slug === `own-${tag}`), "用户自己的提示词应还在");
-  assert(!hub.data.assets.some((a) => ["demo-crm", "travel-expense", "zhouhang-weekly"].includes(a.slug)), "示例能力应删掉");
+  assert(!hub.data.assets.some((a) => ["demo-crm", "travel-expense", "zhouhang-weekly", "renewal-advisor"].includes(a.slug)), "示例能力应删掉");
   const back = await newPage(t);
   await back.goto(`${BASE}/login`);
   await back.locator("input[autocomplete=username]").fill(m[1]);

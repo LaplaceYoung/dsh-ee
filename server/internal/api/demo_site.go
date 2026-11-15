@@ -170,12 +170,22 @@ func nextDemoReset(now time.Time, every time.Duration) time.Time {
 }
 
 // demoSiteInfo 给登录页和页面顶部的提示条用；正常部署返回 nil。
-func (s *Server) demoSiteInfo() *demoSiteInfo {
+func (s *Server) demoSiteInfo(ctx context.Context) *demoSiteInfo {
 	d := s.opts.DemoSite
 	if d == nil {
 		return nil
 	}
-	info := &demoSiteInfo{Username: d.Username, Password: d.Password, Reset: d.Reset, Personas: demoGuide(), Videos: d.videos()}
+	// 只列出已经导入的场景里的人：没导入的场景点了也进不去。一个都没有（正在重置）时照旧给示例公司的
+	personas := []demoGuideStep{}
+	for _, g := range demoAllGuides() {
+		if _, err := s.store.GetUserByUsername(ctx, g.Username); err == nil {
+			personas = append(personas, g)
+		}
+	}
+	if len(personas) == 0 {
+		personas = demoGuide()
+	}
+	info := &demoSiteInfo{Username: d.Username, Password: d.Password, Reset: d.Reset, Personas: personas, Videos: d.videos()}
 	if d.ResetEvery > 0 {
 		next := nextDemoReset(time.Now(), d.ResetEvery)
 		info.NextReset = &next
@@ -243,7 +253,7 @@ func (s *Server) demoStat(event, what string) {
 }
 
 func isDemoUser(name string) bool {
-	for _, u := range demoUsers {
+	for _, u := range demoAllUsers() {
 		if u.Username == name {
 			return true
 		}

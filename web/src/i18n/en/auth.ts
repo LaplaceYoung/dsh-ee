@@ -24,6 +24,15 @@ export default {
       heroSubtitle: "Xinghe Tech is a 200-person sample software company with a CRM, travel expenses, IT tickets and knowledge bases for 6 departments connected. Pick a person to see the AI apps they use every day.",
       uses: "Uses: {{app}}",
       enterAs: "Continue as {{name}}",
+      scenarios: {
+        pick: "Pick a demo scenario",
+        xinghe: { tab: "Company · Xinghe Tech" },
+        novel: {
+          tab: "Small team · Shanhai Studio",
+          heroTitle: "Try dsh-ee as a member of Shanhai Studio",
+          heroSubtitle: "Shanhai Studio is a 4-person team serialising a novel, with no business systems to connect: the story bible and writing guide are knowledge bases, the chapter tracker is a table everyone can edit, and manuscript review goes to two experts. Pick a person to see the app they use every day.",
+        },
+      },
       adminDivider: "Or sign in as the admin to see how apps are connected, reviewed, permissioned and audited",
       dsh: {
         title: "Already have DSH? Connect it to the demo and ask for real",

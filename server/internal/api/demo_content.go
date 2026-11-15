@@ -31,6 +31,8 @@ type demoAsset struct {
 	Spec                 assetSpec
 	// 连接：导入后打开的写工具
 	EnableTools []string
+	// 可用范围只给这几个部门；空表示全公司
+	Departments []string
 }
 
 func demoAssets() []demoAsset {
@@ -90,7 +92,7 @@ func demoAssets() []demoAsset {
 				Body:        demoWeeklyPrompt,
 			},
 		},
-	}, demoSampleApps()...)
+	}, append(demoSampleApps(), demoExpertAssets()...)...)
 }
 
 const demoMinutesSkill = `# 会议纪要整理

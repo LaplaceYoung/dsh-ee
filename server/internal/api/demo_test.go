@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http/httptest"
@@ -58,8 +59,8 @@ func TestDemoImport(t *testing.T) {
 			t.Fatalf("%s %s 没建成：%s %s", it.Kind, it.Slug, it.Result, it.Error)
 		}
 	}
-	if len(res.Items) != 28 || len(res.Accounts) != 10 {
-		t.Fatalf("应建 6 个库、7 项能力、10 个账号、2 个自己用的应用：%s", body)
+	if len(res.Items) != 34 || len(res.Accounts) != 10 {
+		t.Fatalf("应建 6 个库、15 项能力（含 2 个技能、4 位专家）、10 个账号、3 个员工自己做的应用：%s", body)
 	}
 
 	// 再导一次：全部跳过，不返回密码
@@ -109,7 +110,10 @@ func TestDemoImport(t *testing.T) {
 	code, body = admin.do("PUT", "/api/admin/settings", set, nil)
 	expect(t, "填访问地址", code, 200, body)
 
-	// 演示员工用返回的密码登录，接入 DSH
+	// 演示员工用返回的密码登录，接入 DSH：研发部的孙悦；销售部的周航在下面另接一个，用来调 CRM
+	if res.Accounts[4].Username != "demo.zhou.hang" || res.Accounts[1].Username != "demo.sun.yue" {
+		t.Fatalf("演示账号的顺序变了：%s", body)
+	}
 	zhang := newClient(t, ts.URL)
 	code, body = zhang.do("POST", "/api/auth/login", map[string]string{"username": res.Accounts[1].Username, "password": res.Accounts[1].Password}, nil)
 	expect(t, "演示员工登录", code, 200, body)
@@ -125,16 +129,84 @@ func TestDemoImport(t *testing.T) {
 			t.Fatalf("微应用 %s 缺能力：%v", a.Name, a.Missing)
 		}
 	}
-	for _, want := range []string{"travel-expense", "onboarding-buddy"} {
+	for _, want := range []string{"travel-expense", "onboarding-buddy", "contract-reviewer"} {
 		if !slices.Contains(apps, want) {
-			t.Fatalf("员工 DSH 里应有微应用 %s：%v", want, apps)
+			t.Fatalf("员工 DSH 里应有微应用 / 专家 %s：%v", want, apps)
 		}
+	}
+	if !slices.Contains(cat.skillNames(), "contract-clause-check") || slices.Contains(cat.skillNames(), "customer-email") || slices.Contains(cat.skillNames(), "weekly-report") {
+		t.Fatalf("自动生效的技能应下发、自选的技能和提示词不应下发：%v", cat.skillNames())
+	}
+	// 研发部的孙悦：示例的禁用策略把 CRM 和依赖它的应用、专家整个挡掉（上面已验没有缺能力的应用）；
+	// 报销稽核专家只给财务部，专家团队是自选的
+	for _, hidden := range []string{"customer-brief", "renewal-advisor", "expense-auditor", "deal-desk"} {
+		if slices.Contains(apps, hidden) {
+			t.Fatalf("研发部的孙悦不应拿到 %s：%v", hidden, apps)
+		}
+	}
+	if r := dsh.rpc("tools/call", map[string]any{"name": "demo-crm__get_summary", "arguments": map[string]any{}}); r["error"] == nil {
+		if out, _ := r["result"].(map[string]any); out == nil || out["isError"] != true {
+			t.Fatalf("研发部调 CRM 应被挡住：%v", r)
+		}
+	}
+
+	// 销售部的周航：有客户拜访简报和续约谈判专家
+	zhouWeb := newClient(t, ts.URL)
+	code, body = zhouWeb.do("POST", "/api/auth/login", map[string]string{"username": res.Accounts[4].Username, "password": res.Accounts[4].Password}, nil)
+	expect(t, "销售员工登录", code, 200, body)
+	code, body = zhouWeb.do("POST", "/api/me/npm-tokens", map[string]any{"name": "dsh", "access": "read"}, nil)
+	expect(t, "销售员工的接入令牌", code, 201, body)
+	zhou := dshClient{t: t, base: ts.URL, token: decodeAs[struct{ Token string }](t, body).Token}
+	var zhouApps []string
+	for _, a := range zhou.catalog().Apps {
+		zhouApps = append(zhouApps, a.Name)
+		if len(a.Missing) > 0 {
+			t.Fatalf("周航的 %s 缺能力：%v", a.Name, a.Missing)
+		}
+	}
+	for _, want := range []string{"customer-brief", "renewal-advisor", "contract-reviewer", "zhouhang-weekly"} {
+		if !slices.Contains(zhouApps, want) {
+			t.Fatalf("周航的 DSH 里应有 %s：%v", want, zhouApps)
+		}
+	}
+	if slices.Contains(zhouApps, "expense-auditor") {
+		t.Fatalf("报销稽核专家只给财务部：%v", zhouApps)
+	}
+	code, body = admin.do("GET", "/api/admin/users", nil, nil)
+	expect(t, "用户列表", code, 200, body)
+	var sunID int64
+	for _, u := range decodeAs[struct {
+		Users []struct {
+			ID       int64
+			Username string
+		}
+	}](t, body).Users {
+		if u.Username == "demo.sun.yue" {
+			sunID = u.ID
+		}
+	}
+	code, body = admin.do("GET", fmt.Sprintf("/api/admin/hub/effective?user=%d", sunID), nil, nil)
+	expect(t, "权限查询", code, 200, body)
+	blockedCRM := false
+	for _, it := range decodeAs[struct {
+		Items []struct {
+			Slug, Result, Reason string
+			BlockIDs             []int64 `json:"block_ids"`
+		}
+	}](t, body).Items {
+		blockedCRM = blockedCRM || (it.Slug == "demo-crm" && it.Result == "hidden" && it.Reason == "blocked" && len(it.BlockIDs) == 1)
+	}
+	if !blockedCRM {
+		t.Fatalf("权限查询应显示孙悦被禁用策略挡在 CRM 外：%s", body)
+	}
+	// 分类和精选
+	code, body = admin.do("GET", "/api/admin/hub/categories", nil, nil)
+	expect(t, "示例分类", code, 200, body)
+	if n := len(decodeAs[struct{ Categories []any }](t, body).Categories); n != 3 {
+		t.Fatalf("应有 3 个示例分类：%s", body)
 	}
 	if !slices.Contains(cat.skillNames(), "meeting-minutes") {
 		t.Fatalf("自动生效的技能应下发：%v", cat.skillNames())
-	}
-	if slices.Contains(cat.skillNames(), "weekly-report") {
-		t.Fatal("自选的提示词没启用前不应下发")
 	}
 
 	// 微应用指令里带着知识库规则和工作台
@@ -187,7 +259,12 @@ func TestDemoImport(t *testing.T) {
 
 	// CRM 与 IT 工单
 	callOn := func(conn, tool string, args map[string]any) string {
-		r := dsh.rpc("tools/call", map[string]any{"name": conn + "__" + tool, "arguments": args})
+		// CRM 用销售部的周航调：研发部被禁用策略挡着
+		d := dsh
+		if conn == "demo-crm" {
+			d = zhou
+		}
+		r := d.rpc("tools/call", map[string]any{"name": conn + "__" + tool, "arguments": args})
 		out, _ := r["result"].(map[string]any)
 		if r["error"] != nil || out == nil || out["isError"] == true {
 			t.Fatalf("%s__%s：%v", conn, tool, r)
@@ -204,8 +281,44 @@ func TestDemoImport(t *testing.T) {
 	if text := callOn("demo-crm", "list_renewals", map[string]any{"days": 60}); !strings.Contains(text, `"risk":"高"`) || !strings.Contains(text, "华东精密制造") {
 		t.Fatalf("续约提醒里应有高风险客户：%s", text)
 	}
-	if text := callOn("demo-crm", "get_customer", map[string]any{"id": "C001"}); !strings.Contains(text, "contracts") {
-		t.Fatalf("客户详情应带合同：%s", text)
+	// 客户详情前后一致：行业对得上名字，续约日 = 在用合同的到期日，最近拜访 = 最新一条拜访记录
+	for _, id := range []string{"C001", "C005", "C018", "C002"} {
+		var c struct {
+			Name, Industry string
+			RenewAt        string `json:"renew_at"`
+			LastVisit      string `json:"last_visit"`
+			ARR            float64
+			Contracts      []struct {
+				End    string
+				Amount float64
+			}
+			Visits []struct{ Date string }
+		}
+		text := callOn("demo-crm", "get_customer", map[string]any{"id": id})
+		if json.Unmarshal([]byte(text), &c) != nil || len(c.Contracts) == 0 || len(c.Visits) == 0 {
+			t.Fatalf("客户详情应带合同和拜访记录：%s", text)
+		}
+		for _, ct := range c.Contracts {
+			if ct.End != c.RenewAt {
+				t.Fatalf("%s 的合同到期日应等于续约日 %s：%s", c.Name, c.RenewAt, text)
+			}
+		}
+		if c.Visits[0].Date != c.LastVisit {
+			t.Fatalf("%s 的最近拜访应等于最新一条拜访记录：%s", c.Name, text)
+		}
+		if id == "C001" && (c.Industry != "制造" || c.ARR < 500000) {
+			t.Fatalf("华东精密制造应是制造业的大客户：%s", text)
+		}
+		if id == "C005" && c.Industry != "金融" {
+			t.Fatalf("瑞丰银行应是金融业：%s", text)
+		}
+	}
+	// IT 主管查「我的工单」看到的是派给他的整个积压；没有报销单的员工不借别人的
+	if text := callOn("demo-itsm", "list_tickets", map[string]any{"requester": "刘洋", "status": "未解决"}); !strings.Contains(text, "新员工电脑还没领到") {
+		t.Fatalf("IT 主管应看到派给他的工单：%s", text)
+	}
+	if text, _ := call("list_claims", map[string]any{"applicant": "陈一"}); strings.Contains(text, "BX-") {
+		t.Fatalf("陈一没有报销单，不应借别人的：%s", text)
 	}
 	if text := callOn("demo-itsm", "list_tickets", map[string]any{"requester": "郑小雨"}); !strings.Contains(text, "新员工电脑还没领到") {
 		t.Fatalf("新人的工单：%s", text)
@@ -287,8 +400,19 @@ func TestDemoImport(t *testing.T) {
 	code, body = admin.do("DELETE", "/api/admin/demo", nil, nil)
 	expect(t, "清除示例", code, 200, body)
 	cleared := decodeAs[struct{ Assets, KBases, Users int }](t, body)
-	if cleared.Assets != 12 || cleared.KBases != 6 || cleared.Users != 10 {
-		t.Fatalf("应删 12 项能力、6 个库、10 个账号：%s", body)
+	if cleared.Assets != 18 || cleared.KBases != 6 || cleared.Users != 10 {
+		t.Fatalf("应删 18 项能力、6 个库、10 个账号：%s", body)
+	}
+	// 导入时建的分类和禁用策略一起删掉
+	code, body = admin.do("GET", "/api/admin/hub/categories", nil, nil)
+	expect(t, "清除后的分类", code, 200, body)
+	if n := len(decodeAs[struct{ Categories []any }](t, body).Categories); n != 0 {
+		t.Fatalf("清除后不应还有示例分类：%s", body)
+	}
+	code, body = admin.do("GET", "/api/admin/hub/blocks", nil, nil)
+	expect(t, "清除后的禁用策略", code, 200, body)
+	if n := len(decodeAs[struct{ Blocks []any }](t, body).Blocks); n != 0 {
+		t.Fatalf("清除后不应还有示例禁用策略：%s", body)
 	}
 	code, body = admin.do("GET", "/api/admin/demo", nil, nil)
 	expect(t, "清除后的状态", code, 200, body)
@@ -323,7 +447,7 @@ func TestDemoImport(t *testing.T) {
 	code, body = admin.do("POST", "/api/admin/demo", nil, nil)
 	expect(t, "清除后再导入", code, 200, body)
 	again2 := decodeAs[result](t, body)
-	if len(again2.Items) != 28 || len(again2.Accounts) != 10 {
+	if len(again2.Items) != 34 || len(again2.Accounts) != 10 {
 		t.Fatalf("清除后再导入应和第一次一样：%s", body)
 	}
 	for _, it := range again2.Items {

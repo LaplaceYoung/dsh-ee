@@ -159,10 +159,14 @@ import_demo() {
 	curl -fsS -c "$jar" -H 'Content-Type: application/json' \
 		-d "$(printf '{"username":"%s","password":"%s"}' "${DSH_EE_BOOTSTRAP_ADMIN:-admin}" "$DSH_EE_BOOTSTRAP_ADMIN_PASSWORD")" \
 		"$base/api/auth/login" >/dev/null || { rm -f "$jar"; die "管理员登录失败"; }
-	if ! curl -fsS -b "$jar" -X POST "$base/api/admin/demo" > "$LOGS/last-import.json"; then
-		rm -f "$jar"
-		die "导入示例内容失败，看 $LOGS/last-import.json"
-	fi
+	# 示例公司和小团队两个场景都导入，登录页上让访客自己挑
+	local sc
+	for sc in xinghe novel; do
+		if ! curl -fsS -b "$jar" -X POST "$base/api/admin/demo?scenario=$sc" > "$LOGS/last-import-$sc.json"; then
+			rm -f "$jar"
+			die "导入示例场景 $sc 失败，看 $LOGS/last-import-$sc.json"
+		fi
+	done
 	rm -f "$jar"
 	log "示例内容已导入"
 }

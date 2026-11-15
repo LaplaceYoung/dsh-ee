@@ -176,37 +176,83 @@ type demoAccount struct {
 	Password string `json:"password,omitempty"`
 }
 
-// GET /api/admin/demo：示例内容里各项现在有没有，以及还有没有可清除的示例数据。
-func (s *Server) handleDemoStatus(w http.ResponseWriter, r *http.Request) {
-	items, imported := s.demoState(r.Context())
-	present := false
-	for _, it := range items {
-		present = present || it.Result == "exists"
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items, "imported": imported, "present": present, "guide": demoGuide()})
+// demoScenarioState 是一个场景现在的导入情况，给管理员挑场景用。
+type demoScenarioState struct {
+	demoScenario
+	// 这个场景的每一项都在
+	Imported bool `json:"imported"`
+	// 至少有一项在（没导完，或者有的被删了）
+	Present bool `json:"present"`
+	// 成员数、知识库数、能力数
+	People int             `json:"people"`
+	KBases int             `json:"kbases"`
+	Assets int             `json:"assets"`
+	Guide  []demoGuideStep `json:"guide"`
 }
 
-// demoState 列出示例内容里各项现在有没有，全都有算已导入。
+// GET /api/admin/demo：示例内容里各项现在有没有，以及还有没有可清除的示例数据。
+// items / guide 是已经导入的那些场景的（一个都没导入时是示例公司的），scenarios 是每个场景各自的情况。
+func (s *Server) handleDemoStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var states []demoScenarioState
+	items, guide := []demoItem{}, []demoGuideStep{}
+	imported, present := false, false
+	for _, sc := range demoScenarios() {
+		its, done := s.demoStateOf(ctx, &sc)
+		st := demoScenarioState{demoScenario: sc, Imported: done, People: len(sc.users), KBases: len(sc.kbases),
+			Assets: len(sc.assets()) + len(sc.selfApps()), Guide: sc.guide()}
+		for _, it := range its {
+			st.Present = st.Present || it.Result == "exists" || it.Result == "outdated"
+		}
+		if st.Present {
+			items, guide = append(items, its...), append(guide, st.Guide...)
+		}
+		imported, present = imported || done, present || st.Present
+		states = append(states, st)
+	}
+	if !present {
+		items, _ = s.demoStateOf(ctx, demoScenarioByID(demoScenarioCompany))
+		guide = demoGuide()
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "imported": imported, "present": present, "guide": guide, "scenarios": states})
+}
+
+// demoState：有没有哪个示例场景已经完整导入（部署清单里「示例内容」这一步算不算做完）。
 func (s *Server) demoState(ctx context.Context) ([]demoItem, bool) {
+	var first []demoItem
+	for i, sc := range demoScenarios() {
+		items, done := s.demoStateOf(ctx, &sc)
+		if done {
+			return items, true
+		}
+		if i == 0 {
+			first = items
+		}
+	}
+	return first, false
+}
+
+// demoStateOf 列出一个场景里各项现在有没有，全都有算已导入。
+func (s *Server) demoStateOf(ctx context.Context, sc *demoScenario) ([]demoItem, bool) {
 	items := []demoItem{}
-	for _, b := range demoKBases {
+	for _, b := range sc.kbases {
 		items = append(items, s.demoExists(ctx, "kb", b.Slug, b.Title))
 	}
-	for _, a := range demoAssets() {
+	for _, a := range sc.assets() {
 		if a.Kind == store.KindApp {
 			items = append(items, s.demoAppState(ctx, a.Slug, a.Spec.Title, a.Spec))
 			continue
 		}
 		items = append(items, s.demoExists(ctx, a.Kind, a.Slug, a.Spec.Title))
 	}
-	for _, u := range demoUsers {
+	for _, u := range sc.users {
 		res := demoItem{Kind: "user", Slug: u.Username, Title: u.DisplayName, Result: "missing"}
 		if _, err := s.store.GetUserByUsername(ctx, u.Username); err == nil {
 			res.Result = "exists"
 		}
 		items = append(items, res)
 	}
-	for _, a := range demoSelfApps() {
+	for _, a := range sc.selfApps() {
 		if a.Kind == store.KindApp && a.DataWorkbench == nil {
 			items = append(items, s.demoAppState(ctx, a.Slug, a.Spec.Title, a.Spec))
 			continue
@@ -307,10 +353,16 @@ func (s *Server) demoUpgradeApp(ctx context.Context, it demoItem, a *store.Asset
 	return it, nil
 }
 
-// POST /api/admin/demo：导入示例内容。要超级管理员：会建账号、连接，并把微应用推到全员的 DSH。
+// POST /api/admin/demo?scenario=：导入一个示例场景（不写是示例公司「星河科技」）。
+// 要超级管理员：会建账号、连接，并把微应用推到全员的 DSH。
 func (s *Server) handleDemoImport(w http.ResponseWriter, r *http.Request) {
 	if !s.topAdmin(currentAccess(r)) {
 		writeErr(w, http.StatusForbidden, "导入示例内容需要超级管理员")
+		return
+	}
+	sc := demoScenarioByID(strings.TrimSpace(r.URL.Query().Get("scenario")))
+	if sc == nil {
+		writeErr(w, http.StatusBadRequest, "没有这个示例场景")
 		return
 	}
 	ctx := r.Context()
@@ -326,16 +378,16 @@ func (s *Server) handleDemoImport(w http.ResponseWriter, r *http.Request) {
 		items = append(items, it)
 	}
 
-	for _, b := range demoKBases {
+	for _, b := range sc.kbases {
 		it, err := s.demoImportKBase(ctx, b, by)
 		add(it, err)
 	}
-	for _, a := range demoAssets() {
+	for _, a := range sc.assets() {
 		it, err := s.demoImportAsset(r, a, by)
 		add(it, err)
 	}
 	accounts := []demoAccount{}
-	for _, u := range demoUsers {
+	for _, u := range sc.users {
 		acc, it, err := s.demoImportUser(ctx, u)
 		add(it, err)
 		if acc != nil {
@@ -344,9 +396,12 @@ func (s *Server) handleDemoImport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// 数据中台的示例表和数据集（要用演示员工的名字，放在建账号之后）；没开数据中台时跳过
-	items = append(items, s.demoImportData(ctx, by, time.Now().UTC())...)
+	company := sc.ID == demoScenarioCompany
+	if company {
+		items = append(items, s.demoImportData(ctx, by, time.Now().UTC())...)
+	}
 	// 员工自己搭建的「自己用」应用，要等账号建好
-	for _, a := range demoSelfApps() {
+	for _, a := range sc.selfApps() {
 		it, err := s.demoImportSelfApp(ctx, a)
 		if err == nil {
 			// demoImportSelfApp 自己记过了
@@ -356,13 +411,35 @@ func (s *Server) handleDemoImport(w http.ResponseWriter, r *http.Request) {
 		it.Result, it.Error = "failed", err.Error()
 		items = append(items, it)
 	}
-	usage, err := s.demoSimulateUsage(ctx, time.Now().UTC())
+	// 分类、精选和禁用策略，只动这次新建的能力
+	created := map[string]bool{}
+	for _, it := range items {
+		if it.Result == "created" {
+			created[it.Slug] = true
+		}
+	}
+	if company {
+		if err := s.demoImportPolicies(ctx, created, by); err != nil {
+			s.log.Warn("写入示例的分类与禁用策略失败", "err", err)
+		}
+	}
+	// 几个场景并存时互相隔开
+	if err := s.demoIsolate(ctx, by); err != nil {
+		s.log.Warn("写入示例场景之间的禁用策略失败", "err", err)
+	}
+	mark := int64(0)
+	for i, x := range demoScenarios() {
+		if x.ID == sc.ID {
+			mark = int64(i)
+		}
+	}
+	usage, err := s.demoSimulateUsage(ctx, time.Now().UTC(), sc.users, mark)
 	if err != nil {
 		s.log.Warn("写入示例的模拟使用数据失败", "err", err)
 	}
-	s.audit(r, auditDemoImport, "demo", map[string]any{"items": len(items), "accounts": len(accounts), "usage_rows": usage})
+	s.audit(r, auditDemoImport, "demo", map[string]any{"scenario": sc.ID, "items": len(items), "accounts": len(accounts), "usage_rows": usage})
 	s.hub.notify()
-	writeJSON(w, http.StatusOK, map[string]any{"items": items, "accounts": accounts, "usage_rows": usage, "guide": demoGuide()})
+	writeJSON(w, http.StatusOK, map[string]any{"scenario": sc.ID, "items": items, "accounts": accounts, "usage_rows": usage, "guide": sc.guide()})
 }
 
 func (s *Server) demoImportKBase(ctx context.Context, d demoKBase, by int64) (demoItem, error) {
@@ -419,6 +496,9 @@ func (s *Server) demoImportAsset(r *http.Request, d demoAsset, by int64) (demoIt
 	owner := by
 	a := &store.Asset{Kind: d.Kind, Slug: d.Slug, Title: sp.Title, Description: sp.Description, Category: demoCategory,
 		OwnerID: &owner, Scope: store.Scope{All: true}, Delivery: d.Delivery}
+	if len(d.Departments) > 0 {
+		a.Scope = store.Scope{Departments: d.Departments}
+	}
 	if err := s.store.CreateAsset(ctx, a, raw, store.StatusPublished, by); err != nil {
 		if errors.Is(err, store.ErrDuplicate) {
 			return it, nil
