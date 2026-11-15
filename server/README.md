@@ -173,7 +173,7 @@ OceanBase 单机最低也要几 GB 内存，本地机器紧张时先用 TiDB 调
 | `DSH_EE_EXTENSION_REQUIRE_SIGNATURE` | 设为 `1` 时，没签名或签名无效的扩展不让安装（fail closed）；库里或 `DSH_EE_EXTENSION_TRUSTED_KEYS` 至少要有受信任的公钥，一把都没有时启动只警告、所有扩展都装不了。撤销的签名在任何策略下都不让新装。默认只在安装计划里提示，不阻断。见 [docs/plugins.md](../docs/plugins.md) §9.3 |
 | `DSH_EE_EMBED_MINT_PER_MINUTE` | `POST /api/embed/sessions` 的限流：每 IP 每分钟次数，默认 `30`，允许 1–100000。计数在数据库 `embed_rates` 表里，多实例部署时是合计额度 |
 | `DSH_EE_EMBED_EXCHANGE_PER_MINUTE` | `POST /api/auth/embed/exchange` 的限流：每 IP 每分钟次数，默认 `60`，允许 1–100000。同样跨实例合计；超限返回 `429` + `Retry-After: 60` |
-| `DSH_EE_CSP` | 内容安全策略模式：`off`（默认，只加现有的 `frame-ancestors` 嵌入收口）/ `report`（`Content-Security-Policy-Report-Only`，只报告不阻断）/ `enforce`（`Content-Security-Policy`，阻断违规）。`script-src` 用 index.html 内联脚本的 sha256 哈希（启动时从嵌入的前端产物计算），`frame-ancestors` 与 `DSH_EE_EMBED_ORIGINS` 合并；非法值启动失败。见 [docs/operations.md](../docs/operations.md) §10.1 |
+| `DSH_EE_CSP` | 内容安全策略模式：`enforce`（未设置时的默认值；下发内置基线策略 + `frame-ancestors` 嵌入收口）/ `report`（`Content-Security-Policy-Report-Only`，只报告不阻断）/ `off`（显式关闭：只加现有的 `frame-ancestors` 收口，即升级前行为，回滚用）。`script-src` 用 index.html 内联脚本的 sha256 哈希（启动时从嵌入的前端产物计算），`frame-ancestors` 与 `DSH_EE_EMBED_ORIGINS` 合并；非法值启动失败。见 [docs/operations.md](../docs/operations.md) §10.1 |
 | `DSH_EE_CSP_REPORT_URI` | CSP 违规报告地址（可选，`http(s)://…`）。`DSH_EE_CSP` 不是 `off` 时写进策略的 `report-uri`；dsh-ee 不自带收集端点。非法地址启动失败 |
 
 ## 健康检查

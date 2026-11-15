@@ -5,17 +5,34 @@ import (
 	"testing"
 )
 
-func TestCSPDefaultsOff(t *testing.T) {
+// 未设置 DSH_EE_CSP 时默认启用内置基线策略（enforce），不是 off。
+func TestCSPDefaultsEnforce(t *testing.T) {
 	setRequiredEnv(t)
 	c, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.CSP != CSPOff {
-		t.Fatalf("DSH_EE_CSP 默认应为 off，得到 %q", c.CSP)
+	if c.CSP != CSPEnforce {
+		t.Fatalf("DSH_EE_CSP 未设置时应默认 enforce，得到 %q", c.CSP)
+	}
+	if c.CSP != CSPDefaultMode {
+		t.Fatalf("CSPDefaultMode = %q，与默认解析结果 %q 不一致", CSPDefaultMode, c.CSP)
 	}
 	if c.CSPReportURI != "" {
 		t.Fatalf("报告地址默认应为空，得到 %q", c.CSPReportURI)
+	}
+}
+
+// 显式 off 仍然关闭完整策略：升级后要保留旧行为（只加 frame-ancestors）就设它。
+func TestCSPExplicitOff(t *testing.T) {
+	setRequiredEnv(t)
+	t.Setenv("DSH_EE_CSP", "off")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.CSP != CSPOff {
+		t.Fatalf("DSH_EE_CSP=off 应解析为 off，得到 %q", c.CSP)
 	}
 }
 
@@ -85,7 +102,7 @@ func TestCSPReportURIInvalid(t *testing.T) {
 
 func TestParseCSPMode(t *testing.T) {
 	for _, c := range []struct{ in, want string }{
-		{"", CSPOff},
+		{"", CSPEnforce},
 		{"off", CSPOff},
 		{"report", CSPReport},
 		{"enforce", CSPEnforce},

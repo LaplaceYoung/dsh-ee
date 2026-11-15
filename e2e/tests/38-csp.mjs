@@ -1,5 +1,5 @@
-// 可配置 CSP（DSH_EE_CSP）：默认 off 不变；report 只报告、enforce 阻断。
-// 隔离模式起两个独立实例（enforce / report），用浏览器确认内联主题脚本的哈希正确、
+// 可配置 CSP（DSH_EE_CSP）：未设置时默认 enforce（内置基线策略）；report 只报告、off 显式关闭回滚。
+// 隔离模式起三个独立实例（默认 / report / off），用浏览器确认默认策略下内联主题脚本的哈希正确、
 // 页面没有 CSP 违规、同站嵌入页（/a/*）仍能正常工作；非隔离模式跳过（需要独立实例）。
 import { ADMIN_PW, api, assert, assertEq, newPage, step, tag } from "../lib.mjs";
 import { findFreePort, isManaged, startManagedServer } from "../server.mjs";
@@ -29,36 +29,40 @@ export default async function (t) {
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const enforcePort = await findFreePort();
-  const enforce = await startManagedServer({ port: enforcePort, env: { DSH_EE_CSP: "enforce" } });
+  // 默认实例：把 DSH_EE_CSP 显式设成空串，覆盖从外部继承的同名变量，验证「未设置 = 默认 enforce」。
+  const fallback = await startManagedServer({ port: await findFreePort(), env: { DSH_EE_CSP: "" } });
   const report = await startManagedServer({
     port: await findFreePort(),
     env: { DSH_EE_CSP: "report", DSH_EE_CSP_REPORT_URI: "https://reports.example.com/csp" },
   });
+  const off = await startManagedServer({ port: await findFreePort(), env: { DSH_EE_CSP: "off" } });
   try {
-    // ---- enforce：响应头 ----
-    const loginPage = await headers(enforce.url, "/login");
+    // ---- 默认（enforce）：响应头 ----
+    const loginPage = await headers(fallback.url, "/login");
     const policy = loginPage.headers.get("content-security-policy") || "";
-    assert(policy.startsWith("default-src 'self';"), "enforce 模式应下发完整策略：" + policy);
+    assert(policy.startsWith("default-src 'self';"), "默认应下发完整策略：" + policy);
     assert(scriptHash.test(policy), "script-src 应带 index.html 内联脚本的 sha256 哈希：" + policy);
     assert(!/script-src[^;]*unsafe-inline/.test(policy), "script-src 不能用 unsafe-inline 兜底：" + policy);
-    assert(policy.endsWith("form-action 'self'; frame-ancestors 'self'"), "非嵌入页只能允许同站嵌入：" + policy);
-    assertEq(loginPage.headers.get("content-security-policy-report-only"), null, "enforce 模式不应有 Report-Only");
+    assert(policy.includes("object-src 'none'"), "默认策略应禁用 object/embed：" + policy);
+    assert(/img-src[^;]*blob:/.test(policy), "img-src 应放行 blob:（品牌设置里本地裁剪预览用）：" + policy);
+    assert(policy.endsWith("frame-src 'self'; frame-ancestors 'self'"), "非嵌入页只能允许同站嵌入：" + policy);
+    assertEq(loginPage.headers.get("content-security-policy-report-only"), null, "默认模式不应有 Report-Only");
 
-    const appPage = await headers(enforce.url, "/a/some-app");
+    const appPage = await headers(fallback.url, "/a/some-app");
     const appPolicy = appPage.headers.get("content-security-policy") || "";
+    assert(appPolicy.startsWith("default-src 'self';"), "默认策略同样下发到嵌入页：" + appPolicy);
     assert(appPolicy.includes("frame-ancestors 'self'"), "嵌入页至少允许同站：" + appPolicy);
     for (const origin of embedOrigins) assert(appPolicy.includes(origin), "嵌入页应合并配置的来源 " + origin + "：" + appPolicy);
-    const adminPolicy = (await headers(enforce.url, "/admin/menus")).headers.get("content-security-policy") || "";
+    const adminPolicy = (await headers(fallback.url, "/admin/menus")).headers.get("content-security-policy") || "";
     assert(adminPolicy.endsWith("frame-ancestors 'self'"), "管理页不能放行嵌入来源：" + adminPolicy);
 
-    const health = await headers(enforce.url, "/healthz");
+    const health = await headers(fallback.url, "/healthz");
     for (const key of ["content-security-policy", "content-security-policy-report-only"]) {
       assertEq(health.headers.get(key), null, "非 HTML 接口不应带 " + key);
     }
-    step("enforce：HTML 带完整策略 + 合并后的 frame-ancestors；JSON 接口不带");
+    step("默认（enforce）：HTML 带完整策略 + 合并后的 frame-ancestors；JSON 接口不带");
 
-    // ---- enforce：浏览器里内联脚本能执行、页面无违规、嵌入页正常 ----
+    // ---- 默认（enforce）：浏览器里内联脚本能执行、页面无违规、嵌入页正常 ----
     const admin = await newPage(t);
     watchCSP(t, admin);
     await admin.addInitScript(() => {
@@ -68,12 +72,12 @@ export default async function (t) {
         /* 隐私模式 */
       }
     });
-    await admin.goto(`${enforce.url}/login`);
+    await admin.goto(`${fallback.url}/login`);
     await admin.locator("input[autocomplete=username]").waitFor({ timeout: 15000 });
     assertEq(
       await admin.evaluate(() => document.documentElement.classList.contains("dark")),
       true,
-      "首屏主题内联脚本应被哈希放行（enforce 下也能执行）",
+      "首屏主题内联脚本应被哈希放行（默认 enforce 下也能执行）",
     );
     await admin.locator("input[autocomplete=username]").fill("admin");
     await admin.locator("input[type=password]").fill(ADMIN_PW);
@@ -92,8 +96,8 @@ export default async function (t) {
     };
     assertEq((await api(admin, "POST", "/api/hub", { kind: "app", slug, delivery: "auto", spec })).status, 201, "建嵌入应用");
 
-    await admin.goto(`${enforce.url}/go`);
-    const iframeURL = `${enforce.url}/a/${slug}?embed=1&host=${encodeURIComponent(enforce.url)}`;
+    await admin.goto(`${fallback.url}/go`);
+    const iframeURL = `${fallback.url}/a/${slug}?embed=1&host=${encodeURIComponent(fallback.url)}`;
     await admin.evaluate((url) => {
       const f = document.createElement("iframe");
       f.id = "csp-frame";
@@ -103,7 +107,7 @@ export default async function (t) {
     }, iframeURL);
     const frame = admin.frameLocator("#csp-frame");
     await frame.getByRole("heading", { name: `CSP ${tag}` }).waitFor({ timeout: 20000 });
-    step("enforce：首屏主题脚本执行、页面无 CSP 违规、同站嵌入 iframe 正常渲染");
+    step("默认：首屏主题脚本执行、页面无 CSP 违规、同站嵌入 iframe 正常渲染");
 
     // ---- report：只报告不阻断，frame-ancestors 仍强制执行 ----
     const reportLogin = await headers(report.url, "/login");
@@ -125,8 +129,16 @@ export default async function (t) {
     await reportPage.goto(`${report.url}/login`);
     await reportPage.locator("input[autocomplete=username]").waitFor({ timeout: 15000 });
     step("report：Report-Only 策略 + report-uri，页面正常渲染且无违规");
+
+    // ---- off：显式关闭完整策略，只保留 frame-ancestors（升级后的回滚路径）----
+    const offLogin = await headers(off.url, "/login");
+    assertEq(offLogin.headers.get("content-security-policy"), "frame-ancestors 'self'", "off 模式只保留 frame-ancestors");
+    assertEq(offLogin.headers.get("content-security-policy-report-only"), null, "off 模式不应有 Report-Only");
+    const offPage = await newPage(t);
+    await offPage.goto(`${off.url}/login`);
+    await offPage.locator("input[autocomplete=username]").waitFor({ timeout: 15000 });
+    step("off：显式关闭完整策略，只保留 frame-ancestors（升级回滚路径可用）");
   } finally {
-    await enforce.stop();
-    await report.stop();
+    await Promise.all([fallback.stop(), report.stop(), off.stop()]);
   }
 }

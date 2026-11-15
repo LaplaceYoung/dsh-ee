@@ -184,7 +184,7 @@ func run(log *slog.Logger) error {
 		EmbedOrigins:              cfg.EmbedOrigins,
 		EmbedCrossSite:            cfg.EmbedCrossSite,
 		EmbedSessionTTL:           cfg.EmbedSessionTTL,
-		// 内容安全策略：默认 off（只保留现有 frame-ancestors 收口）
+		// 内容安全策略：默认 enforce（内置基线策略）；DSH_EE_CSP=off 可回滚到只加 frame-ancestors
 		CSP:                   cfg.CSP,
 		CSPReportURI:          cfg.CSPReportURI,
 		CSPInlineScriptHashes: inlineScriptHashes,
@@ -209,14 +209,17 @@ func run(log *slog.Logger) error {
 		// 多实例后台任务租约；后台循环与清理任务共用同一个租约执行器
 		BackgroundLeases: leases,
 	}, log)
-	if cfg.CSP != config.CSPOff {
+	if cfg.CSP == config.CSPOff {
+		// 显式回滚到旧行为：完整策略关闭，只保留 frame-ancestors 嵌入收口。
+		log.Info("内容安全策略已关闭（DSH_EE_CSP=off），只保留 frame-ancestors 嵌入收口")
+		if cfg.CSPReportURI != "" {
+			log.Warn("设置了 DSH_EE_CSP_REPORT_URI 但 DSH_EE_CSP=off：报告地址不会生效")
+		}
+	} else {
 		log.Info("内容安全策略已启用", "mode", cfg.CSP, "inline_script_hashes", len(inlineScriptHashes), "report_uri", cfg.CSPReportURI)
 		if cfg.CSP == config.CSPEnforce && len(inlineScriptHashes) == 0 && !embeddedWeb {
-			log.Warn("CSP=enforce 但没有内联脚本哈希：本二进制没有嵌入前端，HTML 不由本进程提供；若前端另有部署，请只在该层开 CSP")
+			log.Warn("CSP=enforce（未设置 DSH_EE_CSP 时的默认）但没有内联脚本哈希：本二进制没有嵌入前端，HTML 不由本进程提供；若前端另有部署，请只在该层开 CSP")
 		}
-	}
-	if cfg.CSP == config.CSPOff && cfg.CSPReportURI != "" {
-		log.Warn("设置了 DSH_EE_CSP_REPORT_URI 但 DSH_EE_CSP=off：报告地址不会生效")
 	}
 	if cfg.RateLimitPerMinute > 0 {
 		log.Info("已启用公开协议面限流", "per_minute_per_token", cfg.RateLimitPerMinute, "count_store", "database")

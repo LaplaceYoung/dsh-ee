@@ -118,9 +118,10 @@ type Options struct {
 	EmbedExchangePerMinute int
 	// 每用户同时有效的嵌入会话上限；0 用默认 5，超过时撤销最旧的会话。
 	EmbedMaxSessionsPerUser int
-	// 内容安全策略（DSH_EE_CSP）：off / report / enforce；空或其它值按 off。
-	// report 用 Content-Security-Policy-Report-Only，enforce 用 Content-Security-Policy；
-	// 两种模式都保留 #118 的 frame-ancestors 嵌入收口。见 security_headers.go。
+	// 内容安全策略（DSH_EE_CSP）：off / report / enforce；空或其它值按默认 enforce。
+	// enforce（默认）把完整基线策略放进 Content-Security-Policy，report 放进
+	// Content-Security-Policy-Report-Only（仍保留 frame-ancestors 收口），off 只保留
+	// #118 的 frame-ancestors 嵌入收口（旧行为，回滚用）。见 security_headers.go。
 	CSP string
 	// CSP 违规报告地址（DSH_EE_CSP_REPORT_URI）；为空时策略里不加 report-uri。
 	CSPReportURI string

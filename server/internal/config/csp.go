@@ -8,19 +8,27 @@ import (
 	"unicode"
 )
 
-// CSP 的三种模式（DSH_EE_CSP）。默认 off：不改变现有行为；report 只报告不阻断；
-// enforce 阻断违规请求。见 server/internal/api/security_headers.go。
+// CSP 的三种模式（DSH_EE_CSP）。默认 enforce：不设置时下发内置的基线策略；
+// off 显式关闭完整策略（只保留 frame-ancestors 嵌入收口）；report 只报告不阻断。
+// 见 server/internal/api/security_headers.go。
 const (
 	CSPOff     = "off"
 	CSPReport  = "report"
 	CSPEnforce = "enforce"
 )
 
+// CSPDefaultMode 是不设置 DSH_EE_CSP 时生效的模式：默认启用基线策略。
+// 旧版本默认 off，升级后行为会变；要保留旧行为显式设置 DSH_EE_CSP=off。
+const CSPDefaultMode = CSPEnforce
+
 // parseCSPMode 解析 DSH_EE_CSP：off | report | enforce，大小写与首尾空白不敏感；
-// 非法值让启动失败（fail closed），避免把写错的 "enforce" 静默当成 off。
+// 空值（未设置）取 CSPDefaultMode。非法值让启动失败（fail closed），避免把写错的
+// "enforce" 静默当成 off。
 func parseCSPMode(raw string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "", CSPOff:
+	case "":
+		return CSPDefaultMode, nil
+	case CSPOff:
 		return CSPOff, nil
 	case CSPReport:
 		return CSPReport, nil
