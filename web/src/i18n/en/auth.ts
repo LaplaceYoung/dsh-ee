@@ -46,7 +46,6 @@ export default {
     roles: "Roles",
     preferences: "Preferences",
     preferencesHint: "Language and theme are saved on this device only.",
-    language: "Language",
     theme: "Theme",
     changePassword: "Change password",
     currentPassword: "Current password",

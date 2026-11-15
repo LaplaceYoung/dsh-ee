@@ -44,7 +44,6 @@ export default {
     roles: "角色",
     preferences: "偏好设置",
     preferencesHint: "语言与主题只保存在这台设备上。",
-    language: "语言",
     theme: "主题",
     changePassword: "修改密码",
     currentPassword: "当前密码",
