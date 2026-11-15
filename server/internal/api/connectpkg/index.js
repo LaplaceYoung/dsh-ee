@@ -415,6 +415,38 @@ async function installRequired(ctx, config, required) {
 }
 
 // src/skills.ts
+function centerData(catalog, base) {
+  const detail = (id) => id ? `${base}/assets/${id}` : void 0;
+  const withUrls = (app) => ({ ...app, web_url: appWebUrl(base, app), detail_url: detail(app.asset_id) });
+  const experts = (catalog?.apps ?? []).filter((app) => app.form === "expert").map(withUrls);
+  const availableExperts = (catalog?.available_apps ?? []).filter((app) => app.form === "expert").map(withUrls);
+  const skill = (enabled) => (k) => ({
+    name: k.name,
+    title: k.title,
+    kind: k.kind,
+    description: k.description,
+    asset_id: k.asset_id,
+    delivery: k.delivery,
+    category_id: k.category_id,
+    featured: !!k.featured,
+    enabled,
+    detail_url: detail(k.asset_id)
+  });
+  const isSkill = (k) => (k?.kind === "skill" || k?.kind === "prompt") && k?.asset_id;
+  const skills = [
+    ...(catalog?.skills ?? []).filter(isSkill).map(skill(true)),
+    ...(catalog?.available_skills ?? []).filter(isSkill).map(skill(false))
+  ];
+  const connections = (catalog?.connections ?? []).map((c) => ({ ...c, featured: !!c.featured, detail_url: detail(c.asset_id) }));
+  return {
+    experts,
+    availableExperts,
+    skills,
+    connections,
+    categories: Array.isArray(catalog?.categories) ? catalog.categories : [],
+    legacy: !Array.isArray(catalog?.connections)
+  };
+}
 async function registerSkills(ctx, config, http) {
   let catalog = { skills: [], required_plugins: [] };
   let etag = "";
@@ -497,6 +529,10 @@ async function registerSkills(ctx, config, http) {
         invalidate();
         await install();
       }
+    },
+    readCenter: async () => {
+      await refresh();
+      return centerData(catalog, config.base);
     }
   };
 }
@@ -3011,8 +3047,8 @@ function validateName(subject, value) {
 }
 
 // src/brand.ts
-var _vote_dec, _writeTableRow_dec, _insertFormRow_dec, _webLink_dec, _updatePlugin_dec, _saveServer_dec, _testServer_dec, _serverSettings_dec, _doctor_dec, _login_dec, _overview_dec, _turnWrites_dec, _kbDoc_dec, _setChecklist_dec, _checklists_dec, _board_dec, _workbenchData_dec, _unbindApp_dec, _bindApp_dec, _appBindings_dec, _disableApp_dec, _enableApp_dec, _availableApps_dec, _apps_dec, _brand_dec, _a, _init;
-var DshEEClientService = class extends (_a = TypertRemoteService, _brand_dec = [Remote], _apps_dec = [Remote], _availableApps_dec = [Remote], _enableApp_dec = [Remote], _disableApp_dec = [Remote], _appBindings_dec = [Remote], _bindApp_dec = [Remote], _unbindApp_dec = [Remote], _workbenchData_dec = [Remote], _board_dec = [Remote], _checklists_dec = [Remote], _setChecklist_dec = [Remote], _kbDoc_dec = [Remote], _turnWrites_dec = [Remote], _overview_dec = [Remote], _login_dec = [Remote], _doctor_dec = [Remote], _serverSettings_dec = [Remote], _testServer_dec = [Remote], _saveServer_dec = [Remote], _updatePlugin_dec = [Remote], _webLink_dec = [Remote], _insertFormRow_dec = [Remote], _writeTableRow_dec = [Remote], _vote_dec = [Remote], _a) {
+var _vote_dec, _writeTableRow_dec, _insertFormRow_dec, _webLink_dec, _updatePlugin_dec, _saveServer_dec, _testServer_dec, _serverSettings_dec, _doctor_dec, _login_dec, _overview_dec, _turnWrites_dec, _kbDoc_dec, _setChecklist_dec, _checklists_dec, _board_dec, _workbenchData_dec, _unbindApp_dec, _bindApp_dec, _appBindings_dec, _setSubscription_dec, _center_dec, _disableApp_dec, _enableApp_dec, _availableApps_dec, _apps_dec, _brand_dec, _a, _init;
+var DshEEClientService = class extends (_a = TypertRemoteService, _brand_dec = [Remote], _apps_dec = [Remote], _availableApps_dec = [Remote], _enableApp_dec = [Remote], _disableApp_dec = [Remote], _center_dec = [Remote], _setSubscription_dec = [Remote], _appBindings_dec = [Remote], _bindApp_dec = [Remote], _unbindApp_dec = [Remote], _workbenchData_dec = [Remote], _board_dec = [Remote], _checklists_dec = [Remote], _setChecklist_dec = [Remote], _kbDoc_dec = [Remote], _turnWrites_dec = [Remote], _overview_dec = [Remote], _login_dec = [Remote], _doctor_dec = [Remote], _serverSettings_dec = [Remote], _testServer_dec = [Remote], _saveServer_dec = [Remote], _updatePlugin_dec = [Remote], _webLink_dec = [Remote], _insertFormRow_dec = [Remote], _writeTableRow_dec = [Remote], _vote_dec = [Remote], _a) {
   constructor(ctx, actions) {
     super(ctx, "dshEE");
     this.actions = actions;
@@ -3032,6 +3068,12 @@ var DshEEClientService = class extends (_a = TypertRemoteService, _brand_dec = [
   }
   async disableApp(request) {
     return this.actions.setAppSubscription(request?.name, false);
+  }
+  async center() {
+    return this.actions.readCenter();
+  }
+  async setSubscription(request) {
+    return this.actions.setSubscription(request ?? {});
   }
   async appBindings() {
     return this.actions.readAppBindings();
@@ -3100,6 +3142,8 @@ __decorateElement(_init, 1, "apps", _apps_dec, DshEEClientService);
 __decorateElement(_init, 1, "availableApps", _availableApps_dec, DshEEClientService);
 __decorateElement(_init, 1, "enableApp", _enableApp_dec, DshEEClientService);
 __decorateElement(_init, 1, "disableApp", _disableApp_dec, DshEEClientService);
+__decorateElement(_init, 1, "center", _center_dec, DshEEClientService);
+__decorateElement(_init, 1, "setSubscription", _setSubscription_dec, DshEEClientService);
 __decorateElement(_init, 1, "appBindings", _appBindings_dec, DshEEClientService);
 __decorateElement(_init, 1, "bindApp", _bindApp_dec, DshEEClientService);
 __decorateElement(_init, 1, "unbindApp", _unbindApp_dec, DshEEClientService);
@@ -3408,9 +3452,11 @@ var AppBindings = class {
 
 // src/app-subscription.ts
 var nameRe = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-async function setAppSubscription(http, name2, enabled) {
-  if (typeof name2 !== "string" || !nameRe.test(name2) || name2.length > 48) return { ok: false, error: "\u5FAE\u5E94\u7528\u540D\u4E0D\u5408\u6CD5" };
-  const response = await http.fetch(`/api/dsh/apps/${encodeURIComponent(name2)}/subscription`, { method: enabled ? "POST" : "DELETE" });
+var labels = { apps: "\u5FAE\u5E94\u7528", skills: "\u6280\u80FD", connections: "\u8FDE\u63A5" };
+async function setSubscription(http, kind, name2, enabled) {
+  if (!(kind in labels)) return { ok: false, error: "\u80FD\u529B\u7C7B\u578B\u4E0D\u5408\u6CD5" };
+  if (typeof name2 !== "string" || !nameRe.test(name2) || name2.length > 48) return { ok: false, error: `${labels[kind]}\u540D\u4E0D\u5408\u6CD5` };
+  const response = await http.fetch(`/api/dsh/${kind}/${encodeURIComponent(name2)}/subscription`, { method: enabled ? "POST" : "DELETE" });
   if (response.ok) return { ok: true };
   let error = `HTTP ${response.status}`;
   try {
@@ -3419,6 +3465,9 @@ async function setAppSubscription(http, name2, enabled) {
   } catch {
   }
   return { ok: false, error };
+}
+function setAppSubscription(http, name2, enabled) {
+  return setSubscription(http, "apps", name2, enabled);
 }
 
 // src/web-link.ts
@@ -4185,6 +4234,19 @@ function apply(ctx, input) {
       setAppSubscription: async (name2, enabled) => {
         const result = await setAppSubscription(http, name2, enabled);
         if (result.ok) await skills?.refreshNow();
+        return result;
+      },
+      readCenter: async () => (await skillsReady).readCenter(),
+      setSubscription: async (request) => {
+        const kind = String(request?.kind ?? "");
+        const result = await setSubscription(http, kind, String(request?.name ?? ""), !!request?.enabled);
+        if (result.ok) {
+          await skills?.refreshNow();
+          if (kind === "connections") {
+            bridge.wake();
+            await bridge.sync().catch(() => void 0);
+          }
+        }
         return result;
       },
       readAppBindings: async () => appBindings.list(),

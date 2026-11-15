@@ -46,7 +46,7 @@ type PackageContents struct {
 func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, b []byte)) (*PackageContents, error) {
 	gz, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("不是 gzip：%w", err)
+		return nil, fmt.Errorf("Not gzip: %w", err)
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
@@ -59,7 +59,7 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("解包失败：%w", err)
+			return nil, fmt.Errorf("Unpacking failed: %w", err)
 		}
 		if h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeRegA {
 			continue
@@ -78,7 +78,7 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 		out.Total++
 		unpacked += h.Size
 		if out.Total > maxFiles || unpacked > maxUnpackedSize {
-			return nil, errors.New("解包后文件过多或过大")
+			return nil, errors.New("Too many files or files too large after unpacking")
 		}
 		if len(out.Files) < maxListedFiles {
 			out.Files = append(out.Files, FileEntry{Path: rel, Size: h.Size})
@@ -90,7 +90,7 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 		switch {
 		case rel == "package.json":
 			if h.Size > maxPackageJSON {
-				return nil, errors.New("package.json 过大")
+				return nil, errors.New("package.json is too large")
 			}
 			b, err := io.ReadAll(io.LimitReader(tr, maxPackageJSON))
 			if err != nil {

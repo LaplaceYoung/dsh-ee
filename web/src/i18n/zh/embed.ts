@@ -8,5 +8,7 @@ export default {
     openInBrowser: "在浏览器打开",
     failureHint: "嵌入模式下不会在这里跳转登录页：宿主可以监听 dsh-ee:error 消息，在顶层窗口完成登录后重新打开。",
     mobileHint: "当前是移动端嵌入视图，内容可正常使用；需要完整操作时请在浏览器顶层打开。",
+    exchangeNetwork: "无法连接 dsh-ee",
+    exchangeInvalidCode: "登录码无效",
   },
 };

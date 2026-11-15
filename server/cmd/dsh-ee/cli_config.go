@@ -564,9 +564,18 @@ func cliAdmin(args []string, stdout, stderr io.Writer) int {
 	}
 	user, pass, expires, err := api.Recover(ctx, st)
 	if err != nil {
-		fmt.Fprintln(stderr, tr("生成恢复账号失败：", "creating the recovery account failed: "), err)
-		return 1
+		// 审计失败时账号已经建好了，凭据还在返回值里：必须照常打出来，同时显式告警并非零退出，
+		// 不能只报「生成失败」把事情糊过去（否则库里会多出一个没人知道凭据的无审计全权账号）。
+		if user == "" || pass == "" || expires.IsZero() {
+			fmt.Fprintln(stderr, tr("生成恢复账号失败：", "creating the recovery account failed: "), err)
+			return 1
+		}
+		fmt.Fprintln(stderr, tr("⚠️  严重警告：恢复账号已创建，但审计记录没有写入（audit_logs）。", "⚠️  WARNING: the recovery account was created, but its audit record was not written (audit_logs)."))
+		fmt.Fprintln(stderr, tr("请立即人工记录下面的凭据与到期时间，并排查审计表。原因：", "Record the credentials and expiry below by hand right now, and check the audit table. Cause: "), err)
 	}
 	fmt.Fprintf(stdout, tr("已生成恢复账号（%s 前有效，到期自动停用）：\n  用户名：%s\n  密码：  %s\n用它登录网页，把管理角色重新分好后就不要再用。\n", "recovery account created (valid until %s; disabled automatically at expiry):\n  username: %s\n  password:  %s\nUse it to log in to the web page, reassign admin roles, and then stop using it.\n"), expires.Local().Format("2006-01-02 15:04"), user, pass)
+	if err != nil {
+		return 1
+	}
 	return 0
 }

@@ -16,6 +16,10 @@ import (
 
 const accessTokenPrefix = "ee_at_"
 
+// maxTokenExpiryDays 是手工 / 管理签发令牌的有效期上限，0 表示长期有效；
+// 错误文案里的 3650 与它一致。
+const maxTokenExpiryDays = 3650
+
 type tokenView struct {
 	ID          string `json:"id"`
 	Kind        string `json:"kind"`
@@ -189,20 +193,21 @@ func issueClientKind(source, requested string) (string, bool) {
 func (s *Server) createToken(w http.ResponseWriter, r *http.Request, owner *store.User, source string, req tokenInput) {
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" || len([]rune(req.Name)) > 128 {
-		writeErr(w, http.StatusBadRequest, "令牌名称必填，且不能超过 128 个字符")
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidName, nil, "令牌名称必填，且不能超过 128 个字符")
 		return
 	}
 	clientKind, ok := issueClientKind(source, strings.TrimSpace(req.ClientKind))
 	if !ok {
-		writeErr(w, http.StatusBadRequest, "client_kind 只能是 dsh 或 third_party")
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidClientKind, nil, "client_kind 只能是 dsh 或 third_party")
 		return
 	}
 	if req.MonthlyTokenLimit != nil && *req.MonthlyTokenLimit < 0 {
-		writeErr(w, http.StatusBadRequest, "monthly_token_limit 不能为负数")
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidLimit, nil, "monthly_token_limit 不能为负数")
 		return
 	}
-	if req.ExpiresInDays < 0 || req.ExpiresInDays > 3650 {
-		writeErr(w, http.StatusBadRequest, "expires_in_days 应在 0–3650 之间，0 表示长期有效")
+	if req.ExpiresInDays < 0 || req.ExpiresInDays > maxTokenExpiryDays {
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidExpiry,
+			map[string]any{"max": maxTokenExpiryDays}, "expires_in_days 应在 0–3650 之间，0 表示长期有效")
 		return
 	}
 	if len(req.Scopes) == 0 {
@@ -219,7 +224,7 @@ func (s *Server) createToken(w http.ResponseWriter, r *http.Request, owner *stor
 	}
 	scopes, ok := validTokenScopes(scopeOwner, req.Scopes)
 	if !ok {
-		writeErr(w, http.StatusBadRequest, "scope 超出账号权限，或包含暂不支持的 admin")
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidScope, nil, "scope 超出账号权限，或包含暂不支持的 admin")
 		return
 	}
 	plain := accessTokenPrefix + secret.Token()
@@ -276,7 +281,7 @@ func (s *Server) handleCreateMyToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !settings.Connect.AllowManualTokens {
-		writeErr(w, http.StatusForbidden, "管理员已关闭员工手动生成令牌")
+		writeErrCode(w, http.StatusForbidden, codeTokenManualDisabled, nil, "管理员已关闭员工手动生成令牌")
 		return
 	}
 	var req tokenInput
@@ -290,12 +295,12 @@ func (s *Server) handleRevokeMyToken(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	kind, raw, ok := strings.Cut(id, ":")
 	if !ok {
-		writeErr(w, http.StatusBadRequest, "令牌 id 格式不正确")
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidID, nil, "令牌 id 格式不正确")
 		return
 	}
 	n, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "令牌 id 格式不正确")
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidID, nil, "令牌 id 格式不正确")
 		return
 	}
 	ctx := r.Context()
@@ -313,7 +318,7 @@ func (s *Server) handleRevokeMyToken(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !found {
-			writeErr(w, http.StatusNotFound, "令牌不存在")
+			writeErrCode(w, http.StatusNotFound, codeTokenNotFound, nil, "令牌不存在")
 			return
 		}
 		if err := s.store.RevokeToken(ctx, n); err != nil {
@@ -328,12 +333,12 @@ func (s *Server) handleRevokeMyToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !slices.ContainsFunc(own, func(token *store.NpmToken) bool { return token.ID == n }) {
-			writeErr(w, http.StatusNotFound, "令牌不存在")
+			writeErrCode(w, http.StatusNotFound, codeTokenNotFound, nil, "令牌不存在")
 			return
 		}
 		if err := s.store.RevokeNpmToken(ctx, n); err != nil {
 			if errors.Is(err, store.ErrNotFound) {
-				writeErr(w, http.StatusNotFound, "令牌不存在")
+				writeErrCode(w, http.StatusNotFound, codeTokenNotFound, nil, "令牌不存在")
 			} else {
 				s.internalErr(w, r, err)
 			}
@@ -341,7 +346,7 @@ func (s *Server) handleRevokeMyToken(w http.ResponseWriter, r *http.Request) {
 		}
 	case "key":
 		if k, err := s.store.GetAPIKey(ctx, n); notFound(err) || (err == nil && k.UserID != currentUser(r).ID) {
-			writeErr(w, http.StatusNotFound, "令牌不存在")
+			writeErrCode(w, http.StatusNotFound, codeTokenNotFound, nil, "令牌不存在")
 			return
 		} else if err != nil {
 			s.internalErr(w, r, err)
@@ -349,14 +354,14 @@ func (s *Server) handleRevokeMyToken(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := s.store.RevokeAPIKey(ctx, n); err != nil {
 			if errors.Is(err, store.ErrNotFound) {
-				writeErr(w, http.StatusNotFound, "令牌不存在")
+				writeErrCode(w, http.StatusNotFound, codeTokenNotFound, nil, "令牌不存在")
 			} else {
 				s.internalErr(w, r, err)
 			}
 			return
 		}
 	default:
-		writeErr(w, http.StatusBadRequest, "令牌类型不正确")
+		writeErrCode(w, http.StatusBadRequest, codeTokenInvalidKind, nil, "令牌类型不正确")
 		return
 	}
 	s.audit(r, "token.revoke", id, nil)
@@ -376,7 +381,7 @@ func (s *Server) adminTokenScope(r *http.Request) (string, bool) {
 func (s *Server) handleAdminTokens(w http.ResponseWriter, r *http.Request) {
 	department, ok := s.adminTokenScope(r)
 	if !ok {
-		writeErr(w, http.StatusForbidden, "没有令牌管理权限")
+		writeErrCode(w, http.StatusForbidden, codeTokenManageForbidden, nil, "没有令牌管理权限")
 		return
 	}
 	q := r.URL.Query()
@@ -430,7 +435,7 @@ func (s *Server) handleAdminTokens(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleIssueToken(w http.ResponseWriter, r *http.Request) {
 	department, ok := s.adminTokenScope(r)
 	if !ok {
-		writeErr(w, http.StatusForbidden, "没有令牌管理权限")
+		writeErrCode(w, http.StatusForbidden, codeTokenManageForbidden, nil, "没有令牌管理权限")
 		return
 	}
 	var req tokenInput
@@ -439,11 +444,11 @@ func (s *Server) handleIssueToken(w http.ResponseWriter, r *http.Request) {
 	}
 	owner, err := s.store.GetUser(r.Context(), req.UserID)
 	if err != nil {
-		writeErr(w, http.StatusBadRequest, "账号不存在")
+		writeErrCode(w, http.StatusBadRequest, codeTokenUserNotFound, nil, "账号不存在")
 		return
 	}
 	if department != "" && (owner.Department != department || owner.AccountType != store.AccountBot) {
-		writeErr(w, http.StatusForbidden, "只能管理本部门机器人账号的令牌")
+		writeErrCode(w, http.StatusForbidden, codeTokenDepartmentScopeForbidden, nil, "只能管理本部门机器人账号的令牌")
 		return
 	}
 	s.createToken(w, r, owner, "issued", req)
@@ -453,7 +458,7 @@ func (s *Server) handleRevokeTokens(w http.ResponseWriter, r *http.Request) {
 	// department 非空表示调用者只有「本部门令牌管理」：只能动本部门机器人账号的令牌
 	department, ok := s.adminTokenScope(r)
 	if !ok {
-		writeErr(w, http.StatusForbidden, "没有令牌管理权限")
+		writeErrCode(w, http.StatusForbidden, codeTokenManageForbidden, nil, "没有令牌管理权限")
 		return
 	}
 	var req struct {
@@ -472,12 +477,12 @@ func (s *Server) handleRevokeTokens(w http.ResponseWriter, r *http.Request) {
 			kind, v, ok := strings.Cut(raw, ":")
 			id, err := strconv.ParseInt(v, 10, 64)
 			if !ok || kind != "at" || err != nil || id <= 0 {
-				writeErr(w, http.StatusBadRequest, "批量吊销目前只支持 at:<id> 形式")
+				writeErrCode(w, http.StatusBadRequest, codeTokenBulkIDInvalid, nil, "批量吊销目前只支持 at:<id> 形式")
 				return
 			}
 			t, err := s.store.AccessTokenByID(r.Context(), id)
 			if notFound(err) {
-				writeErr(w, http.StatusBadRequest, "令牌不存在："+raw)
+				writeErrCode(w, http.StatusBadRequest, codeTokenUnknown, map[string]any{"id": raw}, "令牌不存在："+raw)
 				return
 			}
 			if err != nil {
@@ -486,7 +491,7 @@ func (s *Server) handleRevokeTokens(w http.ResponseWriter, r *http.Request) {
 			}
 			// 先全部校验再动手，避免越权请求吊销了一部分
 			if department != "" && (t.Department != department || t.AccountType != store.AccountBot) {
-				writeErr(w, http.StatusForbidden, deptOnly)
+				writeErrCode(w, http.StatusForbidden, codeTokenDepartmentRevokeForbidden, nil, deptOnly)
 				return
 			}
 			ids = append(ids, id)
@@ -512,18 +517,18 @@ func (s *Server) handleRevokeTokens(w http.ResponseWriter, r *http.Request) {
 		f.ClientName = nil // 只给空设备名等于没有条件
 	}
 	if f.Empty() {
-		writeErr(w, http.StatusBadRequest, "请指定要吊销的令牌、账号、设备或部门")
+		writeErrCode(w, http.StatusBadRequest, codeTokenRevokeFilterRequired, nil, "请指定要吊销的令牌、账号、设备或部门")
 		return
 	}
 	if department != "" {
 		if req.Department != nil && *req.Department != department {
-			writeErr(w, http.StatusForbidden, deptOnly)
+			writeErrCode(w, http.StatusForbidden, codeTokenDepartmentRevokeForbidden, nil, deptOnly)
 			return
 		}
 		if req.UserID != nil {
 			u, err := s.store.GetUser(r.Context(), *req.UserID)
 			if err != nil || u.Department != department || u.AccountType != store.AccountBot {
-				writeErr(w, http.StatusForbidden, deptOnly)
+				writeErrCode(w, http.StatusForbidden, codeTokenDepartmentRevokeForbidden, nil, deptOnly)
 				return
 			}
 		}

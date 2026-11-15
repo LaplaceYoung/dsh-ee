@@ -181,6 +181,12 @@ export default {
     dropHere: "Drop to upload into \"{{folder}}\"",
     skippedBadge: "{{count}} pages not imported",
     editedBadge: "Edited",
+    noResult: "No result",
+  },
+  /** Knowledge base source reader: Excel sheet switching and incremental loading. */
+  kbReader: {
+    sheets: "Sheets",
+    more: "{{n}} more sections. Show them…",
   },
   kdocs: {
     folders: "Folders",

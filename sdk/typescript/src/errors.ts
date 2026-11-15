@@ -114,16 +114,16 @@ export class DeviceFlowError extends DshError {
 function deviceFlowMessage(code: DeviceFlowErrorCode): string {
   switch (code) {
     case 'authorization_pending':
-      return '等待用户在网页上确认设备码';
+      return 'Waiting for the user to confirm the device code in the browser';
     case 'slow_down':
-      return '轮询过快，需要降低频率';
+      return 'Polling too fast; slow down';
     case 'access_denied':
-      return '用户拒绝了这次设备码授权';
+      return 'The user denied this device code authorization';
     case 'expired_token':
-      return '设备码已过期或已被使用';
+      return 'The device code has expired or already been used';
     case 'rate_limited':
-      return '设备码轮询被限流';
+      return 'Device code polling is rate limited';
     default:
-      return '设备码流程失败';
+      return 'Device code flow failed';
   }
 }

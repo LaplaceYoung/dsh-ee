@@ -198,10 +198,10 @@ export class McpSession {
       signal: options.signal,
     });
     if (!isRecord(result) || !Array.isArray(result.tools)) {
-      throw new DshError('MCP tools/list 响应缺少 tools 数组');
+      throw new DshError('MCP tools/list response is missing the tools array');
     }
     if (result.nextCursor !== undefined && typeof result.nextCursor !== 'string') {
-      throw new DshError('MCP tools/list 的 nextCursor 不是字符串');
+      throw new DshError('MCP tools/list nextCursor is not a string');
     }
     return {
       tools: result.tools as McpTool[],
@@ -224,12 +224,12 @@ export class McpSession {
       options.onPage?.(result);
       if (result.nextCursor === undefined) return tools;
       if (seenCursors.has(result.nextCursor)) {
-        throw new DshError('MCP tools/list 返回了重复的 nextCursor，已停止翻页');
+        throw new DshError('MCP tools/list returned a duplicate nextCursor; stopped paginating');
       }
       seenCursors.add(result.nextCursor);
       cursor = result.nextCursor;
     }
-    throw new DshError(`MCP tools/list 翻页超过 ${MAX_TOOL_PAGES} 页，已停止`);
+    throw new DshError(`MCP tools/list exceeded ${MAX_TOOL_PAGES} pages; stopped paginating`);
   }
 
   /**
@@ -247,7 +247,7 @@ export class McpSession {
       { signal: options.signal },
     );
     if (!isRecord(result) || !Array.isArray(result.content)) {
-      throw new DshError(`MCP tools/call（${name}）响应缺少 content 数组`);
+      throw new DshError(`MCP tools/call (${name}) response is missing the content array`);
     }
     return result as unknown as McpToolCallResult;
   }
@@ -281,7 +281,7 @@ export class McpSession {
     params: unknown,
     options: { signal?: AbortSignal },
   ): Promise<{ result: T; response: McpTransportResult }> {
-    if (this.closed) throw new DshError('MCP 会话已关闭，请重新 connectMcp()');
+    if (this.closed) throw new DshError('MCP session is closed; call connectMcp() again');
     const id = this.nextId++;
     const response = await this.transport(
       { jsonrpc: '2.0', id, method, ...(params === undefined ? {} : { params }) },
@@ -293,10 +293,10 @@ export class McpSession {
     );
     const message = this.parseMessages(response);
     if (message === undefined) {
-      throw new DshError(`MCP ${method} 没有返回匹配 id=${String(id)} 的 JSON-RPC 响应`);
+      throw new DshError(`MCP ${method} did not return a JSON-RPC response matching id=${String(id)}`);
     }
     if (message.result === undefined) {
-      throw new DshError(`MCP ${method} 响应既没有 result 也没有 error`);
+      throw new DshError(`MCP ${method} response has neither result nor error`);
     }
     return { result: message.result as T, response };
   }
@@ -306,7 +306,7 @@ export class McpSession {
     params: unknown,
     options: { signal?: AbortSignal },
   ): Promise<void> {
-    if (this.closed) throw new DshError('MCP 会话已关闭，请重新 connectMcp()');
+    if (this.closed) throw new DshError('MCP session is closed; call connectMcp() again');
     const response = await this.transport(
       { jsonrpc: '2.0', method, ...(params === undefined ? {} : { params }) },
       {
@@ -374,7 +374,7 @@ export class McpSession {
   }
 
   private rpcError(error: Record<string, unknown>, meta: HttpResponseMeta): DshJsonRpcError {
-    const message = typeof error.message === 'string' ? error.message : 'JSON-RPC 错误';
+    const message = typeof error.message === 'string' ? error.message : 'JSON-RPC error';
     return new DshJsonRpcError(message, error.code as number, {
       status: meta.status,
       requestId: meta.requestId,

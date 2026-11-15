@@ -202,3 +202,78 @@ func TestParseStrict(t *testing.T) {
 		t.Fatal("超过大小上限应拒绝")
 	}
 }
+
+// auto_upgrade 是 format 2 的 additive 字段（本期只登记 / 只做只读更新检查，不执行自动升级）：
+// 旧目录（没有这个字段）的签名 / 验签不受影响；显式 false 与不写等价；写成 true 才进
+// canonical payload，改它会让签名对不上。
+func TestAutoUpgradeAdditive(t *testing.T) {
+	pub, priv := testKey(t)
+
+	// 旧目录：不写 auto_upgrade，照常签名 / 验签，序列化结果里也不出现这个字段
+	old := sampleDoc()
+	signDoc(t, old, priv)
+	oldJSON, err := json.Marshal(old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(oldJSON, []byte("auto_upgrade")) {
+		t.Fatalf("没声明 auto_upgrade 时不应写进 JSON：%s", oldJSON)
+	}
+	reparsed, err := Parse(oldJSON)
+	if err != nil {
+		t.Fatalf("旧目录应能解析：%v", err)
+	}
+	if res := verify(reparsed, pub); res.Status != SignatureValid {
+		t.Fatalf("旧目录验签应有效：%+v", res)
+	}
+
+	// 显式写 false 与不写等价：canonical payload 一样，旧签名仍然对得上
+	withFalseJSON := bytes.Replace(oldJSON, []byte(`"digest":`), []byte(`"auto_upgrade":false,"digest":`), 1)
+	withFalse, err := Parse(withFalseJSON)
+	if err != nil {
+		t.Fatalf("带 auto_upgrade:false 的目录应能解析：%v", err)
+	}
+	if withFalse.Entries[0].AutoUpgrade {
+		t.Fatal("auto_upgrade:false 应解析成 false")
+	}
+	p1, _ := CanonicalPayload(reparsed)
+	p2, _ := CanonicalPayload(withFalse)
+	if !bytes.Equal(p1, p2) {
+		t.Fatalf("auto_upgrade:false 不应改变 canonical payload：\n%s\n%s", p1, p2)
+	}
+	if res := verify(withFalse, pub); res.Status != SignatureValid {
+		t.Fatalf("加了 auto_upgrade:false 后旧签名仍应有效：%+v", res)
+	}
+
+	// 声明 true：进 canonical payload，签名有效；把声明改掉签名就不过
+	withTrue := sampleDoc()
+	withTrue.Entries[0].AutoUpgrade = true
+	signDoc(t, withTrue, priv)
+	trueJSON, err := json.Marshal(withTrue)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(trueJSON, []byte(`"auto_upgrade":true`)) {
+		t.Fatalf("声明 true 应写进 JSON：%s", trueJSON)
+	}
+	parsedTrue, err := Parse(trueJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !parsedTrue.Entries[0].AutoUpgrade {
+		t.Fatal("auto_upgrade:true 应解析成 true")
+	}
+	if res := verify(parsedTrue, pub); res.Status != SignatureValid {
+		t.Fatalf("声明 auto_upgrade:true 后验签应有效：%+v", res)
+	}
+	parsedTrue.Entries[0].AutoUpgrade = false
+	if res := verify(parsedTrue, pub); res.Status != SignatureInvalid {
+		t.Fatalf("改掉 auto_upgrade 声明后签名应对不上：%+v", res)
+	}
+
+	// 类型不对要拒绝，不能默默当成 false
+	badJSON := bytes.Replace(oldJSON, []byte(`"digest":`), []byte(`"auto_upgrade":"yes","digest":`), 1)
+	if _, err := Parse(badJSON); err == nil {
+		t.Fatal("auto_upgrade 不是布尔值时应拒绝解析")
+	}
+}

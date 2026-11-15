@@ -196,7 +196,7 @@ type UpstreamVersion struct {
 func ParseUpstreamDoc(b []byte) (*UpstreamDoc, error) {
 	var d UpstreamDoc
 	if err := json.Unmarshal(b, &d); err != nil {
-		return nil, fmt.Errorf("上游 packument 不是合法 JSON：%w", err)
+		return nil, fmt.Errorf("Upstream packument is not valid JSON: %w", err)
 	}
 	if d.Versions == nil {
 		d.Versions = map[string]json.RawMessage{}

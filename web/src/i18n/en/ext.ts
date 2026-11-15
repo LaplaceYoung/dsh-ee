@@ -86,6 +86,7 @@ export default {
   fieldSync: {
     desc: "Sync attributes from LDAP or the Feishu directory into user fields: LDAP on each sign-in, Feishu on each directory sync. When someone changes role, what they can see follows. Values edited by hand are kept unless \"Directory wins\" is ticked.",
     source: "Source",
+    sourceFeishu: "Feishu",
     attr: "Directory attribute",
     attrHint: "LDAP: attribute name (title, employeeType…); Feishu: job_title, city, employee_no, employee_type or a custom field id (C-…)",
     field: "User field",
@@ -236,6 +237,7 @@ export default {
     rollbackBack: "Back to list",
     rollbackConfirm: "Confirm rollback",
     rollbackDone: "Rolled back to {{version}}; tools were resynced.",
+    rollbackNoPlan: "The rollback preview returned no plan",
   },
   extInstall: {
     fromService: "Service URL",

@@ -262,3 +262,79 @@ func TestLegacyTokenScopesRestricted(t *testing.T) {
 		t.Fatalf("whoami 应暴露 legacy_scopes_restricted：%s", body)
 	}
 }
+
+// 从 DSH 打开的 limited 网页会话只带员工权限：即使账号本身是超管（有 keys.manage），
+// 也不能用 POST /api/auth/introspect 查别人的令牌（修复前会被当成全量权限会话，
+// 返回 200 和属主用户名/部门、client_name、scope 等元数据）。
+func TestIntrospectLimitedWebSession(t *testing.T) {
+	f := newPrincipalFixture(t)
+	// 账号本身有管理权限（超管），是这条越权路径成立的前提
+	var me struct {
+		ID      int64 `json:"id"`
+		IsSuper bool  `json:"is_super"`
+	}
+	code, body := f.admin.do("GET", "/api/auth/me", nil, nil)
+	expect(t, "管理员 me", code, 200, body)
+	if err := json.Unmarshal(body, &me); err != nil {
+		t.Fatal(err)
+	}
+	if !me.IsSuper {
+		t.Fatalf("测试需要超级管理员账号：%s", body)
+	}
+
+	// 另一个用户的令牌：limited 会话不应该通过 introspect 看到它的元数据
+	target := f.user(t, "introspect-limited-target", nil)
+	f.token(t, target.ID, "ee_at_limited_target", []string{rbac.ScopeHub}, nil, nil)
+
+	// 走真实链路换 limited 网页会话：超管的设备令牌 → 一次性链接 → handoff 写 cookie
+	f.token(t, me.ID, "ee_at_limited_device", []string{rbac.ScopeAgent, rbac.ScopeHub}, nil, nil)
+	dsh := newClient(t, f.ts.URL)
+	code, body = dsh.do("POST", "/api/dsh/web-link", map[string]string{"next": "/go"}, bearer("ee_at_limited_device"))
+	expect(t, "换受限网页登录链接", code, 200, body)
+	var link struct {
+		URL string `json:"url"`
+	}
+	if err := json.Unmarshal(body, &link); err != nil || link.URL == "" {
+		t.Fatalf("网页登录链接响应不对：%v %s", err, body)
+	}
+	b := newClient(t, f.ts.URL)
+	resp, err := b.hc.Get(link.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	// fixture 自检：会话确实是 limited、账号本身有管理权限（reauth=true）
+	code, body = b.do("GET", "/api/auth/me", nil, nil)
+	expect(t, "受限会话读 me", code, 200, body)
+	var limitedMe struct {
+		IsSuper bool `json:"is_super"`
+		Limited bool `json:"limited"`
+		Reauth  bool `json:"reauth"`
+	}
+	if err := json.Unmarshal(body, &limitedMe); err != nil {
+		t.Fatal(err)
+	}
+	if limitedMe.IsSuper || !limitedMe.Limited || !limitedMe.Reauth {
+		t.Fatalf("fixture 应是「账号是超管但会话受限」：%s", body)
+	}
+
+	// 越权点：查别人的令牌必须 403，且响应里不能带出令牌元数据
+	code, body = b.do("POST", "/api/auth/introspect", map[string]any{"token": "ee_at_limited_target"}, nil)
+	expect(t, "受限会话查别人的令牌", code, 403, body)
+	if strings.Contains(string(body), target.Username) || strings.Contains(string(body), "ee_at_limited_target") {
+		t.Fatalf("403 响应不能泄露令牌元数据：%s", body)
+	}
+	// 查自己名下的令牌也一样：不能借网页会话的账号权限绕过 keys.manage 检查（比修复前更严）
+	code, body = b.do("POST", "/api/auth/introspect", map[string]any{"token": "ee_at_limited_device"}, nil)
+	expect(t, "受限会话查自己的令牌", code, 403, body)
+
+	// 回归：同样的请求换成完整网页会话（输入密码登录后）仍然 200，字段完整
+	code, body = f.admin.do("POST", "/api/auth/introspect", map[string]any{"token": "ee_at_limited_target"}, nil)
+	expect(t, "完整会话查令牌", code, 200, body)
+	view := decodeIntrospect(t, body)
+	if !view.Active || view.Kind != "access" || view.TokenID == "" || view.ClientName != "test-client" ||
+		view.User == nil || view.User.Username != target.Username || view.User.Department != target.Department {
+		t.Fatalf("完整会话查到的令牌元数据不全：%s", body)
+	}
+}

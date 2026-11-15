@@ -5,6 +5,8 @@ import { useAuth } from "../lib/auth";
 import { useAction } from "../lib/use-api";
 import { ErrorNote } from "../components/api-ui";
 import { Button, Card, Field, inputCls, PageHeader, PasswordInput } from "../components/ui";
+import { LangSwitch } from "../components/lang-switch";
+import { ThemeToggle } from "../components/theme-toggle";
 import { useTranslation } from "react-i18next";
 import { useLabels } from "../lib/labels";
 
@@ -67,6 +69,21 @@ export default function Account() {
           <dt className="text-neutral-600">{t("account.roles")}</dt>
           <dd className="text-neutral-900">{(user.roles ?? []).map((r) => L.role(r)).join(", ") || t("shell.noRoles")}</dd>
         </dl>
+      </Card>
+
+      <Card className="mt-4 p-5">
+        <h2 className="text-neutral-900 text-[15px] leading-6 font-semibold">{t("account.preferences")}</h2>
+        <p className="mt-2 text-sm text-neutral-600">{t("account.preferencesHint")}</p>
+        <div className="mt-4 flex flex-wrap items-center gap-x-8 gap-y-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-neutral-600">{t("account.language")}</span>
+            <LangSwitch />
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-neutral-600">{t("account.theme")}</span>
+            <ThemeToggle />
+          </div>
+        </div>
       </Card>
 
       {user.auth_source !== "local" ? (

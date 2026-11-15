@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import "react-easy-crop/react-easy-crop.css";
 import { useTranslation } from "react-i18next";
+import i18n from "../i18n";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/shadcn/dialog";
 import { Button } from "./ui";
 
@@ -14,16 +15,16 @@ async function cropToPng(src: string, area: Area): Promise<Blob> {
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const el = new Image();
     el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error("图片读取失败"));
+    el.onerror = () => reject(new Error(i18n.t("brandAdmin.cropReadFailed")));
     el.src = src;
   });
   const out = document.createElement("canvas");
   out.width = 512;
   out.height = 512;
   const ctx = out.getContext("2d");
-  if (!ctx) throw new Error("canvas 不可用");
+  if (!ctx) throw new Error(i18n.t("brandAdmin.cropCanvasUnavailable"));
   ctx.drawImage(img, area.x, area.y, area.width, area.height, 0, 0, 512, 512);
-  return new Promise((resolve, reject) => out.toBlob((b) => (b ? resolve(b) : reject(new Error("导出失败"))), "image/png"));
+  return new Promise((resolve, reject) => out.toBlob((b) => (b ? resolve(b) : reject(new Error(i18n.t("brandAdmin.cropExportFailed")))), "image/png"));
 }
 
 /** 位图 logo 的正方形裁剪对话框：拖位置、滚轮/滑杆缩放，确定后回调 512×512 的 PNG File。 */

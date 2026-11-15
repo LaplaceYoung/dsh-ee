@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 
 // 后端（server/）地址；同源代理让会话 cookie 直接可用
 const backend = "http://127.0.0.1:8080";
-const proxy = { "/api": backend, "/v1": backend, "/npm": backend, "/index": backend, "/setup.sh": backend, "/setup.ps1": backend };
+const proxy = { "/api": backend, "/v1": backend, "/beta": backend, "/npm": backend, "/index": backend, "/setup.sh": backend, "/setup.ps1": backend };
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

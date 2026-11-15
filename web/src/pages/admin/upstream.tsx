@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileArchive, Loader2, PackageOpen, RefreshCw, ShieldCheck, WifiOff, CloudOff, TriangleAlert } from "lucide-react";
 import { categoryIds, categoryLabel } from "../../lib/catalog";
+import { formatNumber } from "../../lib/format";
 import { useScoring, useStore } from "../../lib/store";
 import { api, formatBytes, formatTime, type ImportResult, type SyncJob } from "../../lib/api";
 import { useApi, useAction } from "../../lib/use-api";
@@ -276,7 +277,7 @@ function Online() {
                           </div>
                         </td>
                         <td className="px-4 py-2">{categoryLabel(c.category ?? "") ?? "—"}</td>
-                        <td className="px-4 py-2 text-right tabular-nums">{(c.stars ?? 0).toLocaleString()}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{formatNumber(c.stars ?? 0)}</td>
                         {scoring.upstream && <td className="px-4 py-2 text-right tabular-nums">{c.score ?? "—"}</td>}
                         <td className="px-4 py-2 text-xs">
                           {c.dep_count !== null ? t("upstreamAdmin.depsValue", { count: c.dep_count, size: formatBytes(c.closure_size ?? 0) }) : "—"}

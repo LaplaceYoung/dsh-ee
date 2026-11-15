@@ -22,6 +22,10 @@ var migrationFS embed.FS
 
 var ErrNotFound = errors.New("not found")
 
+// ErrConflict 是乐观并发检查失败：目标记录还在，但已经被别人改过了（不是不存在）。
+// 调用方据此让客户端刷新后重试，而不是拿旧快照覆盖别人的改动。
+var ErrConflict = errors.New("conflict")
+
 type Store struct {
 	db *sql.DB
 	// 超级管理员被关掉了（docs/access-control.md §3.1）：UserAccess 里 Super 永远是 false
@@ -100,7 +104,15 @@ func (s *Store) DB() *sql.DB { return s.db }
 
 // Migrate 按文件名顺序执行未执行过的迁移。DDL 在这两种库里都不在事务内，
 // 所以每个文件执行完才记版本；中途失败需要人工检查后重跑。
+// 多个实例同时首次启动时用 migration_lock 行锁串行化：同一时刻只有一个实例执行 DDL，
+// 其它实例等待（见 acquireMigrateLock）。
 func (s *Store) Migrate(ctx context.Context) error {
+	release, err := s.acquireMigrateLock(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+
 	if _, err := s.db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version    VARCHAR(64) NOT NULL,
 		applied_at DATETIME(3) NOT NULL,
@@ -123,6 +135,10 @@ func (s *Store) Migrate(ctx context.Context) error {
 		applied[v] = true
 	}
 	rows.Close()
+	if err := rows.Err(); err != nil {
+		// 读不全就会把已执行的迁移当成未执行，下次启动重跑非幂等 DDL。
+		return fmt.Errorf("读取已执行迁移: %w", err)
+	}
 
 	files, err := fs.Glob(migrationFS, "migrations/*.sql")
 	if err != nil {
@@ -223,3 +239,25 @@ func splitStatements(sqlText string) []string {
 }
 
 func now() time.Time { return time.Now().UTC().Truncate(time.Millisecond) }
+
+// casMiss 在带 updated_at 条件的 UPDATE 影响 0 行时判断原因：
+// 行不存在 → ErrNotFound；updated_at 仍等于期望值（这次改的内容与现状相同，实际没有变化）→ nil；
+// 否则说明别人已经改过 → ErrConflict。
+// table / keyCol 只能是本包内的常量表名与列名，不能来自用户输入。
+func (s *Store) casMiss(ctx context.Context, table, keyCol string, key any, expected time.Time) error {
+	var cur sql.NullTime
+	err := s.db.QueryRowContext(ctx, "SELECT updated_at FROM "+table+" WHERE "+keyCol+" = ?", key).Scan(&cur)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if cur.Valid && sameMillis(cur.Time, expected) {
+		return nil
+	}
+	return ErrConflict
+}
+
+// sameMillis 按毫秒比较时间：updated_at 列是 DATETIME(3)，请求里的时间可能带更细的精度。
+func sameMillis(a, b time.Time) bool { return a.UnixMilli() == b.UnixMilli() }
