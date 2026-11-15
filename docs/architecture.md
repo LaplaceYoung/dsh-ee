@@ -65,6 +65,7 @@ dsh-ee 的运行时只有三样东西：
   │  Authorization: Bearer <ee_at_ / ee_npm_ / sk-ee->
   ▼
 GET /v1/models · POST /v1/chat/completions      server/internal/api/gateway.go
+POST /v1/responses（别名 /responses；deepseek 原生，其余转 chat）  server/internal/api/responses.go
   │  1. resolveBearer：令牌 → 账号；2. 账号 RBAC ∩ 令牌 scope
   │  3. 账号额度、令牌额度、可用模型
   ▼
@@ -79,7 +80,7 @@ models（对外名称）→ 候选上游（按优先级）           providers /
 
 - `/v1` 错误沿用 OpenAI 格式；`X-DshEE-Client: dsh-connect/…` 的请求会把部分错误映射成 DSH 能直接展示的 400 文案（`/ee-login`、额度、模型不可用）。
 - 流式请求会强制上游返回 `stream_options.include_usage`，否则统计不到 token。
-- 请求体上限 16 MiB。没有 `/v1/responses`、`/v1/embeddings`、`/v1/completions`。
+- 请求体上限 16 MiB。`/v1/responses`（别名 `/responses`）是 Responses API 兼容入口：provider `vendor=deepseek` 时原生透传到 `<provider.base>/responses`（响应/SSE 逐字节转发，保留服务端工具、citations、title 等），其它 vendor 内部转 chat completions（降级）；见 [dev/responses-api.md](./dev/responses-api.md)。没有 `/v1/embeddings`、`/v1/completions`。
 - 浏览器内第三方 Harness 直连 `/v1`、`/mcp` 的 CORS 白名单（`DSH_EE_CORS_ORIGINS`，默认关闭、精确回显 origin、不带 credentials）见 PR #127，合并后生效。
 
 ### 3.3 DSH 接入面

@@ -179,6 +179,8 @@ var agentExcluded = map[string]string{
 	"GET /setup.ps1":                            "安装脚本",
 	"GET /v1/models":                            "模型网关协议入口",
 	"POST /v1/chat/completions":                 "模型网关协议入口",
+	"POST /v1/responses":                        "模型网关协议入口（OpenAI Responses API 兼容）",
+	"POST /responses":                           "模型网关协议入口（Responses API 无版本前缀别名）",
 	"POST /v1/messages":                         "Anthropic 兼容的模型网关协议入口",
 	"POST /anthropic/v1/messages":               "Anthropic 兼容的模型网关协议入口（DeepSeek 风格 base URL 别名）",
 	"POST /v1/messages/count_tokens":            "Anthropic 兼容端点（v0 明确不支持，返回 404）",

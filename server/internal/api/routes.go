@@ -460,6 +460,12 @@ func (s *Server) routes() []route {
 		// OpenAI 兼容网关，用个人 key 鉴权
 		pub("GET /v1/models", s.handleModels),
 		pub("POST /v1/chat/completions", s.handleChatCompletions),
+		// OpenAI Responses API 兼容入口（responses.go）：请求转成 chat completions 调上游，
+		// 鉴权/模型权限/额度/用量记账/上游故障转移与 chat 网关完全一致。
+		pub("POST /v1/responses", s.handleResponses),
+		// DeepSeek Responses API 习惯的别名：base_url 填 dsh-ee 根地址时客户端会请求 /responses，
+		// 与 /v1/responses 同一个 handler。
+		pub("POST /responses", s.handleResponses),
 		// Anthropic Messages 兼容网关：Claude Code / Anthropic SDK 用 x-api-key 或 Bearer，
 		// 请求转成 OpenAI chat 后复用上面的模型权限、额度与用量记账（见 anthropic.go）
 		pub("POST /v1/messages", s.handleAnthropicMessages),

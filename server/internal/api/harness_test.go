@@ -170,11 +170,17 @@ func TestHarnessDiscovery(t *testing.T) {
 		doc.Models.Endpoint != ts.URL+"/v1/models" || doc.Models.ChatEndpoint != ts.URL+"/v1/chat/completions" {
 		t.Fatalf("models 入口不对：%+v", doc.Models)
 	}
+	// Anthropic 与 Responses 两个兼容面：入口/别名、原生 vendor、降级方式都要在发现文档里公布。
 	if doc.Models.AnthropicEndpoint != ts.URL+"/v1/messages" ||
 		!slices.Contains(doc.Models.AnthropicAliases, ts.URL+"/anthropic/v1/messages") ||
-		!slices.Contains(doc.Models.NativeVendors, "deepseek") ||
-		doc.Models.ConversionFallback != "openai-chat" {
+		!slices.Contains(doc.Models.AnthropicNative, "deepseek") ||
+		doc.Models.AnthropicFallback != "openai-chat" {
 		t.Fatalf("Anthropic 兼容入口/原生透传说明不对：%+v", doc.Models)
+	}
+	if doc.Models.Responses != ts.URL+"/v1/responses" || doc.Models.ResponsesAlias != ts.URL+"/responses" ||
+		!slices.Equal(doc.Models.ResponsesNative, []string{"deepseek"}) ||
+		doc.Models.ResponsesFallback != "openai-chat-completions-translation" {
+		t.Fatalf("Responses 能力说明不对：%+v", doc.Models)
 	}
 
 	// 思考模式是协议面能力：公布参数名、响应字段，并指向 /v1/models 的按模型能力声明。
@@ -374,15 +380,19 @@ type harnessDiscoveryView struct {
 	TokenURL   string   `json:"token_endpoint"`
 	Scopes     []string `json:"scopes_supported"`
 	Models     struct {
-		Protocol           string   `json:"protocol"`
-		Streaming          bool     `json:"streaming"`
-		Endpoint           string   `json:"endpoint"`
-		ChatEndpoint       string   `json:"chat_completions_endpoint"`
-		AnthropicEndpoint  string   `json:"anthropic_messages_endpoint"`
-		AnthropicAliases   []string `json:"anthropic_messages_aliases"`
-		NativeVendors      []string `json:"anthropic_messages_native_vendors"`
-		ConversionFallback string   `json:"anthropic_messages_conversion_fallback"`
-		Reasoning          struct {
+		Protocol          string   `json:"protocol"`
+		Streaming         bool     `json:"streaming"`
+		Endpoint          string   `json:"endpoint"`
+		ChatEndpoint      string   `json:"chat_completions_endpoint"`
+		AnthropicEndpoint string   `json:"anthropic_messages_endpoint"`
+		AnthropicAliases  []string `json:"anthropic_messages_aliases"`
+		AnthropicNative   []string `json:"anthropic_messages_native_vendors"`
+		AnthropicFallback string   `json:"anthropic_messages_conversion_fallback"`
+		Responses         string   `json:"responses_endpoint"`
+		ResponsesAlias    string   `json:"responses_alias_endpoint"`
+		ResponsesNative   []string `json:"responses_native_vendors"`
+		ResponsesFallback string   `json:"responses_fallback"`
+		Reasoning         struct {
 			Supported    bool     `json:"supported"`
 			Parameters   []string `json:"parameters"`
 			ContentField string   `json:"content_field"`

@@ -151,6 +151,8 @@ func run(log *slog.Logger) error {
 		AdminModeUnit:  cfg.AdminModeUnit,
 		// 旧令牌 scope 收敛（DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES）；默认关闭，不破坏现有客户端
 		RestrictLegacyTokenScopes: cfg.RestrictLegacyTokenScopes,
+		// 文件引用访问边界（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）；默认只允许管理员与机器人
+		DeepSeekToolsAllowEmployee: cfg.DeepSeekToolsAllowEmployee,
 		// 刷新令牌（DSH_EE_REFRESH_TOKENS，docs/token-lifecycle.md §3）；默认关闭
 		RefreshTokens:    cfg.RefreshTokens,
 		RefreshAccessTTL: cfg.RefreshAccessTTL,

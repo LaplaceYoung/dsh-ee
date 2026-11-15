@@ -106,9 +106,10 @@ func isHarnessNeutralPath(path string) bool {
 	return strings.HasPrefix(path, "/v1/apps/")
 }
 
-// isHarnessAPIPath 是这个契约覆盖的路径：新增中立端点，以及既有 /v1 网关面（只加响应头）。
+// isHarnessAPIPath 是这个契约覆盖的路径：新增中立端点，以及既有 /v1 网关面与
+// /responses（Responses API 别名，只加响应头）。
 func isHarnessAPIPath(path string) bool {
-	return path == "/.well-known/dsh-ee" || strings.HasPrefix(path, "/v1/")
+	return path == "/.well-known/dsh-ee" || strings.HasPrefix(path, "/v1/") || isResponsesAPIPath(path)
 }
 
 // harnessRequestVersionOK 校验请求头里的主版本：缺省表示服务端当前主版本，只接受主版本 1。
@@ -128,8 +129,8 @@ func setHarnessVersionHeader(w http.ResponseWriter) {
 }
 
 // harnessAPI 是响应版本头、请求版本校验与请求号中间件。
-// 只对契约路径生效：/v1/* 与 /.well-known/dsh-ee 加版本响应头，新增中立端点再加请求号与版本校验；
-// /api/*、/mcp、/healthz 等既有入口的响应不被改动。
+// 只对契约路径生效：/v1/*、/responses（Responses API 别名）与 /.well-known/dsh-ee
+// 加版本响应头，新增中立端点再加请求号与版本校验；/api/*、/mcp、/healthz 等既有入口的响应不被改动。
 func harnessAPI(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -318,6 +319,13 @@ type harnessDiscoveredModels struct {
 	AnthropicMessagesNativeVendors []string `json:"anthropic_messages_native_vendors"`
 	// AnthropicMessagesConversionFallback 说明其它 vendor 的降级方式（转 OpenAI chat）。
 	AnthropicMessagesConversionFallback string `json:"anthropic_messages_conversion_fallback"`
+	// Responses API 兼容入口：/v1/responses 与 DeepSeek 习惯的 /responses 别名。
+	ResponsesEndpoint      string `json:"responses_endpoint"`
+	ResponsesAliasEndpoint string `json:"responses_alias_endpoint"`
+	// ResponsesNativeVendors 里的上游 vendor 走原生 Responses 透传（保留 web_search、
+	// citations、refusal、title、image/file 等）；其它 vendor 走 responses_fallback 的转换层。
+	ResponsesNativeVendors []string `json:"responses_native_vendors"`
+	ResponsesFallback      string   `json:"responses_fallback"`
 	// Reasoning 是思考模式能力声明；具体模型是否支持、可用哪些 effort 见 /v1/models 的 capabilities.reasoning。
 	Reasoning harnessReasoningCapability `json:"reasoning"`
 	// InputModalities 是网关理解的模型输入模态取值（能力矩阵）；每个模型的实际声明见 /v1/models。
@@ -392,6 +400,10 @@ func (s *Server) handleHarnessDiscovery(w http.ResponseWriter, r *http.Request) 
 			AnthropicMessagesAliases:            []string{base + "/anthropic/v1/messages"},
 			AnthropicMessagesNativeVendors:      []string{anthropicNativeVendor},
 			AnthropicMessagesConversionFallback: "openai-chat",
+			ResponsesEndpoint:                   base + "/v1/responses",
+			ResponsesAliasEndpoint:              base + "/responses",
+			ResponsesNativeVendors:              append([]string(nil), responsesNativeVendors...),
+			ResponsesFallback:                   "openai-chat-completions-translation",
 			Reasoning:                           harnessReasoning(), InputModalities: harnessInputModalities()},
 		MCP: harnessDiscoveredMCP{Transport: "streamable-http", Endpoint: base + "/mcp", ProtocolVersions: append([]string(nil), mcp.Versions...)},
 		Apps: harnessDiscoveredApps{

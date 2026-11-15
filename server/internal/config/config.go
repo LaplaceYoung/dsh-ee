@@ -43,6 +43,11 @@ type Config struct {
 	// true 时它们只保留原始用途的 scope：npm 令牌只剩 registry，key 只剩模型网关；
 	// 默认 false 不改变旧行为，避免现有客户端突然失效。
 	RestrictLegacyTokenScopes bool
+	// DeepSeek 工具代理的访问边界（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）：默认 false 时
+	// 普通员工不能在对话里引用已上传文件的 file_id（Responses 原生透传同样拦截），
+	// 只有管理员与机器人/服务账号放行；开启后放开普通员工。与 #160（DeepSeek 工具代理）
+	// 使用同一环境变量与语义，待其合入后统一实现。
+	DeepSeekToolsAllowEmployee bool
 	// 刷新令牌（OAuth 风格，docs/token-lifecycle.md §3）。默认关闭：关闭时
 	// POST /api/auth/refresh 返回 404，设备/手工签发的响应也不带 refresh_token。
 	RefreshTokens bool
@@ -217,6 +222,15 @@ func Load() (*Config, error) {
 			return nil, fmt.Errorf("DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES: %w", err)
 		}
 		c.RestrictLegacyTokenScopes = b
+	}
+	// DeepSeek 文件/工具访问边界（与 #160 同一环境变量）：默认 false，只允许管理员与
+	// 机器人/服务账号引用已上传文件；非法值让启动失败（fail closed）。
+	if v := os.Getenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE"); v != "" {
+		b, err := strconv.ParseBool(strings.TrimSpace(v))
+		if err != nil {
+			return nil, fmt.Errorf("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE: %w", err)
+		}
+		c.DeepSeekToolsAllowEmployee = b
 	}
 	// 刷新令牌（docs/token-lifecycle.md §3）；开关默认关，参数只在开启后生效。
 	if v := os.Getenv("DSH_EE_REFRESH_TOKENS"); v != "" {

@@ -102,6 +102,30 @@ func TestLoadEmbedConfig(t *testing.T) {
 	}
 }
 
+// DeepSeek 文件/工具访问边界：默认关闭（只允许管理员与机器人），可显式开启，非法值启动失败。
+func TestLoadDeepSeekToolsAllowEmployee(t *testing.T) {
+	setRequiredEnv(t)
+	cfg, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.DeepSeekToolsAllowEmployee {
+		t.Fatal("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE 默认应关闭")
+	}
+	t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", "true")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.DeepSeekToolsAllowEmployee {
+		t.Fatal("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE=true 应开启")
+	}
+	t.Setenv("DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE", "maybe")
+	if _, err := Load(); err == nil {
+		t.Fatal("非法值应让启动失败（fail closed）")
+	}
+}
+
 // 多实例共享限流的额度可配；非法值启动失败（fail closed）。
 func TestLoadEmbedRateLimits(t *testing.T) {
 	setRequiredEnv(t)

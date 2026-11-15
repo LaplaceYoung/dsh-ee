@@ -65,7 +65,7 @@ curl -fsS "$BASE/v1/chat/completions" \
   }'
 ```
 
-协议是 OpenAI chat completions 子集：请求体原样转发上游，只改 `model`，流式时补 `stream_options.include_usage`（否则统计不到 token）；额度、审计、上游故障转移都由 dsh-ee 处理。不提供 `/v1/embeddings`、`/v1/responses`、`/v1/completions`。
+协议是 OpenAI chat completions 子集：请求体原样转发上游，只改 `model`，流式时补 `stream_options.include_usage`（否则统计不到 token）；额度、审计、上游故障转移都由 dsh-ee 处理。不提供 `/v1/embeddings`、`/v1/completions`；按 OpenAI Responses 协议写的客户端（Codex、OpenAI Agents SDK 等）走 `POST /v1/responses`（v0：DeepSeek vendor 上游原生透传，其它 vendor 转 chat completions/完整结果回放，见 [dev/responses-api.md](./dev/responses-api.md)）。
 
 错误沿用 OpenAI 的壳：`{"error":{"message","type","code"}}`（响应头仍带 `Dsh-EE-API-Version: 1`）。常见 `code` 见 §7。
 
@@ -207,6 +207,8 @@ curl -fsS "$BASE/mcp" \
 | `device_authorization_endpoint` / `token_endpoint` | 设备码流程：`/api/device/code`、`/api/device/token`（公开） |
 | `scopes_supported` | 设备码可申请的 scope（`admin` 只能网页限时开启，不在其中） |
 | `models.protocol` / `models.streaming` / `models.endpoint` / `models.chat_completions_endpoint` | OpenAI chat completions 子集；模型列表与对话补全的实际地址 |
+| `models.responses_endpoint` / `models.responses_alias_endpoint` | Responses API 兼容入口（`/v1/responses`）与 DeepSeek 习惯的别名（`/responses`）实际地址 |
+| `models.responses_native_vendors` / `models.responses_fallback` | 哪些上游 vendor 走 Responses 原生透传（当前 `deepseek`）；其它 vendor 的降级方式（`openai-chat-completions-translation`） |
 | `mcp.transport` / `mcp.endpoint` / `mcp.protocol_versions` | MCP Streamable HTTP 端点与支持的协议版本 |
 | `apps.web` / `apps.data_tools` / `apps.endpoint` / `apps.web_url` | 微应用网页版（`/a/<slug>`）、数据工具、只读描述列表地址 |
 | `capabilities_endpoint` | 当前令牌能力摘要 `/v1/capabilities` |
@@ -224,6 +226,7 @@ curl -fsS "$BASE/mcp" \
 | `GET /v1/apps`、`GET /v1/apps/{name}` | Bearer（`hub`） | 只读微应用描述 |
 | `GET /v1/models` | Bearer（`models`） | 对外模型名 |
 | `POST /v1/chat/completions` | Bearer（`models`） | 对话补全 |
+| `POST /v1/responses`、`POST /responses` | Bearer（`models`） | OpenAI Responses API 兼容（v0）：DeepSeek vendor 原生透传，其它 vendor 走 chat 转换层（降级）；`/responses` 是 DeepSeek 习惯的等价别名，见 [dev/responses-api.md](./dev/responses-api.md) |
 | `/mcp`（POST / GET / DELETE） | Bearer（`connections`） | MCP JSON-RPC：初始化、工具列表与调用、事件流 |
 | `POST /api/device/code`、`POST /api/device/token` | 匿名 | 设备码流程获取令牌 |
 

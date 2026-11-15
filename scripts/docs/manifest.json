@@ -12,6 +12,7 @@
     "dev/access-rules.md",
     "dev/publish-precheck.md",
     "dev/quality-standards.md",
+    "dev/responses-api.md",
     "dev/chatbot.md"
   ],
   "llms": {
@@ -27,6 +28,11 @@
         "title": "模型网关",
         "url": "/v1/models",
         "description": "OpenAI 兼容的模型列表与 /v1/chat/completions；Bearer 令牌。"
+      },
+      {
+        "title": "Responses API",
+        "url": "/v1/responses",
+        "description": "OpenAI Responses API 兼容入口（`/v1/responses`，DeepSeek 习惯的等价别名 `/responses`）：DeepSeek 上游原生透传（保留 web_search、citations、title、image/file 等），其它上游走 chat completions 转换层（降级）。"
       },
       {
         "title": "Chatbot 能力与透传",

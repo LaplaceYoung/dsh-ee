@@ -12,6 +12,7 @@ Go 写的 dsh-ee 服务端。目前实现：
 - **运营统计与审计日志**：按本地日期统计能力安装、模型调用与 Token，按部门、能力、模型、终端（npm 客户端 User-Agent 里的系统与架构）汇总；登录、账号与权限、模型接入、设置、发布与审核等操作写入审计日志。
 - **能力中心**：技能、提示词、微应用与企业连接的版本、审核、可用范围（部门 / 角色 / 指定人）与下发方式（自动生效 / 自己启用）；插件也可以设范围与「自动安装」。详见下文「能力中心与 DSH 接入」。
 - **单文件部署**：前端在构建时嵌进二进制（`internal/webui`），同一个端口提供界面与全部接口。部署方式见 [../deploy](../deploy/README.md)。
+- **OpenAI Responses API 兼容入口**：`POST /v1/responses`（v0，另有 DeepSeek 习惯的等价别名 `POST /responses`），Codex / OpenAI Agents SDK 等按 Responses 协议写的客户端可用同一枚企业令牌接入。`vendor=deepseek` 的上游走**原生透传**（只改 model 后转发 `<base>/responses`；响应/SSE 逐字节转发，保留 web_search、citations、refusal、title、image/file 等；dsh-ee 只做鉴权/额度/限流/用量记账），其它 vendor 走 **chat completions 转换层（降级）**：只支持 function 工具子集、流式为完整结果回放。故障转移只在同协议/厂商内进行，详见 [../docs/dev/responses-api.md](../docs/dev/responses-api.md)。
 
 数据库走 MySQL 协议：**OceanBase（MySQL 模式）** 与 **TiDB** 通用。所有 SQL 都在 `internal/store`，以后接其它方言只改这一层。
 
@@ -134,6 +135,7 @@ OceanBase 单机最低也要几 GB 内存，本地机器紧张时先用 TiDB 调
 | `DSH_EE_BOOTSTRAP_ADMIN` / `_PASSWORD` | 用户表为空时创建的管理员，默认用户名 `admin` |
 | `DSH_EE_COOKIE_SECURE` | 会话 cookie 是否加 `Secure`；不填时 `DSH_EE_PUBLIC_URL` 是 https 就自动开启，显式设置覆盖 |
 | `DSH_EE_RESTRICT_LEGACY_TOKEN_SCOPES` | 设为 `true` 时收敛旧 `ee_npm_` / `sk-ee_` 令牌的 scope（npm 令牌只剩 registry、API key 只剩模型网关）；默认关闭，见 [docs/token-lifecycle.md](../docs/token-lifecycle.md) |
+| `DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE` | 设为 `true` 时允许普通员工引用已上传文件的 `file_id`（Responses 原生透传入口默认只允许管理员与机器人账号，普通员工 403 `file_access_denied`）；默认关闭，与在途的 DeepSeek 工具代理（#160）使用同一变量与语义 |
 | `DSH_EE_REFRESH_TOKENS` | 刷新令牌（OAuth 风格轮换 + 复用检测）总开关，**默认关闭**。开启后 `POST /api/auth/refresh` 可用，设备登录 / 手工 / 管理员签发的响应会额外带 `ee_rt_` refresh token；关闭时刷新端点返回 404、签发响应不变。见 [docs/token-lifecycle.md](../docs/token-lifecycle.md) §3 |
 | `DSH_EE_REFRESH_ACCESS_TTL` | 刷新换出的 access token 有效期，默认 `1h`，允许 `1m`–`24h` |
 | `DSH_EE_REFRESH_TOKEN_TTL` | 单枚 refresh token 的空闲有效期，默认 `720h`（30 天），允许 `1h`–`8760h`；轮换时重新计算 |
@@ -262,6 +264,7 @@ curl -fsS http://127.0.0.1:8080/readyz    # 依赖就绪；-f 让 503 以非 0 �
 | GET | `/setup.sh`、`/setup.ps1` | 员工电脑的一键接入脚本 |
 | GET | `/v1/models` | `Authorization: Bearer sk-ee-…` |
 | POST | `/v1/chat/completions` | 同上，OpenAI 格式，支持 `stream` |
+| POST | `/v1/responses`、`/responses` | OpenAI Responses API 兼容（v0）：`vendor=deepseek` 上游原生透传，其余 vendor 转 chat completions（降级）；`/responses` 是 DeepSeek 习惯的等价别名；见 [../docs/dev/responses-api.md](../docs/dev/responses-api.md) |
 | GET | `/metrics` | 最小监控指标（Prometheus 文本格式）。需 `DSH_EE_METRICS=true`，且只允许本机 / 内网来源抓取；含嵌入指标 `dsh_ee_embed_sessions_active` / `dsh_ee_embed_denied_total` |
 
 协议面（`/v1/*` 与 `/mcp`）的限流与 `X-Request-Id` 见上面「能力中心与 DSH 接入」；成功和 429 响应都带 `X-RateLimit-*`，429 另带 `Retry-After`。

@@ -94,6 +94,10 @@ type Options struct {
 	ExtensionRequireSignature bool
 	// 旧版 npm 令牌 / API key 的 scope 收敛（docs/token-lifecycle.md）；默认 false 保持旧行为。
 	RestrictLegacyTokenScopes bool
+	// 是否允许普通员工引用已上传文件的 file_id（DSH_EE_DEEPSEEK_TOOLS_ALLOW_EMPLOYEE）。
+	// 默认 false：只有管理员与机器人/服务账号可以引用；Responses 原生透传入口按它拦截。
+	// 与 #160（DeepSeek 工具代理）使用同一语义，待其合入后统一实现。
+	DeepSeekToolsAllowEmployee bool
 	// DeepSeek Chatbot 的网关注入选项（docs/dev/chatbot.md）：
 	// SafetyCheckLevel 为空表示不注入，high 时向 vendor=deepseek 的上游请求注入
 	// safety_check:{level:"high"}；ChatTitle 为 true 时注入 title:{enabled:true}。
