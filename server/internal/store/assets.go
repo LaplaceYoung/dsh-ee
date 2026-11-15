@@ -481,6 +481,50 @@ func (s *Store) UpdateAsset(ctx context.Context, id int64, p AssetPatch) error {
 	return nil
 }
 
+// GrantAssetScopeUser 把用户追加进资产的可用范围，返回是否真的加了。
+// 在事务里锁住资产行再读改写，两个审批并发时不会互相覆盖（否则后写者会丢掉前一个用户）。
+// 范围是「所有人」或已经包含该用户时不写库，返回 added=false（幂等）。
+func (s *Store) GrantAssetScopeUser(ctx context.Context, assetID, userID int64) (added bool, err error) {
+	return s.grantScopeUser(ctx, "assets", assetID, userID)
+}
+
+// grantScopeUser 是 GrantAssetScopeUser / GrantKBaseScopeUser 的共同实现。
+// table 只能是本包内的常量表名，不能来自用户输入。
+func (s *Store) grantScopeUser(ctx context.Context, table string, id, userID int64) (bool, error) {
+	if userID <= 0 { // 与 Scope.Normalize 丢弃非法用户 id 的语义保持一致，不写库
+		return false, nil
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return false, err
+	}
+	defer tx.Rollback()
+	var raw string
+	err = tx.QueryRowContext(ctx, "SELECT scope FROM "+table+" WHERE id = ? FOR UPDATE", id).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, ErrNotFound
+	}
+	if err != nil {
+		return false, err
+	}
+	sc := parseScope(raw)
+	if sc.All || slices.Contains(sc.Users, userID) {
+		return false, nil // 已经能用：不写库，也不动 updated_at
+	}
+	sc.Users = append(sc.Users, userID)
+	text, err := scopeText(sc)
+	if err != nil {
+		return false, err
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE "+table+" SET scope = ?, updated_at = ? WHERE id = ?", text, now(), id); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // RequestAssetScope 记下负责人申请的新范围，等审核；已有的申请被替换。
 func (s *Store) RequestAssetScope(ctx context.Context, id int64, sc Scope) error {
 	text, err := scopeText(sc)

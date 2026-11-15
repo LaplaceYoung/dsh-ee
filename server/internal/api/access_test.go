@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/hikariming/dsh-ee/server/internal/api"
 	"github.com/hikariming/dsh-ee/server/internal/secret"
@@ -442,4 +443,154 @@ func TestAccessResolveCASOrder(t *testing.T) {
 			t.Fatalf("授权失败后申请应退回干净的待处理状态，不能停在 approved：%+v", q)
 		}
 	})
+}
+
+// 同一个对象的两条申请先后批准：两个人都要留在可用范围里。
+// 审批路径改为 store 层的原子追加（事务 + FOR UPDATE），不再读旧范围整段覆盖。
+func TestAccessApproveGrantsBothUsers(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	if _, err := api.Bootstrap(ctx, st, "admin", "admin-password-123"); err != nil {
+		t.Fatal(err)
+	}
+	key := make([]byte, 32)
+	_, _ = rand.Read(key)
+	box, _ := secret.NewBox(key)
+	srv := api.New(st, box, api.Options{DataDir: t.TempDir()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	admin := newClient(t, ts.URL)
+	code, body := admin.do("POST", "/api/auth/login", map[string]string{"username": "admin", "password": "admin-password-123"}, nil)
+	expect(t, "管理员登录", code, 200, body)
+	login := func(name string) (*client, int64) {
+		t.Helper()
+		code, body := admin.do("POST", "/api/admin/users", map[string]any{"username": name, "password": name + "-password-1", "department": "研发部"}, nil)
+		expect(t, "建用户 "+name, code, 201, body)
+		var u struct {
+			ID int64 `json:"id"`
+		}
+		_ = json.Unmarshal(body, &u)
+		c := newClient(t, ts.URL)
+		code, body = c.do("POST", "/api/auth/login", map[string]string{"username": name, "password": name + "-password-1"}, nil)
+		expect(t, name+" 登录", code, 200, body)
+		return c, u.ID
+	}
+	bob, bobID := login("bob")
+	carol, carolID := login("carol")
+
+	sales := map[string]any{"departments": []string{"销售部"}}
+	newSkill := func(slug string) int64 {
+		t.Helper()
+		code, body := admin.do("POST", "/api/hub", map[string]any{"kind": "skill", "slug": slug, "delivery": "optional", "scope": sales,
+			"spec": map[string]any{"title": slug, "description": "x", "body": "y"}}, nil)
+		expect(t, "建技能 "+slug, code, 201, body)
+		var resp struct {
+			Asset struct {
+				ID int64 `json:"id"`
+			} `json:"asset"`
+		}
+		_ = json.Unmarshal(body, &resp)
+		return resp.Asset.ID
+	}
+	newKB := func(slug string) int64 {
+		t.Helper()
+		code, body := admin.do("POST", "/api/kb", map[string]any{"slug": slug, "title": slug, "description": "x", "scope": sales}, nil)
+		expect(t, "建知识库 "+slug, code, 201, body)
+		var resp struct {
+			ID int64 `json:"id"`
+		}
+		_ = json.Unmarshal(body, &resp)
+		return resp.ID
+	}
+	request := func(c *client, kind, slug string) int64 {
+		t.Helper()
+		code, body := c.do("POST", "/api/me/access-requests", map[string]any{"kind": kind, "slug": slug, "reason": "要用"}, nil)
+		expect(t, "申请 "+slug, code, 201, body)
+		var r struct {
+			ID int64 `json:"id"`
+		}
+		_ = json.Unmarshal(body, &r)
+		return r.ID
+	}
+	approve := func(id int64, want int) []byte {
+		t.Helper()
+		code, body := admin.do("POST", "/api/me/access-requests/"+itoa(id), map[string]any{"decision": "approve", "note": ""}, nil)
+		expect(t, "批准申请"+itoa(id), code, want, body)
+		return body
+	}
+
+	// 能力：两人都先申请，再先后批准；先前批准的不能因为后一次整段覆盖而丢掉
+	skillID := newSkill("two-skill")
+	skillReqB, skillReqC := request(bob, "skill", "two-skill"), request(carol, "skill", "two-skill")
+	approve(skillReqB, 200)
+	approve(skillReqC, 200)
+	a, err := st.GetAsset(ctx, skillID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(a.Scope.Users, bobID) || !slices.Contains(a.Scope.Users, carolID) {
+		t.Fatalf("两条申请都批准后两人都应在范围里：bob=%d carol=%d scope=%+v", bobID, carolID, a.Scope)
+	}
+	if len(a.Scope.Users) != 2 {
+		t.Fatalf("范围里应恰好有这两个人：%+v", a.Scope)
+	}
+	if !slices.Equal(a.Scope.Departments, []string{"销售部"}) {
+		t.Fatalf("追加用户不应改动原有的部门范围：%+v", a.Scope)
+	}
+	for _, u := range []struct {
+		c  *client
+		id int64
+	}{{bob, bobID}, {carol, carolID}} {
+		subs, err := st.Subscriptions(ctx, u.id)
+		if err != nil || !subs[skillID] {
+			t.Fatalf("自选能力通过后应替用户启用：user=%d subs=%v err=%v", u.id, subs, err)
+		}
+	}
+
+	// 知识库：同样两人都在范围里，其它字段不被覆盖
+	kbID := newKB("two-kb")
+	kbReqB, kbReqC := request(bob, "knowledge", "two-kb"), request(carol, "knowledge", "two-kb")
+	approve(kbReqB, 200)
+	approve(kbReqC, 200)
+	kb, err := st.GetKBase(ctx, kbID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(kb.Scope.Users, bobID) || !slices.Contains(kb.Scope.Users, carolID) || len(kb.Scope.Users) != 2 {
+		t.Fatalf("两条知识库申请都批准后两人都应在范围里：bob=%d carol=%d scope=%+v", bobID, carolID, kb.Scope)
+	}
+	if !slices.Equal(kb.Scope.Departments, []string{"销售部"}) {
+		t.Fatalf("追加用户不应改动知识库原有的部门范围：%+v", kb.Scope)
+	}
+
+	// 对象在审批开始时已被并发删除：删除接口会顺手清掉待处理申请，所以这里直接补一条
+	// 指向不存在对象的待处理申请，复现「拿到申请后目标被删」的竞态，验证 404 文案没变。
+	insertPending := func(kind string, targetID, uid int64) int64 {
+		t.Helper()
+		res, err := st.DB().ExecContext(ctx,
+			"INSERT INTO connection_requests (user_id, kind, asset_id, app_id, reason, status, created_at) VALUES (?, ?, ?, 0, '要用', 'pending', ?)",
+			uid, kind, targetID, time.Now().UTC().Truncate(time.Millisecond))
+		if err != nil {
+			t.Fatal(err)
+		}
+		id, err := res.LastInsertId()
+		if err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	goneSkill := newSkill("gone-skill")
+	code, body = admin.do("DELETE", "/api/hub/"+itoa(goneSkill), nil, nil)
+	expect(t, "删掉能力", code, 204, body)
+	// 审批先 CAS 抢占再授权（#179）：目标已删时授权失败，申请退回待处理并回 500，文案里仍说明原因。
+	if body := approve(insertPending("skill", goneSkill, bobID), 500); !strings.Contains(string(body), "这项能力已经删除了") {
+		t.Fatalf("能力已删除时的文案变了：%s", body)
+	}
+	goneKB := newKB("gone-kb")
+	code, body = admin.do("DELETE", "/api/kb/"+itoa(goneKB), nil, nil)
+	expect(t, "删掉知识库", code, 204, body)
+	if body := approve(insertPending("knowledge", goneKB, bobID), 500); !strings.Contains(string(body), "这个知识库已经删除了") {
+		t.Fatalf("知识库已删除时的文案变了：%s", body)
+	}
 }

@@ -252,6 +252,12 @@ func (s *Store) UpdateKBase(ctx context.Context, id int64, p KBasePatch) error {
 	return nil
 }
 
+// GrantKBaseScopeUser 把用户追加进知识库的可用范围，返回是否真的加了。
+// 与 GrantAssetScopeUser 相同：事务里锁行读改写，并发审批不会互相覆盖；已包含时返回 added=false。
+func (s *Store) GrantKBaseScopeUser(ctx context.Context, kbID, userID int64) (bool, error) {
+	return s.grantScopeUser(ctx, "kb_bases", kbID, userID)
+}
+
 // DeleteKBase 删除库和它的全部文档与正文；原件留在 blob 存储里（按内容寻址，可能被别处引用）。
 func (s *Store) DeleteKBase(ctx context.Context, id int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)

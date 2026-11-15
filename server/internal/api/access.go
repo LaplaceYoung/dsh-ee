@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"slices"
 	"strings"
 
 	"github.com/hikariming/dsh-ee/server/internal/store"
@@ -423,20 +422,15 @@ func (s *Server) resolveAccessRequest(w http.ResponseWriter, r *http.Request, on
 // grantAccess 把申请人加进对象的可用范围；「自选」的能力顺手替他启用，这样应用马上能用上。
 func (s *Server) grantAccess(ctx context.Context, q *store.AccessRequest) error {
 	if q.Kind == store.RequestKnowledge {
-		b, err := s.store.GetKBase(ctx, q.AssetID)
-		if errors.Is(err, store.ErrNotFound) {
-			return appErr(http.StatusNotFound, "这个知识库已经删除了")
-		}
-		if err != nil {
+		// 原子追加：并发审批同一条知识库时不读旧范围整段覆盖。
+		// added 不影响审批结果（已包含或全员可见时为 false），故忽略。
+		if _, err := s.store.GrantKBaseScopeUser(ctx, q.AssetID, q.UserID); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				return appErr(http.StatusNotFound, "这个知识库已经删除了")
+			}
 			return err
 		}
-		if b.Scope.All || slices.Contains(b.Scope.Users, q.UserID) {
-			return nil
-		}
-		sc := b.Scope
-		sc.Users = append(append([]int64{}, sc.Users...), q.UserID)
-		sc = sc.Normalize()
-		return s.store.UpdateKBase(ctx, b.ID, store.KBasePatch{Scope: &sc})
+		return nil
 	}
 	a, err := s.store.GetAsset(ctx, q.AssetID)
 	if errors.Is(err, store.ErrNotFound) {
@@ -445,13 +439,13 @@ func (s *Server) grantAccess(ctx context.Context, q *store.AccessRequest) error 
 	if err != nil {
 		return err
 	}
-	if !a.Scope.All && !slices.Contains(a.Scope.Users, q.UserID) {
-		sc := a.Scope
-		sc.Users = append(append([]int64{}, sc.Users...), q.UserID)
-		sc = sc.Normalize()
-		if err := s.store.UpdateAsset(ctx, a.ID, store.AssetPatch{Scope: &sc}); err != nil {
-			return err
+	// 原子追加：并发批准同一能力时，不会互相覆盖范围里的其他人。
+	// added=false 表示范围本来就是全员或已包含该用户，不影响审批成功。
+	if _, err := s.store.GrantAssetScopeUser(ctx, a.ID, q.UserID); err != nil {
+		if errors.Is(err, store.ErrNotFound) {
+			return appErr(http.StatusNotFound, "这项能力已经删除了")
 		}
+		return err
 	}
 	if a.Delivery == store.DeliveryOptional {
 		return s.store.Subscribe(ctx, q.UserID, a.ID)
