@@ -1,0 +1,63 @@
+// कर्मचारी पोर्टल: मेरा वर्कबेंच, माइक्रो-ऐप्स।
+import type zhNs from "../zh/portal";
+import type { Messages } from "../types";
+
+export default {
+  "workbench": {
+    "title": "मेरा वर्कबेंच",
+    "unavailable": "अभी डेटा नहीं मिल सका",
+    "reading": "पढ़ा जा रहा है…",
+    "quotaUnlimited": "कोटा असीमित",
+    "quotaUnassigned": "व्यवस्थापक ने अभी कोटा आवंटित नहीं किया",
+    "quotaOf": "कोटा {{value}}",
+    "keysOf": "वैध, अधिकतम {{max}}",
+    "tokensThisMonth": "इस महीने उपभुक्त टोकन",
+    "myKeys": "मेरी कुंजियाँ",
+    "myInstalls": "मेरी इंस्टॉल की गई क्षमताएँ",
+    "installsAllLatest": "सभी नवीनतम",
+    "myContributions": "मेरे बनाए ऐप्स",
+    "contributionsReach": "पिछले 14 दिनों में {{count}} लोगों ने उपयोग किया",
+    "myApps": "उपयोग में ऐप्स",
+    "built": "मेरे बनाए ऐप्स",
+    "builtCount": "{{count}}",
+    "nothingBuilt": "अभी कोई ऐप नहीं बनाया।",
+    "myPlugins": "मेरे प्रकाशित प्लगइन",
+    "browseAll": "सभी {{count}} देखें",
+    "open": "खोलें",
+    "launched": "स्थानीय DSH शुरू किया: {{title}}",
+    "shared": "मेरे द्वारा साझा",
+    "sharedCount": "{{count}}",
+    "nothingShared": "अभी कोई क्षमता साझा नहीं की।",
+    "colleaguesUsing": "{{count}} सहकर्मी उपयोग कर रहे हैं",
+    "awaitingReview": "व्यवस्थापक की समीक्षा की प्रतीक्षा",
+    "shareNew": "नया ऐप",
+    "installed": "इंस्टॉल की गई क्षमताएँ",
+    "installedNote": "एंटरप्राइज़ स्रोत के डाउनलोड रिकॉर्ड के अनुसार गिनती; स्थानीय रूप से अनइंस्टॉल करने पर यहाँ सिंक नहीं होगा।",
+    "nothingInstalled": "अभी एंटरप्राइज़ स्रोत से कोई क्षमता इंस्टॉल नहीं की।",
+    "unavailableNow": "अप्रकाशित",
+    "updatesAvailable": "{{count}} अपडेट उपलब्ध",
+    "allUpToDate": "{{count}} आइटम, सभी नवीनतम",
+    "communityPlugin": "समुदायिक प्लगइन",
+    "updateTo": "{{version}} में अपडेट करें",
+    "latest": "नवीनतम",
+    "teamUsing": "{{department}} उपयोग कर रहा है",
+    "companyUsing": "पूरी कंपनी उपयोग कर रही है",
+    "teamUsers": "{{count}} सहकर्मियों ने इंस्टॉल किया",
+    "noPicks": "सहकर्मियों द्वारा इंस्टॉल की गई सभी क्षमताएँ आपके पास भी हैं।",
+    "install": "इंस्टॉल करें",
+    "copiedInstall": "इंस्टॉल कमांड कॉपी हो गया: dsh plugin --profile {{profile}} add {{name}}"
+  },
+  "apps": {
+    "title": "कंपनी ऐप्स",
+    "meta": "{{owner}} द्वारा बनाए रखा · {{department}} · पिछले 14 दिनों में {{uses}} बार उपयोग",
+    "dependsOn": "उपयोग होने वाली क्षमताएँ",
+    "starters": "ऐसे पूछ सकते हैं",
+    "copyCommand": "/{{slug}} कॉपी करें",
+    "copied": "/{{slug}} कॉपी हो गया, DSH में पेस्ट करके खोलें",
+    "filterAll": "सभी {{count}}",
+    "filterEnabled": "सक्षम",
+    "empty": "अभी कोई कंपनी ऐप नहीं।",
+    "emptyEnabled": "अभी कोई ऐप सक्षम नहीं।",
+    "create": "नया ऐप"
+  }
+} satisfies Messages<typeof zhNs>;
