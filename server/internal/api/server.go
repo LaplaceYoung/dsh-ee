@@ -167,8 +167,15 @@ type Server struct {
 	// 服务扩展：连续出错时的熔断、回调地址的限流（service_ext.go）
 	extBreak        extBreaker
 	extEndpointRate keyRate
-	// /v1/* 与 /mcp 的每令牌限流；nil 表示关闭（见 rate_limit.go）
+	// /v1/* 与 /mcp 的每令牌限流；nil 表示关闭（见 rate_limit.go）。
+	// 计数优先走数据库里的共享固定窗口，tokenRate 只在数据库不可用或没有数据库
+	// （单元测试直接构造 Server）时兜底。
 	tokenRate *tokenRate
+	// 共享限流每个窗口已建行的 key 集合：key 来自令牌（攻击者可以随便造无效令牌），
+	// 超过上限后的陌生 key 共用一个溢出 key，数据库行数不会跟着请求量无限涨（见 rate_limit.go）。
+	rateKeys rateKeyAdmission
+	// 「退回内存限流」告警的限频时间（UnixNano），避免数据库持续故障时每个请求刷一条日志。
+	rateDBWarnedAt atomic.Int64
 	// 示例内容里演示差旅系统的内存数据
 	demo demoTravel
 	crm  demoCRM

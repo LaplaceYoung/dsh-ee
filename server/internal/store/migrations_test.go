@@ -153,3 +153,29 @@ func TestTokenRefreshMigration(t *testing.T) {
 		}
 	}
 }
+
+// 0037：公开协议面（/v1 与 /mcp）的每令牌限流改为数据库共享固定窗口。
+func TestSharedRateLimitsMigration(t *testing.T) {
+	body, err := migrationFS.ReadFile("migrations/0037_shared_rate_limits.sql")
+	if err != nil {
+		t.Fatalf("读 0037 迁移: %v", err)
+	}
+	stmts := splitStatements(string(body))
+	if len(stmts) == 0 {
+		t.Fatal("0037 迁移没有可执行语句")
+	}
+	// 迁移里为了对齐列写了很多空格，断言前先压成单个空格。
+	joined := strings.Join(strings.Fields(strings.Join(stmts, "\n")), " ")
+	for _, want := range []string{
+		"CREATE TABLE shared_rate_limits",
+		"rate_key VARCHAR(191) NOT NULL",
+		"window_start DATETIME(3) NOT NULL",
+		"count INT NOT NULL DEFAULT 0",
+		"PRIMARY KEY (rate_key, window_start)",
+		"KEY idx_shared_rate_limits_window (window_start)",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("0037 迁移缺少 %q：\n%s", want, joined)
+		}
+	}
+}

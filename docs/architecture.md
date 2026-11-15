@@ -150,7 +150,7 @@ tarball 按 sha512 存进 DSH_EE_DATA_DIR/blobs；download 记 npm_downloads
 | 能力中心 | `assets`、`asset_versions`、`asset_subscriptions`、`asset_usage`、`app_rows` |
 | 企业连接 | `connection_tools`、`connection_calls`、`connection_shared_credentials`、`write_confirmations` |
 | 知识库/字段/权限配置 | `kb_*`、`field_defs`、`field_values`、`access_rules`、`change_requests` |
-| 运维与审计 | `audit_logs`、`settings`、`feedback`、`data_*`、`dsh_releases`、`background_leases` |
+| 运维与审计 | `audit_logs`、`settings`、`feedback`、`data_*`、`dsh_releases`、`background_leases`、`shared_rate_limits`（`/v1`、`/mcp` 每令牌共享限流窗口） |
 
 `schema_migrations` 记录已执行的迁移。**多实例同时首次启动会争抢迁移**：先起一个，等它完成再扩容（[server/README.md](../server/README.md) 已知限制）。
 
@@ -167,7 +167,7 @@ tarball 按 sha512 存进 DSH_EE_DATA_DIR/blobs；download 记 npm_downloads
 
 ### 4.3 进程内状态（不持久化）
 
-- 登录失败限流（按用户名，进程内存；5 次失败锁 15 分钟；设备码按 IP 限流）。
+- 登录失败限流（按用户名 5 次失败锁 15 分钟、按登录 IP 固定窗口）与设备码按 IP 限流，仍在进程内存；`/v1/*` 与 `/mcp` 的每令牌限流已改为数据库共享固定窗口（`shared_rate_limits`），多实例合计一份额度。
 - 上游 packument 内存缓存、知识库关键词索引、流式响应、MCP 事件流。
 - 预载/导入任务：任务记录在 `sync_jobs`，进程重启时启动阶段会把「运行中」的任务标为失败（`FailRunningJobs`），不会自动续跑。
 - **已经不在进程内**：一次性状态（从 DSH 打开网页的 handoff code、开始使用接入码、OIDC state/PKCE）存在共享表 `ephemeral_states`，多个实例共享同一份语义；一次性和过期判断都在数据库上做，数据库不可用时直接失败（见 [operations.md](./operations.md) §9.2）。
@@ -239,13 +239,12 @@ tarball 按 sha512 存进 DSH_EE_DATA_DIR/blobs；download 记 npm_downloads
 
 | 能力 | 现状 | 参考 |
 |---|---|---|
-| 多实例完整横向扩展 | 周期后台任务已有租约选主（`background_leases`，见 §4.3 与 [operations.md](./operations.md) §9.2）；登录限流、缓存、预载任务、MCP 事件流仍在进程内存，tarball 在本地磁盘，迁移要求先起一个，作业级归属（`FailRunningJobs`、管理员触发的镜像任务）未做 | [operations.md](./operations.md) §9.2、[server/README.md](../server/README.md) 已知限制 |
+| 多实例完整横向扩展 | 周期后台任务已有租约选主（`background_leases`，见 §4.3 与 [operations.md](./operations.md) §9.2）；登录/设备码限流、缓存、预载任务、MCP 事件流仍在进程内存，每令牌限流已用数据库共享固定窗口（`shared_rate_limits`）；tarball 在本地磁盘，迁移要求先起一个，作业级归属（`FailRunningJobs`、管理员触发的镜像任务）未做 | [operations.md](./operations.md) §9.2、[server/README.md](../server/README.md) 已知限制 |
 | 对象存储 | tarball 只写本地 `DSH_EE_DATA_DIR` | 同上 |
 | 备份/恢复工具 | 仓库没有内置命令；`.env` 必须和数据库一起备份 | [operations.md](./operations.md)、[roadmap.md](./roadmap.md) 阶段 C |
 | 指标/追踪/慢请求日志 | 只有文本日志和 `/healthz` | roadmap 阶段「企业级运行能力」 |
 | 日志级别/轮转/syslog | 固定 Info 级别写 stderr | 同上 |
 | 审计导出、保留期、外发 | 只有网页查询接口 | roadmap 阶段「企业级运行能力」 |
-| `/mcp`、`/v1` 每令牌限流/`Retry-After`/`Request-Id` | 没有；MCP 分页与写确认 `_meta` 见 PR #128（合并后生效），限流仍未实现（设计） | [l1-client.md](./l1-client.md) §5；[roadmap.md](./roadmap.md) |
 | MCP `tools/list` 分页、写确认结构化 `_meta` | 基线一次全量 + 文本确认；见 PR #128，合并后生效 | [troubleshooting.md](./troubleshooting.md) §4.2 |
 | CORS（浏览器内第三方 Harness） | 见 PR #127（白名单 `DSH_EE_CORS_ORIGINS`，默认关闭），合并后生效 | [l1-client.md](./l1-client.md) |
 | Git 安装、自动升级、作者自助发布 | 没有；安装只经管理员。扩展签名、企业目录登记、版本回滚已做最小闭环 | [plugins.md](./plugins.md) §9 |

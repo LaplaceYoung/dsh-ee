@@ -194,7 +194,7 @@ func run(log *slog.Logger) error {
 		log.Warn("设置了 DSH_EE_CSP_REPORT_URI 但 DSH_EE_CSP=off：报告地址不会生效")
 	}
 	if cfg.RateLimitPerMinute > 0 {
-		log.Info("已启用公开协议面限流", "per_minute_per_token", cfg.RateLimitPerMinute)
+		log.Info("已启用公开协议面限流", "per_minute_per_token", cfg.RateLimitPerMinute, "count_store", "database")
 	} else {
 		log.Warn("公开协议面限流已关闭", "reason", "DSH_EE_RATE_LIMIT=0/off")
 	}
@@ -324,6 +324,13 @@ func sweepEmbed(ctx context.Context, st *store.Store, log *slog.Logger, leases *
 			log.Warn("清理嵌入限流窗口失败", "err", err)
 		} else if n > 0 {
 			log.Info("已清理嵌入限流窗口", "count", n)
+		}
+		// 公开协议面（/v1 与 /mcp）的共享限流窗口同样是每分钟一行，只保留当前窗口。
+		// 线上窗口固定 1 分钟；判定不依赖清理任务，清理只回收空间。
+		if n, err := st.DeleteOldSharedRateLimits(ctx, time.Now().UTC().Truncate(time.Minute)); err != nil {
+			log.Warn("清理共享限流窗口失败", "err", err)
+		} else if n > 0 {
+			log.Info("已清理共享限流窗口", "count", n)
 		}
 	}
 	leases.Run(ctx, leaseSweepEmbed, clean)
