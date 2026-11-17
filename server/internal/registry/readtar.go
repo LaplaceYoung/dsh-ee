@@ -47,23 +47,37 @@ type PackageContents struct {
 // tarball 里有多个顶层目录时返回 ErrMultipleTopDirs：npm 安装时 strip:1 会把它们平铺到一起，
 // 只按第一个目录列清单会把审核员看不见的内容放过去。
 func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, b []byte)) (*PackageContents, error) {
+	return readTarball(r, want, maxBytes, scan, defaultTarLimits())
+}
+
+// readTarball 是 ReadTarball 的实现；lim 只在测试里注入小上限。
+func readTarball(r io.Reader, want string, maxBytes int, scan func(file string, b []byte), lim tarLimits) (*PackageContents, error) {
 	gz, err := gzip.NewReader(r)
 	if err != nil {
 		return nil, fmt.Errorf("Not gzip: %w", err)
 	}
 	defer gz.Close()
-	tr := tar.NewReader(gz)
+	// 与 InspectTarball 同一套记账：header、PAX 扩展头、正文都走解压字节上限。
+	unpacked := &unpackedLimitReader{r: gz, limit: lim.streamBytes}
+	tr := tar.NewReader(unpacked)
 	out := &PackageContents{Files: []FileEntry{}}
 	root := ""
 	var tops []string
 	var counter tarCounter
+	rawEntries := 0
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Unpacking failed: %w", err)
+			return nil, unpackErr(unpacked, err)
+		}
+		// 原始条目数在类型过滤之前计：同名重复条目、目录/链接等非 regular 条目
+		// 同样要逐条解压解析，去重后的文件数管不住它们。
+		rawEntries++
+		if rawEntries > lim.rawEntries {
+			return nil, errTooLarge
 		}
 		if h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeRegA {
 			continue
@@ -88,7 +102,7 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 		// 清单覆盖所有顶层目录；tar 允许同名条目重复出现（后一个覆盖前一个），按真实路径去重。
 		first := counter.add(name, h.Size)
 		if counter.tooLarge() {
-			return nil, errors.New("Too many files or files too large after unpacking")
+			return nil, errTooLarge
 		}
 		if first {
 			if len(out.Files) < maxListedFiles {
@@ -106,7 +120,7 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 			}
 			b, err := io.ReadAll(io.LimitReader(tr, maxPackageJSON))
 			if err != nil {
-				return nil, err
+				return nil, unpackErr(unpacked, err)
 			}
 			out.PackageJSON = b
 			if scan != nil && !sensitive(base, b) {
@@ -122,7 +136,7 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 			}
 			b, err := io.ReadAll(io.LimitReader(tr, limit))
 			if err != nil {
-				return nil, err
+				return nil, unpackErr(unpacked, err)
 			}
 			if scan != nil && h.Size <= maxReviewScan && scannable(base) && !sensitive(base, b) {
 				scan(file, b)

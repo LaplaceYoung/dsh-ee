@@ -25,6 +25,11 @@ const (
 	// 顶层目录最多记几个。正常的 npm 包只有一个（package/）；多顶层直接拒收，
 	// 记几个只是为了在错误信息和检查项里点名。
 	maxTopDirs = 8
+	// 解压后字节流的上限：正文总量（maxUnpackedSize）之外，tar 框架本身还有开销 ——
+	// 每个条目 512 字节 header、正文至多 511 字节对齐 padding、PAX 长名等额外记录，
+	// 末尾还有 1024 字节 EOF 块，按每条目 2 KB + 1 KB 留余量，正常包不会被误伤。
+	// 没有这层记账时，「大量超长 PAX 头 / 零长 header」不增加声明体积，却能一直解压。
+	maxUnpackedStream = maxUnpackedSize + maxFiles*2048 + 1024
 )
 
 // TarballInfo 是解包检查的结果。
@@ -87,7 +92,57 @@ var (
 	// 安装时 strip:1 会把每个顶层目录都平铺到安装根 —— 多出来的目录能让 install 脚本
 	// 绕过审核执行，所以整包拒收，不能只信第一个目录。
 	ErrMultipleTopDirs = errors.New("tarball 里有多个顶层目录")
+	// errTooLarge：原始条目数（含同名重复、目录/链接等非文件条目）或解压字节数超限。
+	// 按路径去重只用于清单与体积记账，不能当成条目数上限。
+	errTooLarge = errors.New("Too many files or files too large after unpacking")
 )
+
+// tarLimits 是解包循环的硬上限。生产路径固定用 defaultTarLimits；
+// 测试可以注入小上限，免得为了验证超限拒收去构造几百 MB 数据。
+type tarLimits struct {
+	// rawEntries：tr.Next() 返回的原始条目数上限（在类型过滤与路径去重之前计数）。
+	rawEntries int
+	// streamBytes：gzip 解压后的字节流上限（含 tar 框架开销）。
+	streamBytes int64
+}
+
+func defaultTarLimits() tarLimits {
+	return tarLimits{rawEntries: maxFiles, streamBytes: maxUnpackedStream}
+}
+
+// unpackedLimitReader 给 gzip 解压后的字节流记账，超过 limit 后持续返回 errTooLarge。
+// 声明体积（tarCounter）管不住「大量零长 header / 超长 PAX 头」：它们不增加声明体积，
+// 但每一条都要解压、解析、分配内存，只看声明体积就等于让 CPU 白跑。
+type unpackedLimitReader struct {
+	r     io.Reader
+	limit int64
+	n     int64
+	err   error
+}
+
+func (l *unpackedLimitReader) Read(p []byte) (int, error) {
+	if l.err != nil {
+		return 0, l.err
+	}
+	n, err := l.r.Read(p)
+	l.n += int64(n)
+	if l.n > l.limit {
+		l.err = errTooLarge
+		return n, l.err
+	}
+	return n, err
+}
+
+// exceeded 报告解压字节是否超限。错误可能被 gzip / tar 包了一层，用它兜底判定。
+func (l *unpackedLimitReader) exceeded() bool { return l.n > l.limit }
+
+// unpackErr 把解压流超限统一成 errTooLarge，其余解包错误保持原样加前缀。
+func unpackErr(lim *unpackedLimitReader, err error) error {
+	if lim.exceeded() || errors.Is(err, errTooLarge) {
+		return errTooLarge
+	}
+	return fmt.Errorf("Unpacking failed: %w", err)
+}
 
 // tarCounter 按 tar 里的真实路径去重后累计文件数与解压体积：同名条目后者覆盖前者，
 // 只算一个文件；体积取最大的那个声明，避免重复条目把上限绕过去。
@@ -123,22 +178,36 @@ func (c *tarCounter) tooLarge() bool { return c.files > maxFiles || c.bytes > ma
 // 出现第二个顶层目录时返回 info 与 ErrMultipleTopDirs（info 已覆盖所有顶层目录的统计与扫描，
 // 供调用方诊断）；调用方必须先判错并拒收，绝不能拿这个 info 当发布依据。
 func InspectTarball(r io.Reader) (*TarballInfo, error) {
+	return inspectTarball(r, defaultTarLimits())
+}
+
+// inspectTarball 是 InspectTarball 的实现；lim 只在测试里注入小上限。
+func inspectTarball(r io.Reader, lim tarLimits) (*TarballInfo, error) {
 	gz, err := gzip.NewReader(r)
 	if err != nil {
 		return nil, fmt.Errorf("Not gzip: %w", err)
 	}
 	defer gz.Close()
-	tr := tar.NewReader(gz)
+	// 解压字节记账要在 tar 之前：header、PAX 扩展头、正文全部经它读取。
+	unpacked := &unpackedLimitReader{r: gz, limit: lim.streamBytes}
+	tr := tar.NewReader(unpacked)
 	info := &TarballInfo{Files: map[string]bool{}, YAML: map[string][]byte{}}
 	root := ""
 	var counter tarCounter
+	rawEntries := 0
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
 			break
 		}
 		if err != nil {
-			return nil, fmt.Errorf("Unpacking failed: %w", err)
+			return nil, unpackErr(unpacked, err)
+		}
+		// 原始条目数在类型过滤之前计：同名重复条目、目录/链接等非 regular 条目
+		// 同样要逐条解压解析，去重后的文件数管不住它们。
+		rawEntries++
+		if rawEntries > lim.rawEntries {
+			return nil, errTooLarge
 		}
 		if h.Typeflag != tar.TypeReg && h.Typeflag != tar.TypeRegA {
 			continue
@@ -159,7 +228,7 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 		// 统计覆盖所有顶层目录；tar 允许同名条目重复出现（后一个覆盖前一个），按真实路径去重。
 		counter.add(name, h.Size)
 		if counter.tooLarge() {
-			return nil, errors.New("Too many files or files too large after unpacking")
+			return nil, errTooLarge
 		}
 		inRoot := top == root
 		file := rel
@@ -188,14 +257,14 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 			}
 			b, err := io.ReadAll(io.LimitReader(tr, maxPackageJSON))
 			if err != nil {
-				return nil, err
+				return nil, unpackErr(unpacked, err)
 			}
 			info.PackageJSON = b
 			info.scan(file, b)
 		case h.Size <= maxScanFileSize && scannable(base):
 			b, err := io.ReadAll(io.LimitReader(tr, maxScanFileSize))
 			if err != nil {
-				return nil, err
+				return nil, unpackErr(unpacked, err)
 			}
 			info.scan(file, b)
 			if inRoot && isYAML(base) && len(info.YAML) < maxPatchFiles && info.patchBytes+int64(len(b)) <= maxPatchBytes {
