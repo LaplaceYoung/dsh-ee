@@ -312,3 +312,35 @@ func TestValidateAutoUpgrade(t *testing.T) {
 		t.Fatalf("auto_upgrade=true 应只给 warning：%+v", r.Issues)
 	}
 }
+
+// 0.0.0.0/8（RFC 1122 "this network"）与阿里云元数据 100.100.100.200 不在
+// IsPrivate / 链路本地段里，目录登记与下载前解析都要拒绝；公网地址与既有的
+// 内网/链路本地判定保持不变。
+func TestPublicHostProblemRestrictedIPs(t *testing.T) {
+	for _, host := range []string{
+		"0.0.0.0", "0.1.2.3", "100.100.100.200", "::ffff:100.100.100.200",
+		"169.254.169.254", "10.0.0.5", "127.0.0.1", "fe80::1",
+	} {
+		if msg := PublicHostProblem(host); msg == "" {
+			t.Errorf("PublicHostProblem(%q) 应拒绝", host)
+		}
+	}
+	for _, host := range []string{"8.8.8.8", "1.1.1.1", "2606:4700:4700::1111", "cdn.example.com"} {
+		if msg := PublicHostProblem(host); msg != "" {
+			t.Errorf("PublicHostProblem(%q) 应放行，得到：%s", host, msg)
+		}
+	}
+
+	// DSH_EE_DIRECTORY_TARBALL_HOSTS 白名单是显式放行：名单里的内网/元数据主机
+	// 照旧可用，不因为补黑名单而改变语义。
+	for _, u := range []string{"https://0.1.2.3/x.tgz", "https://100.100.100.200/x.tgz"} {
+		if CheckTarballURL(u, nil) == "" {
+			t.Errorf("%s 没有白名单时应拒绝", u)
+		}
+	}
+	for _, u := range []string{"https://0.1.2.3/x.tgz", "https://100.100.100.200/x.tgz"} {
+		if msg := CheckTarballURL(u, []string{"0.1.2.3", "100.100.100.200"}); msg != "" {
+			t.Errorf("白名单显式放行时应通过：%s（%s）", u, msg)
+		}
+	}
+}

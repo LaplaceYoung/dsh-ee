@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/hikariming/dsh-ee/server/internal/netguard"
 )
 
 // 已知的公共上游。
@@ -400,8 +402,11 @@ func (u *Upstream) guardedDialContext(base func(ctx context.Context, network, ad
 }
 
 // blockedUpstreamIP 判断地址是否属于本机/内网/链路本地等不应由服务端主动访问的范围。
+// 0.0.0.0/8 与云主机元数据地址（含阿里云 100.100.100.200）不在 IsPrivate/链路本地
+// 段里，用 netguard 的共享清单补上，和企业目录、连接试连三处保持一致。
 func blockedUpstreamIP(ip net.IP) bool {
-	return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsMulticast() ||
+	return netguard.IsZeroNetwork(ip) || netguard.IsMetadataIP(ip) ||
+		ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsMulticast() ||
 		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast()
 }
 

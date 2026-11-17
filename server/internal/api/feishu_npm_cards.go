@@ -29,6 +29,32 @@ func npmCardObjectParts(key string) (name, version string, err error) {
 	return name, version, nil
 }
 
+// npmCardLink 把包名换成审批卡里的「访问」链接。
+//
+// 卡片是 bot 发给审批人的可信消息，链接的 base 只能来自管理员配置：发布者能控制
+// npm 发布请求的 Host 头，未配置对外地址时用 publicBase(r) 拼绝对链接，发布者就能
+// 让审批人看到指向任意外域的钓鱼链接。base 为空时只返回站内相对路径（飞书不会把
+// / 开头的路径变成外链）；包名已由 registry.ValidName 限制在安全字符集内并做
+// PathEscape，不会注入卡片 markdown 语法。
+func npmCardLink(base, name string) string {
+	path := "/plugins/" + url.PathEscape(name)
+	if base == "" {
+		return path
+	}
+	return strings.TrimRight(base, "/") + path
+}
+
+// npmCardLinkBase 选择审批卡链接的 base：系统设置里的「访问地址」优先，其次启动参数
+// DSH_EE_PUBLIC_URL。两者都是管理员配置；都没有时返回空串，让卡片只显示站内相对路径。
+// 不复用 publicBase(r)：它会退回请求 Host（或可信代理转发的 Host），对「发给审批人、
+// 审批人会点」的链接来说，请求 Host 不是可信输入。
+func (s *Server) npmCardLinkBase(ctx context.Context) string {
+	if set, err := s.appSettings(ctx); err == nil && set.BaseURL != "" {
+		return set.BaseURL
+	}
+	return s.opts.PublicURL
+}
+
 // feishuNpmPublish 在 npm CLI 与网页上传提交同一个待审版本时共享卡片入口。
 // 发送失败只记录日志，不影响 registry.Publish 已经返回的发布结果。
 func (s *Server) feishuNpmPublish(r *http.Request, result *registry.PublishResult, publisherID int64) {
@@ -53,7 +79,7 @@ func (s *Server) feishuNpmPublish(r *http.Request, result *registry.PublishResul
 		DetailKey:   detailKey,
 		DetailParams: map[string]string{
 			"name": result.Name, "version": result.Version, "publisher": publisher,
-			"url": s.publicBase(r) + "/plugins/" + url.PathEscape(result.Name),
+			"url": npmCardLink(s.npmCardLinkBase(ctx), result.Name),
 		},
 		// 只有发布者用户名是自由文本；包名与版本号已被 registry.ValidName/ValidVersion
 		// 约束在安全字符集内，站内链接由服务端拼接。
