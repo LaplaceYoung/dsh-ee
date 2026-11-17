@@ -250,7 +250,9 @@ export function createLocalMcp(ctx: DshContext, config: PluginConfig, options: {
   const platform = options.platform ?? process.platform;
   const disposers = new Map<string, () => void>();
   const manager = (): LocalMcpManager | undefined => {
-    const service = ctx.get("mcpManager");
+    // mcpManager 不在 inject 里（旧版 DSH 会因此卡住整个插件），这里按需取；取不到或宿主抛错都当没有
+    let service: any;
+    try { service = ctx.get("mcpManager"); } catch { return undefined; }
     return service && typeof service.register === "function" && typeof service.list === "function" ? service as LocalMcpManager : undefined;
   };
   const names = async (): Promise<Set<string>> => {
