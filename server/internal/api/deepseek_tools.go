@@ -74,8 +74,6 @@ const (
 	deepseekProviderUnavailable = "deepseek_provider_unavailable"
 	// deepseekToolsForbiddenCode 是普通员工调用文件/工具接口被访问边界拦下时的错误码。
 	deepseekToolsForbiddenCode = "deepseek_tools_forbidden"
-	// fileAccessDeniedCode 是普通员工在聊天里引用 file_id 被拦下时的错误码（gateway.go 共用）。
-	fileAccessDeniedCode = "file_access_denied"
 
 	// deepseekAnthropicBetaHeader 是 Anthropic 兼容 Files 端点必须携带的 beta 头。
 	// dsh-ee 不校验也不补这个头（缺失由上游返回 400），只把它原样转发给上游。

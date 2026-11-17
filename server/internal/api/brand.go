@@ -173,7 +173,8 @@ func (s *Server) handleUploadBrandLogo(w http.ResponseWriter, r *http.Request) {
 	}
 	tmpName := tmp.Name()
 	defer os.Remove(tmpName)
-	if err := tmp.Chmod(0o600); err == nil {
+	// 不要用 if err := …：那样会遮住外层 err，Chmod / Write 失败就被悄悄吞掉，留下一个空的或半截的 logo
+	if err = tmp.Chmod(0o600); err == nil {
 		_, err = tmp.Write(data)
 	}
 	if err == nil {

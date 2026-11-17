@@ -237,10 +237,6 @@ func intersect(a, b []int32) []int32 {
 	return out
 }
 
-func (bi *baseIndex) inFolder(e *entry, folder string) bool {
-	return docInFolder(e.doc, folder)
-}
-
 func docInFolder(d *Doc, folder string) bool {
 	return folder == "" || d.Folder == folder || strings.HasPrefix(d.Folder, strings.TrimSuffix(folder, "/")+"/")
 }
