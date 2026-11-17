@@ -295,9 +295,9 @@ func (s *Server) openChatUpstreamCandidates(w http.ResponseWriter, r *http.Reque
 		if !last && cooldown.cooling() {
 			continue
 		}
-		upstreamKey, err := s.box.Open(p.APIKeyEnc)
+		upstreamKey, err := s.openProviderKey(p)
 		if err != nil {
-			s.log.Error("decrypt provider key", "provider", p.Name, "err", err)
+			s.log.Error("provider key unavailable", "provider", p.Name, "err", err)
 			if last {
 				writeErr(http.StatusInternalServerError, "server_error", "provider_misconfigured", "上游配置有误，请联系管理员")
 				return nil, nil, false
