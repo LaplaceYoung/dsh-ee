@@ -34,7 +34,7 @@
 | 能力 | 状态 | 实现位置 |
 |---|---|---|
 | 同站 iframe：`?embed=1&host=&fit=&theme=`、隐藏返回/管理/演示条/导出/`dsh://`、主题首屏生效 | ✅ 已实现 | `web/src/lib/embed.ts`、`web/src/pages/app-web.tsx`、`web/index.html`、`web/src/components/{app-data,live-pane}.tsx` |
-| CSP：`/a/*` 加 `frame-ancestors 'self' <DSH_EE_EMBED_ORIGINS>`，其它 HTML 保持 `'self'`；不设 XFO | ✅ 已实现 | `server/internal/api/security_headers.go` |
+| CSP：`/a/*` 加 `frame-ancestors 'self' <DSH_EE_EMBED_ORIGINS>`，其它 HTML 保持 `'self'`；默认叠加内置完整基线策略（`DSH_EE_CSP=off` 可回滚）；不设 XFO | ✅ 已实现 | `server/internal/api/security_headers.go` |
 | 来源解析/校验（完整 origin、https、回环 http、拒绝 `*`/`null`/路径，fail closed） | ✅ 已实现 | `server/internal/embed/origin.go`、`server/internal/config/config.go` |
 | v0 消息：`ready` / `theme` 双向 / `resize`（仅 `fit=auto`）/ `error` | ✅ 已实现 | `web/src/lib/use-embed.ts`、`web/src/lib/embed-provider.tsx` |
 | v1 握手：`ready{supports:["connect-v1"]}` → `connect{code}` → `session` / `auth-required` | ✅ 已实现 | `web/src/lib/embed-provider.tsx` |
@@ -65,7 +65,7 @@
 | D4 | code 60 秒、一次性、绑定用户+应用+宿主 origin | 只存哈希在内存 map，取用即删；过期与无效区分 `embed_code_expired` / `embed_code_invalid`；`next` 校验为 `/a/<slug>` 前缀 | `next` 已被校验并绑定，但 exchange/前端当前**未消费**（保留字段） |
 | D5 | 会话短 TTL、不提供 refresh、可吊销 | `DSH_EE_EMBED_SESSION_TTL` 默认 `2h`，范围 `1m–8h`；过期后 401 → `auth-required{reason:"expired"}`；logout 删会话 | 与设计一致；TTL 放在环境变量而非设置页 |
 | D6 | 只能访问**路由白名单**，且只能访问 mint 时绑定的应用 | `embedRouteAllowed` 固定清单；路径里的 `{slug}` 必须等于会话的 `app_slug`，不相等 403 `embed_scope` 并记 `embed.deny`；两类测试固定清单与边界 | 与设计一致；白名单只校验形状，应用绑定由 `requireEmbedUser` 单独校验 |
-| D7 | CSP `frame-ancestors` 只对 `/a/*` 放行，默认 `'self'` | `security_headers.go` 按路径加头；管理页/登录页保持 `'self'` | 与设计一致；XFO 不设 |
+| D7 | CSP `frame-ancestors` 只对 `/a/*` 放行，基线 `'self'`；默认还叠加完整基线策略（`DSH_EE_CSP=off` 可回滚） | `security_headers.go` 按路径加头；管理页/登录页保持 `'self'` | 与设计一致；XFO 不设 |
 | D8 | 每用户令牌是硬前提，不提供共享令牌 | mint 要求 human 账号 + `agent` scope；机器人令牌 403 并记 `embed.deny` | 与设计一致；**实际还要求 `hub` scope**（mint 走 `dshPrincipal`），令牌需同时带 `hub` + `agent` |
 | D9 | 默认关闭，按配置启用 | `DSH_EE_EMBED_CROSS_SITE` 默认 false；开启但未配 `DSH_EE_EMBED_ORIGINS` 时**启动失败** | 与设计一致；只有环境变量，没有管理端设置页（见 §11） |
 | D10 | 一次性 code 存内存（单实例） | `embedCodes` 进程内 map；多实例需共享存储 | 与设计一致，见 §11 |
@@ -135,8 +135,10 @@
 ## 8. CSP 与安全头（已实现）
 
 ```
-# 只对 /a/* 的 HTML 生效
-Content-Security-Policy: frame-ancestors 'self' https://host1.example.com https://host2.example.com:8443
+# 默认（DSH_EE_CSP 未设置 = enforce）给 HTML 加内置基线策略，frame-ancestors 与嵌入配置合并：
+Content-Security-Policy: default-src 'self'; script-src 'self' 'sha256-…'; style-src 'self' 'unsafe-inline';
+  img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; base-uri 'self';
+  object-src 'none'; form-action 'self'; frame-src 'self'; frame-ancestors 'self' https://host1.example.com https://host2.example.com:8443
 Referrer-Policy: strict-origin-when-cross-origin
 X-Content-Type-Options: nosniff
 Permissions-Policy: camera=(), microphone=(), geolocation=()
@@ -145,9 +147,9 @@ Permissions-Policy: camera=(), microphone=(), geolocation=()
 - 来源来自 `DSH_EE_EMBED_ORIGINS`（逗号分隔完整 origin）；**CSP 白名单与 mint 校验共用同一份解析**（`server/internal/embed/origin.go`），避免两处口径不一致。
 - `DSH_EE_EMBED_ORIGINS` 只接受 `https://host[:port]`，`http` 仅回环地址（`localhost`/`127.0.0.1`/`[::1]`）；拒绝 `*`、`null`、通配符、路径/查询/用户信息，非法值**启动失败**。
 - `DSH_EE_EMBED_CROSS_SITE` **只控制 mint/exchange 是否可用**；CSP 的来源追加由 `DSH_EE_EMBED_ORIGINS` 决定。只配 origins 不配 cross-site 时，同站/顶层嵌入的 CSP 生效，但跨站 mint 返回 `embed_disabled`。
-- 默认 `frame-ancestors 'self'`；管理页、登录页、`/go` 等永远只允许 `'self'`。
+- `frame-ancestors 'self'` 是基线；管理页、登录页、`/go` 等永远只允许 `'self'`，配置的宿主 origin 只追加到 `/a/*`。
 - **不设 `X-Frame-Options`**；反代/CDN 不要重复添加 CSP 或 XFO；HTTPS 是硬前提。
-- 可选的完整内容安全策略（`DSH_EE_CSP=report|enforce`，默认 `off`）：在同一中间件里给 HTML 加 `default-src` / `script-src`（含 index.html 内联脚本的 sha256 哈希）等指令，`frame-ancestors` 与本节来源合并；`report` 模式的完整策略走 `Content-Security-Policy-Report-Only`，但 `frame-ancestors` 收口仍放在会执行的 CSP 里。见 [operations.md](./operations.md) §10.1。
+- 完整内容安全策略（`DSH_EE_CSP=off|report|enforce`，默认 `enforce`）：在同一中间件里给 HTML 加 `default-src` / `script-src`（含 index.html 内联脚本的 sha256 哈希）等基线指令，`frame-ancestors` 与本节来源合并；`report` 模式的完整策略走 `Content-Security-Policy-Report-Only`，但 `frame-ancestors` 收口仍放在会执行的 CSP 里；显式 `off` 回到只加 `frame-ancestors` 的旧行为（升级回滚用）。见 [operations.md](./operations.md) §10.1。
 
 ## 9. 失败态与兜底（已实现）
 

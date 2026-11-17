@@ -65,7 +65,12 @@ export default async function (t) {
   const appCSP = await csp("/a/some-app");
   assert(appCSP.includes(dynamicOrigin), "保存后 /a/* 的 CSP 应立即包含新来源：" + appCSP);
   for (const origin of envOrigins) assert(appCSP.includes(origin), "env 来源仍在 CSP 里：" + origin);
-  assertEq(await csp("/admin/menus"), "frame-ancestors 'self'", "管理页不能放行嵌入来源");
+  // 未设置 DSH_EE_CSP 时默认 enforce：管理页带基线策略，但仍只允许同站嵌入。
+  const adminCSP = await csp("/admin/menus");
+  assert(
+    adminCSP.startsWith("default-src 'self';") && adminCSP.endsWith("frame-ancestors 'self'") && !adminCSP.includes(dynamicOrigin),
+    "管理页不能放行嵌入来源：" + adminCSP,
+  );
   const saved = await api(admin, "GET", "/api/admin/embed-settings");
   assertEq(saved.status, 200, "读嵌入有效配置");
   assert(saved.data.effective.allowedOrigins.includes(dynamicOrigin), "有效来源应包含 DB 追加值：" + JSON.stringify(saved.data.effective.allowedOrigins));

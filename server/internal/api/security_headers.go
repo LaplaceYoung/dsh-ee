@@ -6,26 +6,44 @@ import (
 	"strings"
 )
 
-// cspFrameAncestorsSelf 是默认（CSP 关闭时）的 Content-Security-Policy：只保留 #118 合入的
-// frame-ancestors 收口，与之前完全一致。
+// cspFrameAncestorsSelf 是只加 frame-ancestors 收口时的 Content-Security-Policy：
+// DSH_EE_CSP=off 的旧行为（回滚用），也是完整策略里 frame-ancestors 的基线。
 const cspFrameAncestorsSelf = "frame-ancestors 'self'"
 
-// cspPolicyTemplate 是可配置 CSP 的固定指令；%s 处填入 index.html 内联脚本的 sha256 源。
+// cspPolicyTemplate 是内置基线策略的固定指令；%s 处填入 index.html 内联脚本的 sha256 源。
 // frame-ancestors 不写死在这里：它要和嵌入配置合并，见 cspPolicy。
+//
+// 默认（DSH_EE_CSP 未设置）就下发这份策略，所以每一项都要对得上前端的实际行为：
+//   - default-src 'self'：兜底只允许同源；未单独列出的资源类型（media/worker/manifest 等）跟随它。
+//   - script-src 'self' + 内联哈希：Vite 产物是 /assets/*.js；index.html 里唯一的经典内联脚本
+//     （首屏主题 + 语言/标题）用启动时按实际下发字节算出的 sha256 放行。不用 'unsafe-inline'，
+//     也不用 'unsafe-eval'（前端与依赖都不在运行时生成/执行代码）。
+//   - style-src 'self' 'unsafe-inline'：Tailwind 产物是 /assets/*.css；React 的
+//     style={{…}} 内联 style 属性只能由 'unsafe-inline' 放行（哈希和 nonce 管不到 style 属性）。
+//   - img-src 'self' data: blob: https:：品牌 logo 走同源接口；插件市场图标可能是外部 https
+//     图片（registry 只接受 https 或与索引同源的 http）；品牌设置里本地裁剪用 blob: 预览，
+//     data: 留给内联图片（例如内联 SVG 数据）。
+//   - font-src 'self' data:：前端不加载外部字体，data: 兜底内联字体。
+//   - connect-src 'self'：所有 XHR/fetch/SSE 都打同源 /api、/v1、/mcp；没有跨站 API。
+//   - base-uri 'self'、object-src 'none'、frame-src 'self'、form-action 'self'：
+//     收紧 <base>、插件（object/embed）、子框架与表单目标；前端不用这些跨站能力。
 const cspPolicyTemplate = "default-src 'self'; script-src 'self'%s; " +
-	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; " +
-	"connect-src 'self'; base-uri 'self'; form-action 'self'"
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; " +
+	"connect-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'self'"
 
 // cspMode 归一化 Options.CSP：只认 off / report / enforce（大小写、空白不敏感），
-// 其它值按 off 处理。config 层已经 fail closed，这里只是防御内部调用方写错。
+// 空值与其它值都按默认 enforce 处理。config 层对非法的 DSH_EE_CSP 已经 fail closed，
+// 这里兜底内部调用方写错的场景：落到安全默认，而不是静默关掉策略。
 func cspMode(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "off":
+		return "off"
 	case "report":
 		return "report"
 	case "enforce":
 		return "enforce"
 	default:
-		return "off"
+		return "enforce"
 	}
 }
 
@@ -72,22 +90,23 @@ func cspReportURI(raw string) string {
 
 // cspFor 算出这次请求要加的两个 CSP 头。
 //
-//   - off（默认）：只把现有的 frame-ancestors 收口放进 Content-Security-Policy，行为不变。
+//   - enforce（默认，Options.CSP 未设置或无法识别）：完整策略（含合并后的 frame-ancestors）
+//     放进 Content-Security-Policy，阻断违规。
 //   - report：Content-Security-Policy 仍然保留 frame-ancestors（嵌入收口是强制的，不能因为
 //     开报告模式就失效）；完整策略放进 Content-Security-Policy-Report-Only，只报告不阻断。
-//   - enforce：完整策略（含合并后的 frame-ancestors）放进 Content-Security-Policy。
+//   - off：显式关闭完整策略，只保留 frame-ancestors 收口（升级前的旧行为，回滚用）。
 func (s *Server) cspFor(r *http.Request) cspHeaders {
 	frameAncestors := s.frameAncestors(r)
 	switch cspMode(s.opts.CSP) {
+	case "off":
+		return cspHeaders{enforce: frameAncestors}
 	case "report":
 		return cspHeaders{
 			enforce:    frameAncestors,
 			reportOnly: cspPolicy(s.opts.CSPInlineScriptHashes, frameAncestors, s.opts.CSPReportURI),
 		}
-	case "enforce":
-		return cspHeaders{enforce: cspPolicy(s.opts.CSPInlineScriptHashes, frameAncestors, s.opts.CSPReportURI)}
 	default:
-		return cspHeaders{enforce: frameAncestors}
+		return cspHeaders{enforce: cspPolicy(s.opts.CSPInlineScriptHashes, frameAncestors, s.opts.CSPReportURI)}
 	}
 }
 
@@ -109,7 +128,8 @@ func (s *Server) frameAncestors(r *http.Request) string {
 // securityHeaders 给 HTML 文档加安全头。
 //
 // CSP 的 frame-ancestors 决定哪些页面可以用 iframe 嵌入 dsh-ee 的网页（#118）；在其之上，
-// DSH_EE_CSP=report|enforce 会再给 HTML 加一份完整的内容安全策略（默认 off，不改变现有行为）。
+// 默认会再给 HTML 加一份内置的完整内容安全策略（DSH_EE_CSP=enforce，未设置时的默认值）。
+// DSH_EE_CSP=report 时完整策略只报告不阻断，DSH_EE_CSP=off 时回到只加 frame-ancestors 的旧行为。
 // 其余三个头是通用的低风险加固。只加在 HTML 出口上：静态资源、JSON、3xx 重定向、SSE 流都不受影响。
 //
 // 不设 X-Frame-Options：ALLOW-FROM 已被废弃，现代浏览器看 frame-ancestors；两边各写一份

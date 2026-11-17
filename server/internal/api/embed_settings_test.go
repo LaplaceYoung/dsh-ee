@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -214,11 +215,12 @@ func TestEmbedSettingsDynamicCSPAndMint(t *testing.T) {
 	if code, body := f.mint(t, "ee_at_embed_dyn", map[string]any{"app": f.slug, "host_origin": embedHost}); code != 404 {
 		t.Fatalf("未开启跨站时 mint 应 404：%d %s", code, body)
 	}
-	// 未开启跨站时 CSP 仍保留 env 来源（v0 同站嵌入要用）
-	if got := cspOf(t, f.ts.URL, "/a/"+f.slug); got != "frame-ancestors 'self' "+embedHost {
-		t.Fatalf("CSP 应包含 env 来源：%q", got)
+	// 未开启跨站时 CSP 仍保留 env 来源（v0 同站嵌入要用）。未设置 DSH_EE_CSP 时默认
+	// enforce：响应同时带完整基线策略与合并后的 frame-ancestors。
+	if got := cspOf(t, f.ts.URL, "/a/"+f.slug); !strings.HasPrefix(got, "default-src 'self';") || !strings.HasSuffix(got, "frame-ancestors 'self' "+embedHost) {
+		t.Fatalf("默认策略应包含完整基线 + env 来源：%q", got)
 	}
-	if got := cspOf(t, f.ts.URL, "/admin/menus"); got != "frame-ancestors 'self'" {
+	if got := cspOf(t, f.ts.URL, "/admin/menus"); !strings.HasPrefix(got, "default-src 'self';") || !strings.HasSuffix(got, "frame-ancestors 'self'") || strings.Contains(got, embedHost) {
 		t.Fatalf("管理页只能同站：%q", got)
 	}
 
@@ -226,10 +228,10 @@ func TestEmbedSettingsDynamicCSPAndMint(t *testing.T) {
 	code, body := f.saveSettings(t, map[string]any{"crossSite": true, "allowedOrigins": []string{embedHostB}, "sessionMinutes": 90})
 	expect(t, "打开跨站嵌入", code, 200, body)
 	got := cspOf(t, f.ts.URL, "/a/"+f.slug)
-	if got != "frame-ancestors 'self' "+embedHost+" "+embedHostB {
+	if !strings.HasPrefix(got, "default-src 'self';") || !strings.HasSuffix(got, "frame-ancestors 'self' "+embedHost+" "+embedHostB) {
 		t.Fatalf("保存后 CSP 应立即带上 DB 追加来源：%q", got)
 	}
-	if got := cspOf(t, f.ts.URL, "/admin/menus"); got != "frame-ancestors 'self'" {
+	if got := cspOf(t, f.ts.URL, "/admin/menus"); !strings.HasSuffix(got, "frame-ancestors 'self'") || strings.Contains(got, embedHost) {
 		t.Fatalf("管理页仍只能同站：%q", got)
 	}
 
