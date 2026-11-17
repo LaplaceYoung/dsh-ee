@@ -13,7 +13,7 @@
 - 所有对外请求只许连 dsh-ee 自己（示例连接就是连自己），按解析后的 IP 判断；
   试连别的地址、云主机元数据接口都会被拒。
 - 建应用、知识库、数据中台、管理模式这些照常可用，重置以后就清掉了。
-- 首页首屏播放 30 秒介绍短片。短片是代码画的（`web/src/components/intro-film/`），随前端一起打进二进制，按界面语言出中文或英文版，
+- 首页首屏播放一分钟产品短片。短片是代码画的（`web/src/components/product-film/`，由 `promo/openmotion/build-film.mjs` 生成），随前端一起打进二进制，按界面语言出中文或英文版（浏览器是日语时出日文版），
   不用另外放视频文件；`DSH_EE_DEMO_VIDEO_DIR` 首页已经不用了。发社交媒体用的 MP4 怎么导出见 [promo/README.md](../../promo/README.md)。
 - 设了 `DSH_EE_DEMO_STATS_FILE`（`demo.sh` 默认设成 `logs/stats.jsonl`）时，访客点场景卡片、打开应用的网页版、
   用自己的 DSH 接入成功，各往这个文件追加一行：时间、动作、对象（示例员工的用户名或应用名）。

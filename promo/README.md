@@ -25,3 +25,18 @@ Remotion 自带的 ffmpeg 是精简版，没有调色板滤镜，要用完整的
 ffmpeg -i out/intro-zh.mp4 -vf "fps=8,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=full[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" ../docs/images/intro.zh-CN.gif
 ffmpeg -i out/intro-en.mp4 -vf "（同上）" ../docs/images/intro.gif
 ```
+
+## 一分钟产品短片（OpenMotion 模板）
+
+首页现在播的是另一部片子：用 [OpenMotion](https://github.com/nexu-io/openmotion) 的模板「Glean Agents 发布」改的一分钟产品短片，英文、中文、日文三版。
+文字、图标、三种语言都在 `openmotion/build-film.mjs` 的 `COPY` 里，改完重新生成：
+
+```sh
+node promo/openmotion/build-film.mjs   # 需要本机有 OpenMotion 源码，默认 ~/openmotion，可用 OPENMOTION_DIR 指定
+```
+
+- `web/src/components/product-film/generated/`：首页用代码播放的那一份（进 git，首页直接 import）。
+- `out/dsh-ee-openmotion-film-<lang>/`：OpenMotion（Hyperframes）工程，可以在 Studio 里打开，或者渲染成 MP4：
+  `hyperframes render out/dsh-ee-openmotion-film-zh --format png-sequence -o frames`，再用 ffmpeg 把帧编码成 H.264（1280×720，30 帧，61 秒，无声）。
+
+上面那部 30 秒短片（`web/src/components/intro-film/`）还在，`pnpm render` 照旧能出 MP4，只是首页不再播它。

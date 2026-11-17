@@ -319,7 +319,7 @@ export default {
     "heroLine1": "Que el DSH de cada empleado conozca su empresa.",
     "heroLead": "Conecte el ERP, el CRM, el almacén de datos y la documentación de políticas; ensamble microaplicaciones de IA y, tras la revisión y autorización, llévelas al DSH de cada empleado. Los datos y las credenciales permanecen en sus propios servidores y cada llamada es auditable.",
     "tryDemo": "Probar como empleado",
-    "videoLabel": "Vídeo de presentación de dsh-ee (36 s)",
+    "videoLabel": "Vídeo de presentación de dsh-ee (1 min)",
     "seeHow": "Ver cómo funciona",
     "howTitle": "Cómo funciona",
     "howLine": "De los activos de la empresa a las manos de los empleados, cada paso es controlable",

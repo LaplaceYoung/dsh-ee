@@ -319,7 +319,7 @@ export default {
     heroLine1: "Faça o DSH de cada funcionário conhecer a sua empresa.",
     heroLead: "Conecte ERP, CRM, data warehouse e documentos de políticas, monte microapps de IA e, após revisão e autorização, entregue-os ao DSH de cada funcionário. Os dados e as credenciais ficam no seu próprio servidor, e cada chamada pode ser auditada.",
     tryDemo: "Experimentar como funcionário",
-    videoLabel: "Vídeo de 36 segundos sobre o dsh-ee",
+    videoLabel: "Vídeo de um minuto sobre o dsh-ee",
     seeHow: "Ver como funciona",
     howTitle: "Como funciona",
     howLine: "Dos ativos da empresa às mãos de cada funcionário, com cada etapa sob controle",

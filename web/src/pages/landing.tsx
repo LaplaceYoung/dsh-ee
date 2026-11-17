@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { Check, Cpu, FileSearch, ShieldCheck, X } from "lucide-react";
-import { IntroFilmPlayer } from "../components/intro-film/player";
-import type { FilmLang } from "../components/intro-film/copy";
+import { ProductFilmPlayer, type ProductFilmLang } from "../components/product-film/player";
 import { WhaleMark } from "../components/whale-mark";
 import { auditLog, clientPlatforms, microApps } from "../mock/data";
 import { PageLink } from "../lib/menus";
@@ -270,12 +269,17 @@ function Guides() {
   );
 }
 
-/** 演示站首页播放介绍短片（代码画的，不是视频文件），按界面语言出中文或英文版。正常部署不放。 */
-function useDemoFilm(): FilmLang | null {
+/**
+ * 演示站首页播放一分钟产品短片（代码画的，不是视频文件）。正常部署不放。
+ * 按界面语言出中文或英文版；界面没有日语，浏览器是日语、界面落到英文时出日文版。
+ */
+function useDemoFilm(): ProductFilmLang | null {
   const { i18n } = useTranslation();
   const demo = useApi(api.authMethods).data?.demo;
   if (!demo) return null;
-  return i18n.language.startsWith("zh") ? "zh" : "en";
+  if (i18n.language.startsWith("zh")) return "zh";
+  if (i18n.language === "en" && typeof navigator !== "undefined" && navigator.language.toLowerCase().startsWith("ja")) return "ja";
+  return "en";
 }
 
 export default function Landing() {
@@ -343,7 +347,7 @@ export default function Landing() {
           <div className="relative pb-10">
             {film ? (
               <div className={cx(shell, "pt-4")}>
-                <IntroFilmPlayer lang={film} label={t("landing.videoLabel")} className="mx-auto block w-full max-w-5xl rounded-xl bg-white shadow-lp ring-1 ring-lp-line" />
+                <ProductFilmPlayer lang={film} label={t("landing.videoLabel")} className="mx-auto block w-full max-w-5xl rounded-xl bg-white shadow-lp ring-1 ring-lp-line" />
               </div>
             ) : (
               <LandingHeroScene />

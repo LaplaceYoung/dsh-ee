@@ -146,7 +146,7 @@ export default {
     heroLine1: "让每位员工的 DSH 都认识你的公司。",
     heroLead: "把 ERP、CRM、数仓和制度文档接进来，组装成 AI 微应用，审核授权后送到每位员工的 DSH。数据和凭据都留在你自己的服务器上，每一次调用都可以审计。",
     tryDemo: "以员工身份试一试",
-    videoLabel: "dsh-ee 30 秒介绍短片",
+    videoLabel: "dsh-ee 一分钟介绍短片",
     seeHow: "看它怎么工作",
     howTitle: "工作方式",
     howLine: "从企业资产到员工手里，每一步都可控",
