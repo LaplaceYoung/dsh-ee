@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"path"
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -43,6 +44,8 @@ type PackageContents struct {
 // ReadTarball 解开 .tgz：返回文件清单（最多 300 个）与 package.json；want 非空时读出该文件（最多 maxBytes 字节）；
 // scan 非空时对每个小于 512 KB 的文本文件调用一次（路径是包内相对路径）。
 // 含疑似密钥的文件、.env 之类的文件不会给出内容。
+// tarball 里有多个顶层目录时返回 ErrMultipleTopDirs：npm 安装时 strip:1 会把它们平铺到一起，
+// 只按第一个目录列清单会把审核员看不见的内容放过去。
 func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, b []byte)) (*PackageContents, error) {
 	gz, err := gzip.NewReader(r)
 	if err != nil {
@@ -52,7 +55,8 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 	tr := tar.NewReader(gz)
 	out := &PackageContents{Files: []FileEntry{}}
 	root := ""
-	var unpacked int64
+	var tops []string
+	var counter tarCounter
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
@@ -71,24 +75,32 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 		}
 		if root == "" {
 			root = top
+			tops = append(tops, top)
+		} else if top != root && len(tops) < maxTopDirs && !slices.Contains(tops, top) {
+			// 多顶层目录同样要拒收：否则审核页只会看到包根的文件清单。
+			tops = append(tops, top)
 		}
-		if top != root {
-			continue
+		inRoot := top == root
+		file := rel
+		if !inRoot {
+			file = name
 		}
-		out.Total++
-		unpacked += h.Size
-		if out.Total > maxFiles || unpacked > maxUnpackedSize {
+		// 清单覆盖所有顶层目录；tar 允许同名条目重复出现（后一个覆盖前一个），按真实路径去重。
+		first := counter.add(name, h.Size)
+		if counter.tooLarge() {
 			return nil, errors.New("Too many files or files too large after unpacking")
 		}
-		if len(out.Files) < maxListedFiles {
-			out.Files = append(out.Files, FileEntry{Path: rel, Size: h.Size})
-		} else {
-			out.Truncated = true
+		if first {
+			if len(out.Files) < maxListedFiles {
+				out.Files = append(out.Files, FileEntry{Path: file, Size: h.Size})
+			} else {
+				out.Truncated = true
+			}
 		}
 		base := path.Base(rel)
-		isWanted := want != "" && rel == want
+		isWanted := want != "" && file == want
 		switch {
-		case rel == "package.json":
+		case inRoot && rel == "package.json":
 			if h.Size > maxPackageJSON {
 				return nil, errors.New("package.json is too large")
 			}
@@ -98,10 +110,10 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 			}
 			out.PackageJSON = b
 			if scan != nil && !sensitive(base, b) {
-				scan(rel, b)
+				scan(file, b)
 			}
 			if isWanted {
-				out.File = fileContent(rel, h.Size, b, maxBytes)
+				out.File = fileContent(file, h.Size, b, maxBytes)
 			}
 		case isWanted || (scan != nil && h.Size <= maxReviewScan && scannable(base)):
 			limit := int64(maxReviewScan)
@@ -113,12 +125,20 @@ func ReadTarball(r io.Reader, want string, maxBytes int, scan func(file string, 
 				return nil, err
 			}
 			if scan != nil && h.Size <= maxReviewScan && scannable(base) && !sensitive(base, b) {
-				scan(rel, b)
+				scan(file, b)
 			}
 			if isWanted {
-				out.File = fileContent(rel, h.Size, b, maxBytes)
+				out.File = fileContent(file, h.Size, b, maxBytes)
 			}
 		}
+	}
+	out.Total = counter.files
+	if len(tops) > 1 {
+		shown := make([]string, 0, len(tops))
+		for _, t := range tops {
+			shown = append(shown, truncateRunes(t, 64))
+		}
+		return nil, fmt.Errorf("%w（%s）：npm 包只能有一个顶层目录", ErrMultipleTopDirs, strings.Join(shown, "、"))
 	}
 	if out.PackageJSON == nil {
 		return nil, ErrNoPackageJSON
