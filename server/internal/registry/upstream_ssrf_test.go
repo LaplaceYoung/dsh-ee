@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -107,5 +108,52 @@ func TestFetchTarballFromTrustedUpstreamOrigin(t *testing.T) {
 	defer other.Close()
 	if _, err := u.FetchTarball(context.Background(), blobs, other.URL+"/x.tgz", "", "", 10<<20); err == nil {
 		t.Fatal("不同 origin 的内网 tarball 应拒绝")
+	}
+}
+
+// 0.0.0.0/8 与云主机元数据地址（阿里云 100.100.100.200）不在 IsPrivate/链路本地段里，
+// registry 也必须按「不能访问的目标」拒绝：三处清单（registry / directory / 连接试连）
+// 要一致，否则同一类 SSRF 只在某一条入口被拦。
+func TestBlockedUpstreamIPRestrictedRanges(t *testing.T) {
+	cases := []struct {
+		ip      string
+		blocked bool
+	}{
+		{"0.0.0.0", true},
+		{"0.1.2.3", true},
+		{"100.100.100.200", true},
+		{"::ffff:100.100.100.200", true},
+		{"169.254.169.254", true}, // 链路本地，原本就拦
+		{"10.0.0.5", true},        // RFC1918，原本就拦（allowPrivate 才放行）
+		{"127.0.0.1", true},
+		{"8.8.8.8", false},
+		{"1.1.1.1", false},
+		{"2606:4700:4700::1111", false},
+	}
+	for _, c := range cases {
+		if got := blockedUpstreamIP(net.ParseIP(c.ip)); got != c.blocked {
+			t.Errorf("blockedUpstreamIP(%s) = %v，期望 %v", c.ip, got, c.blocked)
+		}
+	}
+}
+
+// allowPrivate（DSH_EE_UPSTREAM_ALLOW_PRIVATE）仍然放行这些目标：只补黑名单，
+// 不改变显式放行内网镜像开关的语义。
+func TestValidateUpstreamURLRestrictedRangesAllowPrivate(t *testing.T) {
+	u := &Upstream{}
+	for _, raw := range []string{
+		"http://0.0.0.0/x.tgz",
+		"http://0.1.2.3/x.tgz",
+		"http://100.100.100.200/latest/meta-data/",
+	} {
+		if err := u.ValidateUpstreamURL(context.Background(), raw); err == nil {
+			t.Errorf("%s 应被拒绝", raw)
+		}
+	}
+	u.allowPrivate = true
+	for _, raw := range []string{"http://0.1.2.3/x.tgz", "http://100.100.100.200/x.tgz"} {
+		if err := u.ValidateUpstreamURL(context.Background(), raw); err != nil {
+			t.Errorf("显式允许内网时 %s 不该被拦：%v", raw, err)
+		}
 	}
 }

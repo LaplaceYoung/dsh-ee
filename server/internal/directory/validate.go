@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/hikariming/dsh-ee/server/internal/extension"
+	"github.com/hikariming/dsh-ee/server/internal/netguard"
 )
 
 // 企业目录的逐条校验（docs/plugin-signing.md §2.2）。这里只做「不联网」的校验：
@@ -465,6 +466,12 @@ func PublicHostProblem(host string) string { return publicHostProblem(host) }
 func publicHostProblem(host string) string {
 	if ip := net.ParseIP(host); ip != nil {
 		switch {
+		case netguard.IsMetadataIP(ip):
+			// 云主机元数据地址不在链路本地段里（如阿里云 100.100.100.200），必须单独拦。
+			return "tarball 主机 " + host + " 是云主机元数据地址，不能用"
+		case netguard.IsZeroNetwork(ip):
+			// 0.0.0.0/8（RFC 1122 "this network"）不是可访问的公网目标。
+			return "tarball 主机 " + host + " 不是单播公网地址，不能用"
 		case ip.IsLoopback():
 			return "tarball 主机 " + host + " 是本机回环地址，不能用"
 		case ip.IsPrivate():

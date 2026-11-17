@@ -66,6 +66,7 @@ func TestConnTestValidateURL(t *testing.T) {
 		{"http://[fe80::1]/mcp", "链路本地地址"},
 		{"http://[::ffff:169.254.169.254]/", "云主机元数据地址"},
 		{"http://0.0.0.0:8080/mcp", "未指定地址"},
+		{"http://0.1.2.3/mcp", "保留地址"}, // 0.0.0.0/8：部分系统会路由到本机，三处清单一致拦
 		{"http://224.0.0.1/mcp", "组播地址"},
 		{"http://255.255.255.255/mcp", "非公网单播地址"},
 		{"file:///etc/passwd", "http(s)"},
@@ -145,6 +146,7 @@ func TestConnTestDialControl(t *testing.T) {
 		"[fe80::1]:80":       false,
 		"[fd00:ec2::254]:80": false,
 		"100.100.100.200:80": false,
+		"0.1.2.3:80":         false,
 		"not-an-ip:80":       false,
 		"":                   false,
 	}

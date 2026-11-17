@@ -18,6 +18,7 @@ import (
 
 	"github.com/hikariming/dsh-ee/server/internal/extension"
 	"github.com/hikariming/dsh-ee/server/internal/mcp"
+	"github.com/hikariming/dsh-ee/server/internal/netguard"
 	"github.com/hikariming/dsh-ee/server/internal/openapi"
 	"github.com/hikariming/dsh-ee/server/internal/secret"
 	"github.com/hikariming/dsh-ee/server/internal/store"
@@ -177,12 +178,8 @@ func sameHostRedirect(req *http.Request, via []*http.Request) error {
 // RFC1918 与 loopback（本机上的 MCP 服务）明确放行。
 
 // connTestMetadataIPs 是不在链路本地段里的已知云主机元数据地址（段内的由 IsLinkLocalUnicast 拦）。
-var connTestMetadataIPs = []net.IP{
-	net.ParseIP("169.254.169.254"), // AWS / GCP / Azure / Oracle 等
-	net.ParseIP("169.254.170.2"),   // AWS ECS 任务凭据
-	net.ParseIP("100.100.100.200"), // 阿里云 ECS
-	net.ParseIP("fd00:ec2::254"),   // AWS 的 IPv6 元数据地址
-}
+// 清单来自 internal/netguard，与 registry / directory 的 blocked 判定共用，避免三处各写一份漂移。
+var connTestMetadataIPs = netguard.MetadataIPs()
 
 // ValidateConnTestURL 检查试连要访问的地址：只允许 http(s)，且目标解析出的每个 IP
 // 都不能是云元数据、链路本地、组播、未指定之类的地址。内网 MCP 是合法用法：
@@ -252,6 +249,9 @@ func connTestBlockedIP(ip net.IP) string {
 	switch {
 	case ip.IsUnspecified():
 		return "未指定地址"
+	case netguard.IsZeroNetwork(ip):
+		// 0.0.0.0/8 除 0.0.0.0 本身外的地址在部分系统会路由到本机，不是可访问的目标。
+		return "保留地址"
 	case ip.IsLinkLocalUnicast():
 		return "链路本地地址"
 	case ip.IsMulticast():
