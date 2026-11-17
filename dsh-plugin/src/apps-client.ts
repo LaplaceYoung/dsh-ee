@@ -1,10 +1,10 @@
 import { createElement, useEffect, useRef, useState } from "react";
 import { t } from "./i18n/index.js";
-import { appsGallery, appsSection, heroStrip, inProgressItems, inProgressView, type AppsViewActions, type MenuAnchor, type StripPlace } from "./apps-view.js";
+import { appsGallery, appsSection, heroStrip, inProgressItems, inProgressView, type AppsViewActions, type GalleryTab, type MenuAnchor, type StripPlace } from "./apps-view.js";
 import { readSidebarMode, setSidebarMode, subscribeSidebarMode, type SidebarAppsMode } from "./sidebar-pref.js";
 import { fillInput, openSession } from "./host-session.js";
 import { createLauncher, singleFlight } from "./app-launcher.js";
-import type { CatalogApp } from "./skills.js";
+import type { CatalogApp, CenterData } from "./skills.js";
 import type { AppBindingMap } from "./app-bindings.js";
 import { createWebOpener } from "./web-link.js";
 import { applicationStatus, createSessionSnapshotAdapter, visibleAppStatus } from "./session-status.js";
@@ -15,6 +15,9 @@ interface AppsSnapshot {
   bindings: AppBindingMap;
   sessionSnapshot?: any;
   busy: boolean;
+  /** 「查看更多」浮层里 技能 / 连接器 标签的数据；浮层打开时才读 */
+  center?: CenterData;
+  centerLoading?: boolean;
 }
 
 export function registerApps(ctx: any, remote: any, useOverview: () => any, unwrapRemote: (result: any) => any) {
@@ -54,6 +57,19 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
     } finally {
       loaded = true;
       update({ busy: false });
+    }
+  });
+  // 技能与连接器目录：只在「查看更多」浮层打开时读；旧版接入插件后端没有 center，浮层就只有应用
+  const refreshCenter = singleFlight(async () => {
+    if (typeof remote.center !== "function") return;
+    update({ centerLoading: !snapshot.center });
+    try {
+      const center = unwrapRemote(await remote.center());
+      if (center && typeof center === "object") update({ center });
+    } catch {
+      // 一次失败不清空上次的数据
+    } finally {
+      update({ centerLoading: false });
     }
   });
   // 目录轮询跟着插件的生命周期走：插件卸载或热重载时撤销
@@ -154,6 +170,15 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
     fill: (app) => { void fill(app).then(setNotice); },
     web,
     details: (app) => { if (app.detail_url) void openWeb(app.detail_url); },
+    openUrl: (url) => { void openWeb(url); },
+    toggleCapability: (kind, name, enabled, title) => {
+      void remote.setSubscription({ kind, name, enabled }).then(async (result: any) => {
+        const value = unwrapRemote(result);
+        if (!value?.ok) return setNotice(t(enabled ? "apps.enableFailed" : "apps.disableFailed", { error: value?.error || t("apps.retryLater") }));
+        await refreshCenter();
+        setNotice(enabled ? t("appsView.capEnabled", { title }) : t("apps.disabled", { title }));
+      }).catch(() => setNotice(t(enabled ? "apps.enableFailedNetwork" : "apps.disableFailedNetwork")));
+    },
     search: () => {},
   });
 
@@ -169,8 +194,12 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
     const [menuFor, setMenuFor] = useState("");
     const [menuAnchor, setMenuAnchor] = useState<MenuAnchor | undefined>(undefined);
     const [query, setQuery] = useState("");
+    const [tab, setTabState] = useState<GalleryTab>("apps");
+    const setTab = (next: GalleryTab) => { setTabState(next); setQuery(""); closeMenu(); };
     const closeMenu = () => { setMenuFor(""); setMenuAnchor(undefined); };
-    const closeLayers = () => { closeMenu(); setGalleryOpen(false); setQuery(""); };
+    const closeLayers = () => { closeMenu(); setGalleryOpen(false); setQuery(""); setTabState("apps"); };
+    // 浮层打开时读一次技能与连接器（去网页授权回来后重新打开就是最新的）
+    useEffect(() => { if (galleryOpen) void refreshCenter(); }, [galleryOpen]);
     // 「⋯」菜单用 fixed 定位贴着按钮：靠窗口下沿时向上展开，避免被窗口裁掉
     const toggleMenu = (name: string, event?: any) => {
       if (!name || name === menuFor) { closeMenu(); return; }
@@ -196,7 +225,7 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
         window.document?.removeEventListener?.("scroll", onScroll, true);
       };
     }, [menuFor, galleryOpen]);
-    return { galleryOpen, setGalleryOpen, menuFor, menuAnchor, query, setQuery, closeMenu, closeLayers, toggleMenu };
+    return { galleryOpen, setGalleryOpen, menuFor, menuAnchor, query, setQuery, tab, setTab, closeMenu, closeLayers, toggleMenu };
   };
 
   /** sidebar：左侧栏，最多列 3 个、可以收起和隐藏，偏好存在本机；panel：右侧企业面板里的那份，列 6 个、不能隐藏。 */
@@ -221,6 +250,7 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
       toggleGallery: () => { layers.setGalleryOpen(!layers.galleryOpen); layers.closeMenu(); },
       toggleMenu: layers.toggleMenu,
       closeLayers: layers.closeLayers,
+      setTab: layers.setTab,
       setSidebarHidden: (hidden: boolean) => { setSidebarMode(hidden ? "hidden" : "shown"); if (hidden) layers.closeLayers(); },
     };
     const statuses = Object.fromEntries(state.apps.map((app) => {
@@ -231,6 +261,7 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
       apps: state.apps, available: state.available, availableOpen, confirmDisable, loggedIn: !!overview.data?.me, collapsed,
       galleryOpen: layers.galleryOpen, menuFor: layers.menuFor, menuAnchor: layers.menuAnchor, query: layers.query, notice, statuses,
       limit: sidebar ? 3 : 6, hideable: sidebar, sidebarHidden: mode === "hidden",
+      tab: layers.tab, center: state.center, centerLoading: state.centerLoading,
     }, actions);
   };
   const AppsSection = makeAppsSection("sidebar");
@@ -307,10 +338,11 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
     const open = (app: CatalogApp) => { layers.closeLayers(); void openWithFallback(app, launcher.launchHero).then(setNotice); };
     const query = layers.query.trim().toLowerCase();
     const filtered = state.apps.filter((app) => !query || `${app.title} ${app.description} ${app.name}`.toLowerCase().includes(query));
-    const gallery = appsGallery(createElement, { apps: state.apps, available: state.available, loggedIn: true, galleryOpen: layers.galleryOpen, query: layers.query, sidebarHidden: mode === "hidden" }, {
+    const gallery = appsGallery(createElement, { apps: state.apps, available: state.available, loggedIn: true, galleryOpen: layers.galleryOpen, query: layers.query, sidebarHidden: mode === "hidden", tab: layers.tab, center: state.center, centerLoading: state.centerLoading, notice }, {
       ...useActions(setNotice, launcher.launchHero),
       open,
       search: layers.setQuery,
+      setTab: layers.setTab,
       closeLayers: layers.closeLayers,
       toggleGallery: () => layers.setGalleryOpen(!layers.galleryOpen),
       setSidebarHidden: (hidden: boolean) => setSidebarMode(hidden ? "hidden" : "shown"),
