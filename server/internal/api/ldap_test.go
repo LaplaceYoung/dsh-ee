@@ -229,6 +229,8 @@ func TestLDAPLogin(t *testing.T) {
 		typo[k] = v
 	}
 	typo["baseDn"] = "dc=typo,dc=local"
+	// 改搜索起点属于换连接目标：按保存路径的信任边界要重新输入服务账号密码
+	typo["bindPassword"] = "svc-secret"
 	code, body = admin.do("PUT", "/api/admin/auth/ldap", typo, nil)
 	expect(t, "写错搜索起点", code, 200, body)
 	code, body = admin.do("POST", "/api/admin/auth/ldap/sync", nil, nil)
@@ -239,7 +241,12 @@ func TestLDAPLogin(t *testing.T) {
 	}](t, body); r.OK || len(r.Disabled) != 0 {
 		t.Fatalf("搜索起点错时不应禁用任何人：%s", body)
 	}
-	code, body = admin.do("PUT", "/api/admin/auth/ldap", escalate, nil)
+	revert := map[string]any{}
+	for k, v := range escalate {
+		revert[k] = v
+	}
+	revert["bindPassword"] = "svc-secret"
+	code, body = admin.do("PUT", "/api/admin/auth/ldap", revert, nil)
 	expect(t, "改回", code, 200, body)
 	code, body = admin.do("POST", "/api/admin/auth/ldap/sync", nil, nil)
 	expect(t, "同步", code, 200, body)
