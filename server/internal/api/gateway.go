@@ -534,48 +534,6 @@ func (c *streamChunk) deltaTokens() int {
 	return n
 }
 
-// chatReferencesFileID 报告 Chat Completions 请求的 messages 里是否引用了已上传文件的
-// file_id（DeepSeek 的 file 内容块、Anthropic 风格 document 块，统一按递归查找 file_id
-// 字段处理；只看 messages 里的内容，避免把工具声明里的属性名当成引用）。
-func chatReferencesFileID(body map[string]any) bool {
-	raw, ok := body["messages"].([]any)
-	if !ok {
-		return false
-	}
-	for _, item := range raw {
-		msg, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		if hasNonEmptyFileID(msg["content"]) {
-			return true
-		}
-	}
-	return false
-}
-
-// hasNonEmptyFileID 递归查找 map/slice 里值为非空字符串的 file_id 字段。
-func hasNonEmptyFileID(v any) bool {
-	switch x := v.(type) {
-	case map[string]any:
-		if id, ok := x["file_id"].(string); ok && strings.TrimSpace(id) != "" {
-			return true
-		}
-		for _, vv := range x {
-			if hasNonEmptyFileID(vv) {
-				return true
-			}
-		}
-	case []any:
-		for _, vv := range x {
-			if hasNonEmptyFileID(vv) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 // estimateTokens 粗估 token 数，只在上游没给 usage 时兜底用：
 // ASCII 约 4 个字符一个 token，其余（中日韩等）按一个字符一个 token，宁可略多不少。
 func estimateTokens(b []byte) int {

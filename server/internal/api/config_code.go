@@ -845,8 +845,6 @@ func (s *Server) handleConfigChanges(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"items": out})
 }
 
-var errChangeConflict = errors.New("conflict")
-
 // POST /api/admin/config/changes/{id} {approve}：批准或驳回。只认网页会话：批准永远是人。
 func (s *Server) handleConfigDecide(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
