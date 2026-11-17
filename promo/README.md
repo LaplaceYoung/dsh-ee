@@ -39,4 +39,14 @@ node promo/openmotion/build-film.mjs   # 需要本机有 OpenMotion 源码，默
 - `out/dsh-ee-openmotion-film-<lang>/`：OpenMotion（Hyperframes）工程，可以在 Studio 里打开，或者渲染成 MP4：
   `hyperframes render out/dsh-ee-openmotion-film-zh --format png-sequence -o frames`，再用 ffmpeg 把帧编码成 H.264（1280×720，30 帧，61 秒，无声）。
 
+### 配乐和音效
+
+声音也全是代码合成的（`openmotion/build-audio.mjs`，不用任何音频素材）：D 大调 120 BPM 的铺底、贝斯、鼓和琶音，切场「呼」一声，打字时按各语言的字数出键盘声，片尾落在 D 大和弦上。时间点取自短片的时间轴，三种语言一样响（约 -14 dBFS RMS，峰值 -1 dBFS）。
+
+```sh
+FFMPEG=/path/to/ffmpeg node promo/openmotion/build-audio.mjs   # 不写 FFMPEG 就用 PATH 里的；可以只写语言：… build-audio.mjs zh
+```
+
+第一次运行把无声的 `out/dsh-ee-openmotion-film-<lang>.mp4` 改名成 `.silent.mp4`，然后混进 AAC 音轨写回原名，同时留一份 WAV；可以反复运行。重新渲染画面后，先删掉旧的 `.silent.mp4`。首页播放的短片仍然没有声音（浏览器也不让自动播放的页面出声）。
+
 上面那部 30 秒短片（`web/src/components/intro-film/`）还在，`pnpm render` 照旧能出 MP4，只是首页不再播它。
