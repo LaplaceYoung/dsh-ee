@@ -14,7 +14,7 @@ English · [简体中文](./README.zh-CN.md) · [Español](./README.es.md) · [P
 
 ### [→ Try the live demo, nothing to install](https://demo.hikariming.com/)
 
-<img alt="dsh-ee intro: an employee asks in DSH, the AI checks the CRM and cites the product docs; the admin connects systems, grants access and reviews the call log in dsh-ee" src="docs/images/intro.gif" width="820">
+<img alt="dsh-ee in one minute: connect company systems and knowledge, assemble micro-apps and experts, review and grant access by department, deliver them to every employee's DSH, and audit every call — for small teams and whole enterprises" src="docs/images/intro.gif" width="820">
 
 </div>
 

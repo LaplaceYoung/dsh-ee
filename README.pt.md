@@ -14,7 +14,7 @@ Os dados e as credenciais ficam no seu próprio servidor, e cada chamada pode se
 
 ### [→ Teste a demo ao vivo, sem instalar nada](https://demo.hikariming.com/)
 
-<img alt="Apresentação do dsh-ee: um funcionário pergunta no DSH, a IA consulta o CRM e cita a documentação do produto; o administrador conecta sistemas, concede acesso e revisa o log de chamadas no dsh-ee" src="docs/images/intro.gif" width="820">
+<img alt="dsh-ee em um minuto: conecta os sistemas e o conhecimento da empresa, monta microapps e especialistas, revisa e libera o acesso por departamento, entrega no DSH de cada funcionário e registra cada chamada; para equipes pequenas e empresas inteiras" src="docs/images/intro.gif" width="820">
 
 </div>
 
