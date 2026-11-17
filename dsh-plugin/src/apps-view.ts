@@ -1,8 +1,17 @@
-import type { CatalogApp } from "./skills.js";
+import type { CatalogApp, CenterConnection, CenterData, CenterSkill } from "./skills.js";
 import { t } from "./i18n/index.js";
 import type { AppSessionStatus } from "./session-status.js";
 
+/** 「查看更多」浮层顶部的分类标签：应用 / 技能 / 连接器 */
+export type GalleryTab = "apps" | "skills" | "connections";
+
 export interface AppsViewState {
+  /** 浮层当前标签；默认 apps */
+  tab?: GalleryTab;
+  /** 技能与连接器目录（和「专家 · 技能 · 连接器」面板同一份）；没有或旧服务端时浮层只显示应用 */
+  center?: CenterData;
+  /** 目录还在读 */
+  centerLoading?: boolean;
   apps: CatalogApp[];
   loggedIn: boolean;
   /** 整个「企业应用」区块收起，只剩一行标题 */
@@ -65,6 +74,12 @@ export interface AppsViewActions {
   closeLayers?: () => void;
   /** 在左侧栏隐藏 / 显示「企业应用」区块（隐藏后在「查看更多」和 设置 → dsh-ee 里能再打开） */
   setSidebarHidden?: (hidden: boolean) => void;
+  /** 切换浮层顶部的标签 */
+  setTab?: (tab: GalleryTab) => void;
+  /** 启用或停用一项自选的技能 / 连接器 */
+  toggleCapability?: (kind: "skills" | "connections", name: string, enabled: boolean, title: string) => void;
+  /** 打开网页（技能预览、连接器详情与授权） */
+  openUrl?: (url: string) => void;
 
   search: (query: string) => void;
 }
@@ -246,34 +261,130 @@ function availableCard(createElement: (...args: any[]) => any, app: CatalogApp, 
     createElement("button", { type: "button", onClick: () => actions.enable!(app), style: { ...buttonStyle, border: "1px solid #4d6bfe", color: "#4d6bfe", borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600, flex: "0 0 auto" } }, t("appsView.enable")));
 }
 
+const capButton = (primary: boolean) => ({ ...buttonStyle, border: primary ? "1px solid #4d6bfe" : "1px solid color-mix(in srgb, currentColor 18%, transparent)", color: primary ? "#4d6bfe" : "inherit", borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600, flex: "0 0 auto" });
+const capCardStyle = { display: "flex", flexDirection: "column" as const, gap: 10, padding: 14, borderRadius: 14, border: "1px solid color-mix(in srgb, currentColor 11%, transparent)", background: "color-mix(in srgb, currentColor 1.5%, Canvas)", boxShadow: "0 1px 2px color-mix(in srgb, currentColor 5%, transparent)", minWidth: 0 };
+
+/** 技能 / 连接器卡片的骨架：图标 + 状态标记、标题、两行说明、底部一行标签与按钮。 */
+function capabilityCard(createElement: (...args: any[]) => any, key: string, ui: string, icon: CatalogApp, badges: any[], description: string, footer: any[]) {
+  return createElement("div", { key, "data-dsh-ee-ui": ui, className: "dshee-gcard", title: description, style: capCardStyle },
+    createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 } },
+      appTileIcon(createElement, icon, 40),
+      createElement("div", { style: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 4 } }, ...badges.filter(Boolean))),
+    createElement("div", { style: { minWidth: 0 } },
+      createElement("div", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, icon.title),
+      createElement("div", { style: { marginTop: 4, fontSize: 12, lineHeight: 1.55, opacity: 0.62, minHeight: 37, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, description)),
+    createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: "auto" } }, ...footer.filter(Boolean)));
+}
+
+function capStatus(createElement: (...args: any[]) => any, enabled: boolean, delivery: string) {
+  return enabled
+    ? createElement("span", { key: "status", style: badgeStyle("#16a34a") }, delivery === "auto" ? t("appsView.statusAuto") : t("appsView.statusEnabled"))
+    : createElement("span", { key: "status", style: badgeStyle("#737373") }, t("appsView.statusOff"));
+}
+
+function skillCard(createElement: (...args: any[]) => any, k: CenterSkill, actions: AppsViewActions) {
+  const icon = { name: k.name, title: k.title, icon: k.kind === "prompt" ? "💬" : "🧩" } as CatalogApp;
+  return capabilityCard(createElement, k.name, "gallery-skill", icon,
+    [k.featured ? createElement("span", { key: "featured", style: badgeStyle("#d97706") }, t("appsView.featured")) : null, capStatus(createElement, k.enabled, k.delivery)],
+    k.description,
+    [
+      createElement("code", { key: "name", style: { fontSize: 11, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, k.kind === "prompt" ? `/${k.name}` : k.name),
+      createElement("span", { key: "gap", style: { flex: 1 } }),
+      k.delivery === "optional" && actions.toggleCapability ? createElement("button", { key: "toggle", type: "button", style: capButton(!k.enabled), onClick: () => actions.toggleCapability!("skills", k.name, !k.enabled, k.title) }, k.enabled ? t("appsView.disable") : t("appsView.enable")) : null,
+      k.detail_url && actions.openUrl ? createElement("button", { key: "preview", type: "button", style: capButton(false), onClick: () => actions.openUrl!(k.detail_url!) }, t("appsView.preview")) : null,
+    ]);
+}
+
+function connectionCard(createElement: (...args: any[]) => any, c: CenterConnection, actions: AppsViewActions) {
+  const needsAuth = c.enabled && c.auth === "needs_auth";
+  const icon = { name: c.name, title: c.title, icon: "🔌" } as CatalogApp;
+  return capabilityCard(createElement, c.name, "gallery-connection", icon,
+    [
+      c.featured ? createElement("span", { key: "featured", style: badgeStyle("#d97706") }, t("appsView.featured")) : null,
+      needsAuth ? createElement("span", { key: "status", style: badgeStyle("#dc2626") }, t("appsView.statusNeedsAuth")) : capStatus(createElement, c.enabled, c.delivery),
+    ],
+    c.description,
+    [
+      createElement("span", { key: "tools", style: badgeStyle("#737373") }, t("appsView.toolsCount", { count: c.tools })),
+      createElement("span", { key: "writes", style: badgeStyle(c.writes ? "#d97706" : "#737373") }, c.writes ? t("appsView.readWrite") : t("appsView.readOnly")),
+      createElement("span", { key: "gap", style: { flex: 1 } }),
+      needsAuth && c.detail_url && actions.openUrl ? createElement("button", { key: "auth", type: "button", style: capButton(true), onClick: () => actions.openUrl!(c.detail_url!) }, t("appsView.authorize")) : null,
+      c.delivery === "optional" && actions.toggleCapability ? createElement("button", { key: "toggle", type: "button", style: capButton(!c.enabled && !needsAuth), onClick: () => actions.toggleCapability!("connections", c.name, !c.enabled, c.title) }, c.enabled ? t("appsView.disable") : t("appsView.enable")) : null,
+      !needsAuth && c.detail_url && actions.openUrl ? createElement("button", { key: "detail", type: "button", style: capButton(false), onClick: () => actions.openUrl!(c.detail_url!) }, t("appsView.details")) : null,
+    ]);
+}
+
+type CapItem = { title: string; name: string; description: string; featured?: boolean; enabled?: boolean };
+const matchesCap = (item: CapItem, query: string) => !query || `${item.title} ${item.name} ${item.description}`.toLowerCase().includes(query);
+/** 精选在前，其次已生效的，再按标题。 */
+const sortCaps = <T extends CapItem>(items: T[]) => [...items].sort((a, b) => Number(!!b.featured) - Number(!!a.featured) || Number(!!b.enabled) - Number(!!a.enabled) || a.title.localeCompare(b.title, "zh"));
+
+/** 浮层顶部有哪些标签：拿不到目录或旧服务端（没有连接器目录）时只有应用，不画标签栏。 */
+export function galleryTabs(center?: CenterData): GalleryTab[] {
+  return center && !center.legacy ? ["apps", "skills", "connections"] : ["apps"];
+}
+
 /**
- * 「查看更多」：居中的应用网格浮层——搜索、卡片网格、可启用的应用，底部可以把左侧栏的企业应用隐藏 / 显示回来。
- * 侧栏和首屏共用；点背板、✕ 或 Escape 关闭。
+ * 「查看更多」：居中的网格浮层——顶部按 应用 / 技能 / 连接器 分标签，搜索、卡片网格、可启用的应用，
+ * 底部可以把左侧栏的企业应用隐藏 / 显示回来。侧栏和首屏共用；点背板、✕ 或 Escape 关闭。
  */
 export function appsGallery(createElement: (...args: any[]) => any, state: AppsViewState, actions: AppsViewActions, filtered: CatalogApp[]) {
   if (!state.galleryOpen) return null;
   const close = () => actions.closeLayers?.() ?? actions.toggleGallery?.();
-  const available = (state.available ?? []).filter((app) => matchesQuery(app, state.query?.trim().toLowerCase() ?? ""));
+  const query = state.query?.trim().toLowerCase() ?? "";
+  const available = (state.available ?? []).filter((app) => matchesQuery(app, query));
   const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 210px), 1fr))", gap: 12 };
+  const tabs = galleryTabs(state.center);
+  const tab: GalleryTab = tabs.includes(state.tab ?? "apps") ? state.tab ?? "apps" : "apps";
+  const skills = state.center?.skills ?? [];
+  const connections = state.center?.connections ?? [];
+  const tabCount = (k: GalleryTab) => k === "apps" ? state.apps.length : k === "skills" ? skills.length : connections.length;
+  const tabLabel = (k: GalleryTab) => k === "apps" ? t("appsView.tabApps") : k === "skills" ? t("appsView.tabSkills") : t("appsView.tabConnections");
+  const subtitle = tab === "apps" ? t("appsView.gallerySubtitle", { count: state.apps.length }) : tab === "skills" ? t("appsView.skillsSubtitle", { count: skills.length }) : t("appsView.connectionsSubtitle", { count: connections.length });
+  const placeholder = tab === "apps" ? t("appsView.searchAppsPlaceholder") : tab === "skills" ? t("appsView.searchSkillsPlaceholder") : t("appsView.searchConnectionsPlaceholder");
+  const empty = (text: string) => createElement("div", { style: { padding: "36px 4px", textAlign: "center", opacity: 0.6 } }, text);
+  let body: any[];
+  if (tab === "skills") {
+    const list = sortCaps(skills.filter((k) => matchesCap(k, query)));
+    body = [list.length ? createElement("div", { key: "grid", style: grid }, ...list.map((k) => skillCard(createElement, k, actions))) : empty(query ? t("appsView.noMatches") : t("appsView.noSkills"))];
+  } else if (tab === "connections") {
+    const list = sortCaps(connections.filter((c) => matchesCap(c, query)));
+    const pending = connections.filter((c) => c.enabled && c.auth === "needs_auth").length;
+    body = [
+      pending ? createElement("div", { key: "pending", role: "status", style: { fontSize: 12, color: "#d97706" } }, t("appsView.needsAuthHint", { count: pending })) : null,
+      list.length ? createElement("div", { key: "grid", style: grid }, ...list.map((c) => connectionCard(createElement, c, actions))) : empty(query ? t("appsView.noMatches") : t("appsView.noConnections")),
+    ];
+  } else {
+    body = [
+      filtered.length
+        ? createElement("div", { key: "grid", style: grid }, ...filtered.map((app) => galleryCard(createElement, app, state, actions)))
+        : empty(t("appsView.noMatches")),
+      available.length && actions.enable ? createElement("section", { key: "available", "data-dsh-ee-ui": "available-apps" },
+        createElement("div", { style: { fontSize: 12, fontWeight: 600, opacity: 0.65, margin: "0 0 10px" } }, t("appsView.availableCount", { count: available.length })),
+        createElement("div", { style: grid }, ...available.map((app) => availableCard(createElement, app, actions)))) : null,
+    ];
+  }
+  const tabBar = tabs.length > 1 ? createElement("div", { role: "tablist", "data-dsh-ee-ui": "gallery-tabs", style: { display: "flex", gap: 4, padding: "0 22px", borderBottom: "1px solid color-mix(in srgb, currentColor 9%, transparent)" } },
+    ...tabs.map((k) => createElement("button", {
+      key: k, type: "button", role: "tab", "aria-selected": k === tab, "data-dsh-ee-tab": k, onClick: () => actions.setTab?.(k),
+      style: { ...buttonStyle, padding: "9px 10px 8px", marginBottom: -1, fontSize: 13, fontWeight: k === tab ? 650 : 500, opacity: k === tab ? 1 : 0.62, borderBottom: `2px solid ${k === tab ? "#4d6bfe" : "transparent"}` },
+    }, tabLabel(k), createElement("span", { style: { marginLeft: 5, fontSize: 11.5, opacity: 0.6 } }, String(tabCount(k)))))) : null;
   return createElement("div", { "data-dsh-ee-ui": "apps-gallery", onClick: close, style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10, 37, 64, 0.38)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "dshee-fade .15s ease-out" } },
     createElement("style", null, galleryCss),
     createElement("div", {
       role: "dialog", "aria-modal": "true", "aria-label": t("apps.enterpriseApps"), onClick: (event: any) => event?.stopPropagation?.(),
       style: { width: "min(920px, calc(100vw - 32px))", maxHeight: "min(720px, calc(100vh - 40px))", display: "flex", flexDirection: "column", borderRadius: 18, border: "1px solid color-mix(in srgb, currentColor 12%, transparent)", background: "Canvas", color: "CanvasText", boxShadow: "0 30px 60px -12px rgba(50, 50, 93, 0.3), 0 18px 36px -18px rgba(0, 0, 0, 0.35)", fontSize: 13, overflow: "hidden", animation: "dshee-pop .2s ease-out" },
     },
-      createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "18px 22px 14px", borderBottom: "1px solid color-mix(in srgb, currentColor 9%, transparent)" } },
+      createElement("div", { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: tabBar ? "18px 22px 6px" : "18px 22px 14px", borderBottom: tabBar ? undefined : "1px solid color-mix(in srgb, currentColor 9%, transparent)" } },
         createElement("div", { style: { flex: "1 1 200px", minWidth: 0 } },
           createElement("div", { style: { fontSize: 17, fontWeight: 650, letterSpacing: "-0.01em" } }, t("apps.enterpriseApps")),
-          createElement("div", { style: { fontSize: 12, opacity: 0.6, marginTop: 2 } }, t("appsView.gallerySubtitle", { count: state.apps.length }))),
-        createElement("input", { "aria-label": t("appsView.searchAppsAria"), className: "dshee-gsearch", value: state.query ?? "", onChange: (event: any) => actions.search(event.target.value), placeholder: t("appsView.searchAppsPlaceholder"), style: { flex: "1 1 220px", maxWidth: 300, boxSizing: "border-box", height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid color-mix(in srgb, currentColor 16%, transparent)", background: "transparent", color: "inherit", fontSize: 13 } }),
+          createElement("div", { style: { fontSize: 12, opacity: 0.6, marginTop: 2 } }, subtitle)),
+        createElement("input", { "aria-label": t("appsView.searchAppsAria"), className: "dshee-gsearch", value: state.query ?? "", onChange: (event: any) => actions.search(event.target.value), placeholder, style: { flex: "1 1 220px", maxWidth: 300, boxSizing: "border-box", height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid color-mix(in srgb, currentColor 16%, transparent)", background: "transparent", color: "inherit", fontSize: 13 } }),
         createElement("button", { type: "button", "aria-label": t("common.close"), onClick: close, style: { ...buttonStyle, fontSize: 16, padding: "4px 8px", opacity: 0.6, borderRadius: 8 } }, "✕")),
+      tabBar,
       createElement("div", { style: { overflowY: "auto", flex: 1, minHeight: 0, padding: "18px 22px 22px", display: "grid", gap: 20, alignContent: "start" } },
-        filtered.length
-          ? createElement("div", { style: grid }, ...filtered.map((app) => galleryCard(createElement, app, state, actions)))
-          : createElement("div", { style: { padding: "36px 4px", textAlign: "center", opacity: 0.6 } }, t("appsView.noMatches")),
-        available.length && actions.enable ? createElement("section", { "data-dsh-ee-ui": "available-apps" },
-          createElement("div", { style: { fontSize: 12, fontWeight: 600, opacity: 0.65, margin: "0 0 10px" } }, t("appsView.availableCount", { count: available.length })),
-          createElement("div", { style: grid }, ...available.map((app) => availableCard(createElement, app, actions)))) : null),
+        tab !== "apps" && state.notice ? createElement("p", { key: "notice", role: "status", style: { margin: 0, fontSize: 12, opacity: 0.8 } }, state.notice) : null,
+        ...body),
       actions.setSidebarHidden ? createElement("label", { style: { display: "flex", alignItems: "center", gap: 8, padding: "11px 22px", borderTop: "1px solid color-mix(in srgb, currentColor 9%, transparent)", fontSize: 12, opacity: 0.8, cursor: "pointer" } },
         createElement("input", { type: "checkbox", checked: !state.sidebarHidden, onChange: () => actions.setSidebarHidden!(!state.sidebarHidden), style: { accentColor: "#4d6bfe" } }),
         t("appsView.showInSidebar")) : null));

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { appIcon, appsSection, heroAppsMenu, heroStrip, inProgressItems, inProgressView, startText, stripSlots } from "../src/apps-view.js";
+import { appIcon, appsGallery, appsSection, heroAppsMenu, heroStrip, inProgressItems, inProgressView, startText, stripSlots } from "../src/apps-view.js";
 import type { CatalogApp } from "../src/skills.js";
 
 const createElement = (type: string, props: any, ...children: any[]) => ({ type, props, children });
@@ -237,4 +237,58 @@ test("首屏横排：按宽度放几张卡，放不下的进「查看更多」�
   assert.equal(more, 1);
   const few = JSON.stringify(heroStrip(createElement, apps.slice(0, 3), { left: 0, top: 0, width: 900, maxHeight: 300 }, () => {}, () => {}));
   assert.doesNotMatch(few, /查看更多/);
+});
+
+test("「查看更多」浮层按 应用 / 技能 / 连接器 分标签", () => {
+  const center = {
+    experts: [], availableExperts: [], categories: [], legacy: false,
+    skills: [
+      { name: "weekly-report", title: "周报助手", kind: "skill" as const, description: "写周报", asset_id: 1, delivery: "optional" as const, enabled: false, detail_url: "https://ee/assets/1" },
+      { name: "translate", title: "翻译", kind: "prompt" as const, description: "中英互译", asset_id: 2, delivery: "auto" as const, enabled: true, featured: true },
+    ],
+    connections: [
+      { name: "crm", title: "CRM", description: "客户系统", asset_id: 3, delivery: "optional" as const, enabled: true, tools: 4, writes: true, auth: "needs_auth" as const, detail_url: "https://ee/assets/3" },
+    ],
+  };
+  const calls: any[] = [];
+  const withTabs = { ...actions, setTab: (tab: string) => calls.push(["tab", tab]), toggleCapability: (...args: any[]) => calls.push(["toggle", ...args]), openUrl: (url: string) => calls.push(["url", url]) };
+  // 没有目录（或旧服务端）时不画标签栏
+  assert.doesNotMatch(JSON.stringify(appsSection(createElement, { apps: [app(1)], loggedIn: true, galleryOpen: true }, withTabs)), /gallery-tabs/);
+  assert.doesNotMatch(JSON.stringify(appsSection(createElement, { apps: [app(1)], loggedIn: true, galleryOpen: true, center: { ...center, legacy: true } }, withTabs)), /gallery-tabs/);
+
+  const appsTab = JSON.stringify(appsSection(createElement, { apps: [app(1)], loggedIn: true, galleryOpen: true, center }, withTabs));
+  assert.match(appsTab, /gallery-tabs/);
+  assert.match(appsTab, /应用1/);
+  assert.doesNotMatch(appsTab, /周报助手/);
+
+  const skillsTab = JSON.stringify(appsGallery(createElement, { apps: [app(1)], loggedIn: true, galleryOpen: true, center, tab: "skills" }, withTabs, [app(1)]));
+  assert.match(skillsTab, /2 个技能/);
+  assert.doesNotMatch(skillsTab, /应用1/);
+  // 精选排在前面
+  assert.ok(skillsTab.indexOf("翻译") < skillsTab.indexOf("周报助手"));
+  assert.match(skillsTab, /\/translate/);
+  assert.match(skillsTab, /默认生效/);
+
+  const filtered = JSON.stringify(appsSection(createElement, { apps: [app(1)], loggedIn: true, galleryOpen: true, center, tab: "skills", query: "周报" }, withTabs));
+  assert.match(filtered, /周报助手/);
+  assert.doesNotMatch(filtered, /中英互译/);
+
+  const connTab = appsSection(createElement, { apps: [app(1)], loggedIn: true, galleryOpen: true, center, tab: "connections" }, withTabs);
+  const connText = JSON.stringify(connTab);
+  assert.match(connText, /CRM/);
+  assert.match(connText, /待授权/);
+  assert.match(connText, /4 个工具/);
+  assert.match(connText, /有 1 个连接器要先授权/);
+
+  // 点标签、启用、去授权都走到动作上
+  const find = (node: any, pred: (n: any) => boolean): any => {
+    if (!node || typeof node !== "object") return undefined;
+    if (Array.isArray(node)) { for (const c of node) { const hit = find(c, pred); if (hit) return hit; } return undefined; }
+    if (pred(node)) return node;
+    return find(node.children, pred);
+  };
+  find(connTab, (n) => n.props?.["data-dsh-ee-tab"] === "skills").props.onClick();
+  find(connTab, (n) => n.type === "button" && n.children?.[0] === "去授权").props.onClick();
+  find(connTab, (n) => n.type === "button" && n.children?.[0] === "停用").props.onClick();
+  assert.deepEqual(calls, [["tab", "skills"], ["url", "https://ee/assets/3"], ["toggle", "connections", "crm", false, "CRM"]]);
 });

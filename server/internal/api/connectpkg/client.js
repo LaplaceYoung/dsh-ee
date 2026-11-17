@@ -318,7 +318,29 @@ var zh = {
     heroSearchPlaceholder: "搜索…",
     itemTitle: "{{title}}：{{label}}",
     todosNeed: "需要你处理：{{count}} 项",
-    startHint: "点一个开始，工作台会在右侧打开"
+    startHint: "点一个开始，工作台会在右侧打开",
+    tabApps: "应用",
+    tabSkills: "技能",
+    tabConnections: "连接器",
+    skillsSubtitle: "{{count}} 个技能 · 启用后在每个会话里都能用",
+    connectionsSubtitle: "{{count}} 个连接器 · 让 AI 直接查询、操作企业系统",
+    searchSkillsPlaceholder: "搜索技能…",
+    searchConnectionsPlaceholder: "搜索连接器…",
+    noSkills: "还没有可用的技能",
+    noConnections: "还没有可用的连接器",
+    featured: "精选",
+    statusAuto: "默认生效",
+    statusEnabled: "已启用",
+    statusOff: "未启用",
+    statusNeedsAuth: "待授权",
+    toolsCount: "{{count}} 个工具",
+    readWrite: "可读写",
+    readOnly: "只读",
+    authorize: "去授权",
+    preview: "预览",
+    details: "详情",
+    needsAuthHint: "有 {{count}} 个连接器要先授权才能用，授权后重新打开这里",
+    capEnabled: "已启用「{{title}}」"
   },
   // workbench-client.ts：业务工作台标签页（面板/原文窗格、写表、清单、继续追问）
   workbenchClient: {
@@ -850,7 +872,29 @@ var en = {
     heroSearchPlaceholder: "Search…",
     itemTitle: "{{title}}: {{label}}",
     todosNeed: "{{count}} items need your attention",
-    startHint: "Click one to start; the workbench opens on the right"
+    startHint: "Click one to start; the workbench opens on the right",
+    tabApps: "Apps",
+    tabSkills: "Skills",
+    tabConnections: "Connectors",
+    skillsSubtitle: "{{count}} skills · once enabled, usable in every session",
+    connectionsSubtitle: "{{count}} connectors · let the AI query and act on company systems",
+    searchSkillsPlaceholder: "Search skills…",
+    searchConnectionsPlaceholder: "Search connectors…",
+    noSkills: "No skills available yet",
+    noConnections: "No connectors available yet",
+    featured: "Featured",
+    statusAuto: "On by default",
+    statusEnabled: "Enabled",
+    statusOff: "Not enabled",
+    statusNeedsAuth: "Needs authorization",
+    toolsCount: "{{count}} tools",
+    readWrite: "Read & write",
+    readOnly: "Read-only",
+    authorize: "Authorize",
+    preview: "Preview",
+    details: "Details",
+    needsAuthHint: "{{count}} connectors need authorization first; reopen this after authorizing",
+    capEnabled: "Enabled “{{title}}”"
   },
   // workbench-client.ts：业务工作台标签页（面板/原文窗格、写表、清单、继续追问）
   workbenchClient: {
@@ -1382,7 +1426,29 @@ var es = {
     heroSearchPlaceholder: "Buscar…",
     itemTitle: "{{title}}: {{label}}",
     todosNeed: "{{count}} elementos requieren tu atención",
-    startHint: "Haz clic en una para empezar; el banco de trabajo se abrirá a la derecha"
+    startHint: "Haz clic en una para empezar; el banco de trabajo se abrirá a la derecha",
+    tabApps: "Apps",
+    tabSkills: "Habilidades",
+    tabConnections: "Conectores",
+    skillsSubtitle: "{{count}} habilidades · una vez activadas, disponibles en cada sesión",
+    connectionsSubtitle: "{{count}} conectores · permiten a la IA consultar y operar sistemas de la empresa",
+    searchSkillsPlaceholder: "Buscar habilidades…",
+    searchConnectionsPlaceholder: "Buscar conectores…",
+    noSkills: "Aún no hay habilidades disponibles",
+    noConnections: "Aún no hay conectores disponibles",
+    featured: "Destacado",
+    statusAuto: "Activo por defecto",
+    statusEnabled: "Activado",
+    statusOff: "No activado",
+    statusNeedsAuth: "Requiere autorización",
+    toolsCount: "{{count}} herramientas",
+    readWrite: "Lectura y escritura",
+    readOnly: "Solo lectura",
+    authorize: "Autorizar",
+    preview: "Vista previa",
+    details: "Detalles",
+    needsAuthHint: "{{count}} conectores requieren autorización; vuelve a abrir esto después de autorizar",
+    capEnabled: "Se activó «{{title}}»"
   },
   // workbench-client.ts：业务工作台标签页（面板/原文窗格、写表、清单、继续追问）
   workbenchClient: {
@@ -1914,7 +1980,29 @@ var pt = {
     heroSearchPlaceholder: "Buscar…",
     itemTitle: "{{title}}: {{label}}",
     todosNeed: "{{count}} itens precisam da sua atenção",
-    startHint: "Clique em um para começar; a área de trabalho abre à direita"
+    startHint: "Clique em um para começar; a área de trabalho abre à direita",
+    tabApps: "Apps",
+    tabSkills: "Habilidades",
+    tabConnections: "Conectores",
+    skillsSubtitle: "{{count}} habilidades · depois de ativadas, disponíveis em todas as sessões",
+    connectionsSubtitle: "{{count}} conectores · deixam a IA consultar e operar sistemas da empresa",
+    searchSkillsPlaceholder: "Pesquisar habilidades…",
+    searchConnectionsPlaceholder: "Pesquisar conectores…",
+    noSkills: "Ainda não há habilidades disponíveis",
+    noConnections: "Ainda não há conectores disponíveis",
+    featured: "Destaque",
+    statusAuto: "Ativo por padrão",
+    statusEnabled: "Ativado",
+    statusOff: "Não ativado",
+    statusNeedsAuth: "Requer autorização",
+    toolsCount: "{{count}} ferramentas",
+    readWrite: "Leitura e escrita",
+    readOnly: "Somente leitura",
+    authorize: "Autorizar",
+    preview: "Pré-visualizar",
+    details: "Detalhes",
+    needsAuthHint: "{{count}} conectores precisam de autorização; reabra isto depois de autorizar",
+    capEnabled: "“{{title}}” ativado"
   },
   // workbench-client.ts: aba da área de trabalho de negócio (painel/fonte, escrita em tabela, lista de verificação, continuar perguntando)
   workbenchClient: {
@@ -2446,7 +2534,29 @@ var hi = {
     heroSearchPlaceholder: "खोजें…",
     itemTitle: "{{title}}: {{label}}",
     todosNeed: "आपके लिए {{count}} आइटम लंबित",
-    startHint: "शुरू करने के लिए किसी एक पर क्लिक करें, वर्कबेंच दाईं ओर खुलेगा"
+    startHint: "शुरू करने के लिए किसी एक पर क्लिक करें, वर्कबेंच दाईं ओर खुलेगा",
+    tabApps: "ऐप्स",
+    tabSkills: "स्किल्स",
+    tabConnections: "कनेक्टर",
+    skillsSubtitle: "{{count}} स्किल्स · चालू करने के बाद हर सत्र में उपलब्ध",
+    connectionsSubtitle: "{{count}} कनेक्टर · AI को कंपनी के सिस्टम से जानकारी लेने और काम करने देते हैं",
+    searchSkillsPlaceholder: "स्किल्स खोजें…",
+    searchConnectionsPlaceholder: "कनेक्टर खोजें…",
+    noSkills: "अभी कोई स्किल उपलब्ध नहीं है",
+    noConnections: "अभी कोई कनेक्टर उपलब्ध नहीं है",
+    featured: "चुनिंदा",
+    statusAuto: "डिफ़ॉल्ट रूप से चालू",
+    statusEnabled: "चालू",
+    statusOff: "चालू नहीं",
+    statusNeedsAuth: "अनुमति चाहिए",
+    toolsCount: "{{count}} टूल",
+    readWrite: "पढ़ना और लिखना",
+    readOnly: "केवल पढ़ना",
+    authorize: "अनुमति दें",
+    preview: "पूर्वावलोकन",
+    details: "विवरण",
+    needsAuthHint: "{{count}} कनेक्टर को पहले अनुमति चाहिए; अनुमति देने के बाद इसे फिर खोलें",
+    capEnabled: "“{{title}}” चालू किया गया"
   },
   // workbench-client.ts: business workbench tab (panel / source pane, row writes, checklists, follow-up)
   workbenchClient: {
@@ -23341,11 +23451,125 @@ function availableCard(createElement7, app, actions) {
     createElement7("button", { type: "button", onClick: () => actions.enable(app), style: { ...buttonStyle, border: "1px solid #4d6bfe", color: "#4d6bfe", borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600, flex: "0 0 auto" } }, t("appsView.enable"))
   );
 }
+var capButton = (primary) => ({ ...buttonStyle, border: primary ? "1px solid #4d6bfe" : "1px solid color-mix(in srgb, currentColor 18%, transparent)", color: primary ? "#4d6bfe" : "inherit", borderRadius: 8, padding: "3px 10px", fontSize: 12, fontWeight: 600, flex: "0 0 auto" });
+var capCardStyle = { display: "flex", flexDirection: "column", gap: 10, padding: 14, borderRadius: 14, border: "1px solid color-mix(in srgb, currentColor 11%, transparent)", background: "color-mix(in srgb, currentColor 1.5%, Canvas)", boxShadow: "0 1px 2px color-mix(in srgb, currentColor 5%, transparent)", minWidth: 0 };
+function capabilityCard(createElement7, key, ui, icon, badges, description, footer) {
+  return createElement7(
+    "div",
+    { key, "data-dsh-ee-ui": ui, className: "dshee-gcard", title: description, style: capCardStyle },
+    createElement7(
+      "div",
+      { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 } },
+      appTileIcon(createElement7, icon, 40),
+      createElement7("div", { style: { display: "flex", flexWrap: "wrap", justifyContent: "flex-end", gap: 4 } }, ...badges.filter(Boolean))
+    ),
+    createElement7(
+      "div",
+      { style: { minWidth: 0 } },
+      createElement7("div", { style: { fontSize: 14, fontWeight: 600, letterSpacing: "0.01em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, icon.title),
+      createElement7("div", { style: { marginTop: 4, fontSize: 12, lineHeight: 1.55, opacity: 0.62, minHeight: 37, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, description)
+    ),
+    createElement7("div", { style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginTop: "auto" } }, ...footer.filter(Boolean))
+  );
+}
+function capStatus(createElement7, enabled, delivery) {
+  return enabled ? createElement7("span", { key: "status", style: badgeStyle("#16a34a") }, delivery === "auto" ? t("appsView.statusAuto") : t("appsView.statusEnabled")) : createElement7("span", { key: "status", style: badgeStyle("#737373") }, t("appsView.statusOff"));
+}
+function skillCard(createElement7, k, actions) {
+  const icon = { name: k.name, title: k.title, icon: k.kind === "prompt" ? "💬" : "🧩" };
+  return capabilityCard(
+    createElement7,
+    k.name,
+    "gallery-skill",
+    icon,
+    [k.featured ? createElement7("span", { key: "featured", style: badgeStyle("#d97706") }, t("appsView.featured")) : null, capStatus(createElement7, k.enabled, k.delivery)],
+    k.description,
+    [
+      createElement7("code", { key: "name", style: { fontSize: 11, opacity: 0.6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } }, k.kind === "prompt" ? `/${k.name}` : k.name),
+      createElement7("span", { key: "gap", style: { flex: 1 } }),
+      k.delivery === "optional" && actions.toggleCapability ? createElement7("button", { key: "toggle", type: "button", style: capButton(!k.enabled), onClick: () => actions.toggleCapability("skills", k.name, !k.enabled, k.title) }, k.enabled ? t("appsView.disable") : t("appsView.enable")) : null,
+      k.detail_url && actions.openUrl ? createElement7("button", { key: "preview", type: "button", style: capButton(false), onClick: () => actions.openUrl(k.detail_url) }, t("appsView.preview")) : null
+    ]
+  );
+}
+function connectionCard(createElement7, c, actions) {
+  const needsAuth = c.enabled && c.auth === "needs_auth";
+  const icon = { name: c.name, title: c.title, icon: "🔌" };
+  return capabilityCard(
+    createElement7,
+    c.name,
+    "gallery-connection",
+    icon,
+    [
+      c.featured ? createElement7("span", { key: "featured", style: badgeStyle("#d97706") }, t("appsView.featured")) : null,
+      needsAuth ? createElement7("span", { key: "status", style: badgeStyle("#dc2626") }, t("appsView.statusNeedsAuth")) : capStatus(createElement7, c.enabled, c.delivery)
+    ],
+    c.description,
+    [
+      createElement7("span", { key: "tools", style: badgeStyle("#737373") }, t("appsView.toolsCount", { count: c.tools })),
+      createElement7("span", { key: "writes", style: badgeStyle(c.writes ? "#d97706" : "#737373") }, c.writes ? t("appsView.readWrite") : t("appsView.readOnly")),
+      createElement7("span", { key: "gap", style: { flex: 1 } }),
+      needsAuth && c.detail_url && actions.openUrl ? createElement7("button", { key: "auth", type: "button", style: capButton(true), onClick: () => actions.openUrl(c.detail_url) }, t("appsView.authorize")) : null,
+      c.delivery === "optional" && actions.toggleCapability ? createElement7("button", { key: "toggle", type: "button", style: capButton(!c.enabled && !needsAuth), onClick: () => actions.toggleCapability("connections", c.name, !c.enabled, c.title) }, c.enabled ? t("appsView.disable") : t("appsView.enable")) : null,
+      !needsAuth && c.detail_url && actions.openUrl ? createElement7("button", { key: "detail", type: "button", style: capButton(false), onClick: () => actions.openUrl(c.detail_url) }, t("appsView.details")) : null
+    ]
+  );
+}
+var matchesCap = (item, query) => !query || `${item.title} ${item.name} ${item.description}`.toLowerCase().includes(query);
+var sortCaps = (items) => [...items].sort((a, b) => Number(!!b.featured) - Number(!!a.featured) || Number(!!b.enabled) - Number(!!a.enabled) || a.title.localeCompare(b.title, "zh"));
+function galleryTabs(center) {
+  return center && !center.legacy ? ["apps", "skills", "connections"] : ["apps"];
+}
 function appsGallery(createElement7, state, actions, filtered) {
   if (!state.galleryOpen) return null;
   const close = () => actions.closeLayers?.() ?? actions.toggleGallery?.();
-  const available = (state.available ?? []).filter((app) => matchesQuery(app, state.query?.trim().toLowerCase() ?? ""));
+  const query = state.query?.trim().toLowerCase() ?? "";
+  const available = (state.available ?? []).filter((app) => matchesQuery(app, query));
   const grid = { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 210px), 1fr))", gap: 12 };
+  const tabs = galleryTabs(state.center);
+  const tab = tabs.includes(state.tab ?? "apps") ? state.tab ?? "apps" : "apps";
+  const skills = state.center?.skills ?? [];
+  const connections = state.center?.connections ?? [];
+  const tabCount2 = (k) => k === "apps" ? state.apps.length : k === "skills" ? skills.length : connections.length;
+  const tabLabel = (k) => k === "apps" ? t("appsView.tabApps") : k === "skills" ? t("appsView.tabSkills") : t("appsView.tabConnections");
+  const subtitle = tab === "apps" ? t("appsView.gallerySubtitle", { count: state.apps.length }) : tab === "skills" ? t("appsView.skillsSubtitle", { count: skills.length }) : t("appsView.connectionsSubtitle", { count: connections.length });
+  const placeholder2 = tab === "apps" ? t("appsView.searchAppsPlaceholder") : tab === "skills" ? t("appsView.searchSkillsPlaceholder") : t("appsView.searchConnectionsPlaceholder");
+  const empty = (text) => createElement7("div", { style: { padding: "36px 4px", textAlign: "center", opacity: 0.6 } }, text);
+  let body;
+  if (tab === "skills") {
+    const list = sortCaps(skills.filter((k) => matchesCap(k, query)));
+    body = [list.length ? createElement7("div", { key: "grid", style: grid }, ...list.map((k) => skillCard(createElement7, k, actions))) : empty(query ? t("appsView.noMatches") : t("appsView.noSkills"))];
+  } else if (tab === "connections") {
+    const list = sortCaps(connections.filter((c) => matchesCap(c, query)));
+    const pending = connections.filter((c) => c.enabled && c.auth === "needs_auth").length;
+    body = [
+      pending ? createElement7("div", { key: "pending", role: "status", style: { fontSize: 12, color: "#d97706" } }, t("appsView.needsAuthHint", { count: pending })) : null,
+      list.length ? createElement7("div", { key: "grid", style: grid }, ...list.map((c) => connectionCard(createElement7, c, actions))) : empty(query ? t("appsView.noMatches") : t("appsView.noConnections"))
+    ];
+  } else {
+    body = [
+      filtered.length ? createElement7("div", { key: "grid", style: grid }, ...filtered.map((app) => galleryCard(createElement7, app, state, actions))) : empty(t("appsView.noMatches")),
+      available.length && actions.enable ? createElement7(
+        "section",
+        { key: "available", "data-dsh-ee-ui": "available-apps" },
+        createElement7("div", { style: { fontSize: 12, fontWeight: 600, opacity: 0.65, margin: "0 0 10px" } }, t("appsView.availableCount", { count: available.length })),
+        createElement7("div", { style: grid }, ...available.map((app) => availableCard(createElement7, app, actions)))
+      ) : null
+    ];
+  }
+  const tabBar = tabs.length > 1 ? createElement7(
+    "div",
+    { role: "tablist", "data-dsh-ee-ui": "gallery-tabs", style: { display: "flex", gap: 4, padding: "0 22px", borderBottom: "1px solid color-mix(in srgb, currentColor 9%, transparent)" } },
+    ...tabs.map((k) => createElement7("button", {
+      key: k,
+      type: "button",
+      role: "tab",
+      "aria-selected": k === tab,
+      "data-dsh-ee-tab": k,
+      onClick: () => actions.setTab?.(k),
+      style: { ...buttonStyle, padding: "9px 10px 8px", marginBottom: -1, fontSize: 13, fontWeight: k === tab ? 650 : 500, opacity: k === tab ? 1 : 0.62, borderBottom: `2px solid ${k === tab ? "#4d6bfe" : "transparent"}` }
+    }, tabLabel(k), createElement7("span", { style: { marginLeft: 5, fontSize: 11.5, opacity: 0.6 } }, String(tabCount2(k)))))
+  ) : null;
   return createElement7(
     "div",
     { "data-dsh-ee-ui": "apps-gallery", onClick: close, style: { position: "fixed", inset: 0, zIndex: 60, background: "rgba(10, 37, 64, 0.38)", backdropFilter: "blur(3px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, animation: "dshee-fade .15s ease-out" } },
@@ -23361,26 +23585,22 @@ function appsGallery(createElement7, state, actions, filtered) {
       },
       createElement7(
         "div",
-        { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "18px 22px 14px", borderBottom: "1px solid color-mix(in srgb, currentColor 9%, transparent)" } },
+        { style: { display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: tabBar ? "18px 22px 6px" : "18px 22px 14px", borderBottom: tabBar ? void 0 : "1px solid color-mix(in srgb, currentColor 9%, transparent)" } },
         createElement7(
           "div",
           { style: { flex: "1 1 200px", minWidth: 0 } },
           createElement7("div", { style: { fontSize: 17, fontWeight: 650, letterSpacing: "-0.01em" } }, t("apps.enterpriseApps")),
-          createElement7("div", { style: { fontSize: 12, opacity: 0.6, marginTop: 2 } }, t("appsView.gallerySubtitle", { count: state.apps.length }))
+          createElement7("div", { style: { fontSize: 12, opacity: 0.6, marginTop: 2 } }, subtitle)
         ),
-        createElement7("input", { "aria-label": t("appsView.searchAppsAria"), className: "dshee-gsearch", value: state.query ?? "", onChange: (event) => actions.search(event.target.value), placeholder: t("appsView.searchAppsPlaceholder"), style: { flex: "1 1 220px", maxWidth: 300, boxSizing: "border-box", height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid color-mix(in srgb, currentColor 16%, transparent)", background: "transparent", color: "inherit", fontSize: 13 } }),
+        createElement7("input", { "aria-label": t("appsView.searchAppsAria"), className: "dshee-gsearch", value: state.query ?? "", onChange: (event) => actions.search(event.target.value), placeholder: placeholder2, style: { flex: "1 1 220px", maxWidth: 300, boxSizing: "border-box", height: 34, padding: "0 12px", borderRadius: 9, border: "1px solid color-mix(in srgb, currentColor 16%, transparent)", background: "transparent", color: "inherit", fontSize: 13 } }),
         createElement7("button", { type: "button", "aria-label": t("common.close"), onClick: close, style: { ...buttonStyle, fontSize: 16, padding: "4px 8px", opacity: 0.6, borderRadius: 8 } }, "✕")
       ),
+      tabBar,
       createElement7(
         "div",
         { style: { overflowY: "auto", flex: 1, minHeight: 0, padding: "18px 22px 22px", display: "grid", gap: 20, alignContent: "start" } },
-        filtered.length ? createElement7("div", { style: grid }, ...filtered.map((app) => galleryCard(createElement7, app, state, actions))) : createElement7("div", { style: { padding: "36px 4px", textAlign: "center", opacity: 0.6 } }, t("appsView.noMatches")),
-        available.length && actions.enable ? createElement7(
-          "section",
-          { "data-dsh-ee-ui": "available-apps" },
-          createElement7("div", { style: { fontSize: 12, fontWeight: 600, opacity: 0.65, margin: "0 0 10px" } }, t("appsView.availableCount", { count: available.length })),
-          createElement7("div", { style: grid }, ...available.map((app) => availableCard(createElement7, app, actions)))
-        ) : null
+        tab !== "apps" && state.notice ? createElement7("p", { key: "notice", role: "status", style: { margin: 0, fontSize: 12, opacity: 0.8 } }, state.notice) : null,
+        ...body
       ),
       actions.setSidebarHidden ? createElement7(
         "label",
@@ -23901,6 +24121,17 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
       update({ busy: false });
     }
   });
+  const refreshCenter = singleFlight(async () => {
+    if (typeof remote.center !== "function") return;
+    update({ centerLoading: !snapshot.center });
+    try {
+      const center = unwrapRemote2(await remote.center());
+      if (center && typeof center === "object") update({ center });
+    } catch {
+    } finally {
+      update({ centerLoading: false });
+    }
+  });
   ctx.effect(() => {
     const timer = setInterval(() => {
       if (started) void refresh();
@@ -24025,6 +24256,17 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
     details: (app) => {
       if (app.detail_url) void openWeb(app.detail_url);
     },
+    openUrl: (url2) => {
+      void openWeb(url2);
+    },
+    toggleCapability: (kind, name, enabled, title) => {
+      void remote.setSubscription({ kind, name, enabled }).then(async (result) => {
+        const value = unwrapRemote2(result);
+        if (!value?.ok) return setNotice(t(enabled ? "apps.enableFailed" : "apps.disableFailed", { error: value?.error || t("apps.retryLater") }));
+        await refreshCenter();
+        setNotice(enabled ? t("appsView.capEnabled", { title }) : t("apps.disabled", { title }));
+      }).catch(() => setNotice(t(enabled ? "apps.enableFailedNetwork" : "apps.disableFailedNetwork")));
+    },
     search: () => {
     }
   });
@@ -24038,6 +24280,12 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
     const [menuFor, setMenuFor] = (0, import_react.useState)("");
     const [menuAnchor, setMenuAnchor] = (0, import_react.useState)(void 0);
     const [query, setQuery] = (0, import_react.useState)("");
+    const [tab, setTabState] = (0, import_react.useState)("apps");
+    const setTab = (next) => {
+      setTabState(next);
+      setQuery("");
+      closeMenu();
+    };
     const closeMenu = () => {
       setMenuFor("");
       setMenuAnchor(void 0);
@@ -24046,7 +24294,11 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
       closeMenu();
       setGalleryOpen(false);
       setQuery("");
+      setTabState("apps");
     };
+    (0, import_react.useEffect)(() => {
+      if (galleryOpen) void refreshCenter();
+    }, [galleryOpen]);
     const toggleMenu = (name, event) => {
       if (!name || name === menuFor) {
         closeMenu();
@@ -24080,7 +24332,7 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
         window.document?.removeEventListener?.("scroll", onScroll, true);
       };
     }, [menuFor, galleryOpen]);
-    return { galleryOpen, setGalleryOpen, menuFor, menuAnchor, query, setQuery, closeMenu, closeLayers, toggleMenu };
+    return { galleryOpen, setGalleryOpen, menuFor, menuAnchor, query, setQuery, tab, setTab, closeMenu, closeLayers, toggleMenu };
   };
   const makeAppsSection = (placement) => () => {
     const overview = useOverview();
@@ -24110,6 +24362,7 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
       },
       toggleMenu: layers.toggleMenu,
       closeLayers: layers.closeLayers,
+      setTab: layers.setTab,
       setSidebarHidden: (hidden) => {
         setSidebarMode(hidden ? "hidden" : "shown");
         if (hidden) layers.closeLayers();
@@ -24134,7 +24387,10 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
       statuses,
       limit: sidebar ? 3 : 6,
       hideable: sidebar,
-      sidebarHidden: mode === "hidden"
+      sidebarHidden: mode === "hidden",
+      tab: layers.tab,
+      center: state.center,
+      centerLoading: state.centerLoading
     }, actions);
   };
   const AppsSection = makeAppsSection("sidebar");
@@ -24202,10 +24458,11 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
     };
     const query = layers.query.trim().toLowerCase();
     const filtered = state.apps.filter((app) => !query || `${app.title} ${app.description} ${app.name}`.toLowerCase().includes(query));
-    const gallery = appsGallery(import_react.createElement, { apps: state.apps, available: state.available, loggedIn: true, galleryOpen: layers.galleryOpen, query: layers.query, sidebarHidden: mode === "hidden" }, {
+    const gallery = appsGallery(import_react.createElement, { apps: state.apps, available: state.available, loggedIn: true, galleryOpen: layers.galleryOpen, query: layers.query, sidebarHidden: mode === "hidden", tab: layers.tab, center: state.center, centerLoading: state.centerLoading, notice }, {
       ...useActions(setNotice, launcher.launchHero),
       open: open2,
       search: layers.setQuery,
+      setTab: layers.setTab,
       closeLayers: layers.closeLayers,
       toggleGallery: () => layers.setGalleryOpen(!layers.galleryOpen),
       setSidebarHidden: (hidden) => setSidebarMode(hidden ? "hidden" : "shown")
@@ -24301,7 +24558,8 @@ function formatValue(value, format) {
     case "percent":
       return Number.isFinite(number4) ? `${Number((number4 * 100).toFixed(2))}%` : String(value);
     case "date": {
-      const date5 = new Date(value);
+      const m = typeof value === "string" ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(value) : null;
+      const date5 = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(value);
       return Number.isNaN(date5.getTime()) ? String(value) : date5.toLocaleDateString(localeTag());
     }
     default:
@@ -26365,7 +26623,7 @@ function expertCard(h, app, enabled, state, actions) {
     )
   );
 }
-function skillCard(h, k, state, actions) {
+function skillCard2(h, k, state, actions) {
   return h(
     "div",
     { key: k.name, style: card2, "data-dsh-ee-ui": "center-skill" },
@@ -26387,7 +26645,7 @@ function skillCard(h, k, state, actions) {
     )
   );
 }
-function connectionCard(h, c, state, actions) {
+function connectionCard2(h, c, state, actions) {
   const needsAuth = c.enabled && c.auth === "needs_auth";
   return h(
     "div",
@@ -26434,9 +26692,9 @@ function centerPanel(h, state, actions) {
     const all = [...data.experts.map((x) => ({ ...x, enabled: true })), ...data.availableExperts.map((x) => ({ ...x, enabled: false }))];
     list = sortItems(filterItems(all, state.query, category)).map((x) => expertCard(h, x, enabled.has(x.name), state, actions));
   } else if (tab === "skills") {
-    list = sortItems(filterItems(data.skills, state.query, category)).map((k) => skillCard(h, k, state, actions));
+    list = sortItems(filterItems(data.skills, state.query, category)).map((k) => skillCard2(h, k, state, actions));
   } else {
-    list = sortItems(filterItems(data.connections, state.query, category)).map((c) => connectionCard(h, c, state, actions));
+    list = sortItems(filterItems(data.connections, state.query, category)).map((c) => connectionCard2(h, c, state, actions));
   }
   const pending = tab === "connections" ? data.connections.filter((c) => c.enabled && c.auth === "needs_auth").length : 0;
   return root(
