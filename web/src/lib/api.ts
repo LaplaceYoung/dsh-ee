@@ -46,7 +46,7 @@ export interface DemoSite {
   next_reset?: string;
   /** 登录页的场景卡片：以哪位示例员工的身份、打开哪个应用、问什么 */
   personas?: DemoPersona[];
-  /** 服务端放了介绍视频文件的语言（zh / en）。首页已改用代码画的短片（components/intro-film），不再读它 */
+  /** 服务端放了介绍视频文件的语言（zh / en）。首页已改用代码画的短片（components/product-film），不再读它 */
   videos?: string[];
 }
 
