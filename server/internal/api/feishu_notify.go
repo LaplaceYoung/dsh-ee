@@ -303,7 +303,7 @@ func (s *Server) feishuReviewAsset(a *store.Asset, version int) {
 }
 
 func (s *Server) feishuReviewScope(a *store.Asset) {
-	if a.PendingScope == nil {
+	if a.PendingScope == nil || a.ScopeRequestedAt == nil {
 		return
 	}
 	copy := feishuCardCopy{
@@ -315,7 +315,9 @@ func (s *Server) feishuReviewScope(a *store.Asset) {
 			"title", // 资产标题由作者自由填写
 		},
 	}
-	s.sendFeishuApproval(context.WithoutCancel(context.Background()), store.FeishuActionScope, strconv.FormatInt(a.ID, 10)+":scope", a.ID, 0, a.OwnerID, copy, s.feishuReviewers(context.WithoutCancel(context.Background())))
+	// 卡片动作里带上发卡时那份申请的快照标识（毫秒数，复用 sub_id）：
+	// 回调审批时必须和当前 pending_scope 的标识一致，否则点到的是已被替换的旧申请。
+	s.sendFeishuApproval(context.WithoutCancel(context.Background()), store.FeishuActionScope, strconv.FormatInt(a.ID, 10)+":scope", a.ID, a.ScopeRequestedAt.UnixMilli(), a.OwnerID, copy, s.feishuReviewers(context.WithoutCancel(context.Background())))
 }
 
 func (s *Server) feishuAccessRequest(ctx context.Context, q *store.AccessRequest) {
@@ -524,7 +526,9 @@ func (s *Server) applyFeishuDecision(ctx context.Context, v viewer, action *stor
 		if !v.manages(a.Kind) {
 			return "", owner, feishuForbidden(feishu.MsgToastNoScopePerm)
 		}
-		ok, err := s.store.ResolveAssetScope(ctx, a.ID, decision == "approve", "from_feishu")
+		// 卡片里记的是发卡时那份申请的快照标识；申请已被负责人替换时 Resolve 返回冲突，
+		// 不能拿旧卡片去消费新申请（sub_id 为 0 的升级前旧卡同样按冲突处理，失效关闭）。
+		ok, err := s.store.ResolveAssetScope(ctx, a.ID, decision == "approve", "from_feishu", time.UnixMilli(action.SubID).UTC())
 		if err != nil || !ok {
 			return "", owner, feishuErr(feishu.MsgToastScopeTaken, nil)
 		}
@@ -745,7 +749,12 @@ func (s *Server) handleFeishuCard(w http.ResponseWriter, r *http.Request) {
 	if action.Kind == store.FeishuActionAccess {
 		s.auditAs(r, operator.user, "access.request_"+decision, title, map[string]any{"via": "feishu"})
 	} else {
-		s.auditAs(r, operator.user, "review."+decision, title, map[string]any{"via": "feishu"})
+		detail := map[string]any{"via": "feishu"}
+		if action.Kind == store.FeishuActionScope {
+			// 与网页审批一致：记下实际被消费的那份申请的快照标识（卡片动作里校验过的值）。
+			detail["requested_at"] = time.UnixMilli(action.SubID).UTC()
+		}
+		s.auditAs(r, operator.user, "review."+decision, title, detail)
 	}
 	s.notifyFeishuResult(ownerID, title, decision)
 	success := feishu.MsgToastDecisionRejected
