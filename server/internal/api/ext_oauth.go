@@ -122,12 +122,39 @@ func (s *Server) saveOAuthTokens(ctx context.Context, userID, assetID int64, t *
 	return s.store.SetUserCredential(ctx, userID, assetID, sealed, hint)
 }
 
+// oauthLockShardCount 是 oauthLocks 的分片数。
+const oauthLockShardCount = 64
+
 // oauthLocks 让同一位员工在同一个连接上的刷新排队：很多系统的 refresh token 只能用一次。
-var oauthLocks sync.Map
+//
+// 这里用固定分片，而不是「每个 (员工, 连接) 一个 mutex、用完删掉」的 map：
+//   - 分片数组长度在编译期就定死，进程里最多只有 oauthLockShardCount 个 mutex，
+//     内存有上界，不需要（也没法）回收。之前用 sync.Map 存 mutex 却从不删除，
+//     历史上访问过的每个「员工×连接」都会永久留下一份，删用户/删连接/重新授权都
+//     收不回来。
+//   - 同一个 (userID, assetID) 恒映射到同一分片，所以「同一员工×同一连接串行」
+//     的语义完全不变。
+//   - 不同 key 可能撞到同一分片，行为从「并行」退化成「排队」，只影响并发度、
+//     不影响正确性：这把锁只负责把同一 key 的刷新排成一条队；撞分片的请求
+//     至多多等一次刷新（刷新是网络调用，毫秒到秒级）。
+//
+// 用固定分片而不是给 map 加引用计数：不需要记录等待者、没有「删除时另一个
+// goroutine 正等着旧 mutex」的竞态，代码和语义都更简单。
+var oauthLocks [oauthLockShardCount]sync.Mutex
+
+// oauthLockShardIndex 把 (员工, 连接) 稳定地映射到一个分片。
+// 先用黄金比例常数乘 userID、再异或 assetID，最后做 splitmix64 收尾：相邻 id
+// （自增主键）也能散开，不会出现大量小 id 挤在同一分片。
+func oauthLockShardIndex(userID, assetID int64) uint64 {
+	h := uint64(userID)*0x9E3779B97F4A7C15 ^ uint64(assetID)
+	h ^= h >> 30
+	h *= 0xBF58476D1CE4E5B9
+	h ^= h >> 27
+	return h % oauthLockShardCount
+}
 
 func oauthLock(userID, assetID int64) *sync.Mutex {
-	mu, _ := oauthLocks.LoadOrStore(connKey{assetID, userID}, &sync.Mutex{})
-	return mu.(*sync.Mutex)
+	return &oauthLocks[oauthLockShardIndex(userID, assetID)]
 }
 
 // oauthAccessToken 取这位员工此刻能用的 access token，快到期就先刷新。

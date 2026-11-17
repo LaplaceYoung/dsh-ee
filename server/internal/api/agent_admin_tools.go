@@ -685,6 +685,8 @@ func adminSpecs() map[string]*agentSpec {
 					for _, k := range []string{"scope", "requested", "publisher", "department", "created_at"} {
 						o[k] = it[k]
 					}
+					// 和 created_at 同值：审批时原样带回，证明批的是评审过的那份申请。
+					o["scope_requested_at"] = it["created_at"]
 					scopes = append(scopes, o)
 				}
 				return map[string]any{"items": out, "scopes": scopes}
@@ -692,7 +694,7 @@ func adminSpecs() map[string]*agentSpec {
 		},
 		"POST /api/admin/hub/scope-review": {
 			Tool: "ee_review", Action: "decide_scope", Summary: "通过或驳回负责人扩大可用范围的申请（「自己用」的应用要分享给同事时）", En: "Review a scope change", Effect: dg,
-			Params: []agentParam{{Name: "asset_id", Type: "integer", Required: true}, {Name: "decision", Type: "string", Required: true, Enum: []string{"approve", "reject"}, As: "action"}, {Name: "note", Type: "string", Desc: "驳回时写原因"}},
+			Params: []agentParam{{Name: "asset_id", Type: "integer", Required: true}, {Name: "decision", Type: "string", Required: true, Enum: []string{"approve", "reject"}, As: "action"}, {Name: "scope_requested_at", Type: "string", Required: true, Desc: "审核队列里这条申请的 scope_requested_at（和 created_at 同值），必须原样带回；申请已被更新时服务端会拒绝"}, {Name: "note", Type: "string", Desc: "驳回时写原因"}},
 			Preview: func(ctx context.Context, s *Server, _ *Principal, args map[string]any) (string, error) {
 				f, _ := args["asset_id"].(float64)
 				l, err := assetLabel(ctx, s, int64(f))

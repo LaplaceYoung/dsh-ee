@@ -28,17 +28,20 @@ type Provider struct {
 	// 这个上游上启用的对外模型名（来自 models 表），给额度等页面列可选模型用。
 	Models    []string `json:"models"`
 	APIKeyEnc []byte   `json:"-"`
+	// APIKeyOrigin 是写入这把 key 时 base_url 的 origin（scheme://host[:port]）。
+	// 用于识别改址守卫上线前被改过地址的旧记录；空串表示加列前的旧记录，读取侧不阻断。
+	APIKeyOrigin string `json:"-"`
 }
 
 const providerCols = `p.id, p.name, p.vendor, p.base_url, p.api_key_hint, p.priority, p.enabled,
-	p.last_check_at, p.last_check_ok, p.last_check_msg, p.created_at, p.updated_at, p.api_key_enc`
+	p.last_check_at, p.last_check_ok, p.last_check_msg, p.created_at, p.updated_at, p.api_key_enc, p.api_key_origin`
 
 func scanProvider(row interface{ Scan(...any) error }) (*Provider, error) {
 	var p Provider
 	var checkAt sql.NullTime
 	var checkOK sql.NullBool
 	err := row.Scan(&p.ID, &p.Name, &p.Vendor, &p.BaseURL, &p.APIKeyHint, &p.Priority, &p.Enabled,
-		&checkAt, &checkOK, &p.LastCheckMsg, &p.CreatedAt, &p.UpdatedAt, &p.APIKeyEnc)
+		&checkAt, &checkOK, &p.LastCheckMsg, &p.CreatedAt, &p.UpdatedAt, &p.APIKeyEnc, &p.APIKeyOrigin)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -85,9 +88,9 @@ func (s *Store) fillProviderModels(ctx context.Context, ps []*Provider) error {
 func (s *Store) CreateProvider(ctx context.Context, p *Provider) error {
 	t := now()
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO providers (name, vendor, base_url, api_key_enc, api_key_hint, models, priority, enabled, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, '[]', ?, ?, ?, ?)`,
-		p.Name, p.Vendor, p.BaseURL, p.APIKeyEnc, p.APIKeyHint, p.Priority, p.Enabled, t, t)
+		`INSERT INTO providers (name, vendor, base_url, api_key_enc, api_key_hint, api_key_origin, models, priority, enabled, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, '[]', ?, ?, ?, ?)`,
+		p.Name, p.Vendor, p.BaseURL, p.APIKeyEnc, p.APIKeyHint, p.APIKeyOrigin, p.Priority, p.Enabled, t, t)
 	if isDuplicate(err) {
 		return ErrDuplicate
 	}
@@ -133,12 +136,13 @@ func (s *Store) ListProviders(ctx context.Context, enabledOnly bool) ([]*Provide
 }
 
 type ProviderPatch struct {
-	Vendor     *string
-	BaseURL    *string
-	APIKeyEnc  []byte
-	APIKeyHint *string
-	Priority   *int
-	Enabled    *bool
+	Vendor       *string
+	BaseURL      *string
+	APIKeyEnc    []byte
+	APIKeyHint   *string
+	APIKeyOrigin *string
+	Priority     *int
+	Enabled      *bool
 }
 
 func (s *Store) UpdateProvider(ctx context.Context, id int64, p ProviderPatch) error {
@@ -159,6 +163,9 @@ func (s *Store) UpdateProvider(ctx context.Context, id int64, p ProviderPatch) e
 	}
 	if p.APIKeyHint != nil {
 		add("api_key_hint", *p.APIKeyHint)
+	}
+	if p.APIKeyOrigin != nil {
+		add("api_key_origin", *p.APIKeyOrigin)
 	}
 	if p.Priority != nil {
 		add("priority", *p.Priority)
@@ -415,7 +422,7 @@ func (s *Store) ModelCandidates(ctx context.Context, name string) ([]Candidate, 
 		var checkOK sql.NullBool
 		var upstream string
 		if err := rows.Scan(&p.ID, &p.Name, &p.Vendor, &p.BaseURL, &p.APIKeyHint, &p.Priority, &p.Enabled,
-			&checkAt, &checkOK, &p.LastCheckMsg, &p.CreatedAt, &p.UpdatedAt, &p.APIKeyEnc, &upstream); err != nil {
+			&checkAt, &checkOK, &p.LastCheckMsg, &p.CreatedAt, &p.UpdatedAt, &p.APIKeyEnc, &p.APIKeyOrigin, &upstream); err != nil {
 			return nil, err
 		}
 		out = append(out, Candidate{Provider: &p, UpstreamModel: upstream})

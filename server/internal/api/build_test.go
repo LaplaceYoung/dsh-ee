@@ -135,9 +135,13 @@ func TestBuildSelfUse(t *testing.T) {
 	if len(queue.Scopes) != 1 || queue.Scopes[0].Asset.ID != mine.Asset.ID || queue.Scopes[0].Publisher != "alice" || !slices.Equal(queue.Scopes[0].Requested.Departments, []string{"销售部"}) {
 		t.Fatalf("审核队列里应有范围申请：%s", body)
 	}
-	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "reject"}, nil)
+	pendingAt := queue.Scopes[0].Asset.ScopeRequestedAt
+	if pendingAt == nil {
+		t.Fatalf("审核队列里应带申请的快照标识 scope_requested_at：%s", body)
+	}
+	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "reject", "scope_requested_at": pendingAt}, nil)
 	expect(t, "驳回要写原因", code, 400, body)
-	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "approve"}, nil)
+	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "approve", "scope_requested_at": pendingAt}, nil)
 	expect(t, "通过范围申请", code, 204, body)
 	code, body = bob.do("POST", fmt.Sprintf("/api/hub/%d/subscription", mine.Asset.ID), nil, nil)
 	expect(t, "bob 启用", code, 204, body)
@@ -147,14 +151,15 @@ func TestBuildSelfUse(t *testing.T) {
 	if got := appNames(dsh["carol"].catalog()); slices.Contains(got, "visit-brief") {
 		t.Fatalf("范围外的 carol 仍看不到：%v", got)
 	}
-	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "approve"}, nil)
+	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "approve", "scope_requested_at": pendingAt}, nil)
 	expect(t, "没有在审的申请", code, 409, body)
 
 	// 再扩大到全员 → 驳回：范围不变，作者看到原因
 	code, body = alice.do("PATCH", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), map[string]any{"scope": map[string]any{"all": true},
 		"updated_at": scopeToken(t, alice, fmt.Sprintf("/api/hub/%d", mine.Asset.ID))}, nil)
 	expect(t, "申请全员", code, 200, body)
-	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "reject", "note": "先在部门里试一个月"}, nil)
+	pendingAt = decodeAs[store.Asset](t, body).ScopeRequestedAt
+	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": mine.Asset.ID, "action": "reject", "scope_requested_at": pendingAt, "note": "先在部门里试一个月"}, nil)
 	expect(t, "驳回范围申请", code, 204, body)
 	code, body = alice.do("GET", fmt.Sprintf("/api/hub/%d", mine.Asset.ID), nil, nil)
 	expect(t, "作者看详情", code, 200, body)

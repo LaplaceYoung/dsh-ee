@@ -3,8 +3,14 @@ slug: plugin-quickstart
 category: plugin
 title: "写 DSH 插件并发布到企业源"
 title_en: "Write a DSH plugin and publish it to the company registry"
+title_es: "Escribe un plugin de DSH y publícalo en el registro de la empresa"
+title_pt: "Escreva um plugin DSH e publique-o no registro da empresa"
+title_hi: "DSH प्लगइन लिखें और कंपनी रजिस्ट्री में प्रकाशित करें"
 summary: "从骨架、清单字段、本地自查到三个发布入口；只讲企业侧必看的部分。"
 summary_en: "From scaffold and manifest fields to local checks and three publish entries — only what the company side needs."
+summary_es: "Desde el esqueleto y los campos del manifiesto hasta las comprobaciones locales y las tres entradas de publicación: solo lo esencial del lado de la empresa."
+summary_pt: "Do scaffold e dos campos do manifesto às verificações locais e às três entradas de publicação: apenas o essencial do lado da empresa."
+summary_hi: "स्कैफ़ोल्ड और मैनिफ़ेस्ट फ़ील्ड से लेकर स्थानीय जाँच और तीन प्रकाशन प्रवेशों तक — केवल कंपनी पक्ष के लिए ज़रूरी बातें।"
 tags: [插件, package.json, 发布]
 updated_at: 2026-11-12
 status: draft

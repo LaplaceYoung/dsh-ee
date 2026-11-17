@@ -3,8 +3,14 @@ slug: access-rules
 category: access
 title: "权限与访问规则速查"
 title_en: "Permissions and access rules: a quick reference"
+title_es: "Permisos y reglas de acceso: referencia rápida"
+title_pt: "Permissões e regras de acesso: referência rápida"
+title_hi: "अनुमतियाँ और एक्सेस नियम: त्वरित संदर्भ"
 summary: "权限点、字段访问规则、管理约束三层的判断顺序与配置入口。"
 summary_en: "How permission codes, field access rules and admin constraints are evaluated, and where to configure them."
+summary_es: "Cómo se evalúan los códigos de permiso, las reglas de acceso a campos y las restricciones de administración, y dónde configurarlos."
+summary_pt: "Como códigos de permissão, regras de acesso a campos e restrições administrativas são avaliados, e onde configurá-los."
+summary_hi: "अनुमति कोड, फ़ील्ड एक्सेस नियम और प्रशासनिक प्रतिबंध किस क्रम में लागू होते हैं, और उन्हें कहाँ कॉन्फ़िगर करें।"
 tags: [权限, 字段, 规则]
 updated_at: 2026-11-12
 status: draft

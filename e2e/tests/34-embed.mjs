@@ -49,14 +49,18 @@ export default async function (t) {
   assertEq((await api(admin, "POST", "/api/hub", { kind: "app", slug, delivery: "auto", spec })).status, 201, "建嵌入应用");
 
   // CSP 按路径收口：/a/* 可追加 DSH_EE_EMBED_ORIGINS 里的来源；其它 HTML 永远只允许同站。
+  // 未设置 DSH_EE_CSP 时默认 enforce：这里同时带内置基线策略与 frame-ancestors。
   const csp = async (path) => (await fetch(`${BASE}${path}`)).headers.get("content-security-policy");
   const configured = (process.env.DSH_EE_EMBED_ORIGINS || "").split(",").map((x) => x.trim()).filter(Boolean);
   const appCSP = await csp(`/a/${slug}`);
-  assert(appCSP.startsWith("frame-ancestors 'self'"), "微应用页 CSP 至少允许同站：" + appCSP);
+  assert(appCSP.startsWith("default-src 'self';"), "微应用页应带默认基线策略：" + appCSP);
+  assert(appCSP.includes("frame-ancestors 'self'"), "微应用页 CSP 至少允许同站：" + appCSP);
   if (configured.length) {
     for (const origin of configured) assert(appCSP.includes(origin), "/a/* 应放行配置的来源 " + origin + "：" + appCSP);
   }
-  assertEq(await csp("/admin/whatever"), "frame-ancestors 'self'", "管理页只允许同站");
+  const adminCSP = await csp("/admin/whatever");
+  assert(adminCSP.endsWith("frame-ancestors 'self'"), "管理页只允许同站：" + adminCSP);
+  for (const origin of configured) assert(!adminCSP.includes(origin), "管理页不能放行配置的来源 " + origin + "：" + adminCSP);
   step("CSP 收口：/a/* 带配置来源，/admin 始终只允许同站（路径差异见 Go 单测）");
 
   // ---- 宿主页注入 iframe：ready + 主题 + 隐藏入口 + 页签保留 ----

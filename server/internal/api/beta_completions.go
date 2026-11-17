@@ -122,9 +122,9 @@ func (s *Server) serveBeta(w http.ResponseWriter, r *http.Request, ep betaEndpoi
 			"模型 "+model+" 没有配置在上游 "+p.Name+" 上；/beta/* 只转发给一个 vendor=deepseek 上游")
 		return
 	}
-	key, err := s.box.Open(p.APIKeyEnc)
+	key, err := s.openProviderKey(p)
 	if err != nil {
-		s.log.Error("decrypt provider key", "provider", p.Name, "err", err)
+		s.log.Error("provider key unavailable", "provider", p.Name, "err", err)
 		writeOpenAIErr(w, http.StatusInternalServerError, "server_error", "provider_misconfigured", "上游配置有误，请联系管理员")
 		return
 	}

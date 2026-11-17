@@ -48,12 +48,13 @@ func assertSecurityHeaders(t *testing.T, header http.Header, wantCSP string) {
 	}
 }
 
+// 默认（未设置 Options.CSP）就下发内置基线策略：不再只有 frame-ancestors。
 func TestSecurityHeadersHTMLDefaultsToSameSite(t *testing.T) {
 	s := newSecurityHeadersServer(nil)
 	rec := httptest.NewRecorder()
 	s.securityHeaders(htmlHandler("text/html; charset=utf-8")).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/a/demo", nil))
 
-	assertSecurityHeaders(t, rec.Result().Header, "frame-ancestors 'self'")
+	assertSecurityHeaders(t, rec.Result().Header, testCSPNoHash+"; frame-ancestors 'self'")
 	if rec.Body.String() != "<!doctype html><html></html>" {
 		t.Fatalf("响应体被改动：%q", rec.Body.String())
 	}
@@ -64,7 +65,7 @@ func TestSecurityHeadersHTMLAppendsEmbedOrigins(t *testing.T) {
 	rec := httptest.NewRecorder()
 	s.securityHeaders(htmlHandler("text/html")).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/a/demo?embed=1", nil))
 
-	assertSecurityHeaders(t, rec.Result().Header, "frame-ancestors 'self' https://harness.acme.internal http://localhost:5173")
+	assertSecurityHeaders(t, rec.Result().Header, testCSPNoHash+"; frame-ancestors 'self' https://harness.acme.internal http://localhost:5173")
 }
 
 // handler 不显式写 WriteHeader 时由第一次 Write 隐式写 200，Header 也要在那之前加上。
@@ -77,24 +78,25 @@ func TestSecurityHeadersHTMLImplicitWrite(t *testing.T) {
 	rec := httptest.NewRecorder()
 	s.securityHeaders(h).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
 
-	assertSecurityHeaders(t, rec.Result().Header, "frame-ancestors 'self'")
+	assertSecurityHeaders(t, rec.Result().Header, testCSPNoHash+"; frame-ancestors 'self'")
 }
 
 // 可配置的宿主 origin 只放行微应用页（/a/*）；管理页、登录页等其它 HTML 必须保持 'self'。
 func TestSecurityHeadersOnlyAppPagesUseEmbedOrigins(t *testing.T) {
 	s := newSecurityHeadersServer([]string{"https://harness.acme.internal", "http://localhost:5173"})
-	appCSP := "frame-ancestors 'self' https://harness.acme.internal http://localhost:5173"
+	appCSP := testCSPNoHash + "; frame-ancestors 'self' https://harness.acme.internal http://localhost:5173"
+	selfCSP := testCSPNoHash + "; frame-ancestors 'self'"
 	for _, c := range []struct {
 		path string
 		want string
 	}{
 		{"/a/demo", appCSP},
 		{"/a/demo?embed=1&host=https://harness.acme.internal", appCSP},
-		{"/admin/menus", "frame-ancestors 'self'"},
-		{"/", "frame-ancestors 'self'"},
-		{"/login", "frame-ancestors 'self'"},
-		{"/go", "frame-ancestors 'self'"},
-		{"/a", "frame-ancestors 'self'"},
+		{"/admin/menus", selfCSP},
+		{"/", selfCSP},
+		{"/login", selfCSP},
+		{"/go", selfCSP},
+		{"/a", selfCSP},
 	} {
 		t.Run(c.path, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, c.path, nil)
@@ -194,7 +196,7 @@ func TestHandlerAddsSecurityHeadersToHTML(t *testing.T) {
 	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(string(body), "<!doctype html>") {
 		t.Fatalf("status=%d body=%q", resp.StatusCode, body)
 	}
-	assertSecurityHeaders(t, resp.Header, "frame-ancestors 'self' https://harness.acme.internal")
+	assertSecurityHeaders(t, resp.Header, testCSPNoHash+"; frame-ancestors 'self' https://harness.acme.internal")
 
 	// 管理页与其它 HTML 只允许同站：配置的宿主 origin 不能框后台。
 	adminResp, err := http.Get(ts.URL + "/admin/menus")
@@ -202,7 +204,7 @@ func TestHandlerAddsSecurityHeadersToHTML(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer adminResp.Body.Close()
-	if got := adminResp.Header.Get("Content-Security-Policy"); got != "frame-ancestors 'self'" {
+	if got := adminResp.Header.Get("Content-Security-Policy"); got != testCSPNoHash+"; frame-ancestors 'self'" {
 		t.Fatalf("管理页 CSP = %q，希望只允许同站", got)
 	}
 
@@ -217,14 +219,20 @@ func TestHandlerAddsSecurityHeadersToHTML(t *testing.T) {
 	}
 }
 
-// ---- 可配置 CSP（DSH_EE_CSP=off|report|enforce）----
+// ---- 可配置 CSP（DSH_EE_CSP=off|report|enforce，未设置时默认 enforce）----
 
-// 真实 index.html 首屏主题脚本的哈希；这里用同一个值，让测试和线上配置一致。
-const testInlineScriptHash = "sha256-6w+Q1AnbMrhQAI1rS4IDFxHocEfsLlQb97aeZpxCPJs="
+// 测试用内联脚本哈希。真实值由 webui 在启动时从实际下发的 index.html 字节计算
+// （webui/csp_test.go 会校验真实源码/嵌入产物的哈希）；这里只验证策略拼接与顺序。
+const testInlineScriptHash = "sha256-36e0VhR65nzeUXUDmFRtWb1LPYiS+ZWuv2xeDc3e5xE="
 
-const testCSPBase = "default-src 'self'; script-src 'self' 'sha256-6w+Q1AnbMrhQAI1rS4IDFxHocEfsLlQb97aeZpxCPJs='; " +
-	"style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; " +
-	"connect-src 'self'; base-uri 'self'; form-action 'self'"
+// testCSPNoHash 是没算到内联脚本哈希时的基线策略（没有嵌入前端的进程/测试桩）。
+const testCSPNoHash = "default-src 'self'; script-src 'self'; " +
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; " +
+	"connect-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'self'"
+
+const testCSPBase = "default-src 'self'; script-src 'self' '" + testInlineScriptHash + "'; " +
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; " +
+	"connect-src 'self'; base-uri 'self'; object-src 'none'; form-action 'self'; frame-src 'self'"
 
 func serveHTML(s *Server, path string) http.Header {
 	rec := httptest.NewRecorder()
@@ -232,10 +240,30 @@ func serveHTML(s *Server, path string) http.Header {
 	return rec.Result().Header
 }
 
-// 默认 off：行为和 #118 合入时完全一致，只有 frame-ancestors，没有 Report-Only。
-func TestSecurityHeadersCSPOffByDefault(t *testing.T) {
+// 默认（Options.CSP 未设置）：下发完整基线策略，内联脚本哈希合并进 script-src，
+// frame-ancestors 仍按嵌入配置合并，且没有 Report-Only。
+func TestSecurityHeadersCSPEnforcesByDefault(t *testing.T) {
 	s := newSecurityHeadersServerWithOptions(Options{
 		EmbedOrigins:          []string{"https://harness.acme.internal"},
+		CSPInlineScriptHashes: []string{testInlineScriptHash},
+	})
+	h := serveHTML(s, "/a/demo")
+	assertSecurityHeaders(t, h, testCSPBase+"; frame-ancestors 'self' https://harness.acme.internal")
+	if got := h.Get("Content-Security-Policy-Report-Only"); got != "" {
+		t.Fatalf("默认 enforce 不应有 Report-Only，实际 = %q", got)
+	}
+	admin := serveHTML(s, "/admin/menus")
+	if got := admin.Get("Content-Security-Policy"); got != testCSPBase+"; frame-ancestors 'self'" {
+		t.Fatalf("默认策略下管理页 CSP = %q，应只允许同站嵌入", got)
+	}
+}
+
+// 显式 off：行为和 #118 合入时完全一致，只有 frame-ancestors，没有 Report-Only。
+// 这是升级后的回滚开关。
+func TestSecurityHeadersCSPExplicitOff(t *testing.T) {
+	s := newSecurityHeadersServerWithOptions(Options{
+		EmbedOrigins:          []string{"https://harness.acme.internal"},
+		CSP:                   "off",
 		CSPInlineScriptHashes: []string{testInlineScriptHash},
 	})
 	h := serveHTML(s, "/a/demo")
@@ -248,11 +276,12 @@ func TestSecurityHeadersCSPOffByDefault(t *testing.T) {
 	}
 }
 
-// 内部调用方传了非法模式时按 off 处理（config 层已经 fail closed）。
-func TestSecurityHeadersCSPInvalidModeFallsBackToOff(t *testing.T) {
-	s := newSecurityHeadersServerWithOptions(Options{CSP: "banana"})
+// 内部调用方传了非法模式时落到安全默认（enforce），不能静默关掉策略
+// （config 层对非法的 DSH_EE_CSP 已经 fail closed）。
+func TestSecurityHeadersCSPInvalidModeFallsBackToSafeDefault(t *testing.T) {
+	s := newSecurityHeadersServerWithOptions(Options{CSP: "banana", CSPInlineScriptHashes: []string{testInlineScriptHash}})
 	h := serveHTML(s, "/")
-	assertSecurityHeaders(t, h, "frame-ancestors 'self'")
+	assertSecurityHeaders(t, h, testCSPBase+"; frame-ancestors 'self'")
 	if got := h.Get("Content-Security-Policy-Report-Only"); got != "" {
 		t.Fatalf("非法模式不应产生 Report-Only，实际 = %q", got)
 	}
@@ -291,16 +320,16 @@ func TestSecurityHeadersCSPEnforceMode(t *testing.T) {
 		CSPInlineScriptHashes: []string{testInlineScriptHash, "sha256-BBBB="},
 	})
 	h := serveHTML(s, "/a/demo?embed=1")
-	want := strings.Replace(testCSPBase, "'sha256-6w+Q1AnbMrhQAI1rS4IDFxHocEfsLlQb97aeZpxCPJs='",
-		"'sha256-6w+Q1AnbMrhQAI1rS4IDFxHocEfsLlQb97aeZpxCPJs=' 'sha256-BBBB='", 1) +
-		"; frame-ancestors 'self' https://harness.acme.internal http://localhost:5173"
+	withSecondHash := strings.Replace(testCSPBase, "'"+testInlineScriptHash+"'",
+		"'"+testInlineScriptHash+"' 'sha256-BBBB='", 1)
+	want := withSecondHash + "; frame-ancestors 'self' https://harness.acme.internal http://localhost:5173"
 	assertSecurityHeaders(t, h, want)
 	if got := h.Get("Content-Security-Policy-Report-Only"); got != "" {
 		t.Fatalf("enforce 模式不应有 Report-Only，实际 = %q", got)
 	}
 
 	admin := serveHTML(s, "/admin/menus")
-	if got := admin.Get("Content-Security-Policy"); !strings.HasSuffix(got, "form-action 'self'; frame-ancestors 'self'") {
+	if got := admin.Get("Content-Security-Policy"); !strings.HasSuffix(got, "frame-src 'self'; frame-ancestors 'self'") {
 		t.Fatalf("管理页策略不能放行嵌入来源：%q", got)
 	}
 }

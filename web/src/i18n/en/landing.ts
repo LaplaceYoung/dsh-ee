@@ -148,7 +148,7 @@ export default {
     heroLine1: "Your company, inside every employee's Harness.",
     heroLead: "Connect your ERP, CRM, data warehouse and policy docs, assemble them into AI micro-apps, and ship them, reviewed and permissioned, to every employee's DSH. Data and credentials stay on your own server, and every call can be audited.",
     tryDemo: "Try it as an employee",
-    videoLabel: "dsh-ee in 36 seconds",
+    videoLabel: "dsh-ee in 30 seconds",
     seeHow: "See how it works",
     howTitle: "How it works",
     howLine: "From company assets to every employee, with every step under control",

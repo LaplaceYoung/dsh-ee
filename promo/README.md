@@ -1,23 +1,23 @@
-# 介绍视频
+# 介绍短片的 MP4 导出
 
-README 第一屏的 36 秒介绍视频，用 [Remotion](https://www.remotion.dev/) 写成（React 画面，直接渲染成 MP4）。不进 dsh-ee 的构建。
+30 秒介绍短片只有一份代码：`web/src/components/intro-film/`（`film.tsx` 是画面，`copy.ts` 是中英文文字）。
+整部片子是时间的纯函数，演示站首页直接用它播放；这里用 [Remotion](https://www.remotion.dev/) 把同一份代码逐帧渲染成 MP4，发社交媒体用。不进 dsh-ee 的构建。
 
-- 分镜和文字：`src/Intro.tsx`、`src/copy.ts`（中英文两版，数字和 [示例公司设定](../docs/demo-company.md) 一致）
-- 界面截图：`public/shots/<zh|en>/`，从导入了示例公司的 dsh-ee 上截的真图；第 2 幕的 DSH 对话是动画，画面上标了「示意画面」
-- 成品：`out/`（不进 git）。README 用的 GIF 复制到 `docs/images/intro*.gif`
+改分镜、改文字都去改 `web/src/components/intro-film/`，首页和 MP4 一起变。人名、数字和 [示例场景](../docs/demo-company.md) 保持一致；
+第 2 幕的 DSH 对话是动画，画面上标了「示意画面」。
 
 ## 渲染
 
 ```sh
 cd promo
 pnpm install
-pnpm studio                       # 浏览器里预览、调时间轴
-pnpm render:zh && pnpm render:en  # 输出 out/intro-zh.mp4、out/intro-en.mp4
+pnpm studio    # 浏览器里预览、拖时间轴
+pnpm render    # 输出 out/intro-zh.mp4、out/intro-en.mp4（1920×1080，30 帧，H.264，30 秒，无声）
 ```
 
-Remotion 默认会下载 Chrome Headless Shell；本机已有的话加 `--browser-executable=<路径>`。
+成品在 `out/`，不进 git。Remotion 第一次渲染会下载 Chrome Headless Shell；本机已有的话加 `--browser-executable=<路径>`。
 
-## 转 GIF
+## 转 GIF（README 第一屏）
 
 Remotion 自带的 ffmpeg 是精简版，没有调色板滤镜，要用完整的 ffmpeg：
 
@@ -25,25 +25,3 @@ Remotion 自带的 ffmpeg 是精简版，没有调色板滤镜，要用完整的
 ffmpeg -i out/intro-zh.mp4 -vf "fps=8,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=full[p];[b][p]paletteuse=dither=none:diff_mode=rectangle" ../docs/images/intro.zh-CN.gif
 ffmpeg -i out/intro-en.mp4 -vf "（同上）" ../docs/images/intro.gif
 ```
-
-## 放到演示站首页
-
-演示站首页播放的是压缩过的版本（约 3 MB，`faststart` 让浏览器边下边播）：
-
-```sh
-mkdir -p ~/dsh-ee-demo/video
-for l in zh en; do
-  ffmpeg -i out/intro-$l.mp4 -an -c:v libx264 -preset slow -crf 27 -pix_fmt yuv420p -movflags +faststart ~/dsh-ee-demo/video/intro-$l.mp4
-done
-```
-
-再在 `~/dsh-ee-demo/demo.env` 里设 `DSH_EE_DEMO_VIDEO_DIR=$HOME/dsh-ee-demo/video`，`demo.sh reset`。
-
-## 重新截图
-
-界面改版后重截：
-
-1. 起一个演示模式的 dsh-ee（`DSH_EE_DEMO_MODE=1`），用管理员导入示例公司。
-2. 用演示员工周航走一遍设备登录，用拿到的令牌经 `/mcp` 调几次 `demo-crm__*` 工具，让「最近调用」有内容。
-3. 截图的机器要有 emoji 字体，不然应用图标是空方框（没有 root 的话可以把 NotoColorEmoji.ttf 放进 `~/.local/share/fonts`）。
-4. `BASE=http://127.0.0.1:8097 ADMIN_PASSWORD=… CHROME=<chromium 路径> node scripts/shots.mjs`（用 `e2e/` 里装好的 playwright-core）。

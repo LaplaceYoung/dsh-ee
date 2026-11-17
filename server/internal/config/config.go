@@ -128,8 +128,8 @@ type Config struct {
 	EmbedCrossSite bool
 	// ee_emb_ 嵌入会话有效期（DSH_EE_EMBED_SESSION_TTL），默认 2h；设计建议 1h–8h。
 	EmbedSessionTTL time.Duration
-	// 内容安全策略（DSH_EE_CSP）：off（默认，只加现有的 frame-ancestors）/ report（只报告）/
-	// enforce（阻断）。见 server/internal/api/security_headers.go。
+	// 内容安全策略（DSH_EE_CSP）：默认 enforce（下发内置基线策略）/ report（只报告）/
+	// off（显式关闭，只加现有的 frame-ancestors）。见 server/internal/api/security_headers.go。
 	CSP string
 	// CSP 违规报告地址（DSH_EE_CSP_REPORT_URI，可选）。必须是 http(s) 绝对地址；只在
 	// DSH_EE_CSP 不是 off 时生效，用于 report 模式收集违规或 enforce 模式观测被拦的请求。
@@ -469,7 +469,7 @@ func Load() (*Config, error) {
 		}
 		c.BackgroundLeaseTTL = d
 	}
-	// 内容安全策略：默认 off，保持现有「只加 frame-ancestors」行为不变。
+	// 内容安全策略：未设置时默认 enforce（内置基线策略）；显式 off 回到只加 frame-ancestors。
 	c.CSP, err = parseCSPMode(os.Getenv("DSH_EE_CSP"))
 	if err != nil {
 		return nil, err

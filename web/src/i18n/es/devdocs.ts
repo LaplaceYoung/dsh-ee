@@ -1,0 +1,80 @@
+/** Páginas de documentación y ejemplos para desarrolladores, y tarjetas «Desarrollar» del banco de trabajo. */
+import type zhNs from "../zh/devdocs";
+import type { Messages } from "../types";
+
+export default {
+  "devdocs": {
+    "title": "Documentación para desarrolladores",
+    "desc": "Puntos de entrada para desarrolladores desde el lado de dsh-ee: plugins de DSH, extensiones de dsh-ee, acceso de clientes, permisos y publicación. Cada página es una guía breve con enlaces oficiales; nunca se copia texto upstream.",
+    "allCategories": "Todas",
+    "categories": {
+      "start": "Empezar",
+      "plugin": "Plugins de DSH",
+      "extension": "Extensiones de dsh-ee",
+      "harness": "Acceso a Harness",
+      "access": "Acceso",
+      "publish": "Publicación",
+      "quality": "Estándares"
+    },
+    "updated": "Actualizado {{date}}",
+    "readMinutes": "Unos {{count}} min",
+    "zhOnly": "Contenido en chino",
+    "disclaimer": "Estas páginas son guías del lado de dsh-ee y pueden cambiar con cada versión; los repositorios upstream y sus licencias son la fuente de verdad.",
+    "backToList": "Toda la documentación para desarrolladores",
+    "backToTop": "Volver arriba",
+    "goExamples": "Ver ejemplos",
+    "notFoundTitle": "Documento no encontrado",
+    "notFoundHint": "Puede que el enlace haya cambiado; vuelve al índice de documentación para desarrolladores y elige otra página.",
+    "toc": "En esta página",
+    "anchor": "Ir a esta sección",
+    "searchPlaceholder": "Busca en títulos, resúmenes, etiquetas o texto, p. ej. «permisos», «código de dispositivo»…",
+    "searchEmpty": "No hay documentos que coincidan",
+    "clearSearch": "Limpiar búsqueda",
+    "copyLink": "Copiar enlace",
+    "linkCopied": "Enlace copiado",
+    "viewSource": "Ver código fuente en GitHub",
+    "examplesTitle": "Ejemplos",
+    "examplesDesc": "Ocho ejemplos seleccionados de plugins DSH, de inicial a avanzado. Cada uno es una guía breve con un comando de instalación de versión fijada; nunca se copian los README, capturas ni contenido multimedia upstream.",
+    "exampleDetail": "Detalles",
+    "source": "Fuente",
+    "sourceAndLicense": "Fuente y licencia",
+    "version": "Versión fijada",
+    "license": "Licencia",
+    "attribution": "Atribución",
+    "requires": "Requisitos previos",
+    "teach": "Qué puedes aprender",
+    "surfaces": "Superficies de Cordis",
+    "installTitle": "Instalación",
+    "installProfile": "Generado para el perfil a partir de la información de tu conexión ({{profile}}).",
+    "installNote": "Lee el código del ejemplo antes de instalarlo; para instalar necesitas la CLI de DSH y acceso al registro de la empresa.",
+    "sourceDisclaimer": "Esta guía la escribió dsh-ee; no se copian los README, capturas ni contenido multimedia upstream. Las versiones fijadas, las fuentes y las licencias proceden de los repositorios upstream. Los ejemplos son solo para aprender: dsh-ee no los ejecuta ni muestra resultados de comprobación.",
+    "walkthroughTitle": "Recorrido completo",
+    "walkthroughDesc": "Un recorrido archivo por archivo en la etiqueta fijada: puntos de entrada, ejercicios y límites de comprobación.",
+    "fullWalkthrough": "Abrir el recorrido completo",
+    "walkthroughPending": "Este recorrido estará disponible cuando se fusione el PR de documentación del repositorio; hasta entonces el enlace devuelve 404.",
+    "exampleNotFoundTitle": "Ejemplo no encontrado",
+    "exampleNotFoundHint": "Puede que el enlace haya cambiado; vuelve al índice de ejemplos y elige otro.",
+    "backToExamples": "Todos los ejemplos",
+    "difficultyLevels": {
+      "starter": "Inicial",
+      "intermediate": "Intermedio",
+      "advanced": "Avanzado"
+    },
+    "surfaceNames": {
+      "tool": "Herramienta",
+      "command": "Comando",
+      "service": "Servicio",
+      "client": "Cliente",
+      "skill": "Skill",
+      "mcp": "MCP",
+      "policy": "Política",
+      "renderer": "Renderizador",
+      "storage": "Almacenamiento"
+    },
+    "cardsTitle": "Desarrollar",
+    "cardDocs": "Documentación para desarrolladores",
+    "cardExamples": "Ejemplos",
+    "cardDocsMore": "Los {{count}} documentos",
+    "cardExamplesMore": "Los {{count}} ejemplos"
+  }
+} satisfies Messages<typeof zhNs>;

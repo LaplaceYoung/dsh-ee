@@ -22,6 +22,9 @@ const (
 	// dsh.bundle.patch 内容检查：只留少量 YAML，避免恶意包塞满内存。
 	maxPatchFiles = 64
 	maxPatchBytes = 4 << 20
+	// 顶层目录最多记几个。正常的 npm 包只有一个（package/）；多顶层直接拒收，
+	// 记几个只是为了在错误信息和检查项里点名。
+	maxTopDirs = 8
 )
 
 // TarballInfo 是解包检查的结果。
@@ -29,7 +32,11 @@ type TarballInfo struct {
 	PackageJSON  []byte
 	FileCount    int
 	UnpackedSize int64
-	// 包根目录下的相对路径（最多记 2 万个，用于检查 dsh.bundle.patch 等）
+	// tarball 里的顶层目录（tar 路径的第一段，通常只有一个 package/）。
+	// 多于一个时 InspectTarball 返回 ErrMultipleTopDirs，但仍带回已扫描的 info 供调用方诊断。
+	TopDirs []string
+	// 包内 regular 文件的相对路径（最多记 2 万个，用于检查 dsh.bundle.patch 等）：
+	// 包根目录下的文件用去掉顶层目录的路径；多顶层时保留顶层目录前缀，避免撞名。
 	Files   map[string]bool
 	Secrets []SecretHit
 	// 根目录下少量 .yml/.yaml 的内容（受 maxPatchFiles/maxPatchBytes 限制），
@@ -74,10 +81,47 @@ var secretFiles = []struct {
 	}},
 }
 
-var ErrNoPackageJSON = errors.New("No package.json in the tarball")
+var (
+	ErrNoPackageJSON = errors.New("No package.json in the tarball")
+	// ErrMultipleTopDirs：tarball 里有不止一个顶层目录。npm 包只有一个包根（通常叫 package/），
+	// 安装时 strip:1 会把每个顶层目录都平铺到安装根 —— 多出来的目录能让 install 脚本
+	// 绕过审核执行，所以整包拒收，不能只信第一个目录。
+	ErrMultipleTopDirs = errors.New("tarball 里有多个顶层目录")
+)
+
+// tarCounter 按 tar 里的真实路径去重后累计文件数与解压体积：同名条目后者覆盖前者，
+// 只算一个文件；体积取最大的那个声明，避免重复条目把上限绕过去。
+type tarCounter struct {
+	sizes map[string]int64
+	files int
+	bytes int64
+}
+
+// add 返回该路径是否第一次出现（同名条目后者覆盖前者，但只算一个文件）。
+func (c *tarCounter) add(name string, size int64) bool {
+	if c.sizes == nil {
+		c.sizes = map[string]int64{}
+	}
+	if prev, ok := c.sizes[name]; ok {
+		if size > prev {
+			c.bytes += size - prev
+			c.sizes[name] = size
+		}
+		return false
+	}
+	c.sizes[name] = size
+	c.files++
+	c.bytes += size
+	return true
+}
+
+func (c *tarCounter) tooLarge() bool { return c.files > maxFiles || c.bytes > maxUnpackedSize }
 
 // InspectTarball 解开 .tgz：取出 package.json、统计文件、扫描疑似密钥。
 // npm 打包时根目录是 package/，个别包（如 @types/*）用别的名字，所以按第一级目录认。
+//
+// 出现第二个顶层目录时返回 info 与 ErrMultipleTopDirs（info 已覆盖所有顶层目录的统计与扫描，
+// 供调用方诊断）；调用方必须先判错并拒收，绝不能拿这个 info 当发布依据。
 func InspectTarball(r io.Reader) (*TarballInfo, error) {
 	gz, err := gzip.NewReader(r)
 	if err != nil {
@@ -87,6 +131,7 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 	tr := tar.NewReader(gz)
 	info := &TarballInfo{Files: map[string]bool{}, YAML: map[string][]byte{}}
 	root := ""
+	var counter tarCounter
 	for {
 		h, err := tr.Next()
 		if errors.Is(err, io.EOF) {
@@ -105,20 +150,27 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 		}
 		if root == "" {
 			root = top
+			info.TopDirs = append(info.TopDirs, top)
+		} else if top != root && len(info.TopDirs) < maxTopDirs && !slices.Contains(info.TopDirs, top) {
+			// 先记下第二个及以后的顶层目录，统计/扫描完再统一拒收：解压总量与密钥扫描
+			// 必须覆盖全部 regular 条目，否则多出来的顶层目录就是压缩炸弹与密钥的盲区。
+			info.TopDirs = append(info.TopDirs, top)
 		}
-		if top != root {
-			continue
-		}
-		info.FileCount++
-		info.UnpackedSize += h.Size
-		if info.FileCount > maxFiles || info.UnpackedSize > maxUnpackedSize {
+		// 统计覆盖所有顶层目录；tar 允许同名条目重复出现（后一个覆盖前一个），按真实路径去重。
+		counter.add(name, h.Size)
+		if counter.tooLarge() {
 			return nil, errors.New("Too many files or files too large after unpacking")
 		}
+		inRoot := top == root
+		file := rel
+		if !inRoot {
+			file = name
+		}
 		if len(info.Files) < 20000 {
-			info.Files[rel] = true
+			info.Files[file] = true
 		}
 		base := path.Base(rel)
-		if strings.EqualFold(base, "SKILL.md") {
+		if inRoot && strings.EqualFold(base, "SKILL.md") {
 			info.Skills++
 			if len(info.SkillFiles) < 20 {
 				info.SkillFiles = append(info.SkillFiles, rel)
@@ -126,11 +178,11 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 		}
 		for _, f := range secretFiles {
 			if f.match(base) {
-				info.Secrets = append(info.Secrets, SecretHit{File: rel, Kind: f.kind})
+				info.Secrets = append(info.Secrets, SecretHit{File: file, Kind: f.kind})
 			}
 		}
 		switch {
-		case rel == "package.json":
+		case inRoot && rel == "package.json":
 			if h.Size > maxPackageJSON {
 				return nil, errors.New("package.json is too large")
 			}
@@ -139,18 +191,26 @@ func InspectTarball(r io.Reader) (*TarballInfo, error) {
 				return nil, err
 			}
 			info.PackageJSON = b
-			info.scan(rel, b)
+			info.scan(file, b)
 		case h.Size <= maxScanFileSize && scannable(base):
 			b, err := io.ReadAll(io.LimitReader(tr, maxScanFileSize))
 			if err != nil {
 				return nil, err
 			}
-			info.scan(rel, b)
-			if isYAML(base) && len(info.YAML) < maxPatchFiles && info.patchBytes+int64(len(b)) <= maxPatchBytes {
+			info.scan(file, b)
+			if inRoot && isYAML(base) && len(info.YAML) < maxPatchFiles && info.patchBytes+int64(len(b)) <= maxPatchBytes {
 				info.YAML[rel] = b
 				info.patchBytes += int64(len(b))
 			}
 		}
+	}
+	info.FileCount, info.UnpackedSize = counter.files, counter.bytes
+	if len(info.TopDirs) > 1 {
+		tops := make([]string, 0, len(info.TopDirs))
+		for _, t := range info.TopDirs {
+			tops = append(tops, truncateRunes(t, 64))
+		}
+		return info, fmt.Errorf("%w（%s）：npm 包只能有一个顶层目录", ErrMultipleTopDirs, strings.Join(tops, "、"))
 	}
 	if info.PackageJSON == nil {
 		return nil, ErrNoPackageJSON
@@ -210,7 +270,6 @@ func Check(m *Manifest, info *TarballInfo, size int64, companyScopes []string) [
 	add := func(key, level string, params map[string]any) {
 		items = append(items, ScanItem{Key: key, Level: level, Params: params})
 	}
-
 	switch {
 	case !m.IsPlugin:
 		add("bundle", LevelWarn, map[string]any{"reason": "missing"})

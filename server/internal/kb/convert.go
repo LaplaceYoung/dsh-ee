@@ -3,6 +3,7 @@ package kb
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -80,8 +81,31 @@ type Options struct {
 	Header string
 }
 
+// ctxCheckEvery 是解析循环里隔多少轮检查一次取消/超时。取 2 的幂，用位与算，开销可以忽略。
+const ctxCheckEvery = 4096
+
+// checkCtx 在长循环里定期检查请求有没有被取消、转换有没有超时。
+// 转换是纯内存计算，文件里的数字（PDF 页数）和重复引用（PPT 同一页被引用几千次）都能让循环跑很久；
+// 每次检查都调 ctx.Err() 太碎，所以按 ctxCheckEvery 轮查一次。
+func checkCtx(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		// 包装成中文，同时保留 errors.Is 能识别的原错误；接口直接把 err.Error() 回给用户。
+		return fmt.Errorf("转换超时或已取消（文件太大或内容太复杂）：%w", err)
+	}
+	return nil
+}
+
 // Convert 按文件扩展名把上传的文件转成 Markdown 正文。
-func Convert(name string, data []byte, opt Options) (*Converted, error) {
+//
+// ctx 用来取消转换：客户端断开连接、或者上层设的超时到了，转换会尽快停下并返回错误。
+// 转换本身不做网络 I/O，ctx 只在解析、拼正文的循环里定期检查。
+func Convert(ctx context.Context, name string, data []byte, opt Options) (*Converted, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if err := checkCtx(ctx); err != nil {
+		return nil, err
+	}
 	ext := strings.ToLower(path.Ext(name))
 	title := strings.TrimSpace(strings.TrimSuffix(path.Base(strings.ReplaceAll(name, "\\", "/")), path.Ext(name)))
 	var out *Converted
@@ -98,15 +122,15 @@ func Convert(name string, data []byte, opt Options) (*Converted, error) {
 			out.Info.Format = "txt"
 		}
 	case ".docx":
-		out, err = convertDocx(data)
+		out, err = convertDocx(ctx, data)
 	case ".pdf":
-		out, err = convertPDF(data)
+		out, err = convertPDF(ctx, data)
 	case ".xlsx":
-		out, err = convertXLSX(data, opt)
+		out, err = convertXLSX(ctx, data, opt)
 	case ".csv":
-		out, err = convertCSV(data, opt)
+		out, err = convertCSV(ctx, data, opt)
 	case ".pptx":
-		out, err = convertPPTX(data)
+		out, err = convertPPTX(ctx, data)
 	case ".doc":
 		return nil, errors.New("旧版 Word（.doc）不支持，请在 Word 里另存为 .docx 后再上传")
 	case ".xls":
@@ -157,7 +181,7 @@ func tidy(s string) string {
 const maxDocxXML = 64 << 20
 
 // convertDocx 读 word/document.xml：段落样式里的「标题 N」转成 #，自动编号补回正文，项目符号转成 -，表格转成 Markdown 表格。
-func convertDocx(data []byte) (*Converted, error) {
+func convertDocx(ctx context.Context, data []byte) (*Converted, error) {
 	zr, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, errors.New("不是有效的 .docx 文件")
@@ -181,7 +205,7 @@ func convertDocx(data []byte) (*Converted, error) {
 	}
 	st := docxStyles(styles)
 	info := Info{Format: "docx"}
-	md, title, err := docxBody(doc, st, parseNumbering(num), &info)
+	md, title, err := docxBody(ctx, doc, st, parseNumbering(num), &info)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +312,7 @@ type docxPara struct {
 }
 
 // docxBody 流式解析正文，只关心段落、文字、换行、制表符、编号和表格。
-func docxBody(doc []byte, st docxStyleInfo, num *numbering, info *Info) (string, string, error) {
+func docxBody(ctx context.Context, doc []byte, st docxStyleInfo, num *numbering, info *Info) (string, string, error) {
 	dec := xml.NewDecoder(bytes.NewReader(doc))
 	var out strings.Builder
 	var title string
@@ -362,7 +386,14 @@ func docxBody(doc []byte, st docxStyleInfo, num *numbering, info *Info) (string,
 			out.WriteString(prefixed + "\n\n")
 		}
 	}
+	// 一份 .docx 的 XML 最多 64 MB，token 数可以到几百万：隔一段查一次请求还在不在。
+	tokens := 0
 	for {
+		if tokens++; tokens&(ctxCheckEvery-1) == 0 {
+			if err := checkCtx(ctx); err != nil {
+				return "", "", err
+			}
+		}
 		tok, err := dec.Token()
 		if err == io.EOF {
 			break
@@ -535,10 +566,15 @@ func markdownTable(rows [][]string) string {
 
 // ---- PDF ----
 
+// maxPDFPages 是一份 PDF 最多收多少页。这个数字来自文件里的 /Root/Pages/Count，完全由上传的文件决定；
+// 恶意构造的 PDF 写 1e12 页时，按「页数」循环等于让一次请求占满 CPU 几十天（不存在的页 r.Page 返回空页，
+// 原逻辑会 continue 到永远）。超过上限整份拒收，不截断：静默丢页会让维护者以为文档收全了。
+const maxPDFPages = 2000
+
 // convertPDF 按页抽文字层：同一行的文字拼起来，行距明显变大的地方断段。每页前面加「## 第 N 页」，方便引用时说清在哪一页。
 // 每页单独判断：扫描页（几乎没字、有大图）和乱码页（字体缺少编码映射）不收文字，正文里留一句说明；
 // 每页都重复的页眉页脚去掉。全部页都收不了时整份拒收。
-func convertPDF(data []byte) (out *Converted, err error) {
+func convertPDF(ctx context.Context, data []byte) (out *Converted, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			out, err = nil, fmt.Errorf("PDF 解析失败：%v", r)
@@ -551,14 +587,22 @@ func convertPDF(data []byte) (out *Converted, err error) {
 		}
 		return nil, errors.New("不是有效的 PDF 文件：" + err.Error())
 	}
-	info := Info{Format: "pdf", Pages: r.NumPage()}
+	// 只取一次页数：页数来自文件，每次 r.NumPage() 都会重新解析页树；循环边界也用这个变量。
+	pages := r.NumPage()
+	if pages > maxPDFPages {
+		return nil, fmt.Errorf("PDF 页数太多：共 %d 页，最多 %d 页，请拆成几个文件再上传", pages, maxPDFPages)
+	}
+	info := Info{Format: "pdf", Pages: pages}
 	type page struct {
 		n     int
 		lines []string // 空字符串是段落之间的空行
 		skip  string   // scanned / garbled
 	}
-	var pages []*page
-	for i := 1; i <= r.NumPage(); i++ {
+	var pageList []*page
+	for i := 1; i <= pages; i++ {
+		if err := checkCtx(ctx); err != nil {
+			return nil, err
+		}
 		p := r.Page(i)
 		if p.V.IsNull() {
 			continue
@@ -578,10 +622,10 @@ func convertPDF(data []byte) (out *Converted, err error) {
 		default:
 			pg.lines = strings.Split(text, "\n")
 		}
-		pages = append(pages, pg)
+		pageList = append(pageList, pg)
 	}
 	var textPages []*page
-	for _, pg := range pages {
+	for _, pg := range pageList {
 		if pg.skip == "" {
 			textPages = append(textPages, pg)
 		} else {
@@ -623,7 +667,10 @@ func convertPDF(data []byte) (out *Converted, err error) {
 		info.HeaderFooter = len(removed)
 	}
 	var b strings.Builder
-	for _, pg := range pages {
+	for _, pg := range pageList {
+		if err := checkCtx(ctx); err != nil {
+			return nil, err
+		}
 		fmt.Fprintf(&b, "## 第 %d 页\n\n", pg.n)
 		switch pg.skip {
 		case "scanned":

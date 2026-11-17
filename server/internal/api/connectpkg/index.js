@@ -2854,6 +2854,15 @@ function npmrcEntries(config, token) {
 // src/token.ts
 import fs from "node:fs";
 import path2 from "node:path";
+function restrictCredentialFile(file, platform = process.platform) {
+  if (platform === "win32") return false;
+  try {
+    fs.chmodSync(file, 384);
+    return true;
+  } catch {
+    return false;
+  }
+}
 function npmrcState(ctx, config, token) {
   const file = npmrcPath(ctx);
   if (!fs.existsSync(file)) return "missing";
@@ -2906,6 +2915,7 @@ var TokenManager = class {
     fs.mkdirSync(path2.dirname(file), { recursive: true, mode: 448 });
     fs.writeFileSync(file, `${value}
 `, { mode: 384 });
+    restrictCredentialFile(file);
     this.writeEnvToken(value);
   }
   async unset(expected) {
@@ -2922,9 +2932,13 @@ var TokenManager = class {
     const kept = before.split(/\r?\n/).filter((line) => line.trim() && !line.startsWith(`${this.config.tokenRef}=`));
     const after = `${[...kept, `${this.config.tokenRef}=${value}`].join("\n")}
 `;
-    if (after === before) return;
-    fs.mkdirSync(path2.dirname(file), { recursive: true });
+    if (after === before) {
+      restrictCredentialFile(file);
+      return;
+    }
+    fs.mkdirSync(path2.dirname(file), { recursive: true, mode: 448 });
     fs.writeFileSync(file, after, { mode: 384 });
+    restrictCredentialFile(file);
   }
   stripEnvToken(expected) {
     const file = this.envPath();
@@ -2935,6 +2949,7 @@ var TokenManager = class {
     if (!hit) return;
     if (expected !== void 0 && hit.slice(prefix.length) !== expected) return;
     fs.writeFileSync(file, lines.filter((line) => line !== hit).join("\n"), { mode: 384 });
+    restrictCredentialFile(file);
   }
   pendingPath() {
     return path2.join(dshHome(), "dsh-ee", "token.pending");
@@ -2964,10 +2979,13 @@ var TokenManager = class {
     const before = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
     const kept = before.split(/\r?\n/).filter((line) => line && !entries.has(line.split("=", 1)[0]));
     const after = [...kept, ...[...entries].map(([key, value]) => `${key}=${value}`)].join("\n") + "\n";
-    if (after === before) return false;
-    fs.mkdirSync(path2.dirname(file), { recursive: true });
+    if (after === before) {
+      restrictCredentialFile(file);
+      return false;
+    }
+    fs.mkdirSync(path2.dirname(file), { recursive: true, mode: 448 });
     fs.writeFileSync(file, after, { mode: 384 });
-    fs.chmodSync(file, 384);
+    restrictCredentialFile(file);
     return true;
   }
   async npmrcMatches(token) {
