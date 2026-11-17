@@ -190,6 +190,30 @@ func ldapTargetChanged(req, cur *ldapauth.Config) bool {
 		strings.TrimSpace(req.BaseDN) != strings.TrimSpace(cur.BaseDN)
 }
 
+// resolveTestInput 给「测试连接」用：在 resolveInput 之上多一条信任边界。
+//
+// bindPassword 不传时 resolveInput 会回填已存的服务账号密码；但测试请求可能同时把
+// 目录地址、绑定账号、加密方式与 CA 换成请求方指定的值——那样服务就会拿已存的明文
+// 密码去 bind 那个地址，等于把 secret 外带出去。所以只要连接目标与已存配置不一致，
+// 就必须显式提供 bindPassword；一致时才允许沿用（正常「测试已保存的配置」体验不变）。
+func (s *Server) resolveTestInput(ctx context.Context, in *ldapInput) (*ldapauth.Config, string, error) {
+	cfg, msg, err := s.resolveInput(ctx, in)
+	if err != nil || msg != "" || in.BindPassword != nil || cfg.BindPassword == "" || cfg.URL == "" {
+		return cfg, msg, err
+	}
+	cur, err := s.loadLDAP(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+	if ldapTargetChanged(cfg, cur) {
+		// 只记目标地址，不记任何密码；测试连接本就不做敏感审计（没有登录凭据）。
+		s.log.Warn("拒绝测试连接：目录目标与已存配置不同且未重新输入服务账号密码",
+			"requested_url", cfg.URL, "saved_url", cur.URL)
+		return nil, "测试连接的目录设置与已保存的不一致（地址、绑定账号、加密方式、CA 证书或搜索起点），请重新输入服务账号密码后再试", nil
+	}
+	return cfg, "", nil
+}
+
 // PUT /api/admin/auth/ldap
 func (s *Server) handlePutLDAP(w http.ResponseWriter, r *http.Request) {
 	var in ldapInput
@@ -290,7 +314,7 @@ func (s *Server) handleTestLDAP(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	cfg, msg, err := s.resolveInput(r.Context(), &req.ldapInput)
+	cfg, msg, err := s.resolveTestInput(r.Context(), &req.ldapInput)
 	if err != nil {
 		s.internalErr(w, r, err)
 		return
