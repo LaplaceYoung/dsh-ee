@@ -118,6 +118,9 @@ type Options struct {
 	EmbedExchangePerMinute int
 	// 每用户同时有效的嵌入会话上限；0 用默认 5，超过时撤销最旧的会话。
 	EmbedMaxSessionsPerUser int
+	// 每用户同时打开的 /mcp 事件流（SSE）上限；0 用默认 8，超出的新连接返回 429。
+	// 防普通员工用长连接堆 goroutine / fd；只给自动化测试与运维兜底用，不改协议行为。
+	MCPMaxStreamsPerUser int
 	// 内容安全策略（DSH_EE_CSP）：off / report / enforce；空或其它值按 off。
 	// report 用 Content-Security-Policy-Report-Only，enforce 用 Content-Security-Policy；
 	// 两种模式都保留 #118 的 frame-ancestors 嵌入收口。见 security_headers.go。
@@ -182,6 +185,8 @@ type Server struct {
 	// 停机时关闭，让 /mcp 事件流自己结束
 	streamsDone chan struct{}
 	streamsOnce sync.Once
+	// 每个用户当前打开的 /mcp 事件流数（见 dsh.go）；与 hub 订阅一一对应
+	mcpStreams mcpStreamLimiter
 	// 上游 MCP 连接的缓存，按资产 id
 	conns connClients
 	// 网关的上游连接与模型冷却状态
@@ -258,12 +263,19 @@ func New(st *store.Store, box *secret.Box, opts Options, log *slog.Logger) *Serv
 	}
 	up := opts.Upstream
 	if up == nil {
-		up = &http.Client{Transport: opts.DemoSite.guard(&http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			ResponseHeaderTimeout: 2 * time.Minute,
-			IdleConnTimeout:       90 * time.Second,
-			MaxIdleConnsPerHost:   32,
-		})}
+		up = &http.Client{
+			Transport: opts.DemoSite.guard(&http.Transport{
+				Proxy:                 http.ProxyFromEnvironment,
+				ResponseHeaderTimeout: 2 * time.Minute,
+				IdleConnTimeout:       90 * time.Second,
+				MaxIdleConnsPerHost:   32,
+			}),
+			// provider 的 base_url 由管理员配置，上游（或中间人）可能用 302/307/308 把请求
+			// 引到内网地址：GET /models 的响应会回给调用方、写进 check 结果，307 还会把
+			// POST 请求体（对话内容、工具入参）原样回放过去。和其他出网客户端保持一致，
+			// 只允许跳到同 scheme/host/port 的地址。
+			CheckRedirect: sameHostRedirect,
+		}
 	}
 	s := &Server{store: st, box: box, opts: opts, log: log, leases: opts.BackgroundLeases, limiter: newLoginLimiter(), deviceCodeRate: newIPRate(deviceCodePerMinute), deviceTokenRate: newIPRate(deviceTokenPerMinute), trustedProxies: opts.TrustedProxies, upstream: up, connectKick: make(chan struct{}, 1), elevationKick: make(chan struct{}, 1), streamsDone: make(chan struct{})}
 	if opts.RateLimitPerMinute > 0 {

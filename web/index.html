@@ -27,15 +27,18 @@
           /* localStorage 被禁用时按浅色起步 */
         }
       })();
-      // 首屏语言与标题：与 src/i18n/langs.ts 的检测规则一致（localStorage → navigator，
-      // zh*→zh-CN，其它→en），只改 DOM、不写 localStorage；路由切换后的标题交给 P2。
-      // 加新语言时这里要补「语言码 + 英文/母语标题」的映射（见 web/src/i18n/README.md）。
+      // 首屏语言与标题：与 src/i18n/langs.ts 的 detectLanguage 规则对齐（localStorage → navigator；
+      // zh*→zh-CN，en/es/pt/hi 及区域变体（es-MX、pt-BR、hi-IN）→ 主语言码，其它→en），
+      // 只改 DOM、不写 localStorage；路由切换后的标题交给 P2。
+      // 首屏标题目前只有中/英两版：非中文继续显示英文标题，母语标题等产品确认后再补映射（见 web/src/i18n/README.md）。
       (function () {
         try {
           var stored = localStorage.getItem("dsh-ee:lang");
           var nav = (navigator.languages && navigator.languages[0]) || navigator.language || "en";
-          var tag = String(stored || nav).toLowerCase();
-          var lang = tag.indexOf("zh") === 0 ? "zh-CN" : "en";
+          var tag = String(stored || nav).trim().toLowerCase().replace(/_/g, "-");
+          var primary = tag.split("-")[0];
+          var supported = ["en", "es", "pt", "hi"];
+          var lang = primary === "zh" ? "zh-CN" : supported.indexOf(primary) >= 0 ? primary : "en";
           document.documentElement.lang = lang;
           // 中文标题就是上面静态 <title> 里的原文；非中文先显示英文标题，避免首屏闪中文。
           if (lang !== "zh-CN") document.title = "dsh-ee · Enterprise DSH plugin hub";

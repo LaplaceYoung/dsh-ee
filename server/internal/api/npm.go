@@ -321,13 +321,39 @@ func (s *Server) requirePublish(w http.ResponseWriter, c *npmCaller) bool {
 	return true
 }
 
+// npmPublishBodyLimit 是 npm publish 允许的最大请求体：tarball 以 base64 放在
+// _attachments 里，编码后约为原始大小的 4/3，再留 4 MB 给版本元数据和 JSON 结构。
+func npmPublishBodyLimit(maxTarball int64) int64 {
+	return maxTarball*4/3 + 4<<20
+}
+
 func (s *Server) handleNpmPublish(w http.ResponseWriter, r *http.Request, c *npmCaller, name string) {
 	if !s.requirePublish(w, c) {
 		return
 	}
-	limit := s.registry.MaxTarball*4/3 + 4<<20
+	// npm publish 的请求体同样要把整包读进内存（base64 附件解码后还要再有一份解码结果），
+	// 与网页上传共用同一个并发名额：达到上限直接 429，不在内存里排队。
+	release, ok := beginPackageUpload()
+	if !ok {
+		writeErr(w, http.StatusTooManyRequests, "Too many concurrent package uploads; retry shortly")
+		return
+	}
+	defer release()
+	limit := npmPublishBodyLimit(s.registry.MaxTarball)
+	// Content-Length 声明的长度已经超限时不必再读请求体，直接回 413。
+	if r.ContentLength > limit {
+		writeErr(w, http.StatusRequestEntityTooLarge, "Publish payload is too large")
+		return
+	}
+	// io.LimitReader 只限制我们读多少，超限的另一端仍会继续发数据；http.MaxBytesReader
+	// 在读满上限后截断连接。分块上传（Content-Length 未知）靠它发现超限。
 	var doc registry.PublishDoc
-	if err := json.NewDecoder(io.LimitReader(r.Body, limit)).Decode(&doc); err != nil {
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit)).Decode(&doc); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			writeErr(w, http.StatusRequestEntityTooLarge, "Publish payload is too large")
+			return
+		}
 		writeErr(w, http.StatusBadRequest, "Publish payload is not valid JSON: "+err.Error())
 		return
 	}

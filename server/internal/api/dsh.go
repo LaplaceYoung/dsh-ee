@@ -14,6 +14,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hikariming/dsh-ee/server/internal/mcp"
@@ -983,13 +984,19 @@ func mcpInstructions(c *dshCatalog, agent bool) string {
 
 // handleMCPStream 打开服务端到 DSH 的事件流：能力目录变化时推 notifications/tools/list_changed，
 // DSH 收到后重新 tools/list。每 25 秒发一行注释保活。
+//
+// 每用户同时打开的流数有上限（默认 8，见 mcpStreamLimiter）：超出的连接在写响应头之前
+// 返回 429，已建立的连接不受影响。名额在连接建立时占用，handler 返回时（客户端断开、
+// 写失败、服务关停）由 defer 归还。
 func (s *Server) handleMCPStream(w http.ResponseWriter, r *http.Request) {
 	if !strings.Contains(r.Header.Get("Accept"), "text/event-stream") {
 		w.Header().Set("Allow", "POST, DELETE")
 		writeErr(w, http.StatusMethodNotAllowed, "GET 只用于事件流")
 		return
 	}
-	if _, ok := s.dshAuth(w, r); !ok {
+	// 认证结果里的 Principal 要用来按用户计数，所以不用只返回 viewer 的 dshAuth。
+	_, p, ok := s.dshViewer(w, r)
+	if !ok {
 		return
 	}
 	flusher, ok := w.(http.Flusher)
@@ -997,6 +1004,14 @@ func (s *Server) handleMCPStream(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusInternalServerError, "不支持流式响应")
 		return
 	}
+	// 先占名额再写 200/SSE 响应头：超限时还能写成普通的 429 JSON，而不是开一个流再断。
+	limit := s.mcpMaxStreams()
+	if !s.mcpStreams.acquire(p.User.ID, limit) {
+		w.Header().Set("Retry-After", mcpStreamRetryAfter)
+		writeErr(w, http.StatusTooManyRequests, fmt.Sprintf("同时打开的 MCP 事件流太多（每个账号最多 %d 条），请关掉不用的 DSH 或稍后再试", limit))
+		return
+	}
+	defer s.mcpStreams.release(p.User.ID)
 	ch, cancel := s.hub.subscribe()
 	defer cancel()
 	w.Header().Set("Content-Type", "text/event-stream")
@@ -1018,6 +1033,57 @@ func (s *Server) handleMCPStream(w http.ResponseWriter, r *http.Request) {
 			_, _ = io.WriteString(w, "event: message\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/tools/list_changed\"}\n\n")
 		}
 		flusher.Flush()
+	}
+}
+
+const (
+	// defaultMCPMaxStreamsPerUser 是每个员工同时可持有的 /mcp 事件流数。正常一台设备
+	// 一条流，8 条足够覆盖多设备/多 DSH 实例；再往上只会是异常或被批量占用的连接。
+	defaultMCPMaxStreamsPerUser = 8
+	// 超限时给客户端的建议重试时间（秒）：名额要等已有连接断开才释放，不是固定窗口。
+	mcpStreamRetryAfter = "60"
+)
+
+func (s *Server) mcpMaxStreams() int {
+	if s.opts.MCPMaxStreamsPerUser > 0 {
+		return s.opts.MCPMaxStreamsPerUser
+	}
+	return defaultMCPMaxStreamsPerUser
+}
+
+// mcpStreamLimiter 记每个用户当前打开的 /mcp 事件流数。
+//
+// 按用户而不是按令牌计数：令牌由员工自己在接入指南里生成，按令牌计数等于把上限
+// 乘上令牌数。只存内存、每个实例一份：多实例部署时每实例各自限 8 条，进程重启清零，
+// 这是防资源耗尽的粗粒度闸门，不要求跨实例精确。
+type mcpStreamLimiter struct {
+	mu    sync.Mutex
+	users map[int64]int
+}
+
+// acquire 占一个名额；已到上限返回 false，计数不变。
+func (l *mcpStreamLimiter) acquire(userID int64, limit int) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.users[userID] >= limit {
+		return false
+	}
+	if l.users == nil {
+		l.users = map[int64]int{}
+	}
+	l.users[userID]++
+	return true
+}
+
+// release 归还一个名额；归零即删条目，表不会跟着历史登录用户数增长。
+func (l *mcpStreamLimiter) release(userID int64) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	switch n := l.users[userID]; {
+	case n > 1:
+		l.users[userID] = n - 1
+	case n == 1:
+		delete(l.users, userID)
 	}
 }
 

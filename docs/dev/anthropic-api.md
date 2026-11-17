@@ -3,8 +3,14 @@ slug: anthropic-api
 category: harness
 title: "Anthropic Messages 兼容（POST /v1/messages）"
 title_en: "Anthropic Messages compatibility (POST /v1/messages)"
+title_es: "Compatibilidad con Anthropic Messages (POST /v1/messages)"
+title_pt: "Compatibilidade com Anthropic Messages (POST /v1/messages)"
+title_hi: "Anthropic Messages संगतता (POST /v1/messages)"
 summary: "Claude Code / Anthropic SDK 用企业令牌直接调 dsh-ee：x-api-key 或 Bearer 鉴权、请求与响应转换、流式 SSE 事件、错误壳与 v0 边界。"
 summary_en: "Use Claude Code / the Anthropic SDK against dsh-ee with a company token: x-api-key or Bearer auth, request/response translation, streaming SSE, error envelopes and v0 limits."
+summary_es: "Usa Claude Code / el SDK de Anthropic contra dsh-ee con un token de empresa: autenticación x-api-key o Bearer, conversión de solicitudes y respuestas, SSE en streaming, envoltorios de error y límites de v0."
+summary_pt: "Use o Claude Code / o SDK da Anthropic com o dsh-ee usando um token da empresa: autenticação x-api-key ou Bearer, conversão de requisições e respostas, SSE em streaming, envelopes de erro e limites da v0."
+summary_hi: "कंपनी टोकन के साथ Claude Code / Anthropic SDK से dsh-ee को सीधे कॉल करें: x-api-key या Bearer प्रमाणीकरण, अनुरोध/प्रतिक्रिया रूपांतरण, स्ट्रीमिंग SSE इवेंट, एरर एनवेलप और v0 सीमाएँ।"
 tags: [模型网关, Anthropic, Claude Code, SSE, 令牌]
 updated_at: 2026-11-14
 status: draft
@@ -200,7 +206,7 @@ DeepSeek 原生透传路径下，上游返回的错误（DeepSeek 本身就是 A
 
 ## 8. 相关
 
-- OpenAI 兼容网关、令牌与 scope：[Harness 接入](./harness.md)
-- 第三方客户端完整手册与错误表：[l1-client.md](../l1-client.md)
-- 模型网关错误码索引：[errors.md](../errors.md)
+- OpenAI 兼容网关、令牌与 scope：[Harness 接入](https://github.com/hikariming/dsh-ee/blob/main/docs/dev/harness.md)
+- 第三方客户端完整手册与错误表：[l1-client.md](https://github.com/hikariming/dsh-ee/blob/main/docs/l1-client.md)
+- 模型网关错误码索引：[errors.md](https://github.com/hikariming/dsh-ee/blob/main/docs/errors.md)
 - 实现：`server/internal/api/anthropic.go`、`server/internal/api/anthropic_convert.go`、`server/internal/api/anthropic_native.go`、`server/internal/api/file_access.go`

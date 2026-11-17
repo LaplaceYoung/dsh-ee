@@ -192,7 +192,10 @@ function ScopeReview({ q }: { q: ReturnType<typeof useApi<ScopeReviewItem[]>> })
 
   const decide = async (approve: boolean) => {
     if (!current) return;
-    const r = await run(() => api.reviewScope({ asset_id: current.asset.id, action: approve ? "approve" : "reject", note: reason.trim() }));
+    // 带上评审时看到的申请快照：期间负责人换成新申请时服务端返回 409，不会误批没看过的范围。
+    const r = await run(() =>
+      api.reviewScope({ asset_id: current.asset.id, scope_requested_at: current.asset.scope_requested_at ?? current.created_at ?? "", action: approve ? "approve" : "reject", note: reason.trim() }),
+    );
     if (!r.ok) return notify(r.error);
     notify(t(approve ? "scopeReview.approved" : "scopeReview.rejected", { title: current.spec.title }));
     setSelected(null);

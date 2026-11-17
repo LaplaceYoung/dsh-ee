@@ -3,8 +3,14 @@ slug: publish-precheck
 category: publish
 title: "发布入口与预检结果怎么读"
 title_en: "Publish entries and how to read the precheck"
+title_es: "Entradas de publicación y cómo leer la verificación previa"
+title_pt: "Entradas de publicação e como ler a pré-verificação"
+title_hi: "प्रकाशन प्रवेश और प्रीचेक परिणाम कैसे पढ़ें"
 summary: "三个发布入口、预检的扫描键、结果语义与提交前自查清单。"
 summary_en: "The three publish entries, precheck scan keys, what results mean, and a pre-submit checklist."
+summary_es: "Las tres entradas de publicación, las claves de escaneo de la verificación previa, el significado de los resultados y una lista de verificación antes de enviar."
+summary_pt: "As três entradas de publicação, as chaves de verificação da pré-verificação, o significado dos resultados e uma lista de checagem antes do envio."
+summary_hi: "तीन प्रकाशन प्रवेश, प्रीचेक की स्कैन कुंजियाँ, परिणामों का अर्थ और सबमिट से पहले की जाँच सूची।"
 tags: [发布, 预检, 版本]
 updated_at: 2026-11-12
 status: draft

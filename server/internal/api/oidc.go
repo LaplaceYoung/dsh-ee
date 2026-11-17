@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -169,6 +170,78 @@ func (s *Server) resolveOIDCInput(ctx context.Context, in *oidcInput) (*oidc.Con
 	return &cfg, "", nil
 }
 
+// normalizeOIDCIssuer 把 issuer 归一化成可比较的完整 URL：去掉首尾空白与尾部斜杠
+// （与 Config.Validate / oidc.Discover 的写法归一一致），scheme 与 host 忽略大小写，
+// 省略的默认端口补齐；path 与 query 保留——OIDC discovery 与令牌端点都由完整 issuer
+// 决定，path 变了就是换了 IdP。解析不出的值加 raw: 前缀，与任何正常 URL 都不相等。
+func normalizeOIDCIssuer(raw string) string {
+	trimmed := strings.TrimSpace(raw)
+	u, err := url.Parse(trimmed)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		return "raw:" + trimmed
+	}
+	scheme := strings.ToLower(u.Scheme)
+	port := u.Port()
+	if port == "" {
+		switch scheme {
+		case "https":
+			port = "443"
+		case "http":
+			port = "80"
+		}
+	}
+	var b strings.Builder
+	b.WriteString(scheme)
+	b.WriteString("://")
+	if u.User != nil {
+		b.WriteString(u.User.String())
+		b.WriteByte('@')
+	}
+	host := strings.ToLower(u.Hostname())
+	if port != "" {
+		b.WriteString(net.JoinHostPort(host, port))
+	} else {
+		b.WriteString(host)
+	}
+	b.WriteString(strings.TrimRight(u.EscapedPath(), "/"))
+	if u.RawQuery != "" {
+		b.WriteByte('?')
+		b.WriteString(u.RawQuery)
+	}
+	return b.String()
+}
+
+// sameOIDCIssuer 报告两个 issuer 是否指向同一个 IdP：只有写法差异（尾部斜杠、大小写、
+// 默认端口）算相同，origin / path / query 任何一处不同都算换了 IdP。
+func sameOIDCIssuer(a, b string) bool { return normalizeOIDCIssuer(a) == normalizeOIDCIssuer(b) }
+
+// checkOIDCSecretTarget 是登录设置保存路径的信任边界：请求没带 clientSecret 时
+// resolveOIDCInput 会沿用已存的 secret，而它会被发往当前配置里的两个地址——OIDC 的
+// Issuer（换令牌时 POST client_secret）与飞书通讯录 API 根地址（取 tenant token 时
+// POST app_secret）。若同一次保存把其中任一个换成请求里的新值又不重填 secret，旧
+// secret 就会被发往新地址（与 #213 改上游地址、#210 改目录地址同族的 secret 外带）。
+// 返回给管理员看的文案；空串表示允许保存。
+func (s *Server) checkOIDCSecretTarget(in *oidcInput, cfg, cur *oidc.Config) string {
+	// 请求显式带了 clientSecret 就算管理员确认过接收方变化：非空是重填，空串是清除，
+	// 两种情况都不会把已存 secret 留在配置里带到新地址。没有已存 secret 时也没有可
+	// 外带的东西（首次保存、已清除 secret 的配置都走这条）。
+	if in.ClientSecret != nil || cur.ClientSecret == "" {
+		return ""
+	}
+	if !sameOIDCIssuer(cur.Issuer, cfg.Issuer) {
+		// 只记地址，不记 secret；被拒绝的请求不产生配置变更审计。
+		s.log.Warn("拒绝保存登录设置：Issuer 与已存配置不同且未重新填写 Client Secret",
+			"requested_issuer", cfg.Issuer, "saved_issuer", cur.Issuer)
+		return "修改 Issuer 后需要重新填写 Client Secret"
+	}
+	if !sameOrigin(cur.FeishuAPIBase, cfg.FeishuAPIBase) {
+		s.log.Warn("拒绝保存登录设置：飞书 API 根地址与已存配置不同且未重新填写 App Secret",
+			"requested_feishu_api_base", cfg.FeishuAPIBase, "saved_feishu_api_base", cur.FeishuAPIBase)
+		return "修改飞书 API 地址后需要重新填写 App Secret"
+	}
+	return ""
+}
+
 // PUT /api/admin/auth/oidc
 func (s *Server) handlePutOIDC(w http.ResponseWriter, r *http.Request) {
 	var in oidcInput
@@ -187,6 +260,10 @@ func (s *Server) handlePutOIDC(w http.ResponseWriter, r *http.Request) {
 	cur, err := s.loadOIDC(r.Context())
 	if err != nil {
 		s.internalErr(w, r, err)
+		return
+	}
+	if msg := s.checkOIDCSecretTarget(&in, cfg, cur); msg != "" {
+		writeErr(w, http.StatusBadRequest, msg)
 		return
 	}
 	// 和 LDAP 一样：声明 → 角色映射等于给一批人授权，要有「管理角色」权限且只能映射自己能授予的角色

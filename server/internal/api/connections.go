@@ -169,6 +169,173 @@ func sameHostRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
+// ---- 连接测试的地址校验 ----
+//
+// 试连是管理员让服务端主动发请求，所以目标不能由请求方随便定：云主机元数据
+// （169.254.169.254、fd00:ec2::254、100.100.100.200 等）、链路本地、组播这些地址
+// 一旦能连，就会被当成读云凭据或探测内网的跳板。内网 MCP 是合法需求，所以
+// RFC1918 与 loopback（本机上的 MCP 服务）明确放行。
+
+// connTestMetadataIPs 是不在链路本地段里的已知云主机元数据地址（段内的由 IsLinkLocalUnicast 拦）。
+var connTestMetadataIPs = []net.IP{
+	net.ParseIP("169.254.169.254"), // AWS / GCP / Azure / Oracle 等
+	net.ParseIP("169.254.170.2"),   // AWS ECS 任务凭据
+	net.ParseIP("100.100.100.200"), // 阿里云 ECS
+	net.ParseIP("fd00:ec2::254"),   // AWS 的 IPv6 元数据地址
+}
+
+// ValidateConnTestURL 检查试连要访问的地址：只允许 http(s)，且目标解析出的每个 IP
+// 都不能是云元数据、链路本地、组播、未指定之类的地址。内网 MCP 是合法用法：
+// RFC1918 与 loopback 放行，所以管理员照常能测内网/本机的 MCP 服务。
+func ValidateConnTestURL(ctx context.Context, rawURL string) error {
+	return validateConnTestURL(ctx, rawURL, net.DefaultResolver.LookupIPAddr)
+}
+
+// validateConnTestURL 的 lookup 可替换，单测里用来模拟任意 DNS 结果。
+func validateConnTestURL(ctx context.Context, rawURL string, lookup func(context.Context, string) ([]net.IPAddr, error)) error {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || u.Host == "" {
+		return errors.New("地址必须是 http(s):// 开头的完整地址")
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return errors.New("连接测试只支持 http(s):// 地址")
+	}
+	if u.User != nil {
+		return errors.New("地址里不能带账号密码")
+	}
+	host := u.Hostname()
+	if host == "" {
+		return errors.New("地址必须是 http(s):// 开头的完整地址")
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		if reason := connTestBlockedIP(ip); reason != "" {
+			return fmt.Errorf("连接地址 %s 属于%s，连接测试不允许访问", host, reason)
+		}
+		return nil
+	}
+	ips, err := lookup(ctx, host)
+	if err != nil {
+		return fmt.Errorf("解析连接地址 %s 失败：%v", host, err)
+	}
+	if len(ips) == 0 {
+		return fmt.Errorf("连接地址 %s 没有解析到任何 IP", host)
+	}
+	for _, addr := range ips {
+		if reason := connTestBlockedIP(addr.IP); reason != "" {
+			return fmt.Errorf("连接地址 %s 解析到%s %s，连接测试不允许访问", host, reason, addr.IP)
+		}
+	}
+	return nil
+}
+
+// connTestBlockedIP 返回不允许试连的原因；空字符串表示可以。
+// 只拦云元数据与不该由服务端主动访问的地址：loopback、RFC1918 / ULA 等内网地址放行。
+func connTestBlockedIP(ip net.IP) string {
+	if ip == nil {
+		return "无法识别的地址"
+	}
+	if ip.IsLoopback() || ip.Equal(net.IPv6loopback) {
+		return ""
+	}
+	ip = canonicalConnTestIP(ip)
+	if ip == nil {
+		return "无法识别的地址"
+	}
+	if ip.IsLoopback() {
+		return "" // ::127.0.0.1 这类 IPv4-compatible 写法归一化后也是本机
+	}
+	for _, m := range connTestMetadataIPs {
+		if ip.Equal(m) {
+			return "云主机元数据地址"
+		}
+	}
+	switch {
+	case ip.IsUnspecified():
+		return "未指定地址"
+	case ip.IsLinkLocalUnicast():
+		return "链路本地地址"
+	case ip.IsMulticast():
+		return "组播地址"
+	case !ip.IsGlobalUnicast():
+		return "非公网单播地址"
+	}
+	return ""
+}
+
+// canonicalConnTestIP 把 IPv4 / IPv4-mapped / IPv4-compatible 的写法都归一到 4 字节或 16 字节，
+// 免得换成 ::ffff:169.254.169.254 这种写法绕过按段判断。
+func canonicalConnTestIP(ip net.IP) net.IP {
+	if v4 := ip.To4(); v4 != nil {
+		return v4
+	}
+	v16 := ip.To16()
+	if v16 == nil {
+		return nil
+	}
+	zeros := true
+	for _, b := range v16[:10] {
+		if b != 0 {
+			zeros = false
+			break
+		}
+	}
+	// IPv4-compatible：::a.b.c.d，前 10 字节为 0，第 11、12 字节也为 0。
+	if zeros && v16[10] == 0 && v16[11] == 0 {
+		return v16[12:]
+	}
+	return v16
+}
+
+// connTestDialControl 在真正拨号时按连接到的 IP 再校验一次：URL 校验时解析到公网、
+// 拨号时改解析到元数据（DNS 重绑定）的窗口也被堵上。
+func connTestDialControl(_, address string, _ syscall.RawConn) error {
+	host, _, err := net.SplitHostPort(address)
+	if err != nil {
+		return fmt.Errorf("连接测试的地址不合法：%s", address)
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return fmt.Errorf("连接测试的地址不合法：%s", address)
+	}
+	if reason := connTestBlockedIP(ip); reason != "" {
+		return fmt.Errorf("连接测试不允许访问%s %s", reason, ip)
+	}
+	return nil
+}
+
+// connTestHTTP 是试连专用的 HTTP 客户端：不跟随跨主机重定向（sameHostRedirect），
+// 每一跳都重新做地址校验，并在可能时加拨号级 IP 校验。正常连接仍走 connHTTP，行为不变。
+func (s *Server) connTestHTTP(sp *assetSpec) *http.Client {
+	hc := s.connHTTP(sp)
+	hc.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if err := sameHostRedirect(req, via); err != nil {
+			return err
+		}
+		// 同源主机名也可能在解析后换成元数据地址，所以每一跳都按当前 URL 重新判定。
+		return ValidateConnTestURL(req.Context(), req.URL.String())
+	}
+	var bt *http.Transport
+	switch t := s.upstream.Transport.(type) {
+	case nil:
+		bt = http.DefaultTransport.(*http.Transport).Clone()
+		// DefaultTransport 自带的拨号没有额外的安全限制，换成本函数的 guard。
+		bt.DialContext = nil
+	case *http.Transport:
+		bt = t.Clone()
+	}
+	if bt == nil {
+		return hc
+	}
+	// 有自定义拨号的 transport（例如演示站的 guard 把自己限制在本机）不能被覆盖，
+	// 这些情况仍有 URL 校验与每一跳的重定向校验兜底。
+	if bt.DialContext == nil {
+		d := &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, Control: connTestDialControl}
+		bt.DialContext = d.DialContext
+	}
+	hc.Transport = bt
+	return hc
+}
+
 // connCaller 是这一次调用的发起人。放在 context 里交给上游客户端：带员工身份的连接每人缓存一个客户端，
 // 但员工的部门、角色会变，所以请求头每次按当前的身份现取，不用建客户端时的那一份。
 type connCaller struct {
@@ -669,6 +836,14 @@ func (s *Server) handleConnTest(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
+	// 试连是让服务端替人发请求：目标地址先判定，云元数据、链路本地这类一律不连。
+	// 内网 MCP 是合法用法（RFC1918 与 loopback 放行），不在这里禁私网。
+	if sp.URL != "" {
+		if err := ValidateConnTestURL(ctx, sp.URL); err != nil {
+			writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
+			return
+		}
+	}
 	h, err := s.connHeader(ctx, req.ID, sp, req.Secret)
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": false, "error": err.Error()})
@@ -676,7 +851,8 @@ func (s *Server) handleConnTest(w http.ResponseWriter, r *http.Request) {
 	}
 	var client *mcp.Client
 	if sp.Type == "mcp" {
-		client = &mcp.Client{URL: sp.URL, Header: h, HC: s.connHTTP(sp)}
+		client = &mcp.Client{URL: sp.URL, Header: h, HC: s.connTestHTTP(sp)}
+		defer client.HC.CloseIdleConnections()
 		if sp.UserAuth != nil {
 			// 试连时用点「测试」的管理员自己的身份；user_secret 的连接还没保存时没法填凭据，只带共享凭据去试
 			var probe *store.Asset

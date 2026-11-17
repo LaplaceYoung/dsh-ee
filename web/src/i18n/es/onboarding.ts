@@ -1,0 +1,50 @@
+/** Guía de configuración inicial (primer despliegue). */
+import type zhNs from "../zh/onboarding";
+import type { Messages } from "../types";
+
+export default {
+  "onboarding": {
+    "title": "Guía de configuración inicial",
+    "desc": "Completa la configuración obligatoria en orden. Los pasos terminados se omiten automáticamente.",
+    "kicker": "BIENVENIDO A DSH-EE",
+    "heroTitle": "Prepara el espacio de trabajo de IA de tu empresa",
+    "heroDesc": "Sigue los pasos guiados para completar tu primer despliegue. Cada paso tiene una acción siguiente clara y, al terminar, entrarás automáticamente en el banco de trabajo.",
+    "progress": "Progreso de la configuración {{done}}/{{total}}",
+    "requiredLabel": "Pasos obligatorios",
+    "dialogDesc": "Configura este paso aquí y el progreso de la configuración se actualizará automáticamente.",
+    "baseUrl": "URL de acceso para empleados",
+    "baseUrlHint": "Una URL http(s) completa accesible desde los equipos de los empleados",
+    "providerName": "Nombre del proveedor",
+    "apiKey": "Clave de API de la empresa",
+    "modelNames": "Modelos públicos",
+    "modelNamesHint": "Separa varios modelos con comas",
+    "provider": "Proveedor de modelos",
+    "defaultModel": "Modelo predeterminado",
+    "defaultModelAuto": "Usar el primer modelo automáticamente",
+    "employee": "Cuenta de empleado",
+    "employeeHint": "Los superadministradores no cuentan para la cuota de empleados. Crea un empleado normal",
+    "newEmployee": "Crear cuenta de empleado",
+    "username": "Nombre de usuario",
+    "password": "Contraseña inicial",
+    "department": "Departamento",
+    "monthlyQuota": "Cuota mensual de tokens (10 000)",
+    "monthlyQuotaHint": "Por ejemplo, 10 significa 100 000 tokens al mes",
+    "quotaInvalid": "Introduce una cuota mayor que cero",
+    "allowedModels": "Modelos permitidos (todos si se deja vacío)",
+    "allowedModelsHint": "Si no se selecciona ningún modelo, se permiten todos",
+    "saveContinue": "Guardar y continuar",
+    "optional": "Opcional",
+    "done": "Hecho",
+    "next": "Siguiente",
+    "handle": "Configurar",
+    "publish": "Publicar plugin de conexión",
+    "publishing": "Publicando…",
+    "agentTitle": "Deja que el agente de DSH termine la configuración",
+    "agentDesc": "Cuando los pasos que necesitan secretos estén hechos aquí, pega un prompt en DSH. Instalará el plugin de conexión, te pedirá iniciar sesión y activar el modo de administración, y luego te guiará por las cuotas, LDAP, roles y conexiones pidiéndote que confirmes cada cambio. La lista de comprobación de abajo se actualiza automáticamente.",
+    "agentNeed": "Primero termina estos pasos: {{steps}} (necesitan secretos upstream, así que solo se pueden hacer aquí)",
+    "agentStart": "Crear prompt",
+    "published": "Plugin de conexión {{version}} publicado",
+    "inviteTitle": "Invita a los empleados a conectarse",
+    "inviteDesc": "Después de los pasos obligatorios, comparte este comando con los empleados. También pueden instalar Desktop desde la página de descargas."
+  }
+} satisfies Messages<typeof zhNs>;

@@ -1,0 +1,63 @@
+/** Portal del empleado: mi banco de trabajo y microaplicaciones. */
+import type zhNs from "../zh/portal";
+import type { Messages } from "../types";
+
+export default {
+  "workbench": {
+    "title": "Mi banco de trabajo",
+    "unavailable": "Datos no disponibles ahora mismo",
+    "reading": "Cargando…",
+    "quotaUnlimited": "Sin límite de cuota",
+    "quotaUnassigned": "Aún no hay cuota asignada",
+    "quotaOf": "Cuota {{value}}",
+    "keysOf": "activas, máx. {{max}}",
+    "tokensThisMonth": "Tokens usados este mes",
+    "myKeys": "Mis claves",
+    "myInstalls": "Capacidades que he instalado",
+    "installsAllLatest": "Todo actualizado",
+    "myContributions": "Aplicaciones que hice",
+    "contributionsReach": "Usadas por {{count}} personas en 14 días",
+    "myApps": "Aplicaciones que uso",
+    "built": "Aplicaciones que hice",
+    "builtCount": "{{count}}",
+    "nothingBuilt": "Aún no has creado ninguna aplicación.",
+    "myPlugins": "Plugins que he publicado",
+    "browseAll": "Ver las {{count}}",
+    "open": "Abrir",
+    "launched": "Abierta en el DSH local: {{title}}",
+    "shared": "Compartidas por mí",
+    "sharedCount": "Elementos: {{count}}",
+    "nothingShared": "Aún no has compartido nada.",
+    "colleaguesUsing": "Usada por {{count}} compañeros",
+    "awaitingReview": "Pendiente de revisión",
+    "shareNew": "Nueva aplicación",
+    "installed": "Capacidades instaladas",
+    "installedNote": "Basado en las descargas del registro de la empresa; las desinstalaciones locales no se notifican aquí.",
+    "nothingInstalled": "Aún no has instalado nada desde el registro de la empresa.",
+    "unavailableNow": "Despublicado",
+    "updatesAvailable": "Actualizaciones disponibles: {{count}}",
+    "allUpToDate": "Todo actualizado ({{count}})",
+    "communityPlugin": "Plugin de la comunidad",
+    "updateTo": "Actualizar a {{version}}",
+    "latest": "Actualizado",
+    "teamUsing": "Popular en {{department}}",
+    "companyUsing": "Popular en toda la empresa",
+    "teamUsers": "Instalada por {{count}} compañeros",
+    "noPicks": "Ya tienes todo lo que usan tus compañeros.",
+    "install": "Instalar",
+    "copiedInstall": "Comando de instalación copiado: dsh plugin --profile {{profile}} add {{name}}"
+  },
+  "apps": {
+    "title": "Aplicaciones de la empresa",
+    "meta": "Mantenida por {{owner}} · {{department}} · {{uses}} usos en 14 días",
+    "dependsOn": "Usa",
+    "starters": "Prueba a preguntar",
+    "copyCommand": "Copiar /{{slug}}",
+    "copied": "Se ha copiado /{{slug}}; pégalo en DSH para abrir la aplicación",
+    "filterAll": "Todas ({{count}})",
+    "filterEnabled": "Habilitadas",
+    "empty": "Aún no hay aplicaciones de la empresa.",
+    "emptyEnabled": "No has habilitado ninguna aplicación.",
+    "create": "Nueva aplicación"
+  }
+} satisfies Messages<typeof zhNs>;
