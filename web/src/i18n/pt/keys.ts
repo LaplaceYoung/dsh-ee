@@ -1,0 +1,72 @@
+// Cota e chaves de API (funcionário) e textos comuns sobre chaves e cotas.
+import type zhNs from "../zh/keys";
+import type { Messages } from "../types";
+
+export default {
+  keys: {
+    state: {
+      active: "Válida",
+      revoked: "Revogada",
+      expired: "Expirada",
+    },
+    quota: {
+      unassigned: "Não atribuída",
+      exhausted: "Esgotada",
+      exact: "Usado neste mês: {{used}} / {{limit}} tokens ({{pct}}%)",
+    },
+    issued: {
+      title: "«{{name}}» criada",
+      hint: "A chave completa é exibida apenas esta vez; depois de fechar, não poderá ser vista novamente. Copie para a configuração do DSH ou do cliente.",
+      close: "Já salvei, fechar",
+    },
+    quotaCard: {
+      title: "Cota deste mês",
+      desc: "A cota é compartilhada pela conta: todas as chaves da conta descontam desta mesma cota. Reinicia no dia 1º de cada mês (UTC).",
+      unlimited: "Ilimitada",
+      unassigned: "Não atribuída",
+      unlimitedLabel: "Sem limite",
+      waiting: "Aguardando atribuição do administrador",
+      remaining: "Tokens restantes neste mês",
+      used: "Usado {{value}}",
+      monthUsed: "Usado neste mês",
+      monthlyQuota: "Cota mensal",
+      allowedModels: "Modelos permitidos",
+      activeKeys: "Chaves válidas",
+      unassignedNote: "O administrador ainda não atribuiu uma cota a você. Você já pode criar chaves, mas as chamadas retornarão 429 até a cota ser atribuída. Peça ao administrador para configurá-la em «Distribuição de cotas».",
+      exhaustedNote: "A cota deste mês acabou; ela é restaurada no dia 1º do próximo mês (UTC). Se precisar de um adicional antecipado, fale com o administrador.",
+      expiredNote: "A cota expirou em {{time}}; as chamadas serão recusadas. Peça ao administrador para renová-la.",
+      validUntil: "Cota válida até {{time}}.",
+    },
+    create: {
+      title: "Nova chave de API",
+      maxed: "Você atingiu o limite de chaves válidas ({{max}}). Revogue primeiro as chaves que não usa.",
+      name: "Nome",
+      nameHint: "Algo que identifique o uso, por exemplo «Meu DSH» ou «Script local»",
+      namePlaceholder: "Meu DSH",
+      expires: "Data de expiração",
+      expiresHint: "Em branco = sem expiração",
+      submit: "Criar chave",
+    },
+    page: {
+      title: "Cota e chaves de API",
+      desc: "O administrador atribui uma cota mensal à conta, compartilhada por todas as chaves da conta; as chaves são criadas por você e podem ser revogadas a qualquer momento.",
+      newKey: "Nova chave",
+      myKeys: "Minhas chaves",
+      activeOf: "{{active}} válidas · máximo de {{max}}",
+      empty: "Ainda não há chaves. Clique em «Nova chave» no canto superior direito para criar; quando a cota acabar, as chamadas são pausadas.",
+      colName: "Nome",
+      colUsage: "Uso desta chave",
+      colLastUsed: "Último uso",
+      colState: "Status",
+      expiresAt: "Expira em {{time}}",
+      revoke: "Revogar",
+      revokeConfirm: "Após revogar «{{name}}», os clientes que a usam não conseguirão mais chamar imediatamente. Confirmar?",
+      revoked: "«{{name}}» revogada",
+      howTo: "Como usar",
+      howToDesc: "O dsh-ee oferece uma interface compatível com OpenAI. Aponte o cliente para o base URL abaixo e informe como key a chave criada por você, que começa com sk-ee-; a cota é descontada automaticamente da conta.",
+      envVars: "Variáveis de ambiente",
+      yourKey: "Sua chave",
+      hello: "Olá",
+    },
+  },
+} satisfies Messages<typeof zhNs>;
