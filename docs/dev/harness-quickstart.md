@@ -3,8 +3,14 @@ slug: harness-quickstart
 category: harness
 title: "接第三方 Harness / 自研客户端"
 title_en: "Connect a third-party Harness or your own client"
+title_es: "Conecta un Harness de terceros o tu propio cliente"
+title_pt: "Conecte um Harness de terceiros ou seu próprio cliente"
+title_hi: "तृतीय-पक्ष Harness या अपना क्लाइंट जोड़ें"
 summary: "五分钟路径：一个 ee_at_ 令牌接 /v1 模型、/mcp 工具与服务端写确认，含发现端点和限制。"
 summary_en: "Five-minute path: one ee_at_ token for /v1 models, /mcp tools and server-side write confirmation, plus discovery and limits."
+summary_es: "Ruta de cinco minutos: un token ee_at_ para modelos de /v1, herramientas de /mcp y confirmación de escritura en el servidor, con descubrimiento y límites."
+summary_pt: "Caminho de cinco minutos: um token ee_at_ para modelos do /v1, ferramentas do /mcp e confirmação de escrita no servidor, com descoberta e limites."
+summary_hi: "पाँच मिनट का मार्ग: /v1 मॉडल, /mcp टूल और सर्वर-साइड राइट पुष्टि के लिए एक ee_at_ टोकन, साथ में डिस्कवरी एंडपॉइंट और सीमाएँ।"
 tags: [Harness, 令牌, MCP, 模型网关]
 updated_at: 2026-11-13
 status: draft

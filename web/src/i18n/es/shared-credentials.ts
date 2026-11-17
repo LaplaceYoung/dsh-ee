@@ -1,0 +1,27 @@
+/** Credenciales compartidas con nombre (exportación con nombre, igual que en la versión en inglés). */
+export const sharedCredentials = {
+  "title": "Credenciales compartidas con nombre",
+  "desc": "Guarda varias credenciales compartidas, como producción, pruebas y filial, en una misma conexión. Cada conexión elige una y dsh-ee la reenvía sin exponer el secreto. Elegir una credencial por aplicación es una capacidad futura independiente.",
+  "legacy": "Valor predeterminado de la conexión original",
+  "legacyHint": "Sigue usando la credencial predeterminada de la conexión original ({{hint}}); no se obliga a migrar.",
+  "choose": "Credencial de esta conexión",
+  "unsavedName": "Se ha seleccionado {{name}}; guarda esta versión para que el cambio surta efecto.",
+  "list": "Credenciales con nombre guardadas",
+  "empty": "Aún no hay credenciales con nombre. Crea una credencial de producción o de pruebas y luego selecciónala para la conexión.",
+  "name": "Nombre",
+  "secret": "Secreto",
+  "namePlaceholder": "Por ejemplo, prod / test / east",
+  "secretPlaceholder": "Introduce un secreto para una credencial nueva o el valor de sustitución al cambiarla.",
+  "nameHint": "Letras, números, guiones bajos o guiones, hasta 40 caracteres. Los secretos no se vuelven a mostrar después de guardarlos.",
+  "add": "Añadir credencial con nombre",
+  "replace": "Sustituir secreto",
+  "save": "Guardar credencial",
+  "cancel": "Cancelar",
+  "delete": "Eliminar",
+  "deleteConfirm": "¿Eliminar la credencial con nombre {{name}}? Una credencial en uso no se puede eliminar y las demás llamadas nunca cambiarán de cuenta de forma silenciosa.",
+  "saved": "Credencial con nombre {{name}} guardada. Recuerda guardar la versión de la conexión para aplicar la selección.",
+  "deleted": "Se ha eliminado la credencial con nombre {{name}}.",
+  "updatedAt": "Actualizada {{time}}",
+  "createFirst": "Guarda la conexión antes de añadir credenciales compartidas con nombre. La credencial original de la conexión se puede seguir usando como antes.",
+  "noLegacy": "(No hay secreto predeterminado en la conexión original)"
+};

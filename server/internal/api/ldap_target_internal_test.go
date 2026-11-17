@@ -52,8 +52,8 @@ func TestLDAPTestTargetChanged(t *testing.T) {
 			cur := stored()
 			req := stored()
 			tc.mutate(req)
-			if got := ldapTestTargetChanged(req, cur); got != tc.want {
-				t.Fatalf("ldapTestTargetChanged = %v，期望 %v", got, tc.want)
+			if got := ldapTargetChanged(req, cur); got != tc.want {
+				t.Fatalf("ldapTargetChanged = %v，期望 %v", got, tc.want)
 			}
 		})
 	}

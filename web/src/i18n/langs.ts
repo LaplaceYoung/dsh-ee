@@ -11,10 +11,12 @@
  */
 import zh from "./zh";
 import en from "./en";
+import es from "./es";
 
 export const LANGUAGES = [
   { code: "zh-CN", label: "简体中文" },
   { code: "en", label: "English" },
+  { code: "es", label: "Español" },
 ] as const;
 
 export type Lang = (typeof LANGUAGES)[number]["code"];
@@ -29,6 +31,7 @@ export const fallbackLng: Lang = "en";
 export const resources: Record<Lang, { translation: typeof zh }> = {
   "zh-CN": { translation: zh },
   en: { translation: en },
+  es: { translation: es },
 };
 
 /**

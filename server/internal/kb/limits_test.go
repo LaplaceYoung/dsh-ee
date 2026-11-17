@@ -1,6 +1,7 @@
 package kb
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"strings"
@@ -80,7 +81,7 @@ func TestConvertOutputBounded(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			out, err := Convert(c.file, c.data, Options{})
+			out, err := Convert(context.Background(), c.file, c.data, Options{})
 			size := 0
 			if out != nil {
 				size = len(out.Markdown)
@@ -101,7 +102,7 @@ func TestDocxColumnCap(t *testing.T) {
 	for i := 0; i < 250; i++ {
 		fmt.Fprintf(&row, `<w:tc><w:p><w:r><w:t>c%d</w:t></w:r></w:p></w:tc>`, i)
 	}
-	out, err := Convert("宽表.docx", docxOf(t, `<w:tbl><w:tr>`+row.String()+`</w:tr></w:tbl>`, ""), Options{})
+	out, err := Convert(context.Background(), "宽表.docx", docxOf(t, `<w:tbl><w:tr>`+row.String()+`</w:tr></w:tbl>`, ""), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +133,7 @@ func TestConvertLargeDocs(t *testing.T) {
 		body.WriteString(`<w:tr>` + strings.Repeat(cell("审批人签字"), 8) + `</w:tr>`)
 	}
 	body.WriteString(`</w:tbl></w:tc></w:tr></w:tbl></w:tc></w:tr></w:tbl>`)
-	out, err := Convert("大表.docx", docxOf(t, body.String(), ""), Options{})
+	out, err := Convert(context.Background(), "大表.docx", docxOf(t, body.String(), ""), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,7 +159,7 @@ func TestConvertLargeDocs(t *testing.T) {
 	}
 	files["ppt/presentation.xml"] = `<p:presentation ` + pmlNS + `><p:sldIdLst>` + ids.String() + `</p:sldIdLst></p:presentation>`
 	files["ppt/_rels/presentation.xml.rels"] = `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` + rels.String() + `</Relationships>`
-	out, err = Convert("培训.pptx", zipOf(t, files), Options{})
+	out, err = Convert(context.Background(), "培训.pptx", zipOf(t, files), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

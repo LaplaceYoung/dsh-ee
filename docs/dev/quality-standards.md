@@ -3,8 +3,14 @@ slug: quality-standards
 category: quality
 title: "规范与检查：ENTRY / FLOW / BOOST"
 title_en: "Standards and checks: ENTRY / FLOW / BOOST"
+title_es: "Normas y comprobaciones: ENTRY / FLOW / BOOST"
+title_pt: "Normas e verificações: ENTRY / FLOW / BOOST"
+title_hi: "मानक और जाँच: ENTRY / FLOW / BOOST"
 summary: "上游规范三层与 dsh-ee 预检的边界：哪些是作者自证，哪些是企业准入。"
 summary_en: "Where upstream standards end and the dsh-ee precheck begins: author evidence vs company admission."
+summary_es: "Dónde terminan las normas upstream y dónde empieza la verificación previa de dsh-ee: evidencia del autor frente a admisión de la empresa."
+summary_pt: "Onde terminam as normas upstream e onde começa a pré-verificação do dsh-ee: evidência do autor versus admissão pela empresa."
+summary_hi: "अपस्ट्रीम मानक कहाँ समाप्त होते हैं और dsh-ee प्रीचेक कहाँ शुरू होता है: लेखक द्वारा प्रमाण बनाम कंपनी प्रवेश।"
 tags: [规范, 检查, 样例]
 updated_at: 2026-11-12
 status: draft

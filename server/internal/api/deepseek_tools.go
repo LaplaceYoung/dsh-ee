@@ -150,10 +150,11 @@ func (s *Server) deepseekProvider(ctx context.Context) (*store.Provider, []byte,
 	if picked == nil {
 		return nil, nil, errDeepSeekProviderUnavailable
 	}
-	key, err := s.box.Open(picked.APIKeyEnc)
+	key, err := s.openProviderKey(picked)
 	if err != nil {
-		// key 解不开说明这条上游配置坏了；日志里只写 provider 名称，不带密文/明文。
-		s.log.Error("deepseek tools provider key decrypt", "provider", picked.Name, "err", err)
+		// key 不可用（解不开或绑定在别的 origin）说明这条上游配置坏了；
+		// 日志里只写 provider 名称，不带密文/明文。
+		s.log.Error("deepseek tools provider key unavailable", "provider", picked.Name, "err", err)
 		return nil, nil, errDeepSeekProviderUnavailable
 	}
 	return picked, key, nil

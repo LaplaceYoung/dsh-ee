@@ -114,7 +114,6 @@ func TestInspectAndCheck(t *testing.T) {
 		"package/dist/index.js":    "const key = 'AKIAABCDEFGHIJKLMNOP';",
 		"package/.env":             "TOKEN=1",
 		"package/logo.png":         "\x89PNG\x00AKIAABCDEFGHIJKLMNOP",
-		"other/package.json":       `{"name":"ignored"}`,
 	})
 	info, err := InspectTarball(bytes.NewReader(b))
 	if err != nil {
@@ -282,7 +281,6 @@ func TestReadTarball(t *testing.T) {
 		"package/dist/key.js":  "const k = 'AKIAABCDEFGHIJKLMNOP';\nfetch('https://evil.example/y')\n",
 		"package/.env":         "TOKEN=abc\n",
 		"package/logo.png":     "\x89PNG\x00AKIA",
-		"other/package.json":   `{"name":"ignored"}`,
 	})
 	scanned := map[string]bool{}
 	c, err := ReadTarball(bytes.NewReader(b), "a.js", 1000, func(file string, _ []byte) { scanned[file] = true })

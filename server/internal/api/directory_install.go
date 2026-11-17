@@ -218,21 +218,147 @@ func dirFailPlan(w http.ResponseWriter, status int, entry *store.DirectoryEntry,
 
 // ---- 扩展 ----
 
+// lookupDirectoryIP 解析目录扩展包的主机名。抽成包级变量是为了在测试里替换：DNS rebinding 的
+// 复现需要让同一主机在「预检」和「拨号」两次解析里返回不同地址，而本机测试不依赖真实 DNS/外网。
+// 生产部署就是 net.DefaultResolver，与服务里其它解析点一致。
+var lookupDirectoryIP = net.DefaultResolver.LookupIPAddr
+
+// directoryDialTimeout 与 net/http 默认 Dialer 的拨号超时一致，不改变现有超时行为。
+const directoryDialTimeout = 30 * time.Second
+
+// directoryBlockedIP 判断 DNS 解析出的地址是不是本机/内网/云主机元数据等不该由服务端主动访问的
+// 范围；判定沿用目录登记那套（directory.PublicHostProblem），文案也一致。
+func directoryBlockedIP(ip net.IP) string { return directory.PublicHostProblem(ip.String()) }
+
+// guardedDirectoryDialContext 返回带 IP 校验的拨号函数：解析主机 → 逐个 IP 过 blocked 判定 →
+// 用同一次解析结果直接拨号。校验与拨号绑定在同一份解析结果上，transport 不会在拨号时再解析一次，
+// 因此 TTL=0 的攻击者域名无法在预检之后把目标换成内网地址（DNS rebinding TOCTOU）。
+//
+// 思路与 #219（registry 上游的 guardedDialContext）一致，区别只在这里的放行条件是 tarball 主机
+// 白名单（trusted）：配了 DSH_EE_DIRECTORY_TARBALL_HOSTS 时内网对象存储是显式用法，拨号层不拒绝
+// 内网 IP，但仍然只拨这次解析出的 IP。base 是调用方传输层原有的 DialContext（如演示站 guard）：
+// 有它时校验通过后仍交给它拨，最终连接检查由它负责（演示站 guard 的 Control 会按实际连到的 IP 再拦）。
+func guardedDirectoryDialContext(base func(ctx context.Context, network, addr string) (net.Conn, error), trusted bool) func(context.Context, string, string) (net.Conn, error) {
+	dialer := &net.Dialer{Timeout: directoryDialTimeout, KeepAlive: 30 * time.Second}
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, fmt.Errorf("拨号扩展包地址 %s：%w", addr, err)
+		}
+		if trusted && base != nil {
+			// 放行目标 + 调用方自定义 dialer：拨号/解析归调用方。
+			return base(ctx, network, addr)
+		}
+		ips, err := lookupDirectoryIP(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("解析扩展包地址 %s 失败：%w", host, err)
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("解析扩展包地址 %s 失败：没有可用地址", host)
+		}
+		if !trusted {
+			for _, a := range ips {
+				if msg := directoryBlockedIP(a.IP); msg != "" {
+					return nil, fmt.Errorf("扩展包地址 %s 解析到不允许的地址：%s（企业内网存储要显式列进 DSH_EE_DIRECTORY_TARBALL_HOSTS）", host, msg)
+				}
+			}
+		}
+		if base != nil {
+			return base(ctx, network, addr)
+		}
+		var lastErr error
+		for _, a := range ips {
+			if network == "tcp4" && a.IP.To4() == nil {
+				continue
+			}
+			if network == "tcp6" && a.IP.To4() != nil {
+				continue
+			}
+			conn, derr := dialer.DialContext(ctx, network, net.JoinHostPort(a.IP.String(), port))
+			if derr == nil {
+				return conn, nil
+			}
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			lastErr = derr
+		}
+		if lastErr == nil {
+			lastErr = fmt.Errorf("没有可用的地址族")
+		}
+		return nil, fmt.Errorf("拨号扩展包地址 %s 失败：%w", host, lastErr)
+	}
+}
+
+// directoryTransport 按请求决定直连还是走代理：直连用带拨号级 IP 校验的传输层；走代理时目标主机
+// 由代理侧解析，拨号级校验不适用，保持原来的代理链路（代理是部署方配置的信任组件，与 #219 一致）。
+// 两条链路各用独立的连接池。
+type directoryTransport struct {
+	direct  *http.Transport
+	proxied *http.Transport
+	proxy   func(*http.Request) (*neturl.URL, error)
+}
+
+func (t *directoryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.proxy != nil {
+		pu, err := t.proxy(req)
+		if err != nil {
+			return nil, err
+		}
+		if pu != nil {
+			return t.proxied.RoundTrip(req)
+		}
+	}
+	return t.direct.RoundTrip(req)
+}
+
+// directoryFetchClient 返回下载扩展包专用的 client：在 s.upstream 的传输层上克隆一份，直连时绑定
+// 拨号级 IP 校验（guardedDirectoryDialContext），不改共享的 s.upstream（网关/模型调用等仍用原来的
+// 传输层）。trusted 表示配置了 tarball 主机白名单：内网地址是显式放行的，拨号层只绑定解析结果、
+// 不再拒绝内网 IP。注入的传输层不是 *http.Transport、或自带 DialTLS/DialTLSContext 时没有可插的
+// 钩子，原样返回——这类 client 归调用方管（与 #219 的处理一致）。
+func (s *Server) directoryFetchClient(trusted bool) *http.Client {
+	var base http.RoundTripper
+	if s.upstream != nil {
+		base = s.upstream.Transport
+	}
+	if base == nil {
+		base = http.DefaultTransport
+	}
+	tr, ok := base.(*http.Transport)
+	if !ok || tr == nil || tr.DialTLSContext != nil || tr.DialTLS != nil {
+		return &http.Client{Transport: base, Timeout: dirExtFetchTimeout, CheckRedirect: sameHostRedirect}
+	}
+	direct := tr.Clone()
+	direct.Proxy = nil
+	direct.DialContext = guardedDirectoryDialContext(tr.DialContext, trusted)
+	// 不跟随跨主机重定向：那等于把「只从这个地址下载」绕过去了。重定向仍逐跳过 sameHostRedirect。
+	return &http.Client{
+		Transport:     &directoryTransport{direct: direct, proxied: tr, proxy: tr.Proxy},
+		Timeout:       dirExtFetchTimeout,
+		CheckRedirect: sameHostRedirect,
+	}
+}
+
 // fetchDirectoryExtension 按条目登记的固定 tarball 地址下载扩展 zip。
 // 下载前按当前策略重新检查地址（纵深防御：登记后策略可能调整，登记表也可能被别的路径改过），
 // 然后流式读、限大小，绝不解压到磁盘。
 func (s *Server) fetchDirectoryExtension(ctx context.Context, entry *store.DirectoryEntry) ([]byte, error) {
 	url := strings.TrimSpace(entry.SourceURL)
-	if msg := directory.CheckTarballURL(url, s.opts.DirectoryTarballHosts); msg != "" {
+	hosts := s.opts.DirectoryTarballHosts
+	// 配置了白名单 = 内网对象存储是显式用法，拨号层放行内网 IP（但仍然只拨解析出的 IP）。
+	trusted := len(hosts) > 0
+	if msg := directory.CheckTarballURL(url, hosts); msg != "" {
 		return nil, statusErr(http.StatusBadRequest, "条目来源地址不允许下载："+msg)
 	}
 	ctx, cancel := context.WithTimeout(ctx, dirExtFetchTimeout)
 	defer cancel()
-	// 没有白名单时只允许公网地址：登记校验按主机名做的，下载前再按 DNS 解析结果核一遍，
-	// 防止域名解析到内网 / 云主机元数据地址（有白名单时以内网对象存储是正常用法，交给白名单）。
-	if len(s.opts.DirectoryTarballHosts) == 0 {
+	// 没有白名单时只允许公网地址：登记校验按主机名做的，下载前再按 DNS 解析结果核一遍，尽早失败
+	// 并给出明确错误。真正的防 DNS rebinding 在 directoryFetchClient 的拨号层：这里和拨号各解析
+	// 一次时，TTL=0 的域名仍能在两次解析之间换成内网地址。
+	if !trusted {
 		if u, err := neturl.Parse(url); err == nil && u.Hostname() != "" {
-			ips, err := net.DefaultResolver.LookupIPAddr(ctx, u.Hostname())
+			ips, err := lookupDirectoryIP(ctx, u.Hostname())
 			if err != nil {
 				return nil, statusErr(http.StatusBadGateway, "解析扩展包地址失败："+err.Error())
 			}
@@ -247,12 +373,7 @@ func (s *Server) fetchDirectoryExtension(ctx context.Context, entry *store.Direc
 	if err != nil {
 		return nil, statusErr(http.StatusBadRequest, "条目来源地址不合法："+err.Error())
 	}
-	tr := s.upstream.Transport
-	if tr == nil {
-		tr = http.DefaultTransport
-	}
-	// 不跟随跨主机重定向：那等于把「只从这个地址下载」绕过去了。
-	hc := &http.Client{Transport: tr, Timeout: dirExtFetchTimeout, CheckRedirect: sameHostRedirect}
+	hc := s.directoryFetchClient(trusted)
 	resp, err := hc.Do(req)
 	if err != nil {
 		return nil, statusErr(http.StatusBadGateway, "下载扩展包失败："+err.Error())

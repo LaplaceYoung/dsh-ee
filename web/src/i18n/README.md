@@ -4,7 +4,7 @@
 
 - 运行时注册表：`langs.ts`；i18next 初始化与 `t()` 类型：`index.ts`。
 - **加语言 = ① 新建语言目录 ② 在 `langs.ts` 里 import + 加一行 `LANGUAGES` + 加一项 `resources`**，组件与 e2e 都不用改（清单见 §7）。
-- 当前状态：已注册 `zh-CN` / `en`；`es` / `pt` / `hi` 是目标语言，语言包上线前运行时按 fallback 回退英文。
+- 当前状态：已注册 `zh-CN` / `en`；`es` / `pt` / `hi` 的语言包由 #181 / #182 / #183 提供，合并后在 `langs.ts` 注册即自动生效（注册前运行时按 fallback 回退英文）。首屏 `web/index.html` 的内联脚本已支持按语言码映射 `<html lang>`，语言包合并后首屏语言不再只有中/英两种。
 
 ## 1. 语言码与标签
 
@@ -12,15 +12,16 @@
 |---|---|---|
 | `zh-CN` | 简体中文 | 源语言（结构源） |
 | `en` | English | 已上线 |
-| `es` | Español | 目标语言，待语言包 |
-| `pt` | Português | 目标语言，待语言包 |
-| `hi` | हिन्दी | 目标语言，待语言包 |
+| `es` | Español | 语言包 PR #181 / #182 / #183（合并后注册即生效） |
+| `pt` | Português | 语言包 PR #181 / #182 / #183（合并后注册即生效） |
+| `hi` | हिन्दी | 语言包 PR #181 / #182 / #183（合并后注册即生效） |
 
 规则：
 
 - 语言码用 BCP 47（主语言小写、地区大写，如 `zh-CN`）；界面上的语言标签一律用**母语**写（不用「西班牙语」这种转述）。
 - 语言选择的 localStorage 键是 `dsh-ee:lang`；首屏 `web/index.html` 的内联脚本也读这个键，改键要一起改。
 - `<html lang>` 与语言码一致：中文固定 `zh-CN`（繁中、港台也显示简体），其它语言用解析后的语言码。
+- 账号语言偏好（`/account` 的五语选择）存的是服务端规范短码 `zh` / `en` / `es` / `pt` / `hi`；`web/src/lib/languages.ts` 的 `i18nCodeOf` 现在直接把 `es` / `pt` / `hi` 映射到界面语言（只有 `zh` → `zh-CN` 需要改名），未注册的语言由 i18next 的 `fallbackLng` 回退英文。
 
 ## 2. 目录与命名空间
 
@@ -31,7 +32,7 @@ web/src/i18n/
   types.ts      Messages<T>：把中文文案的结构放宽成「同样的键、任意字符串」
   zh/           源语言。一个文件 = 一组命名空间（common.ts → common.*、shell.*…）
   en/           英文，文件名与命名空间必须与 zh/ 一一对应
-  es/ pt/ hi/   目标语言，结构同上（待建）
+  es/ pt/ hi/   目标语言，结构同上（语言包 PR #181 / #182 / #183，合并后生效）
   README.md     本文件
 ```
 
@@ -58,7 +59,7 @@ export default {
 ## 4. fallback 规则
 
 - **UI：请求语言 → `en` → `zh`。** 不支持的请求语言（`ja`、`fr`…）一律显示英文；`en` 的完备性由类型约束保证，正常情况下不会再到 `zh`；只有类型系统覆盖不到的动态 key、后端返回的多语言字段缺项时才回落到中文源文案，组件不要依赖这个兜底。
-- 浏览器语言归一：`zh*`（`zh-TW`、`zh-HK`）→ `zh-CN`；已注册语言的区域变体按主语言归一（`en-US`/`en-GB` → `en`，将来 `es-MX` → `es`、`pt-BR` → `pt`、`hi-IN` → `hi`）；其它未注册语言 → `en`。
+- 浏览器语言归一：`zh*`（`zh-TW`、`zh-HK`）→ `zh-CN`；已注册语言的区域变体按主语言归一（`en-US`/`en-GB` → `en`，`es-MX` → `es`、`pt-BR` → `pt`、`hi-IN` → `hi` 随语言包合并注册自动生效）；其它未注册语言 → `en`。
 - 检测顺序：`localStorage["dsh-ee:lang"]` → `navigator.language`；切换语言会写回 localStorage，下次打开沿用。
 - 嵌入页 `?lang=` 只覆盖**本次 iframe 渲染**，URL 值不写 localStorage（i18next 初始化仍会缓存浏览器检测结果，这是原有行为）；未注册语言同样回退英文。详见 `docs/embedding.md`。
 - `<html lang>` 随切换即时同步；首屏由 `web/index.html` 内联脚本按同一规则先设一次（避免先闪中文）。
@@ -160,11 +161,11 @@ export default {
    - `resources` 加一项 `es: { translation: es }`
    三处加完，`Lang` 类型、语言选择器、e2e 的语言列表自动生效。
 4. **浏览器语言归一**：`es-MX` → `es` 这类区域变体由 `detectLanguage` 按注册表自动处理，一般不用改；只有主语言要特殊处理（如 `zh*` → `zh-CN`）时才加特例。
-5. **首屏脚本**：`web/index.html` 的内联脚本目前只认 `zh`/`en`，**必须补**该语言的 `<html lang>` 分支与首屏 `<title>`（标题文案走产品/品牌确认）；否则首屏会闪中文标题。
+5. **首屏脚本**：已支持按语言码映射，无需再改——`web/index.html` 的内联脚本把 `zh*` → `zh-CN`、`en`/`es`/`pt`/`hi`（含区域变体）→ 主语言码、其它 → `en`，并同步 `<html lang>`。首屏 `<title>` 仍只有中/英两版（非中文继续显示英文标题），母语标题等产品确认后统一补。
 6. **嵌入页语言码**：`web/src/lib/embed.ts` 的 `EMBED_LANGS` 已包含 `es`/`pt`/`hi`，注册后 `?lang=es` 自动生效；如新增六语目标外语言，两边一起加。
 7. **e2e**：`06-i18n.mjs` 自动读注册表，一般不用改；在语言 PR 里把该语言加进页面扫描列表（现在只扫 `zh-CN`/`en`），并跑真浏览器 e2e。
 8. **验收**：`cd web && node_modules/.bin/tsc -p tsconfig.json --noEmit`；`cd web && pnpm build`；`node ../scripts/docs/build.mjs --check`；e2e 全量（含新语言页面扫描）。
-9. **PR 范围**：语言 PR 只加语言包 + 第 3 步注册 + 第 5 步首屏标题 + e2e 扫描，不混功能改动。
+9. **PR 范围**：语言 PR 只加语言包 + 第 3 步注册 + 第 7 步 e2e 扫描，不混功能改动；首屏标题（第 5 步）不再随语言 PR 加，等产品确认母语标题后统一补。
 
 ## 8. 维护规则
 
@@ -185,6 +186,6 @@ export default {
 | `index.ts` | i18next 初始化、`supportedLngs`、fallback、`<html lang>` 同步、`isZh()` |
 | `types.ts` | `Messages<T>` 类型约束 |
 | `components/lang-switch.tsx` | 语言切换器（`compact` 变体用于窄屏） |
-| `web/index.html` | 首屏内联脚本：先落主题，再落 `<html lang>` 与标题 |
+| `web/index.html` | 首屏内联脚本：先落主题，再落 `<html lang>`（`zh*`→`zh-CN`，`en`/`es`/`pt`/`hi` 及区域变体→主语言码，其它→`en`）与标题 |
 | `web/src/lib/embed.ts` / `docs/embedding.md` | 嵌入页 `?lang=` 参数与 `hello`/`ready` 的 `locale`、`supports: lang` |
 | `e2e/tests/06-i18n.mjs` | 多语言 e2e：语言列表读注册表、未翻译 key 前缀读 zh 资源 |

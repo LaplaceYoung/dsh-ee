@@ -29,6 +29,33 @@ const (
 	maxKBMarkdown = 8 << 20
 )
 
+// KB 转换的并发闸：转换是 CPU 密集的（PDF 按页抽字、PPTX 解压并解析 XML），几个大文件同时转
+// 就能把 CPU 占满。达到上限直接回 429、不在内存里排队；跟 package_check.go 的 beginPackageUpload 一个做法。
+const maxConcurrentKBConverts = 2
+
+var kbConvertSlots = make(chan struct{}, maxConcurrentKBConverts)
+
+// kbConvertTimeout 是一次文档转换的墙钟上限。正常 50 MB 的文档几秒内转完；恶意文件靠文件里
+// 的数字（PDF 页数）或重复引用把转换拖成几十分钟，到了这个时间就返回错误、释放 CPU。
+const kbConvertTimeout = 90 * time.Second
+
+// beginKBConvert 占一个转换名额，返回的 release 必须调用一次（即使转换失败）。超限时立即失败。
+func beginKBConvert() (release func(), ok bool) {
+	select {
+	case kbConvertSlots <- struct{}{}:
+		return func() { <-kbConvertSlots }, true
+	default:
+		return nil, false
+	}
+}
+
+// convertKB 给一次转换套上超时，并把请求的取消（客户端断开）传进去。
+func convertKB(ctx context.Context, name string, data []byte, opt kb.Options) (*kb.Converted, error) {
+	ctx, cancel := context.WithTimeout(ctx, kbConvertTimeout)
+	defer cancel()
+	return kb.Convert(ctx, name, data, opt)
+}
+
 const (
 	auditKBCreate    = "kb.create"
 	auditKBEdit      = "kb.edit"
@@ -407,8 +434,9 @@ func headerOption(v string) (string, bool) {
 }
 
 // convertUpload 把上传的文件转成正文，原件存进 blob 存储（npm 源不可用时只存正文）。
-func (s *Server) convertUpload(name string, data []byte, opt kb.Options) (*kb.Converted, *store.KDoc, error) {
-	conv, err := kb.Convert(name, data, opt)
+// ctx 来自 HTTP 请求：客户端断开或 kbConvertTimeout 到了，转换会尽快停下。
+func (s *Server) convertUpload(ctx context.Context, name string, data []byte, opt kb.Options) (*kb.Converted, *store.KDoc, error) {
+	conv, err := convertKB(ctx, name, data, opt)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -517,6 +545,13 @@ func (s *Server) handleKBUpload(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusUnsupportedMediaType, "请用 multipart/form-data 上传")
 		return
 	}
+	// 先占转换名额再读请求体：几个大文件同时解析/转换会把 CPU 和内存占满，超限直接 429，不排队。
+	release, ok := beginKBConvert()
+	if !ok {
+		writeErr(w, http.StatusTooManyRequests, "同时转换的文档太多，请稍后重试")
+		return
+	}
+	defer release()
 	r.Body = http.MaxBytesReader(w, r.Body, maxKBUpload)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		writeErr(w, http.StatusRequestEntityTooLarge, "上传内容太大，一次最多 200 MB")
@@ -588,7 +623,7 @@ func (s *Server) handleKBUpload(w http.ResponseWriter, r *http.Request) {
 			results = append(results, res)
 			continue
 		}
-		conv, origin, err := s.convertUpload(fh.Filename, data, opt)
+		conv, origin, err := s.convertUpload(r.Context(), fh.Filename, data, opt)
 		if err != nil {
 			res.Error = err.Error()
 			results = append(results, res)
@@ -807,6 +842,12 @@ func (s *Server) handleKDocReplace(w http.ResponseWriter, r *http.Request) {
 	if !s.requireKDocEdit(w, v, b) {
 		return
 	}
+	release, ok := beginKBConvert()
+	if !ok {
+		writeErr(w, http.StatusTooManyRequests, "同时转换的文档太多，请稍后重试")
+		return
+	}
+	defer release()
 	r.Body = http.MaxBytesReader(w, r.Body, maxKBFile+(1<<20))
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
 		writeErr(w, http.StatusRequestEntityTooLarge, "文件太大，最多 50 MB")
@@ -824,7 +865,7 @@ func (s *Server) handleKDocReplace(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "读取文件失败，或文件超过 50 MB")
 		return
 	}
-	conv, origin, err := s.convertUpload(fh.Filename, data, kb.Options{Header: savedHeader(d)})
+	conv, origin, err := s.convertUpload(r.Context(), fh.Filename, data, kb.Options{Header: savedHeader(d)})
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return
@@ -882,6 +923,12 @@ func (s *Server) handleKDocReconvert(w http.ResponseWriter, r *http.Request) {
 	if !s.requireKDocEdit(w, v, b) {
 		return
 	}
+	release, ok := beginKBConvert()
+	if !ok {
+		writeErr(w, http.StatusTooManyRequests, "同时转换的文档太多，请稍后重试")
+		return
+	}
+	defer release()
 	header, okHeader := headerOption(req.Header)
 	if !okHeader {
 		writeErr(w, http.StatusBadRequest, "header 只能是 first 或 none")
@@ -903,7 +950,7 @@ func (s *Server) handleKDocReconvert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	opt := kb.Options{Header: header}
-	conv, err := kb.Convert(d.SourceName, data, opt)
+	conv, err := convertKB(r.Context(), d.SourceName, data, opt)
 	if err != nil {
 		writeErr(w, http.StatusBadRequest, err.Error())
 		return

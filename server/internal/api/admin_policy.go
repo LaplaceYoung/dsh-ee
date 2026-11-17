@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -50,6 +51,66 @@ func (s *Server) adminPolicy(ctx context.Context) adminPolicy {
 	// 多副本时别的副本改了也要跟上
 	s.store.SetSuperDisabled(p.SuperDisabled)
 	return p
+}
+
+// policySame 判断两份管理约束在生效语义上是不是一样：互斥组的顺序/组内顺序、双人批准的顺序和重复都不影响判定，
+// nil 和空列表也一样。配置导出再导入时会出现 [] 和 null 的差别，不能把那当成改了约束（否则正常配置变更会被误拦）。
+func policySame(a, b adminPolicy) bool {
+	if a.SuperDisabled != b.SuperDisabled || a.NoSelfGrant != b.NoSelfGrant {
+		return false
+	}
+	return slices.Equal(canonicalPolicyGroups(a.Exclusive), canonicalPolicyGroups(b.Exclusive)) &&
+		slices.Equal(canonicalPolicyCodes(a.DualApproval), canonicalPolicyCodes(b.DualApproval))
+}
+
+// canonicalPolicyCodes 把一组角色代码/动作排成可比较的样子：去空白、去重、排序。
+func canonicalPolicyCodes(codes []string) []string {
+	out := dedupeStrings(codes)
+	sort.Strings(out)
+	return out
+}
+
+// canonicalPolicyGroups 把互斥组排成可比较的样子：组内去重排序，少于两个角色的组不生效（policyProblems 也跳过），丢掉。
+func canonicalPolicyGroups(groups [][]string) []string {
+	var out []string
+	for _, g := range groups {
+		g = canonicalPolicyCodes(g)
+		if len(g) < 2 {
+			continue
+		}
+		out = append(out, strings.Join(g, "\x00"))
+	}
+	sort.Strings(out)
+	return out
+}
+
+// policyChangeProblem 检查操作人能不能改管理约束，判定与直接改（PUT /api/admin/policy）一致：
+// 关掉超级管理员只有超级管理员本人能做；改其它约束要有 roles.manage。返回空字符串表示允许。
+// 直接改约束、配置变更的提交 / 批准 / 生效都走这里，不能靠裸写 admin_policy 绕过。
+func policyChangeProblem(a *rbac.Access, cur, next adminPolicy) string {
+	if policySame(cur, next) {
+		return ""
+	}
+	if next.SuperDisabled && !cur.SuperDisabled && (a == nil || !a.Super) {
+		return "只有超级管理员能关掉超级管理员"
+	}
+	if !a.Has(rbac.RolesManage) {
+		return "改管理约束要有 " + rbac.RolesManage + " 权限"
+	}
+	return ""
+}
+
+// writePolicy 把一份已经检查过的管理约束写进库：落库、生效、记审计。
+// 权限和约束本身的检查由调用方用 policyChangeProblem / policyProblems* 做完，这里不重复做。
+func (s *Server) writePolicy(r *http.Request, cur, next adminPolicy) error {
+	ctx := r.Context()
+	if err := s.store.PutSettingJSON(ctx, adminPolicySetting, next, currentUser(r).ID); err != nil {
+		return err
+	}
+	s.store.SetSuperDisabled(next.SuperDisabled)
+	s.audit(r, auditPolicy, adminPolicySetting, map[string]any{"before": cur, "after": next})
+	s.hub.notify()
+	return nil
 }
 
 // selfGrantAllowed：管理员能不能改自己的角色和属性。
@@ -196,10 +257,10 @@ func (s *Server) handlePutPolicy(w http.ResponseWriter, r *http.Request) {
 // setPolicy 检查并保存一份管理约束。
 func (s *Server) setPolicy(r *http.Request, cur, req adminPolicy) string {
 	ctx := r.Context()
-	// 关掉超级管理员要超级管理员本人来做；重新打开要能管角色的人（关掉之后没有超级管理员了）
-	a := currentAccess(r)
-	if req.SuperDisabled && !cur.SuperDisabled && !a.Super {
-		return "只有超级管理员能关掉超级管理员"
+	// 关掉超级管理员要超级管理员本人来做；重新打开要能管角色的人（关掉之后没有超级管理员了）；
+	// 改其它约束要 roles.manage。和配置变更用同一个判定。
+	if msg := policyChangeProblem(currentAccess(r), cur, req); msg != "" {
+		return msg
 	}
 	problems, err := s.policyProblems(ctx, &req)
 	if err != nil {
@@ -208,12 +269,9 @@ func (s *Server) setPolicy(r *http.Request, cur, req adminPolicy) string {
 	if len(problems) > 0 {
 		return strings.Join(problems, "；")
 	}
-	if err := s.store.PutSettingJSON(ctx, adminPolicySetting, req, currentUser(r).ID); err != nil {
+	if err := s.writePolicy(r, cur, req); err != nil {
 		return err.Error()
 	}
-	s.store.SetSuperDisabled(req.SuperDisabled)
-	s.audit(r, auditPolicy, adminPolicySetting, map[string]any{"before": cur, "after": req})
-	s.hub.notify()
 	return ""
 }
 

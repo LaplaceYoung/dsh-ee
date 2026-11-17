@@ -13,7 +13,7 @@
 import { DOCS_REPO_BLOB, GENERATED_DEV_DOCS } from "../generated/dev-docs";
 import { FALLBACK_DEV_DOCS } from "./dev-docs-fallback";
 import { selectDevDocs } from "./dev-docs-select";
-import { DOC_CATEGORIES, type DevDoc, type DocCategory } from "./dev-docs-types";
+import { DOC_CATEGORIES, type DevDoc, type DocCategory, type DocLang } from "./dev-docs-types";
 
 export { DOC_CATEGORIES };
 export type { DevDoc, DocCategory };
@@ -31,8 +31,11 @@ export function findDevDoc(slug: string): DevDoc | null {
   return DEV_DOCS.find((d) => d.slug === slug) ?? null;
 }
 
-/** 粗略的阅读时长：按正文里的中英文字符数估算，只用于列表页提示。 */
-export function readMinutes(body: string): number {
-  const chars = Array.from(body.replace(/```[\s\S]*?```/g, "")).filter((ch) => /[\u4e00-\u9fa5A-Za-z0-9]/.test(ch)).length;
-  return Math.max(1, Math.round(chars / 350));
+/** 粗略的阅读时长：按当前语言正文里的字母/数字字符数估算，只用于列表页与详情页提示。 */
+export function readMinutes(body: string, lang: DocLang = "zh"): number {
+  const plain = body.replace(/```[\s\S]*?```/g, "");
+  // 中文按字计（\p{L} 覆盖汉字），其它语言按字符计；\p{M} 覆盖天城文等文字的附加符号
+  const chars = Array.from(plain).filter((ch) => /[\p{L}\p{N}\p{M}]/u.test(ch)).length;
+  const charsPerMinute = lang === "zh" ? 350 : 900;
+  return Math.max(1, Math.round(chars / charsPerMinute));
 }

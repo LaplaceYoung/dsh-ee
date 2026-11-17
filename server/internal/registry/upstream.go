@@ -71,7 +71,9 @@ func NewUpstream(hc *http.Client, dataDir string, ttl time.Duration) (*Upstream,
 		return nil, err
 	}
 	allowPrivate := strings.EqualFold(os.Getenv("DSH_EE_UPSTREAM_ALLOW_PRIVATE"), "true") || os.Getenv("DSH_EE_UPSTREAM_ALLOW_PRIVATE") == "1"
-	return &Upstream{hc: hc, dir: dir, ttl: ttl, allowPrivate: allowPrivate, trustedOrigins: map[string]struct{}{}, inflight: map[string]*fetchCall{}, parsed: map[string]parsedEntry{}}, nil
+	u := &Upstream{dir: dir, ttl: ttl, allowPrivate: allowPrivate, trustedOrigins: map[string]struct{}{}, inflight: map[string]*fetchCall{}, parsed: map[string]parsedEntry{}}
+	u.hc = u.guardClient(hc)
+	return u, nil
 }
 
 // PackumentURL 拼上游的包地址：作用域包写成 @scope%2fname，所有 registry 都认。
@@ -257,6 +259,146 @@ func cacheKey(base, name string) string {
 	return hex.EncodeToString(h[:])
 }
 
+// lookupUpstreamIP 解析上游主机名。抽成包级变量是为了在测试里替换：DNS rebinding 的复现需要
+// 让同一主机在「预检」和「拨号」两次解析里返回不同地址，而本机测试不依赖真实 DNS/外网。
+var lookupUpstreamIP = net.DefaultResolver.LookupIPAddr
+
+// upstreamDialTimeout 与 net/http 默认 Dialer 的拨号超时一致，不改变现有超时行为。
+const upstreamDialTimeout = 30 * time.Second
+
+// upstreamTrustedDial 是请求上下文标记：该请求的目标属于 allowPrivate/trustedOrigins 放行范围，
+// 拨号层不再校验内网地址（放行时仍然只拨校验时解析出的 IP）。
+type upstreamTrustedDial struct{}
+
+func isTrustedDial(ctx context.Context) bool {
+	return ctx.Value(upstreamTrustedDial{}) != nil
+}
+
+// guardClient 给上游 HTTP client 加拨号级 IP 校验（见 guardedDialContext）：直连时先解析一次、
+// 逐个 IP 校验、再拨解析出的 IP，transport 不再自己二次解析，DNS rebinding 无法把预检过的
+// 公网地址换成内网地址。默认部署的 client 是 *http.Transport（Proxy=ProxyFromEnvironment、
+// 没有 DialContext），这里克隆一份再包装，不改调用方传入的 client/transport。
+//
+// 走代理时目标主机由代理侧解析，拨号级校验不适用：这类请求保持原来的代理链路（代理是部署方
+// 配置的信任组件）；目标地址仍由 FetchTarball 逐跳预检。
+//
+// 调用方通过 NpmUpstream 显式注入的 client 归调用方管：非 *http.Transport、自带 DialTLSContext/
+// DialTLS（TLS 请求会绕过 DialContext），或自带 DialContext 的传输层没有可插的钩子——前者原样
+// 返回，后者在校验后仍交给它拨（最终拨号/解析归它负责，例如演示站 guard 的 Control 会按真正连到
+// 的 IP 再拦一次）。默认部署（main.go）两种都没设，走完整的“同一份解析结果校验+拨号”。
+func (u *Upstream) guardClient(hc *http.Client) *http.Client {
+	if hc == nil {
+		hc = &http.Client{}
+	}
+	c := *hc
+	var tr *http.Transport
+	var baseDial func(ctx context.Context, network, addr string) (net.Conn, error)
+	if c.Transport == nil {
+		// nil Transport 表示 http.DefaultTransport：只借它的 Proxy/TLS 等配置，拨号用我们自己的
+		// dialer（DefaultTransport 自带的 dialer 没有安全策略，交给它会二次解析、失去 TOCTOU 保证）。
+		var ok bool
+		tr, ok = http.DefaultTransport.(*http.Transport)
+		if !ok || tr == nil {
+			return &c
+		}
+	} else {
+		var ok bool
+		tr, ok = c.Transport.(*http.Transport)
+		if !ok || tr == nil || tr.DialTLSContext != nil || tr.DialTLS != nil {
+			return &c
+		}
+		baseDial = tr.DialContext
+	}
+	direct := tr.Clone()
+	direct.Proxy = nil
+	direct.DialContext = u.guardedDialContext(baseDial)
+	c.Transport = &upstreamTransport{u: u, direct: direct, proxied: tr, proxy: tr.Proxy}
+	return &c
+}
+
+// upstreamTransport 按请求决定直连还是走代理：直连用带拨号级 IP 校验的传输层，走代理时用原
+// 传输层（transport 的 Proxy 函数返回非 nil 即为走代理）。两条链路各用独立的连接池。
+type upstreamTransport struct {
+	u       *Upstream
+	direct  *http.Transport // Proxy 置空 + 拨号级 IP 校验
+	proxied *http.Transport // 原传输层，保留代理配置
+	proxy   func(*http.Request) (*url.URL, error)
+}
+
+func (t *upstreamTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.proxy != nil {
+		pu, err := t.proxy(req)
+		if err != nil {
+			return nil, err
+		}
+		if pu != nil {
+			return t.proxied.RoundTrip(req)
+		}
+	}
+	if req.URL != nil && (t.u.allowPrivate || t.u.isTrustedOrigin(req.URL.String())) {
+		req = req.WithContext(context.WithValue(req.Context(), upstreamTrustedDial{}, true))
+	}
+	return t.direct.RoundTrip(req)
+}
+
+// guardedDialContext 返回带 IP 校验的拨号函数：解析主机 → 逐个 IP 过 blockedUpstreamIP →
+// 用同一次解析结果直接拨号。校验和拨号绑定在同一份解析结果上，transport 不会在拨号时再解析
+// 一次，因此 TTL=0 的攻击者域名无法在校验后把目标换成内网/云元数据地址。
+// 调用方原有的 DialContext（如演示站 guard）非 nil 时，校验通过后仍交给它拨（放行目标直接
+// 交给它），由它自己再做连接期检查（演示站的 Control 回调就是按真正连到的 IP 拦的）。
+func (u *Upstream) guardedDialContext(base func(ctx context.Context, network, addr string) (net.Conn, error)) func(context.Context, string, string) (net.Conn, error) {
+	dialer := &net.Dialer{Timeout: upstreamDialTimeout, KeepAlive: 30 * time.Second}
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+		host, port, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, fmt.Errorf("Dialing upstream %s: %w", addr, err)
+		}
+		trusted := u.allowPrivate || isTrustedDial(ctx)
+		if trusted && base != nil {
+			// 放行目标 + 调用方自定义 dialer：拨号/解析归调用方（如演示站 guard 的 Control 复核）。
+			return base(ctx, network, addr)
+		}
+		ips, err := lookupUpstreamIP(ctx, host)
+		if err != nil {
+			return nil, fmt.Errorf("Resolving upstream host %s: %w", host, err)
+		}
+		if len(ips) == 0 {
+			return nil, fmt.Errorf("Resolving upstream host %s: no addresses", host)
+		}
+		if !trusted {
+			for _, a := range ips {
+				if blockedUpstreamIP(a.IP) {
+					return nil, fmt.Errorf("Upstream host %s resolves to internal address %s; rejected. For an internal mirror, set DSH_EE_UPSTREAM_ALLOW_PRIVATE=1", host, a.IP)
+				}
+			}
+		}
+		if base != nil {
+			return base(ctx, network, addr)
+		}
+		var lastErr error
+		for _, a := range ips {
+			if network == "tcp4" && a.IP.To4() == nil {
+				continue
+			}
+			if network == "tcp6" && a.IP.To4() != nil {
+				continue
+			}
+			conn, derr := dialer.DialContext(ctx, network, net.JoinHostPort(a.String(), port))
+			if derr == nil {
+				return conn, nil
+			}
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+			lastErr = derr
+		}
+		if lastErr == nil {
+			lastErr = fmt.Errorf("no address of the requested network family")
+		}
+		return nil, fmt.Errorf("Dialing upstream host %s: %w", host, lastErr)
+	}
+}
+
 // blockedUpstreamIP 判断地址是否属于本机/内网/链路本地等不应由服务端主动访问的范围。
 func blockedUpstreamIP(ip net.IP) bool {
 	return ip.IsLoopback() || ip.IsPrivate() || ip.IsUnspecified() || ip.IsMulticast() ||
@@ -297,6 +439,9 @@ func (u *Upstream) isTrustedOrigin(rawURL string) bool {
 // ValidateUpstreamURL 解析 tarball 地址并检查它会连到的每个 IP；上游 packument 是第三方内容，
 // 不能让它的 dist.tarball 指向内网或云主机元数据。与管理员配置的上游 registry 同源的地址按
 // 内部镜像处理（放行），其他的内网目标需要显式设置 DSH_EE_UPSTREAM_ALLOW_PRIVATE=1。
+//
+// 这里只是尽早失败（并给重定向逐跳预检用）；真正消除 DNS rebinding TOCTOU 的是 client 的拨号层
+// （guardedDialContext）：它复验同一份解析结果并直接拨解析出的 IP，不再交给 transport 二次解析。
 func (u *Upstream) ValidateUpstreamURL(ctx context.Context, rawURL string) error {
 	pu, err := url.Parse(rawURL)
 	if err != nil || (pu.Scheme != "https" && pu.Scheme != "http") || pu.Host == "" {
@@ -309,7 +454,7 @@ func (u *Upstream) ValidateUpstreamURL(ctx context.Context, rawURL string) error
 	if u.allowPrivate || u.isTrustedOrigin(rawURL) {
 		return nil
 	}
-	ips, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	ips, err := lookupUpstreamIP(ctx, host)
 	if err != nil {
 		return fmt.Errorf("Resolving upstream tarball URL %s: %w", host, err)
 	}
@@ -322,7 +467,8 @@ func (u *Upstream) ValidateUpstreamURL(ctx context.Context, rawURL string) error
 	return nil
 }
 
-// FetchTarball 下载上游 tarball 写入 blobs，并按元数据校验完整性。
+// FetchTarball 下载上游 tarball 写入 blobs，并按元数据校验完整性。u.hc 的传输层带拨号级 IP
+// 校验（见 guardClient/guardedDialContext），dist.tarball 的主机换成 DNS rebinding 域名也连不到内网。
 func (u *Upstream) FetchTarball(ctx context.Context, blobs *Blobs, rawURL, integrity, shasum string, limit int64) (Digest, error) {
 	if err := u.ValidateUpstreamURL(ctx, rawURL); err != nil {
 		return Digest{}, err

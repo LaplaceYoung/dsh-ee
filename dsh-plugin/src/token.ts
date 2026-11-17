@@ -3,6 +3,24 @@ import path from "node:path";
 import { dshHome, npmrcEntries, npmrcPath } from "./config.js";
 import type { DshContext, PluginConfig } from "./dsh.js";
 
+/**
+ * 凭据文件只允许当前用户读写。`writeFile(..., { mode: 0o600 })` 的 mode 只在新建文件时生效，
+ * 已存在的 0644 文件（旧版本写下的兜底令牌、员工自己的 .env / .npmrc）会保留原权限，
+ * 所以每次写完都要显式 chmod（新建路径也保留 mode，缩短创建→chmod 之间的窗口）。
+ *
+ * Windows 没有 POSIX 权限位：fs.chmod 只切换只读位，0o600 会被当成可读写、等于没做，
+ * 因此直接跳过（Windows 由用户目录 ACL 管）。chmod 失败（只读挂载、网络盘等）也不该让登录失败。
+ */
+export function restrictCredentialFile(file: string, platform: NodeJS.Platform = process.platform): boolean {
+  if (platform === "win32") return false;
+  try {
+    fs.chmodSync(file, 0o600);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** profile .npmrc 里 dsh-ee 管的几行：missing 缺令牌或作用域，mismatch 令牌与当前登录不一致。 */
 export function npmrcState(ctx: DshContext, config: PluginConfig, token: string): "ok" | "missing" | "mismatch" {
   const file = npmrcPath(ctx);
@@ -60,6 +78,7 @@ export class TokenManager {
     const file = this.tokenPath();
     fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
     fs.writeFileSync(file, `${value}\n`, { mode: 0o600 });
+    restrictCredentialFile(file);
     this.writeEnvToken(value);
   }
 
@@ -78,9 +97,14 @@ export class TokenManager {
     const before = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
     const kept = before.split(/\r?\n/).filter((line) => line.trim() && !line.startsWith(`${this.config.tokenRef}=`));
     const after = `${[...kept, `${this.config.tokenRef}=${value}`].join("\n")}\n`;
-    if (after === before) return;
-    fs.mkdirSync(path.dirname(file), { recursive: true });
+    if (after === before) {
+      // 内容不用重写，但历史版本可能把 .env 留成 0644，仍要收紧
+      restrictCredentialFile(file);
+      return;
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
     fs.writeFileSync(file, after, { mode: 0o600 });
+    restrictCredentialFile(file);
   }
 
   private stripEnvToken(expected?: string): void {
@@ -92,6 +116,7 @@ export class TokenManager {
     if (!hit) return;
     if (expected !== undefined && hit.slice(prefix.length) !== expected) return;
     fs.writeFileSync(file, lines.filter((line) => line !== hit).join("\n"), { mode: 0o600 });
+    restrictCredentialFile(file);
   }
 
   pendingPath(): string {
@@ -125,10 +150,14 @@ export class TokenManager {
     const before = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "";
     const kept = before.split(/\r?\n/).filter((line) => line && !entries.has(line.split("=", 1)[0]));
     const after = [...kept, ...[...entries].map(([key, value]) => `${key}=${value}`)].join("\n") + "\n";
-    if (after === before) return false;
-    fs.mkdirSync(path.dirname(file), { recursive: true });
+    if (after === before) {
+      // 内容不用重写，但历史版本可能把 .npmrc 留成 0644，仍要收紧
+      restrictCredentialFile(file);
+      return false;
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 });
     fs.writeFileSync(file, after, { mode: 0o600 });
-    fs.chmodSync(file, 0o600);
+    restrictCredentialFile(file);
     return true;
   }
 
