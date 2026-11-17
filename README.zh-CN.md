@@ -13,7 +13,7 @@
 
 ### [→ 在线试一下，不用装任何东西](https://demo.hikariming.com/)
 
-<img alt="dsh-ee 介绍：员工在 DSH 里问一句，AI 查 CRM、引用产品资料给出答案；管理员在 dsh-ee 里接入系统、审核授权、查看调用记录" src="docs/images/intro.zh-CN.gif" width="820">
+<img alt="一分钟看懂 dsh-ee：接入企业系统和知识，组装微应用和专家，审核后按部门授权，送到每位员工的 DSH，每次调用都有记录；小团队和大企业都能用" src="docs/images/intro.zh-CN.gif" width="820">
 
 </div>
 
