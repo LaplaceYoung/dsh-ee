@@ -6865,7 +6865,12 @@ function createLocalMcp(ctx, config, options = {}) {
   const platform = options.platform ?? process.platform;
   const disposers = /* @__PURE__ */ new Map();
   const manager = () => {
-    const service = ctx.get("mcpManager");
+    let service;
+    try {
+      service = ctx.get("mcpManager");
+    } catch {
+      return void 0;
+    }
     return service && typeof service.register === "function" && typeof service.list === "function" ? service : void 0;
   };
   const names = async () => {
@@ -7063,9 +7068,10 @@ var inject = {
   tools: { required: true },
   credentials: { required: false },
   commands: { required: false },
-  pluginManager: { required: false },
-  // DSH 0.2.2 给插件注册本机 MCP 服务的接口（@deepseek-ai/dsh-mcp-manager）；旧版 DSH 没有，用配置片段兜底
-  mcpManager: { required: false }
+  pluginManager: { required: false }
+  // 不要在这里声明 mcpManager（DSH 0.2.2 才有的 @deepseek-ai/dsh-mcp-manager）：旧版 DSH 的加载器
+  // 对 required: false 的依赖也会一直等它出现，整个插件停在 pending，登录、目录全部 404。
+  // local-mcp.ts 在运行时用 ctx.get("mcpManager") 取，没有就退回配置片段。
 };
 function apply(ctx, input) {
   initI18n(ctx);
