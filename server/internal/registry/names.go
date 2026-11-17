@@ -10,22 +10,48 @@ import (
 	"github.com/Masterminds/semver/v3"
 )
 
-// 新发布的包名：与 npm 现行规则、以及 DSH 索引读端的 PACKAGE_NAME 一致（全小写）。
+// 字符集层：新发布的包名，与 npm 现行规则、以及 DSH 索引读端的 PACKAGE_NAME 一致（全小写）。
+// 只负责「读端之外再收紧」的部分，长度与连续点由 validBaseName 统一把关。
 var publishName = regexp.MustCompile(`^(?:@[a-z0-9][a-z0-9._~-]*/)?[a-z0-9][a-z0-9._~-]*$`)
 
-// 读取时放宽到历史包名（如 JSONStream），但仍然不允许路径穿越、空白与 URL 特殊字符。
+// 字符集层：读取时放宽到历史包名（如 JSONStream），即允许大写和前导下划线；
+// 空白与 URL 特殊字符仍然不接受。
 var lookupName = regexp.MustCompile(`^(?:@[A-Za-z0-9][A-Za-z0-9._~-]*/)?[A-Za-z0-9_][A-Za-z0-9._~-]*$`)
 
 const maxNameLength = 214
 
-// ValidPublishName 判断能否用这个名字发布新包。
-func ValidPublishName(name string) bool {
-	return len(name) <= maxNameLength && publishName.MatchString(name)
+// npm 的保留名。npm 官方 validate-npm-package-name 的 exclusionList（v7.0.2）和
+// npm publish 实际走的 @npmcli/package-json fixName 都硬拒绝这两个名字：
+// 大小写不敏感，且只比较整名——所以 "@acme/node_modules" 这类 scoped 名是允许的。
+// 核心模块名（http、fs 等）在 npm 侧只是 warning、历史包仍可读，不在这里拒绝。
+// 来源：https://github.com/npm/validate-npm-package-name/blob/v7.0.2/lib/index.js
+var reservedNames = []string{"node_modules", "favicon.ico"}
+
+// isReservedName 判断是否是 npm 保留名（不区分大小写，按 npm 的规则只比较整名，
+// 因此 scoped 包的 name 部分不做保留名判断）。
+func isReservedName(name string) bool {
+	return slices.Contains(reservedNames, strings.ToLower(name))
 }
 
-// ValidName 判断是否是合法的（含历史写法的）包名。
+// validBaseName 是读、写两端共用的包名基线：长度上限 + 拒绝连续点（".."）+ 拒绝 npm 保留名。
+//
+// 连续点必须在发布端也拒绝：网页上传只走 ValidPublishName，而 npm 读、审核、上游同步
+// 与索引都在用 ValidName。两边口径不一致时，@company/a..b 能发布入库、占住版本号，
+// 之后 GET / 审核却永远 400 —— 既不可读也不可审。npm 存量包名里也不该有连续点
+// （上游同步本来就用 ValidName 把它挡在外面），所以选「两侧一律拒绝」。
+func validBaseName(name string) bool {
+	return len(name) <= maxNameLength && !strings.Contains(name, "..") && !isReservedName(name)
+}
+
+// ValidPublishName 判断能否用这个名字发布新包：共享基线 + npm 新包字符集（全小写）。
+func ValidPublishName(name string) bool {
+	return validBaseName(name) && publishName.MatchString(name)
+}
+
+// ValidName 判断是否是合法的（含历史写法的）包名：共享基线 + 读端放宽的历史字符集。
+// 发布端可以比它更严（全小写、无前导下划线），但绝不能更松。
 func ValidName(name string) bool {
-	return len(name) <= maxNameLength && lookupName.MatchString(name) && !strings.Contains(name, "..")
+	return validBaseName(name) && lookupName.MatchString(name)
 }
 
 // Scope 返回 "@scope"；无作用域的包返回空串。

@@ -433,7 +433,7 @@ func (s *Service) publish(ctx context.Context, p Publisher, doc *PublishDoc, raw
 	name := doc.Name
 	scopes := set.CompanyScopes()
 	if !ValidPublishName(name) {
-		return nil, errf(400, "Invalid package name %q (lowercase letters, digits, and - . _ ~ only)", name)
+		return nil, errf(400, "Invalid package name %q (lowercase letters, digits, and - . _ ~ only, no consecutive dots)", name)
 	}
 	if !InScopes(name, scopes) {
 		return nil, errf(403, "Packages can only be published to the enterprise scope (%s); the package name must be %s/<name>", strings.Join(scopes, ", "), set.Scope)
