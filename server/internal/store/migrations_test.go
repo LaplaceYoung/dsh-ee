@@ -244,3 +244,25 @@ func TestUserLanguageMigration(t *testing.T) {
 		}
 	}
 }
+
+// 0042：providers 加 api_key_origin 列，记录每把 key 写入时绑定的上游 origin。
+// 纯加法 DDL（旧二进制不读这列也能继续跑），空串 = 加列前的旧记录。
+func TestProviderKeyOriginMigration(t *testing.T) {
+	body, err := migrationFS.ReadFile("migrations/0042_provider_key_origin.sql")
+	if err != nil {
+		t.Fatalf("读 0042 迁移: %v", err)
+	}
+	stmts := splitStatements(string(body))
+	if len(stmts) != 1 {
+		t.Fatalf("0042 迁移应只有一条 ALTER，实际 %d 条", len(stmts))
+	}
+	stmt := strings.Join(strings.Fields(stmts[0]), " ")
+	for _, want := range []string{
+		"ALTER TABLE providers",
+		"ADD COLUMN api_key_origin VARCHAR(255) NOT NULL DEFAULT ''",
+	} {
+		if !strings.Contains(stmt, want) {
+			t.Fatalf("0042 迁移缺少 %q：%s", want, stmt)
+		}
+	}
+}

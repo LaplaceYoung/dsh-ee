@@ -84,7 +84,7 @@ func TestDocxNumbering(t *testing.T) {
 		body += p("Clause", "", fmt.Sprintf("条款 %d", i+4))
 	}
 	doc := `<w:document ` + wns + `><w:body>` + body + `</w:body></w:document>`
-	out, err := Convert("差旅.docx", zipOf(t, map[string]string{"word/document.xml": doc, "word/styles.xml": styles, "word/numbering.xml": numbering}), Options{})
+	out, err := Convert(context.Background(), "差旅.docx", zipOf(t, map[string]string{"word/document.xml": doc, "word/styles.xml": styles, "word/numbering.xml": numbering}), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestDocxMergedCells(t *testing.T) {
 		`<w:tr>` + cell(`<w:gridSpan w:val="2"/>`, "其他城市") + cell("", "400") + `</w:tr>` +
 		`</w:tbl>`
 	doc := `<w:document ` + wns + `><w:body>` + tbl + `</w:body></w:document>`
-	out, err := Convert("标准.docx", zipOf(t, map[string]string{"word/document.xml": doc}), Options{})
+	out, err := Convert(context.Background(), "标准.docx", zipOf(t, map[string]string{"word/document.xml": doc}), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -166,7 +166,7 @@ func TestConvertXLSX(t *testing.T) {
 	if err := f.Write(&buf); err != nil {
 		t.Fatal(err)
 	}
-	out, err := Convert("价目表.xlsx", buf.Bytes(), Options{})
+	out, err := Convert(context.Background(), "价目表.xlsx", buf.Bytes(), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,7 +196,7 @@ func TestConvertXLSX(t *testing.T) {
 		t.Fatalf("体检 = %+v", out.Info)
 	}
 	// 维护者指定「第一行不是表头」
-	out, _ = Convert("价目表.xlsx", buf.Bytes(), Options{Header: "none"})
+	out, _ = Convert(context.Background(), "价目表.xlsx", buf.Bytes(), Options{Header: "none"})
 	if !strings.Contains(out.Markdown, "| A | B | C | D |") || out.Info.Header != "letters" {
 		t.Fatalf("指定没有表头：%+v", out.Info)
 	}
@@ -205,7 +205,7 @@ func TestConvertXLSX(t *testing.T) {
 func TestConvertCSV(t *testing.T) {
 	src := "姓名;部门;分机\n王五;财务部;8001\n赵六;人事部;8002\n"
 	gbk, _ := simplifiedchinese.GBK.NewEncoder().String(src)
-	out, err := Convert("通讯录.csv", []byte(gbk), Options{})
+	out, err := Convert(context.Background(), "通讯录.csv", []byte(gbk), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -214,19 +214,19 @@ func TestConvertCSV(t *testing.T) {
 		t.Fatalf("csv =\n%s\n%+v", out.Markdown, out.Info)
 	}
 	// 引号里的逗号、换行
-	out, _ = Convert("a.csv", []byte("问题,答案\n\"年假, 能跨年吗\",\"可以\n最多 3 个月\"\n"), Options{})
+	out, _ = Convert(context.Background(), "a.csv", []byte("问题,答案\n\"年假, 能跨年吗\",\"可以\n最多 3 个月\"\n"), Options{})
 	if !strings.Contains(out.Markdown, "| 年假, 能跨年吗 | 可以 最多 3 个月 |") {
 		t.Fatalf("引号 = %s", out.Markdown)
 	}
 	big := strings.Repeat("a,b\n", MaxSheetRows+1)
-	if _, err := Convert("big.csv", []byte(big), Options{}); err == nil || !strings.Contains(err.Error(), "拆成") {
+	if _, err := Convert(context.Background(), "big.csv", []byte(big), Options{}); err == nil || !strings.Contains(err.Error(), "拆成") {
 		t.Fatalf("超过上限应报错：%v", err)
 	}
 }
 
 func TestConvertText_GBK(t *testing.T) {
 	gbk, _ := simplifiedchinese.GBK.NewEncoder().String("差旅说明\n住宿 600 元\n")
-	out, err := Convert("说明.txt", []byte(gbk), Options{})
+	out, err := Convert(context.Background(), "说明.txt", []byte(gbk), Options{})
 	if err != nil || !strings.Contains(out.Markdown, "住宿 600 元") || out.Info.Encoding != "GBK" {
 		t.Fatalf("GBK 文本 = %+v %v", out, err)
 	}
@@ -267,7 +267,7 @@ func TestConvertPPTX(t *testing.T) {
 			`<Relationship Id="rId9" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/notesSlide" Target="../notesSlides/notesSlide1.xml"/></Relationships>`,
 		"ppt/notesSlides/notesSlide1.xml": `<p:notes ` + pns + `><p:cSld><p:spTree>` + sp("body", 0, 0, "讲到这里停一下") + `</p:spTree></p:cSld></p:notes>`,
 	}
-	out, err := Convert("年会.pptx", zipOf(t, files), Options{})
+	out, err := Convert(context.Background(), "年会.pptx", zipOf(t, files), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -282,7 +282,7 @@ func TestConvertPPTX(t *testing.T) {
 
 func TestOldFormats(t *testing.T) {
 	for _, name := range []string{"a.doc", "a.xls", "a.ppt"} {
-		_, err := Convert(name, []byte("x"), Options{})
+		_, err := Convert(context.Background(), name, []byte("x"), Options{})
 		if err == nil || !strings.Contains(err.Error(), "另存为") {
 			t.Fatalf("%s：%v", name, err)
 		}
@@ -372,7 +372,7 @@ func TestConvertPDFPages(t *testing.T) {
 		pdfSpec{garbled: true, lines: []string{"ABCDEFGHIJKLMNOPQRSTUVWXYZ ABCDEFGHIJKLMNOP"}},
 		body(5, "Reimburse within 30 days."),
 	)
-	out, err := Convert("policy.pdf", data, Options{})
+	out, err := Convert(context.Background(), "policy.pdf", data, Options{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -405,14 +405,14 @@ func TestConvertPDFPages(t *testing.T) {
 	}
 
 	// 全是扫描页：整份拒收，告诉人怎么办
-	if _, err := Convert("scan.pdf", makePDFPages(pdfSpec{image: true}, pdfSpec{image: true}), Options{}); err == nil || !strings.Contains(err.Error(), "扫描件") {
+	if _, err := Convert(context.Background(), "scan.pdf", makePDFPages(pdfSpec{image: true}, pdfSpec{image: true}), Options{}); err == nil || !strings.Contains(err.Error(), "扫描件") {
 		t.Fatalf("扫描件 = %v", err)
 	}
-	if _, err := Convert("bad.pdf", makePDFPages(pdfSpec{garbled: true, lines: []string{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"}}), Options{}); err == nil || !strings.Contains(err.Error(), "乱码") {
+	if _, err := Convert(context.Background(), "bad.pdf", makePDFPages(pdfSpec{garbled: true, lines: []string{"ABCDEFGHIJKLMNOPQRSTUVWXYZ"}}), Options{}); err == nil || !strings.Contains(err.Error(), "乱码") {
 		t.Fatalf("乱码 = %v", err)
 	}
 	// 页数少于 3 页时不判断页眉页脚
-	out, _ = Convert("two.pdf", makePDFPages(body(1, "First page body text here."), body(2, "Second page body text.")), Options{})
+	out, _ = Convert(context.Background(), "two.pdf", makePDFPages(body(1, "First page body text here."), body(2, "Second page body text.")), Options{})
 	if !strings.Contains(out.Markdown, "Galaxy Tech Internal") || out.Info.HeaderFooter != 0 {
 		t.Fatalf("两页时不该去页眉：\n%s", out.Markdown)
 	}

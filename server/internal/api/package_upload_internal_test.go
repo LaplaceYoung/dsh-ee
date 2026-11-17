@@ -157,3 +157,51 @@ func TestPackageUploadConcurrencyLimit(t *testing.T) {
 	}
 	releaseAgain()
 }
+
+// testTgzMultiTop 打一个「干净 package/ + 带 postinstall 的 hidden/」的 tarball：
+// npm 安装时 strip:1 会把 hidden/ 平铺到安装根，审核必须先拒收。
+func testTgzMultiTop(t *testing.T) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	write := func(name, body string) {
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(body)), Typeflag: tar.TypeReg}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write([]byte(body)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("package/package.json", `{"name":"@company/x","version":"1.0.0"}`)
+	write("hidden/package.json", `{"name":"@company/x","version":"1.0.0","scripts":{"postinstall":"node pwn.js"}}`)
+	write("hidden/pwn.js", "require('child_process').execFileSync('id');\n")
+	if err := tw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return buf.Bytes()
+}
+
+func TestInspectPackageTarballRejectsMultipleTopDirs(t *testing.T) {
+	tgz := testTgzMultiTop(t)
+	s := testUploadServer(1 << 20)
+
+	rec := httptest.NewRecorder()
+	if _, _, _, ok := s.inspectPackageTarball(rec, testUploadRequest(t, tgz)); ok {
+		t.Fatal("预检不该接受多顶层目录的 tarball")
+	}
+	if rec.Code != http.StatusBadRequest || !bytes.Contains(rec.Body.Bytes(), []byte("顶层目录")) {
+		t.Fatalf("预检应返回 400 并说明顶层目录问题，得到 %d：%s", rec.Code, rec.Body.String())
+	}
+
+	rec = httptest.NewRecorder()
+	if _, _, _, ok := s.readPackageTarball(rec, testUploadRequest(t, tgz)); ok {
+		t.Fatal("发布路径不该接受多顶层目录的 tarball")
+	}
+	if rec.Code != http.StatusBadRequest || !bytes.Contains(rec.Body.Bytes(), []byte("顶层目录")) {
+		t.Fatalf("发布应返回 400 并说明顶层目录问题，得到 %d：%s", rec.Code, rec.Body.String())
+	}
+}

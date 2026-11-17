@@ -1083,8 +1083,11 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// 申请也带着范围快照：先做并发检查，失败就整单不落库，免得旧快照把申请本身也写歪
+	var requestedAt time.Time
 	if requested != nil {
-		if err := s.store.RequestAssetScope(r.Context(), a.ID, *requested, req.UpdatedAt); err != nil {
+		var err error
+		requestedAt, err = s.store.RequestAssetScope(r.Context(), a.ID, *requested, req.UpdatedAt)
+		if err != nil {
 			if errors.Is(err, store.ErrConflict) {
 				writeErr(w, http.StatusConflict, "范围已被其他人修改，请刷新后重试")
 				return
@@ -1108,8 +1111,9 @@ func (s *Server) handleHubPatch(w http.ResponseWriter, r *http.Request) {
 	}
 	if requested != nil {
 		a.PendingScope = requested
+		a.ScopeRequestedAt = &requestedAt
 		s.feishuReviewScope(a)
-		s.audit(r, auditScopeRequest, a.Kind+":"+a.Slug, map[string]any{"id": a.ID, "scope": requested})
+		s.audit(r, auditScopeRequest, a.Kind+":"+a.Slug, map[string]any{"id": a.ID, "scope": requested, "requested_at": requestedAt})
 	}
 	detail := map[string]any{"id": a.ID}
 	if p.Scope != nil {
@@ -1306,12 +1310,20 @@ type scopeReviewReq struct {
 	AssetID int64  `json:"asset_id"`
 	Action  string `json:"action"`
 	Note    string `json:"note"`
+	// 审批人看到的那份范围申请的快照标识（GET /api/admin/hub/review 里
+	// scopes[].asset.scope_requested_at，或 scopes[].created_at 同值）。
+	// 必填：不传就无法证明批的是评审过的那份，按契约收紧返回 400。
+	ScopeRequestedAt *time.Time `json:"scope_requested_at"`
 }
 
 // POST /api/admin/hub/scope-review：通过或驳回扩大范围的申请。
 func (s *Server) handleHubScopeReview(w http.ResponseWriter, r *http.Request) {
 	var req scopeReviewReq
 	if !readJSON(w, r, &req) {
+		return
+	}
+	if req.ScopeRequestedAt == nil || req.ScopeRequestedAt.IsZero() {
+		writeErr(w, http.StatusBadRequest, "审核范围申请要带上 scope_requested_at；请刷新页面后重新审核")
 		return
 	}
 	a, err := s.store.GetAsset(r.Context(), req.AssetID)
@@ -1331,7 +1343,11 @@ func (s *Server) handleHubScopeReview(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "驳回需要填写原因")
 		return
 	}
-	ok, err := s.store.ResolveAssetScope(r.Context(), a.ID, req.Action == "approve", truncate(req.Note, 1000))
+	ok, err := s.store.ResolveAssetScope(r.Context(), a.ID, req.Action == "approve", truncate(req.Note, 1000), *req.ScopeRequestedAt)
+	if errors.Is(err, store.ErrConflict) {
+		writeErr(w, http.StatusConflict, "这条范围申请已被更新，请刷新后重新审核")
+		return
+	}
 	if err != nil {
 		s.internalErr(w, r, err)
 		return
@@ -1345,7 +1361,8 @@ func (s *Server) handleHubScopeReview(w http.ResponseWriter, r *http.Request) {
 		action = auditReviewReject
 	}
 	s.notifyFeishuResult(a.OwnerID, a.Title, req.Action)
-	s.audit(r, action, a.Kind+":"+a.Slug+"#scope", map[string]any{"requested": a.PendingScope, "note": truncate(req.Note, 500)})
+	// requested_at 记录的是校验通过、实际被消费的那份申请的快照标识，便于事后取证。
+	s.audit(r, action, a.Kind+":"+a.Slug+"#scope", map[string]any{"requested": a.PendingScope, "requested_at": req.ScopeRequestedAt.UTC(), "note": truncate(req.Note, 500)})
 	s.hub.notify()
 	w.WriteHeader(http.StatusNoContent)
 }

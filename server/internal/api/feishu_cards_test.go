@@ -38,6 +38,9 @@ type fakeFeishuMessages struct {
 	mu       sync.Mutex
 	base     http.Handler
 	messages []feishuMessage
+	// failInteractive 让接下来 N 次「发审批卡」失败：用来模拟新申请的新卡没发出去、
+	// 审批人手里还挂着旧卡的窗口（发送失败不会 supersede 旧动作）。
+	failInteractive int
 }
 
 func (f *fakeFeishuMessages) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +67,12 @@ func (f *fakeFeishuMessages) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		f.mu.Lock()
+		if f.failInteractive > 0 {
+			f.failInteractive--
+			f.mu.Unlock()
+			w.WriteHeader(500)
+			return
+		}
 		msg.MessageID = fmt.Sprintf("om-%d", len(f.messages)+1)
 		f.messages = append(f.messages, msg)
 		f.mu.Unlock()
@@ -71,6 +80,19 @@ func (f *fakeFeishuMessages) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	f.base.ServeHTTP(w, r)
+}
+
+// interactiveCount 是已经发出去的审批卡数量：下一张卡的 index 就是它。
+func (f *fakeFeishuMessages) interactiveCount() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, m := range f.messages {
+		if m.Type == "interactive" {
+			n++
+		}
+	}
+	return n
 }
 
 func (f *fakeFeishuMessages) interactiveAction(t *testing.T, index int) (actionID, messageID string) {
@@ -378,6 +400,60 @@ func TestFeishuCardsAndCallbacks(t *testing.T) {
 	expectToast(t, "加密回调审批通过", code, body, "success", "已通过")
 	if v, err := st.GetAssetVersion(ctx, encID, 1); err != nil || v.Status != store.StatusPublished {
 		t.Fatalf("加密回调通过后应上架：%+v err=%v", v, err)
+	}
+
+	// ---- 范围审批卡：卡片动作里带的快照标识必须和当前申请一致 ----
+	// 先关掉 Encrypt Key，后面用明文回调验证范围卡（前面已单测过加密回调本身）。
+	settings = decodeAs[map[string]any](t, mustGet(t, admin, "/api/admin/auth/oidc"))
+	delete(settings, "clientSecret")
+	settings["feishuEncryptKey"] = ""
+	code, body = admin.do("PUT", "/api/admin/auth/oidc", settings, nil)
+	expect(t, "关掉 Encrypt Key 便于验证范围卡", code, 200, body)
+	code, body = authorClient.do("POST", "/api/hub", map[string]any{
+		"kind": "app", "slug": "feishu-scope-toctou", "scope": map[string]any{"users": []int64{author.ID}},
+		"spec": map[string]any{"title": "范围审批应用", "description": "复现范围审批 TOCTOU", "persona": "你是销售助理。"},
+	}, nil)
+	expect(t, "作者建自己用的应用", code, 201, body)
+	scopeAppID := decodeAs[struct {
+		Asset struct{ ID int64 } `json:"asset"`
+	}](t, body).Asset.ID
+	scopePath := fmt.Sprintf("/api/hub/%d", scopeAppID)
+
+	// 申请 A：分享给研发部 → 给审批人发一张范围审批卡
+	next := fakeNotices.interactiveCount()
+	code, body = authorClient.do("PATCH", scopePath, map[string]any{"scope": map[string]any{"departments": []string{"研发部"}},
+		"updated_at": scopeToken(t, authorClient, scopePath)}, nil)
+	expect(t, "申请分享给研发部", code, 200, body)
+	actionA, messageA := fakeNotices.interactiveAction(t, next)
+
+	// 审批人看卡期间，负责人换成 B（全员）；模拟新卡发送失败，旧卡还 pending。
+	fakeNotices.failInteractive = 1
+	code, body = authorClient.do("PATCH", scopePath, map[string]any{"scope": map[string]any{"all": true},
+		"updated_at": scopeToken(t, authorClient, scopePath)}, nil)
+	expect(t, "申请换成全员", code, 200, body)
+	cur, err := st.GetAsset(ctx, scopeAppID)
+	if err != nil || cur.PendingScope == nil || !cur.PendingScope.All {
+		t.Fatalf("新申请应覆盖在审申请：%+v err=%v", cur, err)
+	}
+	// 旧卡点通过：批的是已被替换的旧申请，必须拒绝，不能消费新申请。
+	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionA, messageA, "ou-reviewer", "approve"), nil)
+	expectToast(t, "旧卡审批已被更新的申请", code, body, "error", "已被其他人处理")
+	cur, err = st.GetAsset(ctx, scopeAppID)
+	if err != nil || cur.Scope.All || cur.PendingScope == nil {
+		t.Fatalf("旧卡不能消费新申请、不能生效：%+v err=%v", cur, err)
+	}
+
+	// 重新发一张带 B 快照的卡：点通过才生效。
+	next = fakeNotices.interactiveCount()
+	code, body = authorClient.do("PATCH", scopePath, map[string]any{"scope": map[string]any{"users": []int64{author.ID, applicant.ID}},
+		"updated_at": scopeToken(t, authorClient, scopePath)}, nil)
+	expect(t, "申请 C", code, 200, body)
+	actionC, messageC := fakeNotices.interactiveAction(t, next)
+	code, body = admin.do("POST", "/api/auth/feishu/card", cardEvent(actionC, messageC, "ou-reviewer", "approve"), nil)
+	expectToast(t, "新卡审批通过", code, body, "success", "已通过")
+	cur, err = st.GetAsset(ctx, scopeAppID)
+	if err != nil || cur.PendingScope != nil || !slices.Contains(cur.Scope.Users, applicant.ID) {
+		t.Fatalf("新卡应通过并让申请人生效：%+v err=%v", cur, err)
 	}
 }
 

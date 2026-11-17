@@ -2,6 +2,7 @@ package kb
 
 import (
 	"bytes"
+	"context"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -37,7 +38,7 @@ type sheet struct {
 }
 
 // convertXLSX 每个工作表一节，表格分段，每段开头重复表头；取单元格显示的值，合并单元格的值填到每一格，隐藏的工作表跳过。
-func convertXLSX(data []byte, opt Options) (out *Converted, err error) {
+func convertXLSX(ctx context.Context, data []byte, opt Options) (out *Converted, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			out, err = nil, fmt.Errorf("Excel 解析失败：%v", r)
@@ -55,11 +56,14 @@ func convertXLSX(data []byte, opt Options) (out *Converted, err error) {
 	var sheets []sheet
 	total := 0
 	for _, name := range f.GetSheetList() {
+		if err := checkCtx(ctx); err != nil {
+			return nil, err
+		}
 		if visible, err := f.GetSheetVisible(name); err == nil && !visible {
 			info.HiddenSheets++
 			continue
 		}
-		raw, err := xlsxRows(f, name, MaxSheetRows-total)
+		raw, err := xlsxRows(ctx, f, name, MaxSheetRows-total)
 		if err != nil {
 			return nil, err
 		}
@@ -75,7 +79,7 @@ func convertXLSX(data []byte, opt Options) (out *Converted, err error) {
 }
 
 // xlsxRows 读一个工作表显示的值，最多 limit 行（数的是原始行，空行也算，防止超大文件把内存吃光）。
-func xlsxRows(f *excelize.File, name string, limit int) ([][]string, error) {
+func xlsxRows(ctx context.Context, f *excelize.File, name string, limit int) ([][]string, error) {
 	rows, err := f.Rows(name)
 	if err != nil {
 		return nil, errors.New("Excel 工作表「" + name + "」读取失败")
@@ -83,7 +87,12 @@ func xlsxRows(f *excelize.File, name string, limit int) ([][]string, error) {
 	defer rows.Close()
 	var out [][]string
 	nonEmpty := 0
-	for rows.Next() {
+	for n := 0; rows.Next(); n++ {
+		if n&(ctxCheckEvery-1) == 0 {
+			if err := checkCtx(ctx); err != nil {
+				return nil, err
+			}
+		}
 		cols, err := rows.Columns()
 		if err != nil {
 			return nil, errors.New("Excel 工作表「" + name + "」读取失败")
@@ -291,7 +300,7 @@ func sheetsMarkdown(sheets []sheet, withHeading bool, opt Options, info *Info) s
 }
 
 // convertCSV 先认编码（Excel 导出的中文 CSV 多是 GBK）、再认分隔符，然后跟 Excel 的一个工作表一样处理。
-func convertCSV(data []byte, opt Options) (*Converted, error) {
+func convertCSV(ctx context.Context, data []byte, opt Options) (*Converted, error) {
 	info := Info{Format: "csv"}
 	text, enc, err := decodeText(data)
 	if err != nil {
@@ -305,7 +314,12 @@ func convertCSV(data []byte, opt Options) (*Converted, error) {
 	r.FieldsPerRecord = -1
 	var raw [][]string
 	nonEmpty := 0
-	for {
+	for n := 0; ; n++ {
+		if n&(ctxCheckEvery-1) == 0 {
+			if err := checkCtx(ctx); err != nil {
+				return nil, err
+			}
+		}
 		rec, err := r.Read()
 		if err == io.EOF {
 			break

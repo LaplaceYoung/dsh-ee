@@ -546,10 +546,12 @@ func (s *Store) grantScopeUser(ctx context.Context, table string, id, userID int
 
 // RequestAssetScope 记下负责人申请的新范围，等审核；已有的申请被替换。
 // expected 非空时做乐观并发检查（申请也是整段范围的快照，要看快照是不是最新的）。
-func (s *Store) RequestAssetScope(ctx context.Context, id int64, sc Scope, expected *time.Time) error {
+// 返回这次申请的快照标识 scope_requested_at：审批人必须原样带回，
+// 否则期间被替换掉的旧申请会去消费新申请（见 ResolveAssetScope）。
+func (s *Store) RequestAssetScope(ctx context.Context, id int64, sc Scope, expected *time.Time) (time.Time, error) {
 	text, err := scopeText(sc)
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 	t := now()
 	q := "UPDATE assets SET pending_scope = ?, scope_requested_at = ?, scope_note = '', updated_at = ? WHERE id = ?"
@@ -560,20 +562,23 @@ func (s *Store) RequestAssetScope(ctx context.Context, id int64, sc Scope, expec
 	}
 	res, err := s.db.ExecContext(ctx, q, args...)
 	if err != nil {
-		return err
+		return time.Time{}, err
 	}
 	if n, _ := res.RowsAffected(); n == 0 && expected != nil {
-		return s.casMiss(ctx, "assets", "id", id, *expected)
+		return time.Time{}, s.casMiss(ctx, "assets", "id", id, *expected)
 	}
-	return nil
+	return t, nil
 }
 
 // ResolveAssetScope 审核范围申请：通过时新范围生效，驳回时记下原因。返回是否有在审的申请。
+// expectedRequestedAt 是审批人评审的那份申请的快照标识（scope_requested_at）：事务里锁住资产行后
+// 必须与当前 pending_scope 的标识一致。不一致说明负责人已经把申请换成了新的，返回 ErrConflict，
+// 既不通过也不消费新申请——否则审批人点一次通过，生效的会是他没看过的快照。
 // 通过时不能把 pending_scope 直接整段写回：它是申请那一刻的快照，之后可能又有人
 // （如审批「申请使用」）往范围里追加了用户。这里以快照为基础合并当前范围里的 Users，
 // 只让申请本身想加的 All / Departments / Roles 生效；当前已经是「所有人」时保持所有人，
 // 不因为旧申请再收窄。
-func (s *Store) ResolveAssetScope(ctx context.Context, id int64, approve bool, note string) (bool, error) {
+func (s *Store) ResolveAssetScope(ctx context.Context, id int64, approve bool, note string, expectedRequestedAt time.Time) (bool, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return false, err
@@ -581,7 +586,8 @@ func (s *Store) ResolveAssetScope(ctx context.Context, id int64, approve bool, n
 	defer tx.Rollback()
 	var curRaw string
 	var pendingRaw sql.NullString
-	err = tx.QueryRowContext(ctx, "SELECT scope, pending_scope FROM assets WHERE id = ? FOR UPDATE", id).Scan(&curRaw, &pendingRaw)
+	var requestedAt sql.NullTime
+	err = tx.QueryRowContext(ctx, "SELECT scope, pending_scope, scope_requested_at FROM assets WHERE id = ? FOR UPDATE", id).Scan(&curRaw, &pendingRaw, &requestedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return false, nil
 	}
@@ -590,6 +596,10 @@ func (s *Store) ResolveAssetScope(ctx context.Context, id int64, approve bool, n
 	}
 	if !pendingRaw.Valid || pendingRaw.String == "" {
 		return false, nil
+	}
+	// 令牌缺失或对不上都按冲突处理：调用方不能用「不传令牌」绕过快照校验。
+	if expectedRequestedAt.IsZero() || !requestedAt.Valid || !requestedAt.Time.Equal(expectedRequestedAt) {
+		return false, ErrConflict
 	}
 	if !approve {
 		if _, err := tx.ExecContext(ctx,

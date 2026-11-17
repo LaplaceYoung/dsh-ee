@@ -14,6 +14,9 @@ export function fromGeneratedDoc(doc: GeneratedDevDoc): DevDoc {
     title: doc.title,
     summary: doc.summary,
     body: doc.markdown,
+    // 译文正文不在生成物里（按语言懒加载），只带「哪些语言有译文」的同步标记；
+    // 没有译文时不加这个键（旧静态兜底数据也没有），页面统一按回退链取正文
+    ...(doc.hasBody ? { hasBody: doc.hasBody } : {}),
     updatedAt: doc.updated_at,
     tags: doc.tags,
     sourcePath: doc.source,

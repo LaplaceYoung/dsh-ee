@@ -396,7 +396,10 @@ func (s *Store) InsertMirroredVersion(ctx context.Context, v *NpmVersion) error 
 	return insertVersion(ctx, s.db, v)
 }
 
-// SetPackageDistTags 整体替换 dist-tags。
+// SetPackageDistTags 整体替换 dist-tags。只用于「以外部文档为准」的整表覆盖
+// （镜像同步 / 离线导入）：调用方不读旧值，单条 UPDATE 本身就是原子的。
+// 需要基于当前值做增删的读改写（例如员工设置 dist-tag）必须走 UpdatePackageDistTags，
+// 否则会和 PublishHosted 并发时把对方刚写进去的标签覆盖掉。
 func (s *Store) SetPackageDistTags(ctx context.Context, name string, tags map[string]string) error {
 	text, err := jsonText(tags)
 	if err != nil {
@@ -410,6 +413,51 @@ func (s *Store) SetPackageDistTags(ctx context.Context, name string, tags map[st
 		return ErrNotFound
 	}
 	return nil
+}
+
+// UpdatePackageDistTags 在事务里锁住包行、读当前 dist-tags、交给 fn 改完再写回，
+// 返回写回的 map。它与 PublishHosted 用的是同一把行锁（同一行的 SELECT … FOR UPDATE），
+// 所以发布事务（合并 latest / 新版本标签）和 dist-tag 修改会按行锁串行化：fn 读到的
+// 永远是最新已提交的值，不会出现「读旧 map → 对方提交 → 整表写回旧 map」的丢失更新。
+// 包不存在时返回 ErrNotFound；fn 返错则回滚、不写库。
+func (s *Store) UpdatePackageDistTags(ctx context.Context, name string, fn func(tags map[string]string) (map[string]string, error)) (map[string]string, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var raw string
+	err = tx.QueryRowContext(ctx, "SELECT dist_tags FROM npm_packages WHERE name = ? FOR UPDATE", name).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	tags := map[string]string{}
+	if raw != "" {
+		// 与 scanPackage 一致：坏掉的 JSON 不阻断写路径，按能解析出的部分继续。
+		_ = json.Unmarshal([]byte(raw), &tags)
+	}
+	next, err := fn(tags)
+	if err != nil {
+		return nil, err
+	}
+	if next == nil {
+		next = map[string]string{}
+	}
+	text, err := jsonText(next)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := tx.ExecContext(ctx, "UPDATE npm_packages SET dist_tags = ?, updated_at = ? WHERE name = ?", text, now(), name); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return next, nil
 }
 
 func (s *Store) SetVersionDeprecated(ctx context.Context, name, version string, msg *string) error {

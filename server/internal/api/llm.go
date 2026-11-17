@@ -24,12 +24,28 @@ var (
 	modelNameRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$`)
 )
 
+// validBaseURL 只做结构校验，不限制私网/回环地址：很多企业把模型网关自托管在内网，
+// 一刀切阻断会直接破坏既有部署能力。base_url 是管理员（upstream.manage）显式配置的，
+// 不是普通用户能填的；出站请求的边界放在重定向策略上（见 New 里的 s.upstream），
+// 跨主机跳转一律拒绝，避免上游把请求（含企业 key 与 POST 请求体）带去别处。
 func validBaseURL(raw string) (string, bool) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
 		return "", false
 	}
 	return strings.TrimRight(u.String(), "/"), true
+}
+
+// baseURLOrigin 返回 base_url 的 origin（scheme://host[:port]，host 忽略大小写）。
+// 换 origin 意味着请求连同解密后的企业 key 会被发往另一台服务：这时必须要求管理员
+// 显式重填 api_key，不能让旧 key 自动跟过去。只有 path（或尾部斜杠规范化）变化时
+// origin 不变，可以安全沿用旧 key。
+func baseURLOrigin(raw string) (string, bool) {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
+		return "", false
+	}
+	return strings.ToLower(u.Scheme) + "://" + strings.ToLower(u.Host), true
 }
 
 func cleanModels(ms []string) []string {
@@ -163,7 +179,10 @@ func (s *Server) handleCreateProvider(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
-	p := &store.Provider{Name: req.Name, Vendor: req.Vendor, BaseURL: base, APIKeyEnc: enc, APIKeyHint: secret.Hint(req.APIKey), Priority: 100, Enabled: true}
+	// key 与它当前服务的地址一起记：之后 base_url 再被改到别的 origin 时，读取侧能
+	// 识别这把 key 不属于新地址（改址守卫上线前的历史记录）。
+	keyOrigin, _ := baseURLOrigin(base) // base 已通过 validBaseURL
+	p := &store.Provider{Name: req.Name, Vendor: req.Vendor, BaseURL: base, APIKeyEnc: enc, APIKeyHint: secret.Hint(req.APIKey), APIKeyOrigin: keyOrigin, Priority: 100, Enabled: true}
 	if req.Priority != nil {
 		p.Priority = *req.Priority
 	}
@@ -212,7 +231,19 @@ func (s *Server) handleUpdateProvider(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
+	// 改 base_url 前先取旧记录：origin 变了就必须同时重填 api_key，否则旧 key 会被
+	// 自动带到新地址。接口从不回显 key 明文，管理员无从发现它已经换了收件方。
+	cur, err := s.store.GetProvider(r.Context(), id)
+	if notFound(err) {
+		writeErr(w, http.StatusNotFound, "上游不存在")
+		return
+	}
+	if err != nil {
+		s.internalErr(w, r, err)
+		return
+	}
 	p := store.ProviderPatch{Priority: req.Priority, Enabled: req.Enabled}
+	baseURLChanged := false
 	if req.Vendor != nil {
 		if !vendorRe.MatchString(*req.Vendor) {
 			writeErr(w, http.StatusBadRequest, "vendor 只能包含小写字母、数字和 -")
@@ -224,6 +255,14 @@ func (s *Server) handleUpdateProvider(w http.ResponseWriter, r *http.Request) {
 		base, ok := validBaseURL(*req.BaseURL)
 		if !ok {
 			writeErr(w, http.StatusBadRequest, "base_url 必须是 http(s) 地址")
+			return
+		}
+		oldOrigin, oldOK := baseURLOrigin(cur.BaseURL)
+		newOrigin, _ := baseURLOrigin(base) // validBaseURL 已保证能解析出 origin
+		// 旧数据地址无法解析时同样按换址处理：无法确认旧 key 绑在哪台服务上，宁可要求重填。
+		baseURLChanged = !oldOK || oldOrigin != newOrigin
+		if baseURLChanged && req.APIKey == nil {
+			writeErr(w, http.StatusBadRequest, "修改上游地址（协议、域名或端口）后需要重新填写 API Key")
 			return
 		}
 		p.BaseURL = &base
@@ -240,6 +279,15 @@ func (s *Server) handleUpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 		hint := secret.Hint(*req.APIKey)
 		p.APIKeyEnc, p.APIKeyHint = enc, &hint
+		// 新 key 与它当前服务的地址一起记：沿用旧 key 时保留原记录（origin 未变），
+		// 这样之后 base_url 再被改到别的 origin 时，读取侧能识别出 key 不属于新地址。
+		effectiveBase := cur.BaseURL
+		if p.BaseURL != nil {
+			effectiveBase = *p.BaseURL
+		}
+		if origin, ok := baseURLOrigin(effectiveBase); ok {
+			p.APIKeyOrigin = &origin
+		}
 	}
 	if err := s.store.UpdateProvider(r.Context(), id, p); err != nil {
 		if notFound(err) {
@@ -265,7 +313,7 @@ func (s *Server) handleUpdateProvider(w http.ResponseWriter, r *http.Request) {
 		s.internalErr(w, r, err)
 		return
 	}
-	s.audit(r, auditProviderUpdate, pr.Name, map[string]any{"id": id, "base_url": pr.BaseURL, "enabled": pr.Enabled, "key_changed": req.APIKey != nil})
+	s.audit(r, auditProviderUpdate, pr.Name, map[string]any{"id": id, "base_url": pr.BaseURL, "enabled": pr.Enabled, "key_changed": req.APIKey != nil, "base_url_changed": baseURLChanged})
 	s.kickConnect()
 	writeJSON(w, http.StatusOK, pr)
 }
@@ -304,11 +352,22 @@ type checkResult struct {
 
 // checkProvider 先请求 {base}/models；上游不提供这个接口（404/405）时，
 // 用一个已配置的模型发一次 max_tokens=1 的对话做验证。
+//
+// 它用库里存的 key 访问库里存的 base_url。负责守住改址的 handleUpdateProvider 在
+// origin 变化时强制同时换 key，其它转发路径读的也是同一份记录；再加上 api_key_origin
+// 记录的绑定 origin，可以识别守卫上线前已被改过地址的历史记录——这类记录不检查、
+// 不外送 key。
 func (s *Server) checkProvider(ctx context.Context, p *store.Provider, fallbackModel string) checkResult {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	key, err := s.box.Open(p.APIKeyEnc)
+	if _, ok := baseURLOrigin(p.BaseURL); !ok {
+		return checkResult{Message: "上游地址无法确认，请重新填写 base_url 和 API Key"}
+	}
+	key, err := s.openProviderKey(p)
 	if err != nil {
+		if errors.Is(err, errProviderKeyOriginMoved) {
+			return checkResult{Message: "上游地址已变更，请重新填写 API Key"}
+		}
 		return checkResult{Message: "企业 key 解密失败，请重新填写"}
 	}
 	start := time.Now()

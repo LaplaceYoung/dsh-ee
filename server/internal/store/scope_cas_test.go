@@ -119,7 +119,8 @@ func TestScopeResolveAssetMergesNewGrants(t *testing.T) {
 
 	// 负责人申请扩大到「用户 1、2 + 研发部」
 	pending := Scope{Users: []int64{1, 2}, Departments: []string{"研发效能部"}}
-	if err := st.RequestAssetScope(ctx, a.ID, pending, nil); err != nil {
+	requestedAt, err := st.RequestAssetScope(ctx, a.ID, pending, nil)
+	if err != nil {
 		t.Fatalf("申请范围：%v", err)
 	}
 	// 申请之后又有人被加进范围（例如审批了一条「申请使用」）
@@ -128,7 +129,7 @@ func TestScopeResolveAssetMergesNewGrants(t *testing.T) {
 		t.Fatalf("追加授权：%v", err)
 	}
 
-	ok, err := st.ResolveAssetScope(ctx, a.ID, true, "")
+	ok, err := st.ResolveAssetScope(ctx, a.ID, true, "", requestedAt)
 	if err != nil || !ok {
 		t.Fatalf("通过范围申请：%v %v", ok, err)
 	}
@@ -141,7 +142,7 @@ func TestScopeResolveAssetMergesNewGrants(t *testing.T) {
 		t.Fatalf("通过后应合并快照与当前授权：%+v pending=%v", cur.Scope, cur.PendingScope)
 	}
 	// 没有待审申请时返回 false
-	if ok, err := st.ResolveAssetScope(ctx, a.ID, true, ""); err != nil || ok {
+	if ok, err := st.ResolveAssetScope(ctx, a.ID, true, "", requestedAt); err != nil || ok {
 		t.Fatalf("没有在审申请：%v %v", ok, err)
 	}
 }
@@ -151,13 +152,14 @@ func TestScopeResolveAssetKeepsAll(t *testing.T) {
 	st := openTokenTestStore(t)
 	ctx := context.Background()
 	a := scopeTestAsset(t, st, "resolve-all", Scope{Users: []int64{1}})
-	if err := st.RequestAssetScope(ctx, a.ID, Scope{Users: []int64{1, 2}}, nil); err != nil {
+	requestedAt, err := st.RequestAssetScope(ctx, a.ID, Scope{Users: []int64{1, 2}}, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 	if err := st.UpdateAsset(ctx, a.ID, AssetPatch{Scope: &Scope{All: true}}); err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := st.ResolveAssetScope(ctx, a.ID, true, ""); err != nil || !ok {
+	if ok, err := st.ResolveAssetScope(ctx, a.ID, true, "", requestedAt); err != nil || !ok {
 		t.Fatalf("通过范围申请：%v %v", ok, err)
 	}
 	cur, _ := st.GetAsset(ctx, a.ID)
@@ -170,10 +172,11 @@ func TestScopeResolveAssetReject(t *testing.T) {
 	st := openTokenTestStore(t)
 	ctx := context.Background()
 	a := scopeTestAsset(t, st, "resolve-reject", Scope{Users: []int64{1}})
-	if err := st.RequestAssetScope(ctx, a.ID, Scope{All: true}, nil); err != nil {
+	requestedAt, err := st.RequestAssetScope(ctx, a.ID, Scope{All: true}, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if ok, err := st.ResolveAssetScope(ctx, a.ID, false, "先在部门里试一个月"); err != nil || !ok {
+	if ok, err := st.ResolveAssetScope(ctx, a.ID, false, "先在部门里试一个月", requestedAt); err != nil || !ok {
 		t.Fatalf("驳回范围申请：%v %v", ok, err)
 	}
 	cur, _ := st.GetAsset(ctx, a.ID)
@@ -296,7 +299,7 @@ func TestAssetScopeClearCAS(t *testing.T) {
 
 	// 负责人提交了一条扩大范围的申请
 	sleepTurn()
-	if err := st.RequestAssetScope(ctx, a.ID, Scope{Users: []int64{1, 2}, Departments: []string{"研发效能部"}}, &stale); err != nil {
+	if _, err := st.RequestAssetScope(ctx, a.ID, Scope{Users: []int64{1, 2}, Departments: []string{"研发效能部"}}, &stale); err != nil {
 		t.Fatalf("申请范围：%v", err)
 	}
 	cur, err := st.GetAsset(ctx, a.ID)
@@ -321,7 +324,7 @@ func TestAssetScopeClearCAS(t *testing.T) {
 
 	// 申请之后又有人提交了新的申请（并发窗口）：旧令牌同样不能把新申请清掉
 	sleepTurn()
-	if err := st.RequestAssetScope(ctx, a.ID, Scope{Users: []int64{1, 2, 3}}, &t1); err != nil {
+	if _, err := st.RequestAssetScope(ctx, a.ID, Scope{Users: []int64{1, 2, 3}}, &t1); err != nil {
 		t.Fatalf("第二条申请：%v", err)
 	}
 	if err := st.UpdateAsset(ctx, a.ID, AssetPatch{Scope: &all, ClearPendingScope: true, ExpectedUpdatedAt: &t1}); !errors.Is(err, ErrConflict) {

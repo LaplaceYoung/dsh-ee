@@ -21,6 +21,9 @@ import (
 	"github.com/hikariming/dsh-ee/server/internal/store"
 )
 
+// 轮换后新钥匙过多久生效。要留够余量：轮换到「还在排队」那几次断言之间要走好几个请求，CI 机器慢时 200ms 不够。
+const testEEKeyDelay = 3 * time.Second
+
 // eeVerifier 是企业系统那一侧：从 dsh-ee 的 JWKS 取公钥，验每个请求带的 ee_jwt。
 type eeVerifier struct {
 	issuer string
@@ -50,7 +53,7 @@ func TestPerUserIdentity(t *testing.T) {
 	key := make([]byte, 32)
 	_, _ = rand.Read(key)
 	box, _ := secret.NewBox(key)
-	srv := api.New(st, box, api.Options{DataDir: t.TempDir(), EEKeyDelay: 200 * time.Millisecond}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	srv := api.New(st, box, api.Options{DataDir: t.TempDir(), EEKeyDelay: testEEKeyDelay}, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ts := httptest.NewServer(srv.Handler())
 	defer ts.Close()
 	verifier := eeVerifier{issuer: ts.URL}
@@ -271,7 +274,7 @@ func TestPerUserIdentity(t *testing.T) {
 		t.Fatalf("排队中的钥匙只应有一把：%s", body)
 	}
 	// 到时间后换用新钥匙；轮换前签的令牌在宽限期内照样能验
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(testEEKeyDelay + 300*time.Millisecond)
 	whoami("bob")
 	if oldKid(lastToken.Load().(string)) == oldKid(bobToken.(string)) {
 		t.Fatal("到时间后应换用新钥匙签名（kid 应变）")

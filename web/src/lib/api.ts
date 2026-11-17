@@ -2115,7 +2115,8 @@ export const api = {
   unsubscribe: (id: number) => request<void>("DELETE", `/api/hub/${id}/subscription`),
   hubReviewQueue: () => request<{ items: AssetReviewItem[] }>("GET", "/api/admin/hub/review").then((r) => r.items),
   hubReview: () => request<{ items: AssetReviewItem[]; scopes: ScopeReviewItem[] }>("GET", "/api/admin/hub/review"),
-  reviewScope: (r: { asset_id: number; action: "approve" | "reject"; note?: string }) => request<void>("POST", "/api/admin/hub/scope-review", { note: "", ...r }),
+  /** scope_requested_at 是审核队列里那份申请的快照标识，原样带回；不传/传旧值都会被服务端拒绝，提示刷新。 */
+  reviewScope: (r: { asset_id: number; scope_requested_at: string; action: "approve" | "reject"; note?: string }) => request<void>("POST", "/api/admin/hub/scope-review", { note: "", ...r }),
   reviewAsset: (r: { asset_id: number; version: number; action: "approve" | "reject"; note?: string }) =>
     request<void>("POST", "/api/admin/hub/review", { note: "", ...r }),
   setPluginPolicy: (name: string, p: { scope: Scope; delivery: Delivery; updated_at?: string }) =>

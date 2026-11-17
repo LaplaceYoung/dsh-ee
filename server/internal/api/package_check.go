@@ -14,9 +14,9 @@ import (
 	"github.com/hikariming/dsh-ee/server/internal/store"
 )
 
-// 网页上传的 .tgz 最大 100 MB，发布路径要把整包读进内存做解包检查和入库。几个大上传
-// 同时进来就能把内存打满，所以限制同时处理的个数；npm publish 走 JSON（_attachments 里
-// 是 base64），单包上限一样，但不在这个入口。
+// 网页上传的 .tgz 与 npm publish 的请求体上限都是 100 MB 的包，发布路径要把整包读进
+// 内存做解包检查和入库；npm publish 的附件是 base64，解码后还会再占一份。几个大上传
+// 同时进来就能把内存打满，所以两条入口共用这一个并发名额。
 const maxConcurrentPackageUploads = 2
 
 var packageUploadSlots = make(chan struct{}, maxConcurrentPackageUploads)

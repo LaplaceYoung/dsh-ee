@@ -55,6 +55,9 @@ func (s *Server) feishuNpmPublish(r *http.Request, result *registry.PublishResul
 			"name": result.Name, "version": result.Version, "publisher": publisher,
 			"url": s.publicBase(r) + "/plugins/" + url.PathEscape(result.Name),
 		},
+		// 只有发布者用户名是自由文本；包名与版本号已被 registry.ValidName/ValidVersion
+		// 约束在安全字符集内，站内链接由服务端拼接。
+		DetailFreeText: []string{"publisher"},
 	}
 	s.sendFeishuApproval(ctx, store.FeishuActionNpmVersion, nameAndVersion, 0, 0, ownerPtr(publisherID), card, s.feishuReviewers(ctx))
 }
