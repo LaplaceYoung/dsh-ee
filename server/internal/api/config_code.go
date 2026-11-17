@@ -784,6 +784,12 @@ func (s *Server) handleConfigSubmit(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]any{"error": "配置文件有问题：" + strings.Join(problems, "；"), "problems": problems})
 		return
 	}
+	// 配置里改了管理约束，就要有和直接改约束一样的权限（roles.manage；关超管还要超级管理员本人），
+	// 不能靠 fields.manage 提交一份配置去绕过。
+	if msg := policyChangeProblem(currentAccess(r), s.adminPolicy(r.Context()), c.Policy); msg != "" {
+		writeErr(w, http.StatusForbidden, msg)
+		return
+	}
 	plan, err := s.planConfig(r.Context(), c)
 	if err != nil {
 		s.internalErr(w, r, err)
@@ -870,6 +876,8 @@ func (s *Server) handleConfigDecide(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	need := rbac.FieldsManage
+	// 批准一份改了管理约束的配置时，批准人要满足和直接改约束一样的权限，不能只按 fields.manage 放行。
+	var pendingPolicy *adminPolicy
 	if cr.Kind == store.ChangeUserRoles {
 		need = rbac.RolesManage
 	}
@@ -879,10 +887,21 @@ func (s *Server) handleConfigDecide(w http.ResponseWriter, r *http.Request) {
 		if len(c.Roles) > 0 {
 			need = rbac.RolesManage
 		}
+		if req.Approve {
+			pending := c.Policy
+			pendingPolicy = &pending
+		}
 	}
 	if !currentAccess(r).Has(need) {
 		writeErr(w, http.StatusForbidden, "批准这条变更要有 "+need+" 权限")
 		return
+	}
+	// 只有批准才会写管理约束；驳回不检查。
+	if pendingPolicy != nil {
+		if msg := policyChangeProblem(currentAccess(r), policy, *pendingPolicy); msg != "" {
+			writeErr(w, http.StatusForbidden, msg)
+			return
+		}
 	}
 	status := store.ChangeRejected
 	if req.Approve {
@@ -932,6 +951,15 @@ func (s *Server) handleConfigRollback(w http.ResponseWriter, r *http.Request) {
 	if err != nil || cr.Kind != store.ChangeConfig || cr.Status != store.ChangeApplied || cr.Before == "" {
 		writeErr(w, http.StatusBadRequest, "只有已经生效的配置变更能回滚")
 		return
+	}
+	// 回滚也是提交一份整份配置：回到的约束和现在不一样时，要有和直接改约束一样的权限
+	// （提交时先拦一道，批准时还会再查）。
+	var before configDoc
+	if err := json.Unmarshal([]byte(cr.Before), &before); err == nil {
+		if msg := policyChangeProblem(currentAccess(r), s.adminPolicy(r.Context()), before.Policy); msg != "" {
+			writeErr(w, http.StatusForbidden, msg)
+			return
+		}
 	}
 	nc := &store.ChangeRequest{Kind: store.ChangeConfig, Title: fmt.Sprintf("回滚变更 #%d", id), Payload: cr.Before, CreatedBy: currentUser(r).ID}
 	if err := s.store.CreateChangeRequest(r.Context(), nc); err != nil {
@@ -1007,6 +1035,20 @@ func (s *Server) applyChange(r *http.Request, cr *store.ChangeRequest) (string, 
 func (s *Server) applyConfig(r *http.Request, c *configDoc) error {
 	ctx := r.Context()
 	actor := currentAccess(r)
+	// 写管理约束前最后再按同一个判定复核一遍（提交、批准时都查过；生效是最后一道，不能再有裸写库的路径）。
+	// 约束本身的检查按这份配置里的新角色算（和 plan 同一套），因为配置可能同时新建或改角色，
+	// 不能拿当前库里的权限点核对。
+	curPolicy := s.adminPolicy(ctx)
+	if !policySame(curPolicy, c.Policy) {
+		if msg := policyChangeProblem(actor, curPolicy, c.Policy); msg != "" {
+			return errors.New(msg)
+		}
+		if problems, err := s.policyProblemsWith(ctx, &c.Policy, c); err != nil {
+			return err
+		} else if len(problems) > 0 {
+			return errors.New(strings.Join(problems, "；"))
+		}
+	}
 	for _, cr := range c.Roles {
 		if !subset(actor, cr.Permissions) {
 			return errors.New("批准人自己没有角色 " + cr.Code + " 的全部权限，不能批准这份配置")
@@ -1085,11 +1127,13 @@ func (s *Server) applyConfig(r *http.Request, c *configDoc) error {
 			return err
 		}
 	}
-	pol := c.Policy
-	if err := s.store.PutSettingJSON(ctx, adminPolicySetting, pol, currentUser(r).ID); err != nil {
-		return err
+	// 管理约束走和「直接改约束」同一个写入口（落库 + 生效 + 审计），不再裸写 setting。
+	// 约束没变就不重写，避免正常配置变更多出一条管理约束审计。
+	if now := s.adminPolicy(ctx); !policySame(now, c.Policy) {
+		if err := s.writePolicy(r, now, c.Policy); err != nil {
+			return err
+		}
 	}
-	s.store.SetSuperDisabled(pol.SuperDisabled)
 	return nil
 }
 
