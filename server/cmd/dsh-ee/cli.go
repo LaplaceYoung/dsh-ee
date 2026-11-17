@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hikariming/dsh-ee/server/internal/extension"
+	"github.com/hikariming/dsh-ee/server/internal/kb"
 )
 
 // 不启动服务、不连数据库的子命令：写扩展时用的检查和规格（docs/plugins.md §10、docs/agent-dev.md §3～§4）。
@@ -28,6 +29,9 @@ func runCLI(args []string, stdout, stderr io.Writer) (handled bool, code int) {
 	case "version", "--version":
 		fmt.Fprintln(stdout, version)
 		return true, 0
+	// 内部子命令：PDF 文字抽取的隔离子进程（由 kb.Convert 拉起）。不写进用户文档。
+	case kb.PDFWorkerSubcommand:
+		return true, kb.PDFWorkerMain(os.Stdin, os.Stdout)
 	case "help", "-h", "--help":
 		fmt.Fprint(stdout, cliUsage)
 		return true, 0

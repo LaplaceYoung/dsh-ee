@@ -17,6 +17,7 @@ import (
 	"github.com/hikariming/dsh-ee/server/internal/api"
 	"github.com/hikariming/dsh-ee/server/internal/config"
 	"github.com/hikariming/dsh-ee/server/internal/extension"
+	"github.com/hikariming/dsh-ee/server/internal/kb"
 	"github.com/hikariming/dsh-ee/server/internal/lease"
 	"github.com/hikariming/dsh-ee/server/internal/secret"
 	"github.com/hikariming/dsh-ee/server/internal/store"
@@ -31,6 +32,8 @@ func main() {
 	if handled, code := runCLI(os.Args[1:], os.Stdout, os.Stderr); handled {
 		os.Exit(code)
 	}
+	// PDF 文字抽取放到隔离子进程里做：恶意 PDF 的压缩放大只能炸子进程，不会把服务进程 OOM 掉。
+	kb.EnablePDFIsolation()
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	if err := run(log); err != nil {
 		log.Error("启动失败", "err", err)
