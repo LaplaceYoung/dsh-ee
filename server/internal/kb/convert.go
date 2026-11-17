@@ -124,7 +124,7 @@ func Convert(ctx context.Context, name string, data []byte, opt Options) (*Conve
 	case ".docx":
 		out, err = convertDocx(ctx, data)
 	case ".pdf":
-		out, err = convertPDF(ctx, data)
+		out, err = convertPDFEntry(ctx, data)
 	case ".xlsx":
 		out, err = convertXLSX(ctx, data, opt)
 	case ".csv":
@@ -574,12 +574,19 @@ const maxPDFPages = 2000
 // convertPDF 按页抽文字层：同一行的文字拼起来，行距明显变大的地方断段。每页前面加「## 第 N 页」，方便引用时说清在哪一页。
 // 每页单独判断：扫描页（几乎没字、有大图）和乱码页（字体缺少编码映射）不收文字，正文里留一句说明；
 // 每页都重复的页眉页脚去掉。全部页都收不了时整份拒收。
+//
+// 压缩放大（一条 FlateDecode 流解压成几 GB）在交给库解析前由 checkPDFInflateBudget 拦掉；
+// 正文总量边抽边记账，超过 maxOutput 立即停（页内单行超大时 GetTextByRow 会一次分配很多内存，
+// 那部分只能靠 pdfworker.go 的子进程隔离兜底）。
 func convertPDF(ctx context.Context, data []byte) (out *Converted, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			out, err = nil, fmt.Errorf("PDF 解析失败：%v", r)
 		}
 	}()
+	if err := checkPDFInflateBudget(ctx, data); err != nil {
+		return nil, err
+	}
 	r, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "encrypt") {
@@ -599,6 +606,7 @@ func convertPDF(ctx context.Context, data []byte) (out *Converted, err error) {
 		skip  string   // scanned / garbled
 	}
 	var pageList []*page
+	outBytes := 0
 	for i := 1; i <= pages; i++ {
 		if err := checkCtx(ctx); err != nil {
 			return nil, err
@@ -609,11 +617,18 @@ func convertPDF(ctx context.Context, data []byte) (out *Converted, err error) {
 		}
 		text := ""
 		if rows, err := p.GetTextByRow(); err == nil {
-			text = pdfPageText(rows)
+			if text, err = pdfPageText(ctx, rows); err != nil {
+				return nil, err
+			}
+		}
+		// 边抽边记账：GetTextByRow 一次返回整页文字，等全部页抽完、接口再去查大小就晚了。
+		if outBytes += len(text); outBytes > maxOutput {
+			return nil, errTooBig
 		}
 		pg := &page{n: i}
 		switch {
-		case utf8.RuneCountInString(strings.Join(strings.Fields(text), "")) < 20 && pdfHasImage(p):
+		// 先看长度：长文本不可能是「几乎没字」的扫描页，短文本才需要拼一遍数字数。
+		case len(text) < 256 && utf8.RuneCountInString(strings.Join(strings.Fields(text), "")) < 20 && pdfHasImage(p):
 			pg.skip = "scanned"
 		case strings.TrimSpace(text) == "":
 			continue // 空白页
@@ -687,6 +702,9 @@ func convertPDF(ctx context.Context, data []byte) (out *Converted, err error) {
 			}
 		}
 		b.WriteString(strings.Trim(strings.Join(kept, "\n"), "\n") + "\n\n")
+		if b.Len() > maxOutput {
+			return nil, errTooBig
+		}
 	}
 	return &Converted{Markdown: b.String(), Mime: "application/pdf", Info: info}, nil
 }
@@ -744,13 +762,19 @@ func edgeKey(line string) string {
 	return digitRuns.ReplaceAllString(strings.Join(strings.Fields(line), ""), "#")
 }
 
-func pdfPageText(rows pdf.Rows) string {
+func pdfPageText(ctx context.Context, rows pdf.Rows) (string, error) {
 	type line struct {
 		y    int64
 		text string
 	}
 	var lines []line
-	for _, row := range rows {
+	for i, row := range rows {
+		// 一页里也可能有几十万行（构造出来的行坐标），循环中间要能停。
+		if i%ctxCheckEvery == 0 {
+			if err := checkCtx(ctx); err != nil {
+				return "", err
+			}
+		}
 		var b strings.Builder
 		var prev rune
 		for _, t := range row.Content {
@@ -771,7 +795,7 @@ func pdfPageText(rows pdf.Rows) string {
 		}
 	}
 	if len(lines) == 0 {
-		return ""
+		return "", nil
 	}
 	// 典型行距：相邻两行纵坐标差的中位数
 	var gaps []int64
@@ -796,7 +820,7 @@ func pdfPageText(rows pdf.Rows) string {
 		}
 		b.WriteString(l.text)
 	}
-	return b.String()
+	return b.String(), nil
 }
 
 func isWordRune(r rune) bool {
