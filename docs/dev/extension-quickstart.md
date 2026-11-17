@@ -3,8 +3,14 @@ slug: extension-quickstart
 category: extension
 title: "写 dsh-ee 扩展：清单、检查与调用"
 title_en: "Write a dsh-ee extension: manifest, checks and calls"
+title_es: "Escribe una extensión de dsh-ee: manifiesto, comprobaciones y llamadas"
+title_pt: "Escreva uma extensão do dsh-ee: manifesto, verificações e chamadas"
+title_hi: "dsh-ee एक्सटेंशन लिखें: मैनिफ़ेस्ट, जाँच और कॉल"
 summary: "声明式、服务式、本地三种扩展的骨架、CLI 命令与交付前检查。"
 summary_en: "Declarative, service and local extensions: scaffold, CLI commands and pre-delivery checks."
+summary_es: "Extensiones declarativas, de servicio y locales: esqueleto, comandos de CLI y comprobaciones previas a la entrega."
+summary_pt: "Extensões declarativas, de serviço e locais: scaffold, comandos de CLI e verificações antes da entrega."
+summary_hi: "डिक्लेरेटिव, सर्विस और लोकल एक्सटेंशन: स्कैफ़ोल्ड, CLI कमांड और डिलीवरी से पहले की जाँच।"
 tags: [扩展, 清单, CLI]
 updated_at: 2026-11-12
 status: draft

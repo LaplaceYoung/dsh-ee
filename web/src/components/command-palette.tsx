@@ -3,13 +3,14 @@
  * 和页面里的设置项（lib/search-index.ts）。
  * 选中设置项会打开那个页面并定位、高亮那一节（见 useHashFocus）；选中「文档」进 /docs/:slug。
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { FileText, Settings2 } from "lucide-react";
 import { useCommandState } from "cmdk";
 import { DEV_DOCS } from "../data/dev-docs";
-import { searchDevDocs } from "../data/dev-docs-search";
+import { primeBodies, searchDevDocs } from "../data/dev-docs-search";
+import { docLang, pickLocalized } from "../lib/dev-docs-i18n";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/shadcn/command";
 import { useMenus, useMenuTitle } from "../lib/menus";
 import { MenuIcon } from "../lib/icons";
@@ -33,25 +34,37 @@ export function useSearchShortcut(toggle: () => void) {
 /**
  * ⌘K 里的「文档」分组：用站内文档的全文搜索（标题/摘要/标签/正文），
  * 只渲染当前查询命中的文档；keywords 传入查询本身，保证 cmdk 自己的过滤不会把命中的条目藏掉。
+ * 打开面板时预热当前语言的正文 chunk：预热前正文按中文兜底，预热完成后重算，英文等正文也能命中。
  */
 function DocsGroup({ onSelect }: { onSelect: (slug: string) => void }) {
   const { t, i18n } = useTranslation();
   const search = useCommandState((state) => state.search);
-  const hits = searchDevDocs(DEV_DOCS, search, 5);
+  const lang = docLang(i18n.resolvedLanguage);
+  const [, setBodiesVersion] = useState(0);
+  useEffect(() => {
+    if (lang === "zh") return;
+    let alive = true;
+    primeBodies(lang).then((ok) => {
+      if (alive && ok) setBodiesVersion((version) => version + 1);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [lang]);
+  const hits = searchDevDocs(DEV_DOCS, search, 5, lang);
   if (!search.trim() || hits.length === 0) return null;
-  const zh = i18n.language.startsWith("zh");
   return (
     <CommandGroup heading={t("nav.docs")}>
       {hits.map(({ doc, snippet }) => (
         <CommandItem
           key={`doc-${doc.slug}`}
-          value={`docs ${doc.slug} ${doc.title.zh} ${doc.title.en}`}
+          value={`docs ${doc.slug} ${pickLocalized(doc.title, lang)}`}
           keywords={[search]}
           onSelect={() => onSelect(doc.slug)}
           className="[&>svg:last-child]:hidden"
         >
           <FileText size={16} strokeWidth={1.6} className="shrink-0 text-neutral-400" />
-          <span className="shrink-0 truncate">{zh ? doc.title.zh : doc.title.en}</span>
+          <span className="shrink-0 truncate">{pickLocalized(doc.title, lang)}</span>
           <span className="ml-auto min-w-0 truncate pl-3 text-xs text-neutral-500">
             {t(`devdocs.categories.${doc.category}`)} · {snippet}
           </span>

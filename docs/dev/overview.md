@@ -3,8 +3,14 @@ slug: overview
 category: start
 title: "从哪开始：三条开发路径"
 title_en: "Where to start: three development paths"
+title_es: "Por dónde empezar: tres rutas de desarrollo"
+title_pt: "Por onde começar: três caminhos de desenvolvimento"
+title_hi: "शुरुआत कहाँ से करें: विकास के तीन मार्ग"
 summary: "插件作者、扩展作者、非 DSH 客户端三条路径的入口、交付物与本系统里的落点。"
 summary_en: "Entry points, deliverables and where each one lands in dsh-ee: plugins, extensions, non-DSH clients."
+summary_es: "Puntos de entrada, entregables y dónde encaja cada ruta en dsh-ee: plugins, extensiones y clientes que no son DSH."
+summary_pt: "Pontos de entrada, entregáveis e onde cada caminho se encaixa no dsh-ee: plugins, extensões e clientes que não são DSH."
+summary_hi: "प्रवेश बिंदु, डिलीवरेबल और dsh-ee में हर मार्ग का स्थान: प्लगइन, एक्सटेंशन और गैर-DSH क्लाइंट।"
 tags: [入口, 插件, 扩展, 客户端]
 updated_at: 2026-11-12
 status: draft

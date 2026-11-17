@@ -326,7 +326,9 @@ function parseAdaptedTable(file) {
 
 const REQUIRED_FRONT_MATTER = ['title', 'status', 'since', 'lang'];
 const STATUS_VALUES = ['draft', 'review', 'stable'];
-const LANG_VALUES = ['zh-CN', 'zh', 'en', 'en-US'];
+// lang 是文档正文的主语言。站内 /docs 的五语元数据用 title_es / title_pt / title_hi 等字段表达，
+// 不靠这个键（见 docs/dev/README.md）；es / pt / hi 预留给将来的正文镜像文档。
+const LANG_VALUES = ['zh-CN', 'zh', 'en', 'en-US', 'es', 'pt', 'hi'];
 
 function parseFrontMatter(text) {
   const lines = text.split('\n');
