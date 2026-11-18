@@ -236,6 +236,12 @@ dsh-ee शुरुआती डेवलपमेंट में है (v0.x)
 
 विवरण के लिए [server/README.md](./server/README.md) का “Known limitations” सेक्शन देखें।
 
+## समुदाय
+
+dsh-ee यूज़र्स और डेवलपर्स ग्रुप से जुड़ने के लिए WeChat से QR कोड स्कैन करें:
+
+<img alt="dsh-ee WeChat ग्रुप QR कोड" src="docs/images/wechat-group.png" width="240">
+
 ## योगदान
 
 Issue और pull request का स्वागत है। PR खोलने से पहले संबंधित टेस्ट चलाएँ। UI के स्ट्रिंग `web/src/i18n/{zh,en}` में हैं; अंग्रेज़ी फ़ाइल को चीनी की संरचना के हिसाब से होना चाहिए, और छूटी हुई keys `tsc` फ़ेल कर देती हैं।

@@ -236,6 +236,12 @@ dsh-ee está en desarrollo temprano (v0.x). Las API y los esquemas pueden cambia
 
 Consulta la sección «Known limitations» de [server/README.md](./server/README.md) para más detalles.
 
+## Comunidad
+
+Escanea el código QR con WeChat para unirte al grupo de usuarios y desarrolladores de dsh-ee:
+
+<img alt="Código QR del grupo de WeChat de dsh-ee" src="docs/images/wechat-group.png" width="240">
+
 ## Contribuciones
 
 Los issues y pull requests son bienvenidos. Ejecuta las pruebas correspondientes antes de abrir un PR. Los textos de la interfaz están en `web/src/i18n/{zh,en}`; el archivo en inglés debe reflejar la estructura del chino, y las claves que faltan hacen fallar `tsc`.

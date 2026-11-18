@@ -321,6 +321,12 @@ dsh-ee 处于早期开发阶段（v0.x），版本之间接口与表结构可能
 
 详见 [server/README.md](./server/README.md) 的「已知限制」。
 
+## 交流群
+
+微信扫码加入 DSH-ee 用户 & 开发群：
+
+<img alt="DSH-ee 用户&开发群 微信二维码" src="docs/images/wechat-group.png" width="240">
+
 ## 参与贡献
 
 欢迎提 Issue 和 Pull Request。提 PR 前请跑一下相关测试；界面文案请同时改 `web/src/i18n/zh` 与 `web/src/i18n/en`。
