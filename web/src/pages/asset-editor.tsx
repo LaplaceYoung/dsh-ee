@@ -20,6 +20,7 @@ import { AppAgentGuide } from "../components/app-agent-guide";
 import { UserAuthFields } from "../components/connection-identity";
 import { NamedSharedCredentials } from "../components/named-shared-credentials";
 import { CONNECTION_TEMPLATES } from "../lib/connection-templates";
+import { ConnAgentGuide } from "../components/conn-agent-guide";
 
 /** 读本机文件成 base64（技能包上传用）。 */
 function fileBase64(f: File): Promise<string> {
@@ -243,6 +244,51 @@ export function AppNew() {
     </div>
     </>
   );
+}
+
+/**
+ * 「企业系统 → 新建连接」：默认「让 AI 帮我做」，提示词让 DSH 里的 AI 用 ee_hub 建好连接；
+ * 「手动配置」是连接编辑器。两个页签都挂着，来回切换不丢已经填的内容；?mode= 记住所在页签。
+ */
+export function ConnNew() {
+  const { t } = useTranslation();
+  const [params, setParams] = useSearchParams();
+  const mode: NewMode = params.get("mode") === "manual" || params.get("mode") === "agent" ? (params.get("mode") as NewMode) : "agent";
+  const setMode = (m: NewMode) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        n.set("mode", m);
+        return n;
+      },
+      { replace: true },
+    );
+  const tabs = (
+    <div className="mb-5">
+      <Segmented value={mode} onChange={setMode} options={[{ value: "agent", label: t("appAgent.tabAgent") }, { value: "manual", label: t("appAgent.tabManual") }]} />
+    </div>
+  );
+  return (
+    <>
+    <div hidden={mode !== "manual"}>
+      <AssetEditorRoute forceKind="connection" tabs={tabs} />
+    </div>
+    <div hidden={mode !== "agent"} className="max-w-[1400px]">
+      <PageLink page="admin-connections" className="mb-4 inline-flex items-center gap-1 text-sm text-neutral-600 hover:text-neutral-900">
+        <ArrowLeft size={14} /> {t("asset.back")}
+      </PageLink>
+      <PageHeader title={t("editor.newConnection")} desc={t("hub.tabHints.connection")} actions={<AppWindow size={28} strokeWidth={1.4} className="text-neutral-400" />} />
+      {tabs}
+      <ConnAgentGuide onManual={() => setMode("manual")} />
+    </div>
+    </>
+  );
+}
+
+/** /assets/new：kind=connection 走「让 AI 帮我做 / 手动配置」双页签，其它类型仍是原来的编辑器。 */
+export function AssetNew() {
+  const [params] = useSearchParams();
+  return params.get("kind") === "connection" ? <ConnNew /> : <AssetEditorRoute />;
 }
 
 function AssetEditor({ forceKind, tabs }: { forceKind?: AssetKind; tabs?: ReactNode }) {

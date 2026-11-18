@@ -96,6 +96,8 @@ export default {
     "sources": "Fuentes de datos",
     "app": "Aplicación",
     "provides": "Qué ofrece",
+    "wireIn": "lee mediante",
+    "wireOut": "ofrece",
     "system": "Sistema de negocio",
     "tool": "API",
     "knowledge": "Base de conocimiento",
@@ -155,5 +157,91 @@ export default {
       "web": "Versión web"
     },
     "noOps": "Esta aplicación no lee ni escribe ningún dato."
+  },
+  "connAgent": {
+    "intro": "Olvídate del formulario campo por campo: describe el sistema que quieres conectar y cómo, copia el prompt de abajo y envíaselo a la IA en DSH. Comprueba si el sistema ya está conectado, te enumera los campos para que los confirmes y luego crea la conexión; después introduces las credenciales en la página.",
+    "describeTitle": "1. Describe el sistema",
+    "describeLabel": "Qué conectar y para qué",
+    "describePlaceholder": "p. ej. nuestro sistema de viajes: los empleados consultan sus solicitudes de viaje, envían gastos y revisan su estado; puedo pegar la especificación OpenAPI abajo",
+    "examples": "Prueba con estos:",
+    "example": {
+      "travel": {
+        "label": "Sistema de viajes",
+        "text": "Nuestro sistema de viajes: consultar solicitudes de viaje, enviar gastos y revisar su estado; tenemos una especificación OpenAPI."
+      },
+      "crm": {
+        "label": "CRM",
+        "text": "Nuestro CRM: consultar clientes, historial de contactos y oportunidades abiertas; dirección de intranet, autenticación con Bearer Token."
+      },
+      "ticket": {
+        "label": "Tickets",
+        "text": "El sistema de tickets de TI: consultar tickets, filtrar por estado y crear nuevos; solo tiene un endpoint MCP."
+      },
+      "hr": {
+        "label": "RR. HH. y vacaciones",
+        "text": "El sistema de RR. HH.: consultar vacaciones restantes, horas extra y estadísticas de asistencia; que la IA me pida los detalles de la API."
+      }
+    },
+    "wayLabel": "Cómo conectar",
+    "way": {
+      "openapi": "Especificación OpenAPI",
+      "mcp": "Servidor MCP",
+      "unsure": "No lo sé, que decida la IA"
+    },
+    "urlLabel": "URL del endpoint (opcional)",
+    "urlPlaceholder": "p. ej. https://api.example.com o el endpoint MCP",
+    "specLabel": "Especificación OpenAPI (opcional, pégala aquí)",
+    "specPlaceholder": "Pega el openapi.yaml / swagger.json, o su URL",
+    "authLabel": "Autenticación",
+    "auth": {
+      "none": "Ninguna",
+      "bearer": "Bearer Token",
+      "header": "Cabecera personalizada",
+      "unsure": "No lo sé"
+    },
+    "headerLabel": "Nombre de la cabecera",
+    "headerPlaceholder": "p. ej. X-Api-Key",
+    "secretNote": "No pongas credenciales (tokens, claves) en el prompt ni en el chat: cuando exista la conexión, introdúcelas en su página; solo se guardan en el servidor.",
+    "promptTitle": "2. Copia el prompt y envíalo a DSH",
+    "promptLabel": "Prompt para DSH",
+    "copy": "Copiar prompt",
+    "copied": "Copiado: pégalo en una conversación nueva de DSH",
+    "openDsh": "Abrir DSH",
+    "emptyDesc": "Primero escribe una línea sobre el sistema.",
+    "manualHint": "¿Prefieres rellenar los campos tú mismo o ajustar los detalles? Usa la configuración manual.",
+    "stepsTitle": "Qué pasa después",
+    "steps": [
+      "La IA comprueba con ee_hub search si este sistema ya está conectado y te avisa si es así.",
+      "Te enumera el nombre, el tipo de conexión, el endpoint, la autenticación y la descripción para que los confirmes; di qué cambiar hasta que esté bien.",
+      "Cuando confirmes, crea la conexión con ee_hub create (puede pasar por revisión según la configuración).",
+      "De vuelta en la página de la conexión, introduce las credenciales y pruébala; la lista de herramientas se sincroniza sola. Después abre el alcance a tus compañeros."
+    ],
+    "notReady": "¿DSH aún no está instalado o conectado?",
+    "goSetup": "Ir a la guía de configuración",
+    "goConns": "Ver sistemas de negocio",
+    "iterateTitle": "Sigue ajustándola después",
+    "iterateDesc": "Dilo en DSH; la IA la ajusta con ee_connections_admin / ee_hub_admin:",
+    "iterate": [
+      "desactiva las herramientas de escritura de la conexión /<slug>",
+      "limita una herramienta de /<slug> solo al rol de finanzas",
+      "vuelve a sincronizar la lista de herramientas de /<slug>"
+    ],
+    "tipsTitle": "Consejos",
+    "tips": [
+      "¿La especificación OpenAPI es muy larga? Pega solo los endpoints clave; la IA construye la lista de herramientas.",
+      "¿No sabes cómo conectar? Escribe solo el nombre del sistema; la IA lo comprueba primero y luego te pregunta.",
+      "Mantén las credenciales y los dominios de intranet fuera de modelos externos; el prompt de esta página se queda en tu propio DSH."
+    ],
+    "prompt": {
+      "head": "Ayúdame a conectar un sistema de negocio en dsh-ee. Prepara solo la configuración; yo introduciré las credenciales en la página.",
+      "what": "[Sistema]",
+      "wayOpenapi": "[Cómo conectar] Hay especificación OpenAPI",
+      "wayMcp": "[Cómo conectar] Servidor MCP",
+      "wayUnsure": "[Cómo conectar] Aún sin decidir: ayúdame a elegir entre OpenAPI y MCP y pídeme lo que falte.",
+      "url": "[Endpoint] {{url}}",
+      "doc": "[Especificación OpenAPI]\n{{doc}}",
+      "auth": "[Autenticación] {{auth}}{{header}} (no pongas credenciales en spec; las introduciré en la página)",
+      "steps": "Cómo:\n1. Primero usa ee_hub search (kind: connection) para comprobar que este sistema no está ya conectado; avísame si lo está.\n2. Enumera el nombre, slug, tipo, endpoint, autenticación e instrucciones de la conexión para que los confirme; no envíes nada antes de que confirme.\n3. Cuando confirme, usa ee_hub create con kind: connection: spec lleva title, description, type (openapi o mcp), url, auth, instructions (qué hace este sistema y cuándo lo usan los empleados) y openapi si se dio una especificación. NO incluyas ningún secreto.\n4. Al terminar, dame la página de detalle {{origin}}/connections/<slug>; si tienes herramientas de administración, pruébala con ee_connections_admin test y enumera las herramientas descubiertas."
+    }
   }
 } satisfies Messages<typeof zhNs>;

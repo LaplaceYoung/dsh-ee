@@ -135,7 +135,7 @@ export default async function (t) {
 
   // ---- 企业连接：OpenAPI，指向 dsh-ee 自己的 /healthz ----
   const doc = JSON.stringify({ openapi: "3.0.0", info: { title: "Health" }, paths: { "/healthz": { get: { operationId: "health", summary: "服务健康状态" } }, "/healthz/x": { post: { operationId: "poke" } } } });
-  await admin.goto(`${BASE}/assets/new?kind=connection`);
+  await admin.goto(`${BASE}/assets/new?kind=connection&mode=manual`);
   await admin.getByLabel("标识").fill(conn);
   await admin.getByLabel("标题").fill(`E2E 健康检查 ${tag}`);
   await admin.getByRole("button", { name: "HTTP 接口（OpenAPI）", exact: true }).click();

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useTranslation } from "react-i18next";
-import { ArrowRight, BookOpen, Cable, Database, Globe, LayoutDashboard, MessageSquare, Puzzle, Table2 } from "lucide-react";
+import { BookOpen, Cable, Database, Globe, LayoutDashboard, MessageSquare, Puzzle, Table2 } from "lucide-react";
 import { api, type AppDep, type ConnectionTool, type HubAsset, type WorkbenchWidget } from "../lib/api";
 import { useApi } from "../lib/use-api";
 import { assetPath } from "../lib/hub";
@@ -51,55 +51,57 @@ function useConnectionTools(a: HubAsset, deps: AppDep[] | undefined, bySlug: Map
   return q;
 }
 
-function Column({ title, icon, children }: { title: string; icon: ReactNode; children: ReactNode }) {
+function GroupLabel({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <div className="min-w-0 space-y-2">
-      <div className="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-neutral-500 uppercase">
-        {icon} {title}
-      </div>
-      {children}
+    <div className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-wide text-[var(--hub-label)] uppercase">
+      {icon} {children}
     </div>
   );
 }
 
-function Node({ icon, kind, title, to, aside, children, tone }: { icon: ReactNode; kind: string; title: ReactNode; to?: string | null; aside?: ReactNode; children?: ReactNode; tone?: "brand" }) {
-  return (
-    <div
-      className={cx(
-        "rounded-lg border bg-card p-3 shadow-card",
-        tone === "brand" ? "border-brand-300 ring-1 ring-brand-100 dark:border-brand-400/50 dark:ring-brand-400/20" : "border-neutral-200",
-      )}
-    >
-      <div className="flex items-start gap-2">
-        <span className="mt-0.5 text-neutral-500">{icon}</span>
-        <div className="min-w-0 flex-1">
-          <div className="text-[11px] text-neutral-500">{kind}</div>
-          <div className="truncate text-sm font-medium text-neutral-900">
-            {to ? (
-              <Link to={to} className="hover:text-brand-600 dark:hover:text-brand-200 hover:underline">{title}</Link>
-            ) : (
-              title
-            )}
-          </div>
-        </div>
+/** 落地页枢纽图风格的小瓦片：彩色图标块 + 标题 + 类型，可挂小字内容。 */
+function Tile({ icon, bg, kind, title, to, aside, children }: { icon: ReactNode; bg: string; kind: string; title: ReactNode; to?: string | null; aside?: ReactNode; children?: ReactNode }) {
+  const body = (
+    <>
+      <span className="flex items-center gap-2.5">
+        <span className={cx("flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-white", bg)}>{icon}</span>
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-[13px] font-semibold text-[var(--hub-chip-ink)]">{title}</span>
+          <span className="block truncate text-[11px] text-[var(--hub-label)]">{kind}</span>
+        </span>
         {aside}
-      </div>
-      {children && <div className="mt-2">{children}</div>}
+      </span>
+      {children}
+    </>
+  );
+  const cls = cx(
+    "block w-full rounded-lg bg-[var(--hub-tile)] px-2.5 py-2 text-left ring-1 ring-[var(--hub-tile-ring)] transition",
+    to && "hover:-translate-y-0.5 hover:bg-[var(--hub-tile-hover)] hover:shadow-[0_10px_24px_-10px_rgba(50,50,93,0.35)] hover:ring-[var(--hub-line)]",
+  );
+  return to ? <Link to={to} className={cls}>{body}</Link> : <div className={cls}>{body}</div>;
+}
+
+/** 两组之间下行的流动虚线：dash-flow 滚动，中点压一个品牌色小标签。 */
+function Wire({ label }: { label: string }) {
+  return (
+    <div className="relative my-0.5 flex justify-center" aria-hidden>
+      <svg width="16" height="52" viewBox="0 0 16 52" fill="none">
+        <path d="M8 2v38" stroke="var(--hub-line)" strokeWidth="1.5" strokeLinecap="round" className="dash-flow" />
+        <path d="M3 38l5 8 5-8" stroke="var(--hub-line)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className="absolute top-1/2 -translate-y-1/2 rounded-md bg-[#4d6bfe] px-2 py-0.5 text-[10px] font-medium whitespace-nowrap text-white shadow-[0_6px_16px_-6px_rgba(77,107,254,0.6)]">
+        {label}
+      </span>
     </div>
   );
 }
 
-function Arrow() {
-  return (
-    <div className="hidden items-center justify-center text-neutral-300 lg:flex" aria-hidden>
-      <ArrowRight size={20} />
-    </div>
-  );
-}
+const emptyBox = "rounded-lg border border-dashed border-[var(--hub-placeholder)] px-3 py-2.5 text-xs text-[var(--hub-label)]";
 
 /**
- * 应用详情里的「应用全景」：左边数据来源（企业系统及其接口、知识库、中台数据集、自带表），
- * 中间应用本身（人设、技能、插件），右边提供什么（对话入口、工作台、网页版），下面是能操作哪些数据的清单。
+ * 应用详情里的「应用全景」：落地页枢纽图风格——左边数据来源（企业系统及其接口、知识库、
+ * 中台数据集、自带表），中间应用本身（人设、技能、插件），右边提供什么（对话入口、工作台、网页版），
+ * 下面是能操作哪些数据的清单。配色读 --hub-*（.lp 作用域），连线用 dash-flow。
  */
 export function AppMap({ a, deps, bySlug }: { a: HubAsset; deps?: AppDep[]; bySlug: Map<string, HubAsset> }) {
   const { t } = useTranslation();
@@ -118,14 +120,6 @@ export function AppMap({ a, deps, bySlug }: { a: HubAsset; deps?: AppDep[]; bySl
   const plugins = a.spec.plugins ?? [];
   const toolCount = conns.reduce((n, c) => n + (tools.data?.[c]?.tools?.length ?? 0), 0);
   const visibility = (v?: string) => t(`appData.visibility.${(v ?? "own") as "own"}`);
-  const sourceLabel = (w: WorkbenchWidget) => {
-    const s = w.source;
-    if (!s) return null;
-    if (s.table) return tables.find((x) => x.name === s.table)?.title ?? s.table;
-    if (s.dataset) return s.dataset;
-    if (s.connection) return `${bySlug.get(s.connection)?.spec.title ?? s.connection} · ${s.tool ?? ""}`;
-    return null;
-  };
 
   // 能操作哪些数据
   type Op = { key: string; target: ReactNode; where: string; can: string[]; how: string[]; write?: boolean };
@@ -169,7 +163,7 @@ export function AppMap({ a, deps, bySlug }: { a: HubAsset; deps?: AppDep[]; bySl
   return (
     <Card className="p-5" data-app-map>
       <div className="mb-4">
-        <h2 className="text-neutral-900 text-[15px] leading-6 font-semibold">{t("appMap.title")}</h2>
+        <h2 className="font-medium text-neutral-900">{t("appMap.title")}</h2>
         <p className="mt-1 text-sm text-neutral-600">{t("appMap.desc")}</p>
         <div className="mt-3 flex flex-wrap gap-1.5">
           <Badge>{t("appMap.summary.systems", { count: conns.length })}</Badge>
@@ -180,131 +174,164 @@ export function AppMap({ a, deps, bySlug }: { a: HubAsset; deps?: AppDep[]; bySl
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24px_minmax(0,0.8fr)_24px_minmax(0,1fr)]">
-        {/* 数据从哪来 */}
-        <Column title={t("appMap.sources")} icon={<Database size={13} />}>
-          {!hasSources && <p className="rounded-lg border border-dashed border-neutral-300 p-3 text-sm text-neutral-500">{t("appMap.noSources")}</p>}
-          {conns.map((c) => {
-            const d = dep("connection", c);
-            const x = bySlug.get(c);
-            const info = tools.data?.[c];
-            const list = (info?.tools ?? []).filter((tool) => tool.enabled);
-            return (
-              <Node key={c} icon={<Cable size={15} />} kind={t("appMap.system")} title={x?.spec.title ?? d?.title ?? c} to={x ? assetPath(x.id) : d?.id ? assetPath(d.id) : null} aside={statusBadge(d)}>
-                {tools.loading && !tools.data ? (
-                  <p className="text-xs text-neutral-500">{t("appMap.loading")}</p>
-                ) : info?.tools == null ? (
-                  <p className="text-xs text-neutral-500">{t("appMap.toolsHidden")}</p>
-                ) : list.length === 0 ? (
-                  <p className="text-xs text-neutral-500">{t("appMap.noTools")}</p>
-                ) : (
-                  <ul className="space-y-1">
-                    {list.map((tool) => (
-                      <li key={tool.name} className="flex items-center gap-1.5 text-xs" title={tool.description}>
-                        <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", tool.read_only ? "bg-emerald-500" : "bg-amber-500")} />
-                        <span className="truncate font-mono text-neutral-800">{tool.name}</span>
-                        <span className="shrink-0 text-neutral-500">{tool.read_only ? t("appMap.read") : t("appMap.write")}</span>
-                        {usedTools.has(`${c}/${tool.name}`) && <span className="shrink-0 rounded bg-brand-50 px-1 text-[10px] text-brand-600 dark:bg-brand-400/15 dark:text-brand-200">{t("appMap.workbenchUses")}</span>}
-                      </li>
+      {/* 调用链路：落地页枢纽图风格——点阵底 + 光晕，左右瓦片经流动虚线汇入中间的渐变应用块 */}
+      <div
+        className="lp relative overflow-hidden rounded-xl ring-1 ring-[var(--hub-panel-ring)]"
+        style={{
+          background:
+            "radial-gradient(60% 50% at 50% 75%, var(--hub-glow1), transparent 70%), radial-gradient(45% 40% at 85% 10%, rgb(14 165 233 / 0.10), transparent 70%), var(--hub-base)",
+        }}
+      >
+        <div aria-hidden className="lp-hero-dots pointer-events-none absolute inset-0" />
+        <div className="relative p-4 sm:p-5">
+          {/* 数据从哪来 */}
+          <div className="min-w-0">
+            <GroupLabel icon={<Database size={12} />}>{t("appMap.sources")}</GroupLabel>
+            <div className="grid items-start gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+              {!hasSources && <p className={emptyBox}>{t("appMap.noSources")}</p>}
+              {conns.map((c) => {
+                const d = dep("connection", c);
+                const x = bySlug.get(c);
+                const info = tools.data?.[c];
+                const list = (info?.tools ?? []).filter((tool) => tool.enabled);
+                const shown = list.slice(0, 4);
+                return (
+                  <Tile key={c} icon={<Cable size={14} />} bg="bg-[#0ea5e9]" kind={t("appMap.system")} title={x?.spec.title ?? d?.title ?? c} to={x ? assetPath(x.id) : d?.id ? assetPath(d.id) : null} aside={statusBadge(d)}>
+                    {tools.loading && !tools.data ? (
+                      <p className="mt-1.5 pl-[38px] text-[11px] text-[var(--hub-label)]">{t("appMap.loading")}</p>
+                    ) : info?.tools == null ? (
+                      <p className="mt-1.5 pl-[38px] text-[11px] text-[var(--hub-label)]">{t("appMap.toolsHidden")}</p>
+                    ) : list.length === 0 ? (
+                      <p className="mt-1.5 pl-[38px] text-[11px] text-[var(--hub-label)]">{t("appMap.noTools")}</p>
+                    ) : (
+                      <ul className="mt-1.5 flex flex-wrap gap-1 pl-[38px]">
+                        {shown.map((tool) => (
+                          <li key={tool.name} className="inline-flex items-center gap-1 rounded bg-[var(--hub-chip)] px-1.5 py-0.5" title={tool.description}>
+                            <span className={cx("h-1.5 w-1.5 shrink-0 rounded-full", tool.read_only ? "bg-emerald-500" : "bg-amber-500")} />
+                            <span className="font-mono text-[10px] text-[var(--hub-chip-ink)]">{tool.name}</span>
+                            <span className="text-[9px] text-[var(--hub-label)]">{tool.read_only ? t("appMap.read") : t("appMap.write")}</span>
+                          </li>
+                        ))}
+                        {list.length > shown.length && (
+                          <li className="inline-flex items-center px-1 text-[10px] text-[var(--hub-label)]">+{list.length - shown.length}</li>
+                        )}
+                      </ul>
+                    )}
+                  </Tile>
+                );
+              })}
+              {kbs.map((k) => {
+                const d = dep("knowledge", k);
+                return <Tile key={k} icon={<BookOpen size={14} />} bg="bg-[#10b981]" kind={t("appMap.knowledge")} title={d?.title ?? k} to={d?.id ? `/knowledge/${d.id}` : null} aside={statusBadge(d)} />;
+              })}
+              {datasets.map((ds) => (
+                <Tile key={ds} icon={<Database size={14} />} bg="bg-[#4d6bfe]" kind={t("appMap.dataset")} title={<span className="font-mono">{ds}</span>} />
+              ))}
+              {tables.map((tb) => (
+                <Tile key={tb.name} icon={<Table2 size={14} />} bg="bg-[#f97316]" kind={t("appMap.ownTable")} title={tb.title} aside={<Badge>{visibility(tb.visibility)}</Badge>}>
+                  <div className="mt-1.5 flex flex-wrap gap-1 pl-[38px]">
+                    {tb.fields.filter((f) => !f.hidden).map((f) => (
+                      <span key={f.name} className="rounded bg-[var(--hub-chip)] px-1.5 py-0.5 text-[10px] text-[var(--hub-chip-ink)]">{f.title}</span>
                     ))}
-                  </ul>
-                )}
-              </Node>
-            );
-          })}
-          {kbs.map((k) => {
-            const d = dep("knowledge", k);
-            return <Node key={k} icon={<BookOpen size={15} />} kind={t("appMap.knowledge")} title={d?.title ?? k} to={d?.id ? `/knowledge/${d.id}` : null} aside={statusBadge(d)} />;
-          })}
-          {datasets.map((ds) => (
-            <Node key={ds} icon={<Database size={15} />} kind={t("appMap.dataset")} title={<span className="font-mono">{ds}</span>} />
-          ))}
-          {tables.map((tb) => (
-            <Node key={tb.name} icon={<Table2 size={15} />} kind={t("appMap.ownTable")} title={tb.title} aside={<Badge>{visibility(tb.visibility)}</Badge>}>
-              <div className="flex flex-wrap gap-1">
-                {tb.fields.filter((f) => !f.hidden).map((f) => (
-                  <span key={f.name} className="rounded bg-neutral-100 px-1.5 py-0.5 text-[11px] text-neutral-700">{f.title}</span>
-                ))}
+                  </div>
+                </Tile>
+              ))}
+            </div>
+          </div>
+
+          <Wire label={t("appMap.wireIn")} />
+
+          {/* 应用本身：枢纽图中间的渐变方块，限宽居中 */}
+          <div className="mx-auto w-full max-w-[340px] min-w-0">
+            <div className="scene-card relative rounded-2xl bg-[#4d6bfe] p-4 text-white shadow-[0_18px_36px_-16px_rgba(45,66,200,0.55)] ring-1 ring-white/20" style={{ "--d": "150ms" } as React.CSSProperties}>
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-[#3b5bdb]">
+                  {a.spec.icon ? <span className="text-lg leading-none">{a.spec.icon}</span> : <Puzzle size={18} />}
+                </span>
+                <div className="min-w-0">
+                  <div className="truncate text-[15px] font-bold tracking-tight">{a.spec.title}</div>
+                  <div className="truncate font-mono text-[11px] text-white/75">/{a.slug}</div>
+                </div>
               </div>
-            </Node>
-          ))}
-        </Column>
+              <p className="mt-2 line-clamp-3 text-[11px] leading-5 text-white/80">{(a.spec.persona ?? "").replace(/[#*_`]/g, "").trim() || t("appMap.noPersona")}</p>
+            </div>
+            <div className="mt-2 flex flex-col gap-2">
+              {skills.map((s) => {
+                const x = bySlug.get(s);
+                const d = dep("skill", s);
+                return <Tile key={s} icon={<BookOpen size={14} />} bg="bg-[#4d6bfe]" kind={t("appMap.skill")} title={x?.spec.title ?? d?.title ?? s} to={x ? assetPath(x.id) : null} aside={statusBadge(d)} />;
+              })}
+              {plugins.map((p) => (
+                <Tile key={p} icon={<Puzzle size={14} />} bg="bg-[#10b981]" kind={t("appMap.plugin")} title={<span className="font-mono">{p}</span>} to={pluginPath(p)} aside={statusBadge(dep("plugin", p))} />
+              ))}
+            </div>
+          </div>
 
-        <Arrow />
+          <Wire label={t("appMap.wireOut")} />
 
-        {/* 应用本身 */}
-        <Column title={t("appMap.app")} icon={<Puzzle size={13} />}>
-          <Node tone="brand" icon={a.spec.icon ? <span className="text-base leading-none">{a.spec.icon}</span> : <Puzzle size={15} />} kind={`/${a.slug}`} title={a.spec.title}>
-            <div className="text-[11px] text-neutral-500">{t("appMap.persona")}</div>
-            <p className="line-clamp-4 text-xs text-neutral-700">{a.spec.persona?.trim() || t("appMap.noPersona")}</p>
-          </Node>
-          {skills.map((s) => {
-            const x = bySlug.get(s);
-            const d = dep("skill", s);
-            return <Node key={s} icon={<BookOpen size={15} />} kind={t("appMap.skill")} title={x?.spec.title ?? d?.title ?? s} to={x ? assetPath(x.id) : null} aside={statusBadge(d)} />;
-          })}
-          {plugins.map((p) => (
-            <Node key={p} icon={<Puzzle size={15} />} kind={t("appMap.plugin")} title={<span className="font-mono">{p}</span>} to={pluginPath(p)} aside={statusBadge(dep("plugin", p))} />
-          ))}
-        </Column>
-
-        <Arrow />
-
-        {/* 提供什么 */}
-        <Column title={t("appMap.provides")} icon={<LayoutDashboard size={13} />}>
-          <Node icon={<MessageSquare size={15} />} kind={t("appMap.chat")} title={t("appMap.chatDesc", { slug: a.slug })}>
-            {(a.spec.starters?.length ?? 0) > 0 && <p className="text-xs text-neutral-600">{t("appMap.starters", { count: a.spec.starters!.length })}</p>}
-          </Node>
-          {(a.spec.workbench?.panes ?? []).map((p) => (
-            <Node key={p.id} icon={<LayoutDashboard size={15} />} kind={t("appMap.workbench")} title={t("appMap.pane", { title: p.title })}>
-              <ul className="space-y-1">
-                {(p.widgets ?? []).filter((w) => w.type !== "heading" && w.type !== "markdown").map((w, i) => {
-                  const src = sourceLabel(w);
+          {/* 提供什么 */}
+          <div className="min-w-0">
+            <GroupLabel icon={<LayoutDashboard size={12} />}>{t("appMap.provides")}</GroupLabel>
+            <div className="grid items-start gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(190px, 1fr))" }}>
+              <Tile
+                icon={<MessageSquare size={14} />}
+                bg="bg-[#4d6bfe]"
+                kind={t("appMap.chat")}
+                title={t("appMap.chatDesc", { slug: a.slug })}
+                aside={(a.spec.starters?.length ?? 0) > 0 ? <span className="shrink-0 text-[10px] text-[var(--hub-label)]">{t("appMap.starters", { count: a.spec.starters!.length })}</span> : undefined}
+              />
+              {(a.spec.workbench?.panes ?? []).map((p) => {
+                const counts = new Map<WorkbenchWidget["type"], number>();
+                const writes = new Set<string>();
+                for (const w of p.widgets ?? []) {
+                  if (w.type === "heading" || w.type === "markdown") continue;
+                  counts.set(w.type, (counts.get(w.type) ?? 0) + 1);
                   const wt = writesTable(w);
-                  return (
-                    <li key={i} className="text-xs">
-                      <span className="mr-1 rounded bg-neutral-100 px-1 text-[10px] text-neutral-600">{t(`appWorkbench.widget.${w.type}`)}</span>
-                      <span className="text-neutral-800">{w.title || ""}</span>
-                      {src && <span className="ml-1 text-neutral-500">· {t("appMap.from", { source: src })}</span>}
-                      {wt && <span className="ml-1 text-amber-700 dark:text-amber-300">· {t("appMap.writesTo", { table: tables.find((x) => x.name === wt)?.title ?? wt })}</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            </Node>
-          ))}
-          {a.spec.web && <Node icon={<Globe size={15} />} kind={t("appMap.web")} title={t("appMap.webDesc", { slug: a.slug })} to={`/a/${a.slug}`} />}
-          {widgets.length === 0 && <p className="rounded-lg border border-dashed border-neutral-300 p-3 text-sm text-neutral-500">{t("appMap.noProvides")}</p>}
-        </Column>
+                  if (wt) writes.add(tables.find((x) => x.name === wt)?.title ?? wt);
+                }
+                return (
+                  <Tile key={p.id} icon={<LayoutDashboard size={14} />} bg="bg-[#0ea5e9]" kind={t("appMap.workbench")} title={t("appMap.pane", { title: p.title })}>
+                    <div className="mt-1 pl-[38px] text-[11px] leading-5 text-[var(--hub-label)]">
+                      {[...counts].map(([type, n]) => `${t(`appWorkbench.widget.${type}`)}×${n}`).join(" · ")}
+                      {writes.size > 0 && <span className="text-amber-700 dark:text-amber-300"> · {t("appMap.writesTo", { table: [...writes].join("、") })}</span>}
+                    </div>
+                  </Tile>
+                );
+              })}
+              {a.spec.web && <Tile icon={<Globe size={14} />} bg="bg-[#10b981]" kind={t("appMap.web")} title={t("appMap.webDesc", { slug: a.slug })} to={`/a/${a.slug}`} />}
+              {widgets.length === 0 && !a.spec.web && <p className={emptyBox}>{t("appMap.noProvides")}</p>}
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div className="mt-6">
-        <h3 className="text-sm font-semibold text-neutral-900">{t("appMap.opsTitle")}</h3>
+      <div className="mt-5">
+        <h3 className="text-sm font-medium text-neutral-900">{t("appMap.opsTitle")}</h3>
         <p className="mt-0.5 mb-2 text-xs text-neutral-600">{t("appMap.opsDesc")}</p>
         {ops.length === 0 ? (
           <p className="text-sm text-neutral-500">{t("appMap.noOps")}</p>
         ) : (
           <div className="overflow-x-auto rounded-md border border-neutral-200">
-            <table className="tbl">
-              <thead>
+            <table className="w-full text-xs">
+              <thead className="bg-neutral-50 text-left text-[11px] text-neutral-500 dark:bg-neutral-700/30">
                 <tr>
-                  <th className="px-3 py-2">{t("appMap.col.target")}</th>
-                  <th className="px-3 py-2">{t("appMap.col.where")}</th>
-                  <th className="px-3 py-2">{t("appMap.col.can")}</th>
-                  <th className="px-3 py-2">{t("appMap.col.how")}</th>
+                  <th className="px-2.5 py-1.5 font-medium">{t("appMap.col.target")}</th>
+                  <th className="px-2.5 py-1.5 font-medium">{t("appMap.col.where")}</th>
+                  <th className="px-2.5 py-1.5 font-medium">{t("appMap.col.can")}</th>
+                  <th className="px-2.5 py-1.5 font-medium">{t("appMap.col.how")}</th>
                 </tr>
               </thead>
               <tbody>
                 {ops.map((o) => (
-                  <tr key={o.key} className="border-t border-neutral-100">
-                    <td className="px-3 py-2 text-neutral-900">{o.target}</td>
-                    <td className="px-3 py-2 text-neutral-700">{o.where}</td>
-                    <td className="px-3 py-2">
+                  <tr key={o.key} className="border-t border-neutral-100 dark:border-neutral-700/60">
+                    <td className="px-2.5 py-1.5 text-neutral-900">{o.target}</td>
+                    <td className="px-2.5 py-1.5 text-neutral-700">{o.where}</td>
+                    <td className="px-2.5 py-1.5">
                       <div className="flex flex-wrap gap-1">
                         {o.can.map((c) => <Badge key={c} tone={o.write ? "amber" : "slate"}>{c}</Badge>)}
                       </div>
                     </td>
-                    <td className="px-3 py-2 text-xs text-neutral-600">{o.how.join(" · ")}</td>
+                    <td className="px-2.5 py-1.5 text-neutral-600">{o.how.join(" · ")}</td>
                   </tr>
                 ))}
               </tbody>

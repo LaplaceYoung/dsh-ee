@@ -14,7 +14,7 @@ const EXAMPLES = ["signup", "visit", "expense", "ledger"] as const;
 const EXPERT_EXAMPLES = ["contract", "tax", "onboarding", "team"] as const;
 
 /** 可点选的小标签：选项不多，直接平铺比下拉好挑。 */
-function Pills({ options, values, onChange, empty }: { options: { value: string; label: string }[]; values: string[]; onChange: (v: string[]) => void; empty: string }) {
+export function Pills({ options, values, onChange, empty }: { options: { value: string; label: string }[]; values: string[]; onChange: (v: string[]) => void; empty: string }) {
   if (options.length === 0) return <p className="text-sm text-neutral-500">{empty}</p>;
   return (
     <div className="flex flex-wrap gap-1.5">
