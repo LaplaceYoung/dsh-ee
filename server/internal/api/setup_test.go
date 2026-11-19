@@ -399,3 +399,45 @@ func TestSetupPs1Languages(t *testing.T) {
 		}
 	}
 }
+
+// #239：装接入插件时 dsh plugin add 失败（profile 里以前从公共 npm 装过、在 dsh-ee 上没审核的插件，pnpm 404）。
+// 原来 set -e 直接退出，只剩 pnpm 的 404，员工不知道怎么办；现在要说清原因和两种办法，并以失败结束。
+func TestSetupCLIPluginAddFailure(t *testing.T) {
+	ts, admin := setupScriptServer(t)
+	code, body := admin.do("POST", "/api/admin/connect/publish", map[string]bool{"force": true}, nil)
+	expect(t, "发布接入插件", code, 200, body)
+	for _, lang := range []string{"zh", "en"} {
+		root := t.TempDir()
+		bin := filepath.Join(root, "bin")
+		for _, name := range []string{"npm", "node", "pnpm"} {
+			writeFakeExecutable(t, filepath.Join(bin, name), ":\n")
+		}
+		writeFakeExecutable(t, filepath.Join(bin, "dsh"), "echo '[ERR_PNPM_FETCH_404] GET https://ee.example.com/npm/@someone%2Fold-plugin: Not Found - 404'\nexit 1\n")
+		writeFakeExecutable(t, filepath.Join(bin, "uname"), "printf 'Linux\\n'\n")
+		writeFakeExecutable(t, filepath.Join(bin, "curl"), "cat > /dev/null\n")
+		home := filepath.Join(root, "home")
+		if err := os.MkdirAll(home, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		scriptPath := filepath.Join(root, "setup.sh")
+		if err := os.WriteFile(scriptPath, []byte(getScript(t, ts.URL, "/setup.sh?lang="+lang)), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command("sh", scriptPath, "--token", "ee_at_cli")
+		cmd.Env = []string{"HOME=" + home, "DSH_HOME=" + filepath.Join(root, "dsh-home"), "DSH_PROFILES=web", "PATH=" + bin + ":/usr/bin:/bin"}
+		output, err := cmd.CombinedOutput()
+		if err == nil {
+			t.Fatalf("%s：装插件失败时脚本应以失败结束：\n%s", lang, output)
+		}
+		text := string(output)
+		want := map[string][]string{"zh": {"装 @company/dsh-connect 失败", "待审核", "dsh plugin --profile web remove"}, "en": {"Installing @company/dsh-connect in the DSH web profile failed", "review queue", "dsh plugin --profile web remove"}}[lang]
+		for _, w := range want {
+			if !strings.Contains(text, w) {
+				t.Fatalf("%s：输出里应有「%s」：\n%s", lang, w, text)
+			}
+		}
+		if strings.Contains(text, "完成。") || strings.Contains(text, "Done.") {
+			t.Fatalf("%s：失败了不应再打「完成」：\n%s", lang, text)
+		}
+	}
+}

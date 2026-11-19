@@ -123,3 +123,46 @@ exit 1`+"\n")
 		t.Fatalf("缺 profile 提示不对：%s", output)
 	}
 }
+
+// #239 的原样场景：Desktop 的 desktop profile 里有个以前从公共 npm 装的、在 dsh-ee 上没审核的插件，
+// 内置 dsh 装接入插件时 pnpm 404。要说清原因和怎么办，并以失败结束。
+func TestSetupDesktopShellPluginAddFailure(t *testing.T) {
+	ts, admin := setupScriptServer(t)
+	code, body := admin.do("POST", "/api/admin/connect/publish", map[string]bool{"force": true}, nil)
+	expect(t, "发布接入插件", code, 200, body)
+	root := t.TempDir()
+	app := filepath.Join(root, "DeepSeek Harness.app")
+	writeFakeExecutable(t, filepath.Join(app, "Contents/Resources/runtime/cli/bin/dsh"),
+		"echo '[ERR_PNPM_FETCH_404] GET https://ee.example.com/npm/@dougen%2Fdsh-deepseek-usage: Not Found - 404'\nexit 1\n")
+	writeFakeExecutable(t, filepath.Join(app, "Contents/Resources/runtime/primary-runtime/dependencies/node/bin/node"), ":\n")
+	bin := filepath.Join(root, "bin")
+	writeFakeExecutable(t, filepath.Join(bin, "uname"), "printf 'Darwin\\n'\n")
+	writeFakeExecutable(t, filepath.Join(bin, "curl"), "printf '{}\\n'\n")
+	writeFakeExecutable(t, filepath.Join(bin, "pgrep"), "exit 1\n")
+	home := filepath.Join(root, "home")
+	dshHome := filepath.Join(root, "dsh-home")
+	for _, d := range []string{home, filepath.Join(dshHome, "profiles", "desktop")} {
+		if err := os.MkdirAll(d, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	scriptPath := filepath.Join(root, "setup.sh")
+	if err := os.WriteFile(scriptPath, []byte(getScript(t, ts.URL, "/setup.sh")), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	cmd := exec.Command("sh", scriptPath, "--token", "ee_at_test")
+	cmd.Env = []string{"HOME=" + home, "DSH_HOME=" + dshHome, "DSH_DESKTOP_APP=" + app, "PATH=" + bin + ":/usr/bin:/bin", "LANG=zh_CN.UTF-8"}
+	output, err := cmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("装插件失败时脚本应以失败结束：\n%s", output)
+	}
+	text := string(output)
+	for _, w := range []string{"在 DSH 的 desktop profile 里装 @company/dsh-connect 失败", "待审核", "dsh plugin --profile desktop remove"} {
+		if !strings.Contains(text, w) {
+			t.Fatalf("输出里应有「%s」：\n%s", w, text)
+		}
+	}
+	if strings.Contains(text, "完成。") {
+		t.Fatalf("失败了不应再打「完成」：\n%s", text)
+	}
+}

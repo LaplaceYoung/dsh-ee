@@ -69,7 +69,10 @@ if [ "$(uname -s)" = "Darwin" ]; then
     fi
     CONNECT_PKG=` + shellQuote(pkg) + `
     if [ -n "$CONNECT_PKG" ]; then
-      "$DSH" plugin --profile desktop add "$CONNECT_PKG@latest"
+      if ! "$DSH" plugin --profile desktop add "$CONNECT_PKG@latest"; then
+        msg_plugin_add_failed desktop "$CONNECT_PKG"
+        exit 1
+      fi
       msg_installed_desktop "$CONNECT_PKG"
     else
       msg_no_connect_plugin_desktop
