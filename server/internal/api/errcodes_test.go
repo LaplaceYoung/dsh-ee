@@ -702,6 +702,21 @@ func TestTokensIssueErrorCodes(t *testing.T) {
 	code, body = c.do("DELETE", "/api/me/tokens/at:999999", nil, nil)
 	expect(t, "吊销不存在的令牌", code, http.StatusNotFound, body)
 	checkErr(t, "吊销不存在的令牌", body, "令牌不存在", "token.not_found", nil)
+	// 已经吊销过的令牌再吊销一次（双击、列表没刷新、同族的另一代先被吊销）：和 npm、key 一样按不存在处理，不是 500
+	code, body = c.do("POST", "/api/me/tokens", map[string]any{"name": "twice"}, nil)
+	expect(t, "签一个令牌", code, http.StatusCreated, body)
+	twice := "/api/me/tokens/" + decode[struct {
+		Info struct {
+			ID string `json:"id"`
+		} `json:"info"`
+	}](t, body).Info.ID
+	code, body = c.do("DELETE", twice, nil, nil)
+	if code != http.StatusOK && code != http.StatusNoContent {
+		t.Fatalf("第一次吊销：%d %s", code, body)
+	}
+	code, body = c.do("DELETE", twice, nil, nil)
+	expect(t, "再吊销一次", code, http.StatusNotFound, body)
+	checkErr(t, "再吊销一次", body, "令牌不存在", "token.not_found", nil)
 	code, body = c.do("DELETE", "/api/me/tokens/weird:1", nil, nil)
 	expect(t, "令牌类型不对", code, http.StatusBadRequest, body)
 	checkErr(t, "令牌类型不对", body, "令牌类型不正确", "token.invalid_kind", nil)
