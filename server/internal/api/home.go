@@ -149,7 +149,8 @@ func workbenchHomeApp(c *dshCatalog, base string) (*dshApp, *dshSkill, string) {
 	version := int(crc32.ChecksumIEEE([]byte(content))%900000) + 1
 	title, desc := "工作台", "我的待办、我的应用、本月用量和新上线，问题不知道找谁就问总助理"
 	starters := []string{"我今天有什么要处理的？", "我最近用哪个应用最多？", "最近新上了什么应用？"}
-	app := &dshApp{Name: workbenchHomeName, Title: title, Description: desc, Icon: "🏠", Starters: starters, Launch: "new",
+	// 工作台是员工的「总助理」：再点一次回到原来的会话，「⋯ → 新开一个会话」仍可另起（#252）
+	app := &dshApp{Name: workbenchHomeName, Title: title, Description: desc, Icon: "🏠", Starters: starters, Launch: "resume",
 		Delivery: store.DeliveryAuto, Version: version, Workbench: wb}
 	skill := &dshSkill{Name: workbenchHomeName, Title: title, Kind: store.KindApp, Description: desc, UserInvocable: true, Version: version}
 	_ = base

@@ -59,6 +59,7 @@ func TestDshAppSubscription(t *testing.T) {
 		Name     string `json:"name"`
 		Icon     string `json:"icon"`
 		Delivery string `json:"delivery"`
+		Launch   string `json:"launch"`
 	}
 	read := func() (apps, available, skills []string, etag string) {
 		t.Helper()
@@ -77,6 +78,10 @@ func TestDshAppSubscription(t *testing.T) {
 		}
 		for _, e := range c.Apps {
 			if e.Name == systemHomeApp { // 系统应用，home_test 单独测
+				// 工作台是员工的「总助理」：再点一次回到原来的会话，不是每次新开一个（#252）
+				if e.Launch != "resume" {
+					t.Fatalf("工作台应当回到上次的会话（launch: resume）：%s", raw)
+				}
 				continue
 			}
 			apps = append(apps, e.Name)
