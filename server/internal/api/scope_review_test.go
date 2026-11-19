@@ -112,3 +112,62 @@ func TestHubScopeReviewStaleToken(t *testing.T) {
 		t.Fatalf("范围审批审计里应记录 requested_at：%+v", logs)
 	}
 }
+
+// 范围申请审核中，负责人又提交了新版本：新版本不能因为「现在还只有自己能用」就免审直接上线，
+// 否则审核人看的是旧内容、批的是范围，一通过就把没人审过的新内容推给了全员。
+func TestHubNewVersionDuringScopeRequestNeedsReview(t *testing.T) {
+	st := openTestStore(t)
+	ctx := context.Background()
+	if _, err := api.Bootstrap(ctx, st, "admin", "admin-password-123"); err != nil {
+		t.Fatal(err)
+	}
+	key := make([]byte, 32)
+	_, _ = rand.Read(key)
+	box, _ := secret.NewBox(key)
+	srv := api.New(st, box, api.Options{DataDir: t.TempDir()}, slog.New(slog.NewTextHandler(io.Discard, nil)))
+	ts := httptest.NewServer(srv.Handler())
+	defer ts.Close()
+
+	admin := newClient(t, ts.URL)
+	code, body := admin.do("POST", "/api/auth/login", map[string]string{"username": "admin", "password": "admin-password-123"}, nil)
+	expect(t, "管理员登录", code, 200, body)
+	code, body = admin.do("POST", "/api/admin/users", map[string]any{"username": "alice", "password": "alice-password-1", "department": "销售部"}, nil)
+	expect(t, "建用户", code, 201, body)
+	aliceID := decodeAs[struct{ ID int64 }](t, body).ID
+	alice := newClient(t, ts.URL)
+	code, body = alice.do("POST", "/api/auth/login", map[string]string{"username": "alice", "password": "alice-password-1"}, nil)
+	expect(t, "员工登录", code, 200, body)
+
+	spec := func(persona string) map[string]any {
+		return map[string]any{"title": "销售助理", "description": "帮销售查客户", "persona": persona}
+	}
+	code, body = alice.do("POST", "/api/hub", map[string]any{"kind": "app", "slug": "sales-helper", "scope": map[string]any{"users": []int64{aliceID}}, "spec": spec("你是销售助理。")}, nil)
+	expect(t, "自己用的应用直接发布", code, 201, body)
+	appID := decodeAs[struct{ Asset store.Asset }](t, body).Asset.ID
+	path := fmt.Sprintf("/api/hub/%d", appID)
+
+	// 申请分享给全员：进审核
+	code, body = alice.do("PATCH", path, map[string]any{"scope": map[string]any{"all": true}, "updated_at": scopeToken(t, alice, path)}, nil)
+	expect(t, "申请全员", code, 200, body)
+	token := decodeAs[store.Asset](t, body).ScopeRequestedAt
+
+	// 审核期间提交新版本：要跟着进审核，不能直接上线
+	code, body = alice.do("POST", path+"/versions", map[string]any{"spec": spec("你是销售助理。【未经审核的新内容】")}, nil)
+	expect(t, "审核期间提交新版本", code, 201, body)
+	if status := decodeAs[struct{ Status string }](t, body).Status; status != "pending" {
+		t.Fatalf("范围申请审核中，新版本应进审核而不是 %s", status)
+	}
+
+	// 审核人批准范围：全员看到的仍是审过的旧内容
+	code, body = admin.do("POST", "/api/admin/hub/scope-review", map[string]any{"asset_id": appID, "action": "approve", "scope_requested_at": token}, nil)
+	expect(t, "批准范围", code, 204, body)
+	det := decodeAs[struct {
+		Asset struct {
+			Scope store.Scope
+			Spec  struct{ Persona string }
+		}
+	}](t, mustGet(t, admin, path))
+	if !det.Asset.Scope.All || strings.Contains(det.Asset.Spec.Persona, "未经审核") {
+		t.Fatalf("批准范围后线上应仍是审过的内容：scope=%+v persona=%q", det.Asset.Scope, det.Asset.Spec.Persona)
+	}
+}
