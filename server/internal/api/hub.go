@@ -953,7 +953,13 @@ func (s *Server) handleHubNewVersion(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	status, err := s.initialStatus(r, a.Kind, a.Scope)
+	// 范围申请还在审核时，按申请的范围判断：否则「现在只有自己能用」的新版本免审上线，
+	// 范围一批准，没人审过的内容就直接推给了申请的那些人
+	reviewScope := a.Scope
+	if a.PendingScope != nil {
+		reviewScope = *a.PendingScope
+	}
+	status, err := s.initialStatus(r, a.Kind, reviewScope)
 	if err != nil {
 		s.internalErr(w, r, err)
 		return
