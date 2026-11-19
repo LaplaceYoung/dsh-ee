@@ -2,6 +2,7 @@ import { createElement, useState } from "react";
 import type { DshContext } from "./dsh.js";
 import { t } from "./i18n/index.js";
 import { currentSessionOf } from "./host-session.js";
+import { askNote } from "./vote-note.js";
 
 // 反馈（M8）：每条助手消息尾的 👍👎，经 remote 的 dshEE/vote 打到 POST /api/dsh/feedback。
 
@@ -19,8 +20,10 @@ export function registerVotes(ctx: DshContext, remote: VoteRemote & VoteBindings
       if (voted) return;
       const sessionId = currentSessionOf(ctx.sessions?.list?.getSnapshot?.());
       let note = "";
-      if (value < 0 && typeof window !== "undefined" && typeof window.prompt === "function") {
-        note = window.prompt(t("votes.notePrompt")) ?? "";
+      if (value < 0) {
+        const asked = askNote(typeof window !== "undefined" ? window : undefined, t("votes.notePrompt"));
+        if (asked === null) return; // 点了「取消」：不投这一票
+        note = asked;
       }
       let app = "";
       try {
