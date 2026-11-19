@@ -121,6 +121,12 @@ const versionCols = `name, version, manifest, integrity, shasum, size, blob_key,
 const versionColsLite = `name, version, '' AS manifest, integrity, shasum, size, blob_key, is_plugin, has_install_script, status, scan,
 	publisher_id, review_note, reviewed_by, reviewed_at, deprecated, created_at, published_at`
 
+// 生成 DSH 索引用：清单只取 engines（索引要靠 engines.dsh 按兼容性过滤版本），不取整份清单。
+// 清单写入时都是合法 JSON，JSON_VALID 只是兜底：坏一条不能让整份索引报错。
+const versionColsIndex = `name, version, IF(JSON_VALID(manifest), JSON_OBJECT('engines', JSON_EXTRACT(manifest, '$.engines')), '') AS manifest,
+	integrity, shasum, size, blob_key, is_plugin, has_install_script, status, scan,
+	publisher_id, review_note, reviewed_by, reviewed_at, deprecated, created_at, published_at`
+
 func scanVersion(row interface{ Scan(...any) error }) (*NpmVersion, error) {
 	var v NpmVersion
 	var manifest string
@@ -565,9 +571,9 @@ func (s *Store) PendingVersions(ctx context.Context) ([]*NpmVersion, error) {
 	return s.queryVersions(ctx, "SELECT "+versionColsLite+" FROM npm_versions WHERE status = 'pending' ORDER BY created_at")
 }
 
-// PublishedPluginVersions 是所有已上架的插件版本（生成 DSH 索引用，不含清单）。
+// PublishedPluginVersions 是所有已上架的插件版本（生成 DSH 索引用，清单里只有 engines）。
 func (s *Store) PublishedPluginVersions(ctx context.Context) ([]*NpmVersion, error) {
-	return s.queryVersions(ctx, "SELECT "+versionColsLite+" FROM npm_versions WHERE status = 'published' AND is_plugin = 1 ORDER BY name, created_at")
+	return s.queryVersions(ctx, "SELECT "+versionColsIndex+" FROM npm_versions WHERE status = 'published' AND is_plugin = 1 ORDER BY name, created_at")
 }
 
 // RegistryStats 是 npm 源页面上的统计。
