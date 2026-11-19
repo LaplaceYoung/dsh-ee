@@ -418,7 +418,7 @@ export interface Stats {
   token_stats?: { id: number; name: string; username: string; account_type: "human" | "bot"; tokens: number }[];
 }
 
-export type TokenScope = "models" | "registry:read" | "registry:publish" | "hub" | "connections" | "agent" | "admin";
+export type TokenScope = "models" | "registry:read" | "registry:publish" | "hub" | "connections" | "agent" | "config" | "admin";
 export type TokenSource = "manual" | "device" | "issued" | "legacy";
 /** 令牌签发给哪类客户端：dsh 只用于 DSH 接入；third_party 给其他 Harness/脚本（写操作始终人工确认）。 */
 export type TokenClientKind = "dsh" | "third_party";

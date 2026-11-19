@@ -70,6 +70,7 @@ export default {
       hub: "技能与提示词",
       connections: "企业连接",
       agent: "Agent 自助操作",
+      config: "权限配置（dsh-ee config）",
       admin: "管理操作",
     },
     states: {
