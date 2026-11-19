@@ -295,7 +295,8 @@ func (s *Server) knowledgeExtensions(ctx context.Context, v viewer) ([]map[strin
 	for _, a := range exts {
 		e := specs[a.ID].Extension
 		modes := []string{}
-		if e.has("knowledge.documents") {
+		// 同步用扩展的系统身份读，读到的内容按库的权限给人看：和内置的飞书文档一样，只给能管理连接的人挂
+		if e.has("knowledge.documents") && v.manages(store.KindConnection) {
 			modes = append(modes, store.KBSourceSync)
 		}
 		if e.has("knowledge.search") {
@@ -328,6 +329,11 @@ func (s *Server) handleKBSources(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"sources": sources, "extensions": exts})
 }
 
+// syncSourceForbidden：同步方式的知识源用扩展的系统身份（服务账号）读源系统，读到的内容进库后
+// 按库的权限给人看，等于把服务账号能读到的东西开放给库里的人。和内置的飞书文档一样，只有能管理
+// 企业连接的人能挂；联邦检索用员工自己的身份查，库的维护者就能挂。
+const syncSourceForbidden = "同步方式用扩展的系统身份读源系统，只有能管理企业连接的人能挂；你可以挂联邦检索（按每个人自己的权限实时查）"
+
 // usableSourceExtension 取出请求里要挂的扩展，并确认这个人能用它。
 func (s *Server) usableSourceExtension(ctx context.Context, v viewer, assetID int64) (*store.Asset, *assetSpec, string) {
 	a, sp, err := s.sourceExtension(ctx, assetID)
@@ -358,9 +364,15 @@ func (s *Server) handleKBSourceBrowse(w http.ResponseWriter, r *http.Request) {
 	if !readJSON(w, r, &req) {
 		return
 	}
-	a, sp, msg := s.usableSourceExtension(r.Context(), viewerOf(r), req.AssetID)
+	v := viewerOf(r)
+	a, sp, msg := s.usableSourceExtension(r.Context(), v, req.AssetID)
 	if msg != "" {
 		writeErr(w, http.StatusNotFound, msg)
+		return
+	}
+	// 浏览用的是扩展的系统身份，只为挑同步的范围；挂同步要能管理连接，浏览也一样
+	if !v.manages(store.KindConnection) {
+		writeErr(w, http.StatusForbidden, syncSourceForbidden)
 		return
 	}
 	var out struct {
@@ -408,6 +420,10 @@ func (s *Server) handleKBSourceCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if !sp.Extension.has(need) {
 		writeErr(w, http.StatusBadRequest, "这个扩展不支持这种方式")
+		return
+	}
+	if req.Mode == store.KBSourceSync && !v.manages(store.KindConnection) {
+		writeErr(w, http.StatusForbidden, syncSourceForbidden)
 		return
 	}
 	folder, msg := cleanFolder(req.Folder)
