@@ -461,6 +461,10 @@ func TestRegistry(t *testing.T) {
 		if idx.Plugins[0].Metadata.Category != "tools" || idx.Plugins[0].Metadata.Labels[0] != "internal" || !strings.Contains(idx.Title["zh"], "ACME") {
 			t.Fatalf("索引元数据不对：%s", body)
 		}
+		// 走真实的取数路径（PublishedPluginVersions → BuildIndex）也要带上 engines.dsh，DSH 才能按兼容性过滤
+		if e := idx.Plugins[0].Versions[0].Engines; e == nil || e.Dsh != ">=0.2.0" {
+			t.Fatalf("索引版本应带 package.json 的 engines.dsh：%s", body)
+		}
 	})
 
 	t.Run("新版本待审核时 latest 不变；驳回后版本号不能重用", func(t *testing.T) {
