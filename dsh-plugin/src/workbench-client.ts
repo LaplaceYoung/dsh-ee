@@ -192,8 +192,10 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
     // 表单提交到应用自带的表：直接插入一行，刷新读这张表的组件；配置了 prompt 的再发给 AI
     const saveToTable = (key: string, action: WorkbenchAction, form: Record<string, any>) => {
       const index = Number(key.split(":")[0]);
-      if (sending.has(key)) return;
+      if (sending.has(key) || writing.has(key)) return;
       setFormError(index, "");
+      // 写表期间按钮要禁用（和行按钮写表一样记在 writing 里）：否则双击或网慢时再点一次，同一份表单会插两行
+      setWriting((current) => new Set(current).add(key));
       Promise.resolve(remote.insertFormRow?.({ app: app.name, pane: pane.id, widget: index, values: form }))
         .then((raw: any) => {
           const result = unwrapRemote(raw);
@@ -203,7 +205,12 @@ export function registerWorkbench(ctx: any, deps: WorkbenchDeps) {
           (pane.widgets ?? []).forEach((widget, i) => { if (widget.source?.table === action.table) void load(i); });
           if (action.prompt) sendPrompt(key, action, { form });
         })
-        .catch(() => setFormError(index, t("workbenchClient.saveFailedNetwork")));
+        .catch(() => setFormError(index, t("workbenchClient.saveFailedNetwork")))
+        .finally(() => setWriting((current) => {
+          const next = new Set(current);
+          next.delete(key);
+          return next;
+        }));
     };
     const setFormError = (index: number, error: string) => setFormErrors((current) => ({ ...current, [index]: error }));
     // 表格的行按钮写表：改状态或删除这一行（删除要点两次），完了刷新读这张表的组件
