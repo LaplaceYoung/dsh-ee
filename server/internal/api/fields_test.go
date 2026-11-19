@@ -113,6 +113,22 @@ func TestFieldAccessRules(t *testing.T) {
 		t.Fatalf("指定看不到的文档搜应报不存在：%s", text)
 	}
 
+	// 把库绑进自己的应用、导出带文档的应用文件，或从库生成应用草稿：都不能带出看不到的文档
+	code, body = bob.do("POST", "/api/hub", map[string]any{"kind": "app", "slug": "bob-plans", "scope": map[string]any{"users": []int64{ids["bob"]}},
+		"spec": map[string]any{"title": "规划助手", "description": "问规划", "persona": "你是规划助手。", "knowledge": []string{"plans"}}}, nil)
+	expect(t, "bob 建一个自己用的应用", code, 201, body)
+	appID := decodeAs[struct{ Asset struct{ ID int64 } }](t, body).Asset.ID
+	code, body = bob.do("GET", fmt.Sprintf("/api/hub/%d/export?docs=1", appID), nil, nil)
+	expect(t, "bob 导出应用（带文档）", code, 200, body)
+	if strings.Contains(string(body), "核心计划") || strings.Contains(string(body), "收购") || !strings.Contains(string(body), "公开计划") {
+		t.Fatalf("导出的文档要按访问规则过滤：%s", body)
+	}
+	code, body = bob.do("POST", "/api/me/app-drafts", map[string]any{"from": "knowledge", "slug": "plans"}, nil)
+	expect(t, "bob 从库生成应用草稿", code, 200, body)
+	if strings.Contains(string(body), "核心计划") {
+		t.Fatalf("应用草稿里不该出现 bob 看不到的文档：%s", body)
+	}
+
 	// explain：说清楚判断经过了哪些规则、卡在哪一条
 	code, body = admin.do("POST", "/api/admin/access/explain", map[string]any{"user": "bob", "doc": secret}, nil)
 	expect(t, "explain", code, 200, body)

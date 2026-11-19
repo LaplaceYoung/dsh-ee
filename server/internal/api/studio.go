@@ -165,6 +165,10 @@ func (s *Server) kbDraft(ctx context.Context, v viewer, slug string) (string, *a
 		return "", nil, nil, err
 	}
 	docs, err := s.store.ListKDocs(ctx, b.ID)
+	if err == nil {
+		// 草稿里的标题和小节来自文档：只用这个人按访问规则看得到的
+		docs, err = filterDocs(ctx, s, v, b, docs, func(d *store.KDoc) int64 { return d.ID })
+	}
 	if err != nil {
 		return "", nil, nil, err
 	}
@@ -592,6 +596,10 @@ func (s *Server) handleAppFileExport(w http.ResponseWriter, r *http.Request) {
 		kb := appFileKB{Slug: slug, Title: b.Title, Description: b.Description}
 		if withDocs && v.kbReads(b) {
 			docs, texts, err := s.store.KBaseTexts(ctx, b.ID)
+			if err == nil {
+				// 库能看不等于每篇都能看：文档级的访问规则（扩展字段）在这里也要过一遍
+				docs, err = filterDocs(ctx, s, v, b, docs, func(d *store.KDoc) int64 { return d.ID })
+			}
 			if err != nil {
 				s.internalErr(w, r, err)
 				return
