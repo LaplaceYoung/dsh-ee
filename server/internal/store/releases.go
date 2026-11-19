@@ -137,8 +137,8 @@ func (s *Store) SetDshReleaseRecommended(ctx context.Context, id int64) error {
 		return err
 	}
 	defer tx.Rollback()
-	var target, state string
-	err = tx.QueryRowContext(ctx, "SELECT target, state FROM dsh_releases WHERE id = ? FOR UPDATE", id).Scan(&target, &state)
+	var target, kind, state string
+	err = tx.QueryRowContext(ctx, "SELECT target, kind, state FROM dsh_releases WHERE id = ? FOR UPDATE", id).Scan(&target, &kind, &state)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
 	}
@@ -148,7 +148,9 @@ func (s *Store) SetDshReleaseRecommended(ctx context.Context, id int64) error {
 	if state != ReleaseMirrored {
 		return ErrReleaseNotMirrored
 	}
-	if _, err := tx.ExecContext(ctx, "UPDATE dsh_releases SET recommended = 0 WHERE target = ? AND kind = 'zip'", target); err != nil {
+	// 同一平台、同一种安装包只有一个推荐版本（和清理、自动镜像一样按种类分开）。
+	// 原来写死了 kind = 'zip'：Windows 的 exe 推荐新版本时清不掉旧推荐。
+	if _, err := tx.ExecContext(ctx, "UPDATE dsh_releases SET recommended = 0 WHERE target = ? AND kind = ?", target, kind); err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, "UPDATE dsh_releases SET recommended = 1 WHERE id = ?", id); err != nil {
