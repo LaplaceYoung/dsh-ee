@@ -328,3 +328,52 @@ func TestBundleManifestLimits(t *testing.T) {
 		}
 	})
 }
+
+// 增量导出看的是「什么时候在这里上架」，不是上游发布时间：镜像下来的版本 created_at 是上游
+// 的发布时间，上次导出之后才预载或审核通过的老版本也必须进增量包，否则离线环境永远收不到。
+func TestBundleExportSinceUsesLocalPublishTime(t *testing.T) {
+	svc := newDBBundleService(t)
+	ctx := context.Background()
+	if err := svc.store.EnsureUpstreamPackage(ctx, &store.NpmPackage{Name: "since-a"}); err != nil {
+		t.Fatal(err)
+	}
+	put := func(version string, created, published time.Time) {
+		raw := tgz(t, map[string]string{"package/package.json": `{"name":"since-a","version":"` + version + `"}`})
+		d, err := svc.blobs.Put(bytes.NewReader(raw), int64(len(raw))+1)
+		if err != nil {
+			t.Fatal(err)
+		}
+		v := &store.NpmVersion{Name: "since-a", Version: version, Manifest: json.RawMessage(`{"name":"since-a","version":"` + version + `"}`),
+			Integrity: d.Integrity, Shasum: d.Shasum, Size: d.Size, BlobKey: d.Key, Status: store.StatusPublished, CreatedAt: created, PublishedAt: &published}
+		if err := svc.store.InsertMirroredVersion(ctx, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	lastYear := now.AddDate(-1, 0, 0)
+	put("1.0.0", lastYear, lastYear)            // 上次导出之前就在：不该再导
+	put("1.1.0", lastYear, now.Add(-time.Hour)) // 上游去年发布、刚刚才预载上架：要导
+	since := now.AddDate(0, 0, -1)
+
+	var buf bytes.Buffer
+	if _, err := svc.ExportBundle(ctx, &buf, &since); err != nil {
+		t.Fatal(err)
+	}
+	tr := tar.NewReader(&buf)
+	if _, err := tr.Next(); err != nil {
+		t.Fatal(err)
+	}
+	var man BundleManifest
+	if err := json.NewDecoder(tr).Decode(&man); err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, p := range man.Packages {
+		for _, v := range p.Versions {
+			got = append(got, p.Name+"@"+v.Version)
+		}
+	}
+	if len(got) != 1 || got[0] != "since-a@1.1.0" {
+		t.Fatalf("增量包应只有上次导出之后上架的 since-a@1.1.0：%v", got)
+	}
+}
