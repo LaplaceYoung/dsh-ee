@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { createLauncher, sendUnknownNotice, singleFlight } from "../src/app-launcher.js";
+import { createLauncher, resumableSession, sendUnknownNotice, singleFlight } from "../src/app-launcher.js";
 import type { CatalogApp } from "../src/skills.js";
 
 const app: CatalogApp = { name: "expense", title: "报销助手", description: "", starters: ["这张发票能报吗？"], launch: "new", version: 1 };
@@ -92,4 +92,19 @@ test("并发刷新只跑一次，结束后可以再跑", async () => {
   assert.equal(calls, 2);
   release();
   await next;
+});
+
+test("launch: resume 的应用回到绑定的会话；回不去时返回空", () => {
+  const resumeApp: CatalogApp = { ...app, launch: "resume" };
+  const bindings = { expense: { sessionId: "s1" } };
+  const sessions = { ids: ["s1", "s2"], byId: { s1: {}, s2: {} } };
+  assert.equal(resumableSession(resumeApp, bindings, sessions, []), "s1");
+  // 每次新开的应用、还没绑定过、会话已被删除或归档：都不回去
+  assert.equal(resumableSession(app, bindings, sessions, []), "");
+  assert.equal(resumableSession(resumeApp, {}, sessions, []), "");
+  assert.equal(resumableSession(resumeApp, bindings, { ids: ["s2"], byId: { s2: {} } }, []), "");
+  assert.equal(resumableSession(resumeApp, bindings, { byId: {} }, undefined), "");
+  assert.equal(resumableSession(resumeApp, bindings, sessions, ["s1"]), "");
+  // 宿主没给 ids 列表时只看 byId
+  assert.equal(resumableSession(resumeApp, bindings, { byId: { s1: {} } }, undefined), "s1");
 });

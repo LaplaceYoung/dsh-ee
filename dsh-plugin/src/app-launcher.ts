@@ -31,6 +31,24 @@ async function sendOnce(ctx: any, id: string, text: string): Promise<void> {
   }
 }
 
+/**
+ * 应用设成「回到上次的会话」（launch: resume）时，能回去的那个会话；回不去（没绑定、会话已被删除或归档）返回空。
+ * 侧栏和首屏都先问它，免得首屏每点一次就新开一个、还把绑定改到新会话上（#252）。
+ */
+export function resumableSession(
+  app: CatalogApp,
+  bindings: Record<string, { sessionId?: string } | undefined>,
+  sessions: { ids?: unknown; byId?: Record<string, unknown> } | undefined,
+  archived: unknown,
+): string {
+  const id = bindings[app.name]?.sessionId;
+  if (app.launch !== "resume" || !id) return "";
+  if (Array.isArray(sessions?.ids) && !sessions.ids.includes(id)) return "";
+  if (!sessions?.byId?.[id]) return "";
+  if (Array.isArray(archived) && archived.includes(id)) return "";
+  return id;
+}
+
 export function createLauncher(ctx: any, deps: LauncherDeps) {
   const after = async (app: CatalogApp, id: string) => {
     try {

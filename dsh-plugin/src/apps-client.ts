@@ -3,7 +3,7 @@ import { t } from "./i18n/index.js";
 import { appsGallery, appsSection, heroStrip, inProgressItems, inProgressView, type AppsViewActions, type GalleryTab, type MenuAnchor, type StripPlace } from "./apps-view.js";
 import { readSidebarMode, setSidebarMode, subscribeSidebarMode, type SidebarAppsMode } from "./sidebar-pref.js";
 import { fillInput, openSession } from "./host-session.js";
-import { createLauncher, singleFlight } from "./app-launcher.js";
+import { createLauncher, resumableSession, singleFlight } from "./app-launcher.js";
 import type { CatalogApp, CenterData } from "./skills.js";
 import type { AppBindingMap } from "./app-bindings.js";
 import { createWebOpener } from "./web-link.js";
@@ -117,17 +117,18 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
   // 应用启动后打开它的工作台；由 client.ts 在注册工作台以后设置
   let workbenchOpener: ((app: CatalogApp, sessionId: string, force?: boolean) => Promise<boolean>) | undefined;
   const launcher = createLauncher(ctx, { bind, afterLaunch: async (app, id) => { await workbenchOpener?.(app, id); } });
-  const launchSidebar = async (app: CatalogApp) => {
-    const id = snapshot.bindings[app.name]?.sessionId;
-    const archived = ctx.workspaces?.list?.getSnapshot?.()?.archivedSessionIds;
-    const listed = !Array.isArray(snapshot.sessionSnapshot?.ids) || snapshot.sessionSnapshot.ids.includes(id);
-    if (app.launch === "resume" && id && listed && snapshot.sessionSnapshot?.byId?.[id] && !archived?.includes?.(id)) {
+  /** launch: resume 的应用能回到上次的会话就回去，否则按 fallback 启动。侧栏和首屏都走这里。 */
+  const resumeOr = (fallback: (app: CatalogApp) => Promise<void>) => async (app: CatalogApp) => {
+    const id = resumableSession(app, snapshot.bindings, snapshot.sessionSnapshot, ctx.workspaces?.list?.getSnapshot?.()?.archivedSessionIds);
+    if (id) {
       markSeen(app);
       await launcher.resume(app, id);
       return;
     }
-    await launcher.launchNew(app);
+    await fallback(app);
   };
+  const launchSidebar = resumeOr((app) => launcher.launchNew(app));
+  const launchHero = resumeOr(launcher.launchHero);
   const openWithFallback = (app: CatalogApp, launch: (app: CatalogApp) => Promise<void>) => launcher.run(() => launch(app), () => fill(app));
   const openWeb = createWebOpener(remote, unwrapRemote);
   const web = (app: CatalogApp) => {
@@ -335,11 +336,11 @@ export function registerApps(ctx: any, remote: any, useOverview: () => any, unwr
     const anchor = useRef<any>(null);
     const probe = useRef<any>(null);
     const { place, missing } = useBelowComposer(anchor, probe, state.apps.length > 0);
-    const open = (app: CatalogApp) => { layers.closeLayers(); void openWithFallback(app, launcher.launchHero).then(setNotice); };
+    const open = (app: CatalogApp) => { layers.closeLayers(); void openWithFallback(app, launchHero).then(setNotice); };
     const query = layers.query.trim().toLowerCase();
     const filtered = state.apps.filter((app) => !query || `${app.title} ${app.description} ${app.name}`.toLowerCase().includes(query));
     const gallery = appsGallery(createElement, { apps: state.apps, available: state.available, loggedIn: true, galleryOpen: layers.galleryOpen, query: layers.query, sidebarHidden: mode === "hidden", tab: layers.tab, center: state.center, centerLoading: state.centerLoading, notice }, {
-      ...useActions(setNotice, launcher.launchHero),
+      ...useActions(setNotice, launchHero),
       open,
       search: layers.setQuery,
       setTab: layers.setTab,

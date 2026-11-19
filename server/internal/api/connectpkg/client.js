@@ -23937,6 +23937,14 @@ async function sendOnce(ctx, id, text) {
     throw new SendUnknownError(error62);
   }
 }
+function resumableSession(app, bindings, sessions, archived) {
+  const id = bindings[app.name]?.sessionId;
+  if (app.launch !== "resume" || !id) return "";
+  if (Array.isArray(sessions?.ids) && !sessions.ids.includes(id)) return "";
+  if (!sessions?.byId?.[id]) return "";
+  if (Array.isArray(archived) && archived.includes(id)) return "";
+  return id;
+}
 function createLauncher(ctx, deps) {
   const after = async (app, id) => {
     try {
@@ -24182,17 +24190,17 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
   const launcher = createLauncher(ctx, { bind, afterLaunch: async (app, id) => {
     await workbenchOpener?.(app, id);
   } });
-  const launchSidebar = async (app) => {
-    const id = snapshot.bindings[app.name]?.sessionId;
-    const archived = ctx.workspaces?.list?.getSnapshot?.()?.archivedSessionIds;
-    const listed = !Array.isArray(snapshot.sessionSnapshot?.ids) || snapshot.sessionSnapshot.ids.includes(id);
-    if (app.launch === "resume" && id && listed && snapshot.sessionSnapshot?.byId?.[id] && !archived?.includes?.(id)) {
+  const resumeOr = (fallback) => async (app) => {
+    const id = resumableSession(app, snapshot.bindings, snapshot.sessionSnapshot, ctx.workspaces?.list?.getSnapshot?.()?.archivedSessionIds);
+    if (id) {
       markSeen(app);
       await launcher.resume(app, id);
       return;
     }
-    await launcher.launchNew(app);
+    await fallback(app);
   };
+  const launchSidebar = resumeOr((app) => launcher.launchNew(app));
+  const launchHero = resumeOr(launcher.launchHero);
   const openWithFallback = (app, launch) => launcher.run(() => launch(app), () => fill(app));
   const openWeb = createWebOpener(remote, unwrapRemote2);
   const web = (app) => {
@@ -24454,12 +24462,12 @@ function registerApps(ctx, remote, useOverview, unwrapRemote2) {
     const { place, missing } = useBelowComposer(anchor2, probe, state.apps.length > 0);
     const open2 = (app) => {
       layers.closeLayers();
-      void openWithFallback(app, launcher.launchHero).then(setNotice);
+      void openWithFallback(app, launchHero).then(setNotice);
     };
     const query = layers.query.trim().toLowerCase();
     const filtered = state.apps.filter((app) => !query || `${app.title} ${app.description} ${app.name}`.toLowerCase().includes(query));
     const gallery = appsGallery(import_react.createElement, { apps: state.apps, available: state.available, loggedIn: true, galleryOpen: layers.galleryOpen, query: layers.query, sidebarHidden: mode === "hidden", tab: layers.tab, center: state.center, centerLoading: state.centerLoading, notice }, {
-      ...useActions(setNotice, launcher.launchHero),
+      ...useActions(setNotice, launchHero),
       open: open2,
       search: layers.setQuery,
       setTab: layers.setTab,
