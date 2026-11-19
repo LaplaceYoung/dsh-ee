@@ -160,6 +160,8 @@ func (s *Server) buildConnect(ctx context.Context, base, version string) (string
 			for _, modality := range m.Input {
 				fmt.Fprintf(&p, "              - %s\n", modality)
 			}
+			// 写明网关的单次输出上限：DSH 0.2.2 起默认申请 128000 个，超过 maxTokensPerRequest 网关直接 400
+			fmt.Fprintf(&p, "            maxTokens: %d\n", maxTokensPerRequest)
 		}
 		fmt.Fprintf(&p, "- id: agent-default-model\n  config:\n    provider: dsh-ee\n    model: %s\n", yamlQuote(def))
 	}
