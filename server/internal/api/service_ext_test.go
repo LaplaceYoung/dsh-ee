@@ -762,6 +762,42 @@ func TestKnowledgeSources(t *testing.T) {
 	code, body = alice.do("POST", fmt.Sprintf("/api/kb/%d/sources", kbID), map[string]any{"asset_id": assetID, "mode": "federated"}, nil)
 	expect(t, "员工挂知识源", code, 403, body)
 
+	// 库的维护者、但不能管理企业连接：同步和浏览用的是扩展的系统身份，读到的内容会给库里的人看，
+	// 和内置的飞书文档一样只有能管理连接的人能挂；联邦检索用员工自己的身份，维护者可以挂
+	_, body = alice.do("GET", "/api/auth/me", nil, nil)
+	aliceID := decodeAs[store.User](t, body).ID
+	code, body = admin.do("PATCH", fmt.Sprintf("/api/kb/%d", kbID), map[string]any{"maintainers": map[string]any{"users": []int64{aliceID}},
+		"updated_at": scopeToken(t, admin, fmt.Sprintf("/api/kb/%d", kbID))}, nil)
+	expect(t, "alice 当维护者", code, 200, body)
+	code, body = alice.do("GET", fmt.Sprintf("/api/kb/%d/sources", kbID), nil, nil)
+	expect(t, "维护者看知识源", code, 200, body)
+	offered := decodeAs[struct {
+		Extensions []struct{ Modes []string }
+	}](t, body).Extensions
+	if len(offered) != 1 || strings.Join(offered[0].Modes, ",") != "federated" {
+		t.Fatalf("不能管理连接的维护者只该看到联邦检索：%s", body)
+	}
+	ext.mu.Lock()
+	browsed := ext.hits
+	ext.mu.Unlock()
+	code, body = alice.do("POST", fmt.Sprintf("/api/kb/%d/sources/browse", kbID), map[string]any{"asset_id": assetID}, nil)
+	if code == 200 || strings.Contains(string(body), "space-hr") {
+		t.Fatalf("不能管理连接的维护者不能用扩展的系统身份浏览：%d %s", code, body)
+	}
+	code, body = alice.do("POST", fmt.Sprintf("/api/kb/%d/sources", kbID), map[string]any{"asset_id": assetID, "mode": "sync", "title": "偷偷同步"}, nil)
+	if code == 201 {
+		t.Fatalf("不能管理连接的维护者不能挂同步：%s", body)
+	}
+	ext.mu.Lock()
+	if ext.hits != browsed {
+		t.Fatalf("被拒绝的请求不该碰到扩展（多打了 %d 次）", ext.hits-browsed)
+	}
+	ext.mu.Unlock()
+	code, body = alice.do("POST", fmt.Sprintf("/api/kb/%d/sources", kbID), map[string]any{"asset_id": assetID, "mode": "federated", "title": "维护者挂的实时检索"}, nil)
+	expect(t, "维护者挂联邦检索", code, 201, body)
+	code, body = admin.do("DELETE", fmt.Sprintf("/api/kb/%d/sources/%d", kbID, decodeAs[struct{ Source struct{ ID int64 } }](t, body).Source.ID), nil, nil)
+	expect(t, "删掉维护者挂的", code, 200, body)
+
 	// 联邦检索：用员工自己的身份查，源系统按它的权限返回
 	code, body = admin.do("POST", fmt.Sprintf("/api/kb/%d/sources", kbID), map[string]any{"asset_id": assetID, "mode": "federated", "title": "Wiki 实时"}, nil)
 	expect(t, "挂联邦检索", code, 201, body)
