@@ -322,7 +322,12 @@ func (s *Server) handleRevokeMyToken(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := s.store.RevokeToken(ctx, n); err != nil {
-			s.internalErr(w, r, err)
+			// 已经吊销过（双击、列表没刷新、同族的另一代先被吊销）：和 npm、key 一样按不存在处理
+			if errors.Is(err, store.ErrNotFound) {
+				writeErrCode(w, http.StatusNotFound, codeTokenNotFound, nil, "令牌不存在")
+			} else {
+				s.internalErr(w, r, err)
+			}
 			return
 		}
 	case "npm":
