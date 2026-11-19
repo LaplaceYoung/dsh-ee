@@ -82,6 +82,20 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 			writeErrCode(w, http.StatusForbidden, e.code, e.params, e.msg)
 			return
 		}
+		// 建账号时带上角色也是授角色：互斥角色、双人批准和「改角色」一样生效（admin_policy.go）
+		policy := s.adminPolicy(r.Context())
+		msg, grantsAdmin, err := s.roleChangeProblem(r.Context(), policy, currentUser(r).ID, 0, &rbac.Access{}, dedupe(roleIDs))
+		if err != nil {
+			s.internalErr(w, r, err)
+			return
+		}
+		if msg == "" && grantsAdmin && policy.dual(DualRolesAssign) {
+			msg = "开了双人批准：建账号时不能直接给管理角色。先建账号，再在用户列表里给他分配角色，由另一位管理员批准后生效"
+		}
+		if msg != "" {
+			writeErr(w, http.StatusForbidden, msg)
+			return
+		}
 	}
 	// 额度属于「分配额度」权限：只有「管理用户」权限时，不能借建号显式设置或清空额度
 	if !canSetQuotaOnCreate(currentAccess(r), req.MonthlyTokenLimit) {
