@@ -75,7 +75,16 @@ type BundleVersion struct {
 	CreatedAt        time.Time       `json:"created_at"`
 }
 
-// ExportBundle 把已上架的上游镜像写成离线包。since 非空时只导出这之后新增的版本（增量）。
+// listedAt 是版本在这里上架的时间。镜像下来的版本 created_at 是上游的发布时间，
+// 上次导出之后才预载、或才审核通过的老版本要看 published_at，不然增量包会漏掉它们。
+func listedAt(v *store.NpmVersion) time.Time {
+	if v.PublishedAt != nil && v.PublishedAt.After(v.CreatedAt) {
+		return *v.PublishedAt
+	}
+	return v.CreatedAt
+}
+
+// ExportBundle 把已上架的上游镜像写成离线包。since 非空时只导出这之后在这里上架的版本（增量）。
 func (s *Service) ExportBundle(ctx context.Context, w io.Writer, since *time.Time) (int, error) {
 	set, err := s.settings(ctx)
 	if err != nil {
@@ -101,7 +110,7 @@ func (s *Service) ExportBundle(ctx context.Context, w io.Writer, since *time.Tim
 		bp.Catalog.Category, bp.Catalog.Icon, bp.Catalog.Homepage, bp.Catalog.Repository = p.Category, p.Icon, p.Homepage, p.Repository
 		bp.Catalog.Featured, bp.Catalog.UpstreamScore, bp.Catalog.UpstreamStars = p.Featured, p.UpstreamScore, p.UpstreamStars
 		for _, v := range vs {
-			if since != nil && v.CreatedAt.Before(*since) {
+			if since != nil && listedAt(v).Before(*since) {
 				continue
 			}
 			bp.Versions = append(bp.Versions, BundleVersion{
