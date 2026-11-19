@@ -403,11 +403,25 @@ func (s *Store) tokenFamiliesBy(ctx context.Context, f TokenRevokeFilter) ([]str
 	return out, rows.Err()
 }
 
+// TokenMonthUsage 是一把令牌本月用掉的 token。开了 refresh token 的令牌每次续期都换一个新的 access
+// token id，额度管的是这把令牌，所以按整族（family_id 相同的各代）一起算；没有族的令牌只算它自己。
 func (s *Store) TokenMonthUsage(ctx context.Context, id int64) (int64, error) {
+	var family sql.NullString
+	if err := s.db.QueryRowContext(ctx, "SELECT family_id FROM access_tokens WHERE id = ?", id).Scan(&family); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return 0, err
+	}
 	var n int64
-	err := s.db.QueryRowContext(ctx,
-		"SELECT COALESCE(SUM(total_tokens), 0) FROM usage_logs WHERE token_id = ? AND created_at >= ?",
-		id, MonthStart(now())).Scan(&n)
+	var err error
+	if family.Valid && family.String != "" {
+		err = s.db.QueryRowContext(ctx,
+			`SELECT COALESCE(SUM(total_tokens), 0) FROM usage_logs
+			 WHERE created_at >= ? AND token_id IN (SELECT id FROM access_tokens WHERE family_id = ?)`,
+			MonthStart(now()), family.String).Scan(&n)
+	} else {
+		err = s.db.QueryRowContext(ctx,
+			"SELECT COALESCE(SUM(total_tokens), 0) FROM usage_logs WHERE token_id = ? AND created_at >= ?",
+			id, MonthStart(now())).Scan(&n)
+	}
 	return n, err
 }
 
