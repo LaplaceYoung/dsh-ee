@@ -176,6 +176,11 @@ func (s *Store) ApproveDevice(ctx context.Context, code string, userID int64, to
 	if n, _ := res.RowsAffected(); n != 1 {
 		return ErrNotFound
 	}
+	// 没有 client_name 的客户端认不出是不是同一台设备，不能把别的设备当成旧登录吊销
+	// （确认页也只在有名字时提示「会替换旧登录」）。
+	if d.ClientName == "" {
+		return tx.Commit()
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE access_tokens SET revoked_at = ?
 		WHERE user_id = ? AND client_name = ? AND source = 'device' AND id <> ? AND revoked_at IS NULL`, now(), userID, d.ClientName, token.ID); err != nil {
 		return err
