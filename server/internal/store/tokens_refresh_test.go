@@ -167,3 +167,41 @@ func TestRefreshTokenStoreBulkRevokeAndCleanup(t *testing.T) {
 		t.Fatal("过了宽限期的 successor 密文应被清空")
 	}
 }
+
+// 令牌的月度额度管的是这把令牌，不是某一代 access token：开了 refresh 之后每次续期都换一个新 id，
+// 用量要按整族算，否则额度每次续期都清零（每小时一次续期 = 每小时一份「月度」额度）。
+func TestTokenMonthUsageCountsWholeRefreshFamily(t *testing.T) {
+	st := openTokenTestStore(t)
+	ctx := context.Background()
+	u := tokenTestUser(t, st, false)
+	seed := createRefreshableToken(t, st, u, "ee_rt_usage_seed")
+	other := createRefreshableToken(t, st, u, "ee_rt_usage_other") // 同一个人的另一把令牌，不算进来
+	record := func(tokenID int64, n int) {
+		if err := st.RecordUsage(ctx, Usage{UserID: u.ID, TokenID: tokenID, Model: "m", TotalTokens: n, StatusCode: 200}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	record(seed.ID, 70)
+	record(other.ID, 1000)
+	rotation, err := st.RotateRefreshToken(ctx, RefreshGrant{
+		OldHash: secret.Hash("ee_rt_usage_seed"), IP: "10.0.0.1",
+		NewAccessHash: "hash-usage-access", NewAccessPrefix: "ee_at_usage", NewRefreshHash: "hash-usage-refresh",
+		AccessTTL: 30 * time.Minute, RefreshTTL: time.Hour,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	record(rotation.AccessID, 5)
+	for name, id := range map[string]int64{"续期前": seed.ID, "续期后": rotation.AccessID} {
+		got, err := st.TokenMonthUsage(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != 75 {
+			t.Fatalf("%s的令牌本月用量应按整族算 75，得到 %d", name, got)
+		}
+	}
+	if got, _ := st.TokenMonthUsage(ctx, other.ID); got != 1000 {
+		t.Fatalf("另一把令牌的用量不受影响：%d", got)
+	}
+}
