@@ -26181,6 +26181,18 @@ function registerWorkbench(ctx, deps) {
 
 // src/votes.ts
 var import_react3 = require("react");
+
+// src/vote-note.ts
+function askNote(win, message) {
+  if (typeof win?.prompt !== "function") return "";
+  try {
+    return win.prompt(message);
+  } catch {
+    return "";
+  }
+}
+
+// src/votes.ts
 function registerVotes(ctx, remote, unwrapRemote2) {
   if (!ctx?.slots?.inject) return;
   const buttonStyle3 = { border: 0, background: "transparent", cursor: "pointer", fontSize: 13, padding: "1px 4px", opacity: 0.65 };
@@ -26191,8 +26203,10 @@ function registerVotes(ctx, remote, unwrapRemote2) {
       if (voted) return;
       const sessionId = currentSessionOf(ctx.sessions?.list?.getSnapshot?.());
       let note = "";
-      if (value < 0 && typeof window !== "undefined" && typeof window.prompt === "function") {
-        note = window.prompt(t("votes.notePrompt")) ?? "";
+      if (value < 0) {
+        const asked = askNote(typeof window !== "undefined" ? window : void 0, t("votes.notePrompt"));
+        if (asked === null) return;
+        note = asked;
       }
       let app = "";
       try {
