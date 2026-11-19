@@ -26029,8 +26029,9 @@ function registerWorkbench(ctx, deps) {
     };
     const saveToTable = (key, action, form) => {
       const index = Number(key.split(":")[0]);
-      if (sending.has(key)) return;
+      if (sending.has(key) || writing.has(key)) return;
       setFormError(index, "");
+      setWriting((current) => new Set(current).add(key));
       Promise.resolve(remote.insertFormRow?.({ app: app.name, pane: pane.id, widget: index, values: form })).then((raw) => {
         const result = unwrapRemote2(raw);
         if (!result?.ok) return setFormError(index, result?.error || t("workbenchClient.saveFailedDefault"));
@@ -26040,7 +26041,11 @@ function registerWorkbench(ctx, deps) {
           if (widget.source?.table === action.table) void load(i);
         });
         if (action.prompt) sendPrompt(key, action, { form });
-      }).catch(() => setFormError(index, t("workbenchClient.saveFailedNetwork")));
+      }).catch(() => setFormError(index, t("workbenchClient.saveFailedNetwork"))).finally(() => setWriting((current) => {
+        const next = new Set(current);
+        next.delete(key);
+        return next;
+      }));
     };
     const setFormError = (index, error62) => setFormErrors((current) => ({ ...current, [index]: error62 }));
     const writeRow = (key, action, row) => {
