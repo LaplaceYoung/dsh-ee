@@ -105,6 +105,7 @@ msg_index_hint() { printf '现在可以先在 DSH 插件页 → 发现 → 添�
 msg_need_pnpm() { printf '✘ 安装 DSH 插件需要 pnpm：先运行 npm install -g pnpm（或 corepack enable），再重新运行本脚本\n' >&2; }
 msg_no_dsh_cmd() { printf '没有找到 dsh 命令。安装 DSH 后执行：\n  dsh plugin --profile %s add %s\n' "$1" "$2" >&2; }
 msg_installed() { printf '✔ 已在 DSH 的 %s profile 里装好 %s\n' "$1" "$2"; }
+msg_plugin_add_failed() { printf '✘ 在 DSH 的 %s profile 里装 %s 失败，上面是 DSH 的原始输出。\n  如果里面有 ERR_PNPM_FETCH_404 或 404 Not Found：这个 profile 里以前从公共 npm 装过的某个插件，在 dsh-ee 上还没有审核通过（dsh-ee 只提供审核过的插件），DSH 装新插件时会重新解析它。\n  请管理员在 dsh-ee 的「待审核」里放行它；或者先把它从这个 profile 里移除，再重新运行本脚本：\n    dsh plugin --profile %s remove <404 那一行里的包名，%%2F 换成 />\n' "$1" "$2" "$1" >&2; }
 msg_done() { printf '完成。重启 DSH（dsh web）后，企业技能、提示词、微应用与企业系统就会出现。\n'; }
 msg_hub_hint() { printf '以后在 %s/hub 启用新的能力，DSH 会自动同步，不用再运行本脚本。\n' "$1"; }
 msg_quit_dsh() { printf '请按 ⌘Q 完全退出 DSH，脚本会等待最多 120 秒。\n'; }
@@ -137,6 +138,7 @@ msg_index_hint() { printf 'For now you can add an index source in DSH: Plugins �
 msg_need_pnpm() { printf '✘ Installing the DSH plugin requires pnpm. Run npm install -g pnpm (or corepack enable), then run this script again\n' >&2; }
 msg_no_dsh_cmd() { printf 'The dsh command was not found. After installing DSH, run:\n  dsh plugin --profile %s add %s\n' "$1" "$2" >&2; }
 msg_installed() { printf '✔ Installed %s in the DSH %s profile\n' "$1" "$2"; }
+msg_plugin_add_failed() { printf '✘ Installing %s in the DSH %s profile failed; DSH output is above.\n  If it shows ERR_PNPM_FETCH_404 or 404 Not Found: a plugin installed earlier in this profile from the public npm registry has not been approved on this dsh-ee (dsh-ee only serves approved plugins), and DSH re-resolves it when adding a plugin.\n  Ask an admin to approve it in the dsh-ee review queue, or remove it from this profile and run this script again:\n    dsh plugin --profile %s remove <package name from the 404 line, with %%2F replaced by />\n' "$2" "$1" "$1" >&2; }
 msg_done() { printf 'Done. Restart DSH (dsh web) and company skills, prompts, micro-apps and systems will appear.\n'; }
 msg_hub_hint() { printf 'From now on, enable new capabilities at %s/hub; DSH syncs automatically, so you will not need to run this script again.\n' "$1"; }
 msg_quit_dsh() { printf 'Quit DSH completely with ⌘Q; the script waits up to 120 seconds.\n'; }

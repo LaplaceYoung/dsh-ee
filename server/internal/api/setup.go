@@ -132,6 +132,10 @@ type ps1Text struct {
 	pluginInstalled string
 	done            string
 	autoSync        string
+
+	// 插件装失败（多半是 profile 里以前从公共 npm 装的插件在 dsh-ee 上没审核过，#239）
+	pluginAddFailed   string
+	nativeExitComment string
 }
 
 func ps1TextFor(lang ps1Lang) ps1Text {
@@ -172,6 +176,9 @@ var ps1TextZh = ps1Text{
 	pluginInstalled: `已在 DSH 的 $ProfileName profile 里装好 $ConnectPkg`,
 	done:            `完成。重启 DSH（dsh web）后，企业技能、提示词、微应用与企业系统就会出现。`,
 	autoSync:        `以后在 $Base/hub 启用新的能力，DSH 会自动同步。`,
+
+	pluginAddFailed:   `在 DSH 的 $ProfileName profile 里装 $ConnectPkg 失败，上面是 DSH 的原始输出。如果里面有 ERR_PNPM_FETCH_404 或 404 Not Found：这个 profile 里以前从公共 npm 装过的某个插件，在 dsh-ee 上还没有审核通过。请管理员在 dsh-ee 的「待审核」里放行它；或者先运行 dsh plugin --profile $ProfileName remove <404 那一行里的包名，%2F 换成 />，再重新运行本脚本`,
+	nativeExitComment: `dsh / npx 是外部命令，失败了 PowerShell 也不会停下来：要自己看退出码，不然会照样打出「完成」`,
 }
 
 var ps1TextEn = ps1Text{
@@ -205,6 +212,9 @@ var ps1TextEn = ps1Text{
 	pluginInstalled: `Installed $ConnectPkg in the DSH $ProfileName profile`,
 	done:            `Done. After restarting DSH (dsh web), company skills, prompts, micro apps and enterprise systems will show up.`,
 	autoSync:        `New capabilities enabled at $Base/hub will sync to DSH automatically.`,
+
+	pluginAddFailed:   `Installing $ConnectPkg in the DSH $ProfileName profile failed; DSH output is above. If it shows ERR_PNPM_FETCH_404 or 404 Not Found, a plugin installed earlier in this profile from the public npm registry has not been approved on this dsh-ee. Ask an admin to approve it in the dsh-ee review queue, or run dsh plugin --profile $ProfileName remove <package name from the 404 line, with %2F replaced by /> and rerun this script`,
+	nativeExitComment: `dsh / npx are native commands; PowerShell does not stop when they fail, so check the exit code or it would still print Done`,
 }
 
 func (s *Server) handleSetupSh(w http.ResponseWriter, r *http.Request) {
@@ -416,6 +426,8 @@ for ($i = 0; $i -lt $args.Count; $i++) {
 }
 
 // connectShell 是 setup.sh 的后半段：保存手动令牌或提示待导入文件，再装接入插件。
+// 装插件失败时（#239：profile 里以前从公共 npm 装过、在 dsh-ee 上没审核过的插件让 pnpm 404），set -e 会直接退出、
+// 只留下 pnpm 的报错；所以先接住失败，说清楚最常见的原因和怎么办，再以失败退出。
 func (s *Server) connectShell(r *http.Request) string {
 	pkg, market := s.connectSetup(r)
 	tail := `
@@ -484,7 +496,10 @@ if [ -z "$(printf '%s' "$PROFILES" | tr -d '[:space:]')" ]; then
   exit 1
 fi
 for profile in $PROFILES; do
-  $DSH_CMD plugin --profile "$profile" add "$CONNECT_PKG@latest"
+  if ! $DSH_CMD plugin --profile "$profile" add "$CONNECT_PKG@latest"; then
+    msg_plugin_add_failed "$profile" "$CONNECT_PKG"
+    exit 1
+  fi
   msg_installed "$profile" "$CONNECT_PKG"
 done
 echo
@@ -535,9 +550,16 @@ func (s *Server) connectPowerShell(r *http.Request, txt ps1Text) string {
 	}
 	return tail + `  $ConnectPkg = ` + psQuote(pkg) + `
   if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) { Write-Error '` + txt.pnpmMissing + `'; return }
-  foreach ($ProfileName in $Profiles) {
+` + connectInstallPowerShell(txt)
+}
+
+// connectInstallPowerShell 是 setup.ps1 在各 profile 里装接入插件的那段；独立出来，Windows 测试可以直接执行它。
+func connectInstallPowerShell(txt ps1Text) string {
+	return `  foreach ($ProfileName in $Profiles) {
     if (Get-Command dsh -ErrorAction SilentlyContinue) { dsh plugin --profile $ProfileName add "$ConnectPkg@latest" }
     else { npx --yes '@deepseek-ai/dsh' plugin --profile $ProfileName add "$ConnectPkg@latest" }
+    # ` + txt.nativeExitComment + `
+    if ($LASTEXITCODE -ne 0) { Write-Error "` + txt.pluginAddFailed + `"; return }
     Write-Host "` + txt.pluginInstalled + `"
   }
   Write-Host '` + txt.done + `'

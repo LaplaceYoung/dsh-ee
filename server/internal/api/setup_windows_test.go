@@ -78,3 +78,38 @@ func TestSetupTokenArgPowerShell(t *testing.T) {
 		t.Fatalf("没有 -Token 时应为空：%s", out)
 	}
 }
+
+// TestConnectInstallPowerShellFailure：dsh plugin add 失败时（#239：profile 里有个没审核的旧插件，pnpm 404），
+// PowerShell 不会因为外部命令失败而停下；原来脚本照样打出「已装好 / 完成」。要说清原因并以失败结束。
+func TestConnectInstallPowerShellFailure(t *testing.T) {
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "bin")
+	if err := os.MkdirAll(bin, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// 假的 dsh：模拟 pnpm 拉不到没审核的插件
+	if err := os.WriteFile(filepath.Join(bin, "dsh.cmd"), []byte("@echo [ERR_PNPM_FETCH_404] GET https://ee.example.com/npm/@someone%2Fold-plugin: Not Found - 404\r\n@exit /b 1\r\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	script := "$ErrorActionPreference = 'Stop'\n" +
+		"$env:PATH = " + psQuote(bin) + " + ';' + $env:PATH\n" +
+		"$ConnectPkg = '@company/dsh-connect'\n" +
+		"$Profiles = @('web')\n" +
+		"$Index = ''\n" +
+		connectInstallPowerShell(ps1TextZh)
+	scriptFile := filepath.Join(dir, "connect-install-test.ps1")
+	if err := os.WriteFile(scriptFile, append([]byte{0xEF, 0xBB, 0xBF}, []byte(script)...), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, err := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-File", scriptFile).CombinedOutput()
+	if err == nil {
+		t.Fatalf("装插件失败时脚本应以失败结束：\n%s", out)
+	}
+	text := string(out)
+	if !strings.Contains(text, "待审核") || !strings.Contains(text, "remove") {
+		t.Fatalf("应说明原因和怎么办：\n%s", text)
+	}
+	if strings.Contains(text, "已在 DSH 的") {
+		t.Fatalf("失败了不应再打「已装好」：\n%s", text)
+	}
+}
