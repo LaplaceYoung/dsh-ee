@@ -155,3 +155,44 @@ func TestDevicePollingNotRateLimited(t *testing.T) {
 		t.Fatal("同一 IP 大量发起设备码应被限流")
 	}
 }
+
+// 没写 client_name 的客户端（SDK 的 requestDeviceCode 默认就不写）认不出是不是同一台设备：
+// 批准第二个时不能把前一个当成「同设备重新登录」吊销掉。
+func TestDeviceApproveUnnamedKeepsOtherDevices(t *testing.T) {
+	f := newPrincipalFixture(t)
+	u := f.user(t, "device-user", nil)
+	c := newClient(t, f.ts.URL)
+	code, body := c.do("POST", "/api/auth/login", map[string]string{"username": u.Username, "password": "employee-password-1"}, nil)
+	expect(t, "员工登录", code, 200, body)
+	anonymous := newClient(t, f.ts.URL)
+	login := func(what string) string {
+		t.Helper()
+		code, body := anonymous.do("POST", "/api/device/code", map[string]any{}, nil)
+		expect(t, what+"：发起设备码", code, 200, body)
+		var device struct {
+			DeviceCode string `json:"device_code"`
+			UserCode   string `json:"user_code"`
+		}
+		if err := json.Unmarshal(body, &device); err != nil {
+			t.Fatal(err)
+		}
+		code, body = c.do("GET", "/api/device/"+device.UserCode, nil, nil)
+		expect(t, what+"：读设备信息", code, 200, body)
+		if strings.Contains(string(body), `"replace_existing":true`) {
+			t.Fatalf("%s：认不出设备时不该提示会替换旧登录：%s", what, body)
+		}
+		code, body = c.do("POST", "/api/device/"+device.UserCode, map[string]any{"approve": true}, nil)
+		expect(t, what+"：批准", code, 200, body)
+		code, body = anonymous.do("POST", "/api/device/token", map[string]string{"device_code": device.DeviceCode}, nil)
+		expect(t, what+"：领令牌", code, 200, body)
+		return decodeAs[struct {
+			AccessToken string `json:"access_token"`
+		}](t, body).AccessToken
+	}
+	first := login("第一个客户端")
+	second := login("第二个客户端")
+	for name, tok := range map[string]string{"第一个": first, "第二个": second} {
+		code, body := anonymous.do("GET", "/api/dsh/whoami", nil, bearer(tok))
+		expect(t, name+"客户端的令牌仍然有效", code, 200, body)
+	}
+}
