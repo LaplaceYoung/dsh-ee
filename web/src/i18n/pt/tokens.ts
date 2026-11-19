@@ -90,6 +90,7 @@ export default {
       hub: "Skills e prompts",
       connections: "Conexões da empresa",
       agent: "Operações automáticas do Agent",
+      config: "Configuração de acesso (dsh-ee config)",
       admin: "Operações administrativas",
     },
     states: {

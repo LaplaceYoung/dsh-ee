@@ -26,7 +26,9 @@ export default function MyTokens() {
   const { notify, settings } = useStore();
   const { data, error, loading, reload } = useApi(api.myTokens);
   const { busy, run } = useAction();
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  // config（dsh-ee config 命令行：导出、试算、提交权限配置变更）只给能管理字段或角色的人，和服务端签发时的检查一致
+  const scopeChoices: TokenScope[] = can("fields.manage", "roles.manage") ? [...scopeOptions, "config"] : scopeOptions;
   const canAdmin = !!user && (user.is_super || user.permissions.some((p) => !employeePerms.includes(p)));
   const [params, setParams] = useSearchParams();
   const [elevating, setElevating] = useState<string | null>(null);
@@ -119,7 +121,7 @@ export default function MyTokens() {
             </div>
             <p className="-mt-2 text-xs leading-5 text-neutral-600">{t(`tokens.clientKindHints.${clientKind}`)}</p>
             <div className="flex flex-wrap gap-4 text-sm">
-              {scopeOptions.map((scope) => <label key={scope} className="flex items-center gap-1.5"><input type="checkbox" checked={scopes.includes(scope)} onChange={(e) => setScopes((cur) => e.target.checked ? [...cur, scope] : cur.filter((x) => x !== scope))} />{t(`tokens.scopes.${scope}`)}</label>)}
+              {scopeChoices.map((scope) => <label key={scope} className="flex items-center gap-1.5"><input type="checkbox" checked={scopes.includes(scope)} onChange={(e) => setScopes((cur) => e.target.checked ? [...cur, scope] : cur.filter((x) => x !== scope))} />{t(`tokens.scopes.${scope}`)}</label>)}
             </div>
             <ErrorNote>{formError}</ErrorNote>
             <Button type="submit" disabled={busy || !name.trim() || scopes.length === 0}>{t("tokens.create")}</Button>

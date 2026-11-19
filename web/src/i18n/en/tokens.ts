@@ -73,6 +73,7 @@ export default {
       hub: "Skills & prompts",
       connections: "Connections",
       agent: "Agent self-service",
+      config: "Access config (dsh-ee config)",
       admin: "Admin operations",
     },
     states: {

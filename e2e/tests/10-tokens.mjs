@@ -154,6 +154,27 @@ export default async function (t) {
     await admin.goto(`${BASE}/admin/audit`);
     await admin.getByText("来源", { exact: true }).first().waitFor();
     await shot(admin, "phase-a-audit-source");
+
+    // config 范围（dsh-ee config 命令行）：服务端提示「在我的令牌里建一个带 config 范围的令牌」，页面要真的能建；
+    // 列表里显示成文字，不是 tokens.scopes.config；只给能管理字段或角色的人
+    await employee.goto(`${BASE}/tokens`);
+    await employee.getByRole("button", { name: "生成令牌", exact: true }).click();
+    await employee.getByRole("checkbox", { name: "模型", exact: true }).waitFor();
+    assertEq(await employee.getByRole("checkbox", { name: "权限配置（dsh-ee config）", exact: true }).count(), 0, "普通员工看不到 config 范围");
+    await admin.goto(`${BASE}/tokens`);
+    await admin.getByRole("button", { name: "生成令牌", exact: true }).click();
+    await admin.getByLabel("名称", { exact: true }).fill(`config-${tag}`);
+    await admin.getByRole("checkbox", { name: "权限配置（dsh-ee config）", exact: true }).check();
+    await admin.locator("form").getByRole("button", { name: "生成令牌", exact: true }).click();
+    await admin.getByText("令牌已生成", { exact: true }).waitFor();
+    const configToken = (await admin.locator("pre").filter({ hasText: /^ee_at_/ }).first().innerText()).trim();
+    await admin.locator("td", { hasText: "权限配置（dsh-ee config）" }).first().waitFor();
+    assertEq(await admin.getByText("tokens.scopes.config").count(), 0, "令牌列表不应出现原始翻译键");
+    const exported = await fetch(`${BASE}/api/admin/config`, { headers: { Authorization: `Bearer ${configToken}` } });
+    assertEq(exported.status, 200, "config 令牌能导出权限配置");
+    assert((await exported.text()).startsWith("# dsh-ee"), "导出的是权限配置（YAML）");
+    await shot(admin, "tokens-config-scope");
+    step("能管理字段或角色的人能在「我的令牌」里建 config 令牌，列表显示文字，令牌能调 dsh-ee config 的接口");
   } finally {
     upstream.close();
     if (providerId) await api(admin, "DELETE", `/api/admin/providers/${providerId}`);

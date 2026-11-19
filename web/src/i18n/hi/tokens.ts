@@ -90,6 +90,7 @@ export default {
       "hub": "स्किल और प्रॉम्प्ट",
       "connections": "एंटरप्राइज़ कनेक्शन",
       "agent": "Agent स्व-सेवा संचालन",
+      "config": "एक्सेस कॉन्फ़िग (dsh-ee config)",
       "admin": "प्रशासनिक संचालन"
     },
     "states": {
